@@ -49,6 +49,14 @@
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
   const SHADOW_FRUSTUM = 260;
+  // The mini-map shows the network 600 m around the ridden pod, with the
+  // direction of the pod up.
+  const MINIMAP_SIZE = 240;
+  const MINIMAP_RADIUS = 600;
+  const MINIMAP_CELL = 250;
+  const MINIMAP_INTERVAL_MS = 100;
+  // Auto mode fades to black, moves to the next pod, and fades back.
+  const FADE_MS = 400;
   // Ground layers draw first, in this order, and write no depth. Nothing in
   // the scene is below the ground, so the layers cannot fight in the depth
   // buffer, and every other mesh draws over them.
@@ -320,6 +328,69 @@
       yaws.set(ids[i], smoothAngle(yaws.has(ids[i]) ? yaws.get(ids[i]) : NaN, target, seconds, tau));
     }
     return yaws;
+  }
+
+  // segmentIndex returns the straight segments of the lanes in a grid of
+  // square cells, so that a draw reads only the segments near a point. A
+  // segment is in each cell of its bounding box.
+  function segmentIndex(lanes, nodes, cell) {
+    const coords = [], buckets = new Map();
+    for (const lane of lanes) {
+      const from = nodes.get(lane.from), to = nodes.get(lane.to);
+      if (!from || !to) continue;
+      const points = laneSamples(from, to, lane.control);
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i], segment = coords.length / 4;
+        coords.push(a.x, a.y, b.x, b.y);
+        for (let cx = Math.floor(Math.min(a.x, b.x) / cell); cx <= Math.floor(Math.max(a.x, b.x) / cell); cx++) {
+          for (let cy = Math.floor(Math.min(a.y, b.y) / cell); cy <= Math.floor(Math.max(a.y, b.y) / cell); cy++) {
+            const key = `${cx},${cy}`;
+            if (!buckets.has(key)) buckets.set(key, []);
+            buckets.get(key).push(segment);
+          }
+        }
+      }
+    }
+    return { cell, coords: Float64Array.from(coords), buckets, marks: new Uint32Array(coords.length / 4), mark: 0 };
+  }
+
+  // segmentsNear returns each segment of index in the cells that the square
+  // of half side radius around world (x, y) touches, once.
+  function segmentsNear(index, x, y, radius) {
+    const found = [], cell = index.cell;
+    index.mark++;
+    for (let cx = Math.floor((x - radius) / cell); cx <= Math.floor((x + radius) / cell); cx++) {
+      for (let cy = Math.floor((y - radius) / cell); cy <= Math.floor((y + radius) / cell); cy++) {
+        for (const segment of index.buckets.get(`${cx},${cy}`) || []) {
+          if (index.marks[segment] === index.mark) continue;
+          index.marks[segment] = index.mark;
+          found.push(segment);
+        }
+      }
+    }
+    return found;
+  }
+
+  // miniMapPoint returns the canvas position of a world offset (dx, dy) from
+  // the ridden pod, on a map of half size half pixels and scale pixels for
+  // each meter. The heading of the pod points up.
+  function miniMapPoint(dx, dy, heading, scale, half) {
+    const angle = -Math.PI / 2 - heading, cos = Math.cos(angle), sin = Math.sin(angle);
+    return [half + scale * (dx * cos - dy * sin), half + scale * (dx * sin + dy * cos)];
+  }
+
+  // miniMapTransform returns the canvas transform (a, b, c, d, e, f) that
+  // draws world points as miniMapPoint places them, for a pod at world (x, y).
+  function miniMapTransform(x, y, heading, scale, half) {
+    const angle = -Math.PI / 2 - heading, cos = Math.cos(angle) * scale, sin = Math.sin(angle) * scale;
+    return [cos, sin, -sin, cos, half - cos * x + sin * y, half - sin * x - cos * y];
+  }
+
+  // autoHop reports whether auto mode moves to another pod. It moves when
+  // the last rider leaves, or at once when the user turned on auto mode on
+  // an empty pod. riders is -1 when the session has no ridden pod.
+  function autoHop(auto, armed, previousRiders, riders) {
+    return auto && riders === 0 && (armed || previousRiders > 0);
   }
 
   function formatSpeed(metersPerSecond) { return `${Math.round(metersPerSecond * 3.6)} km/h`; }
@@ -636,6 +707,82 @@
     return { update };
   }
 
+  // createMiniMap draws the lanes, the stations, and the pods around the
+  // ridden pod on canvas.
+  function createMiniMap(canvas, topology) {
+    const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
+    const index = segmentIndex(topology.lanes, nodes, MINIMAP_CELL);
+    const stations = topology.stations.filter((station) => station.berths.length > 0).map((station) => ({
+      x: station.berths.reduce((sum, berth) => sum + berth.x, 0) / station.berths.length,
+      y: station.berths.reduce((sum, berth) => sum + berth.y, 0) / station.berths.length,
+    }));
+    const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
+    const context = canvas.getContext("2d");
+
+    // draw shows the map around the pod with the pose index ridden, with the
+    // heading of the pod up.
+    function draw(poses, count, ridden, heading) {
+      const ratio = root.devicePixelRatio || 1, size = Math.round(MINIMAP_SIZE * ratio);
+      if (canvas.width !== size) canvas.width = canvas.height = size;
+      const half = size / 2, scale = half / MINIMAP_RADIUS;
+      const x = poses[ridden * POSE_FIELDS], y = poses[ridden * POSE_FIELDS + 1];
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, size, size);
+      context.save();
+      context.beginPath();
+      context.arc(half, half, half, 0, 2 * Math.PI);
+      context.clip();
+      context.fillStyle = "#101d28d9";
+      context.fill();
+      // The lanes draw in world coordinates through the map transform.
+      context.setTransform(...miniMapTransform(x, y, heading, scale, half));
+      context.beginPath();
+      for (const segment of segmentsNear(index, x, y, MINIMAP_RADIUS)) {
+        const at = segment * 4;
+        context.moveTo(index.coords[at], index.coords[at + 1]);
+        context.lineTo(index.coords[at + 2], index.coords[at + 3]);
+      }
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.lineWidth = 1.5 * ratio;
+      context.strokeStyle = "#8195a6";
+      context.stroke();
+      const dot = (dx, dy, radius, style) => {
+        const [px, py] = miniMapPoint(dx, dy, heading, scale, half);
+        context.beginPath();
+        context.arc(px, py, radius * ratio, 0, 2 * Math.PI);
+        context.fillStyle = style;
+        context.fill();
+      };
+      for (const station of stations) {
+        if (Math.abs(station.x - x) <= MINIMAP_RADIUS && Math.abs(station.y - y) <= MINIMAP_RADIUS) dot(station.x - x, station.y - y, 3.5, "#f3c479");
+      }
+      for (let i = 0; i < count; i++) {
+        const at = i * POSE_FIELDS, dx = poses[at] - x, dy = poses[at + 1] - y;
+        if (i === ridden || Math.abs(dx) > MINIMAP_RADIUS || Math.abs(dy) > MINIMAP_RADIUS) continue;
+        dot(dx, dy, 2.5, classColors[poses[at + 4] | 0] || classColors[0]);
+      }
+      // The ridden pod is an arrow at the center that points up.
+      const arrow = 7 * ratio;
+      context.beginPath();
+      context.moveTo(half, half - arrow);
+      context.lineTo(half + arrow * 0.7, half + arrow * 0.7);
+      context.lineTo(half, half + arrow * 0.3);
+      context.lineTo(half - arrow * 0.7, half + arrow * 0.7);
+      context.closePath();
+      context.fillStyle = "#ffffff";
+      context.fill();
+      // N marks the north edge of the map.
+      const [nx, ny] = miniMapPoint(0, -(MINIMAP_RADIUS - 40), heading, scale, half);
+      context.font = `bold ${Math.round(12 * ratio)}px system-ui, sans-serif`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillStyle = "#e5edf5";
+      context.fillText("N", nx, ny);
+      context.restore();
+    }
+    return { draw };
+  }
+
   async function start() {
     const status = document.getElementById("status");
     const show = (text) => { status.hidden = false; status.textContent = text; };
@@ -708,6 +855,13 @@
     let bridgeTime = 0, connected = false, connectionError = "";
     let chase = false, chaseYaw = NaN, lookYaw = 0, lookPitch = 0, looking = false;
     const podYaws = new Map();
+    const autoBox = document.getElementById("auto"), fade = document.getElementById("fade");
+    const miniMapCanvas = document.getElementById("minimap");
+    let miniMap = null, mapHeading = NaN, lastMap = 0;
+    // armed is true from the moment the user turns on auto mode until the
+    // page reads the riders of the pod. lastRiders is -1 when not known.
+    autoBox.checked = params.get("auto") === "1";
+    let armed = autoBox.checked, lastRiders = -1, hopping = false;
     const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
 
     // Mouse look: drag to turn the view. On release, the view returns to forward.
@@ -719,7 +873,7 @@
     });
     for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(name, () => { looking = false; });
     root.addEventListener("keydown", (event) => {
-      if (event.target instanceof root.HTMLSelectElement || event.target instanceof root.HTMLButtonElement) return;
+      if (event.target instanceof root.HTMLSelectElement || event.target instanceof root.HTMLButtonElement || event.target instanceof root.HTMLInputElement) return;
       if (event.key === "c" || event.key === "C") {
         chase = !chase;
         chaseYaw = NaN;
@@ -731,20 +885,42 @@
       if (error) hudElements.stripMessage.textContent = error;
     });
 
-    picker.addEventListener("change", () => {
-      requested = picker.value;
+    function setParam(name, value) {
       const url = new URL(root.location.href);
-      url.searchParams.set("pod", requested);
+      if (value === null) url.searchParams.delete(name); else url.searchParams.set(name, value);
       root.history.replaceState(null, "", url);
-      yaw = NaN;
-      chaseYaw = NaN;
+    }
+
+    function selectPod(id) {
+      requested = id;
+      picker.value = id;
+      setParam("pod", id);
+      yaw = chaseYaw = mapHeading = NaN;
+      lastRiders = -1;
+    }
+
+    // hop fades to black, rides the pod id, and fades back.
+    function hop(id) {
+      hopping = true;
+      fade.style.opacity = "1";
+      root.setTimeout(() => {
+        selectPod(id);
+        fade.style.opacity = "0";
+        hopping = false;
+      }, FADE_MS);
+    }
+
+    picker.addEventListener("change", () => selectPod(picker.value));
+    autoBox.addEventListener("change", () => {
+      armed = autoBox.checked;
+      setParam("auto", autoBox.checked ? "1" : null);
     });
     picker.addEventListener("focus", () => refreshPods());
 
     function refreshPods() {
       podList = JSON.parse(ride.pods() || "[]");
       const chosen = choosePod(podList, requested);
-      if (chosen !== requested) yaw = chaseYaw = NaN;
+      if (chosen !== requested) { yaw = chaseYaw = mapHeading = NaN; lastRiders = -1; }
       requested = chosen;
       picker.replaceChildren(...podList.map((pod) => new Option(podLabel(pod), pod.id, false, pod.id === requested)));
     }
@@ -759,6 +935,7 @@
       shadows.getShadowMap().renderList = world.casters;
       for (const mesh of world.receivers) mesh.receiveShadows = true;
       tileLayer = createTileLayer(B, scene, topology, credit);
+      miniMap = createMiniMap(miniMapCanvas, topology);
       lastTiles = 0;
       session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
       version = -1;
@@ -828,7 +1005,15 @@
 
     function showHUD() {
       if (session === "") return;
-      const view = hudView(JSON.parse(ride.hud(requested) || "{}"));
+      const hud = JSON.parse(ride.hud(requested) || "{}");
+      const riders = hud.found ? hud.riders.length : -1;
+      if (!hopping && autoHop(autoBox.checked, armed, lastRiders, riders)) {
+        // With no pod to move to, the page stays on the pod.
+        const next = ride.nextPod(requested);
+        if (next) hop(next);
+      }
+      if (riders >= 0) { armed = false; lastRiders = riders; }
+      const view = hudView(hud);
       hudElements.hudSpeed.textContent = view.speed;
       hudElements.hudState.textContent = view.state;
       hudElements.hudWait.textContent = view.wait;
@@ -865,6 +1050,13 @@
       }
       const ridden = updatePods(info.count, seconds);
       moveCamera(ridden, seconds);
+      if (ridden >= 0) {
+        mapHeading = smoothAngle(mapHeading, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS);
+        if (now - lastMap >= MINIMAP_INTERVAL_MS) {
+          lastMap = now;
+          miniMap.draw(poses, info.count, ridden, mapHeading);
+        }
+      }
       // The light sits back along the sun direction from the camera, so the
       // shadow map covers the ground around the camera.
       sun.position.copyFrom(camera.position.subtract(sunDirection.scale(400)));
@@ -885,7 +1077,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapPoint, miniMapTransform, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, smoothAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

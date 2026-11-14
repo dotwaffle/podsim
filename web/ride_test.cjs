@@ -232,3 +232,52 @@ test("groundLayerOrder draws the ground layers first, in their order", () => {
   assert.ok(L.farTiles < L.midTiles && L.midTiles < L.nearTiles, "a nearer ring draws later");
   assert.equal(ride.groundLayerOrder(sub("pod"), sub("beam")), 0);
 });
+
+test("segmentsNear returns the segments near a point once", () => {
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 1000, y: 0 }], ["c", { x: 5000, y: 5000 }], ["d", { x: 5010, y: 5000 }]]);
+  const lanes = [{ id: "long", from: "a", to: "b" }, { id: "far", from: "c", to: "d" }, { id: "broken", from: "a", to: "x" }];
+  const index = ride.segmentIndex(lanes, nodes, 250);
+  assert.equal(index.coords.length, 8, "a lane with a missing node has no segment");
+  // The long segment is in 5 cells, and the query touches 3 of them.
+  assert.deepEqual(ride.segmentsNear(index, 500, 0, 300), [0]);
+  assert.deepEqual(ride.segmentsNear(index, 5005, 5000, 10), [1]);
+  assert.deepEqual(ride.segmentsNear(index, 2500, 2500, 100), []);
+  // A curved lane gives one segment for each pair of samples.
+  const curved = ride.segmentIndex([{ id: "curve", from: "a", to: "b", control: { x: 500, y: 500 } }], nodes, 250);
+  assert.ok(curved.coords.length / 4 > 2);
+  assert.equal(ride.segmentsNear(curved, 500, 250, 1000).length, curved.coords.length / 4);
+});
+
+test("miniMapPoint puts the heading of the pod up", () => {
+  const cases = [
+    { name: "ahead of an east pod", dx: 10, dy: 0, heading: 0, want: [100, 90] },
+    { name: "right of an east pod", dx: 0, dy: 10, heading: 0, want: [110, 100] },
+    { name: "ahead of a south pod", dx: 0, dy: 10, heading: Math.PI / 2, want: [100, 90] },
+    { name: "north of a north pod", dx: 0, dy: -10, heading: -Math.PI / 2, want: [100, 90] },
+    { name: "scale", dx: 10, dy: 0, heading: 0, scale: 2, want: [100, 80] },
+  ];
+  for (const { name, dx, dy, heading, scale = 1, want } of cases) {
+    const [x, y] = ride.miniMapPoint(dx, dy, heading, scale, 100);
+    near(x, want[0], `${name} x`);
+    near(y, want[1], `${name} y`);
+    // The lane transform agrees with miniMapPoint for a pod away from the origin.
+    const [ta, tb, tc, td, te, tf] = ride.miniMapTransform(300, -40, heading, scale, 100);
+    const wx = 300 + dx, wy = -40 + dy;
+    near(ta * wx + tc * wy + te, want[0], `${name} transform x`);
+    near(tb * wx + td * wy + tf, want[1], `${name} transform y`);
+  }
+});
+
+test("autoHop moves after the last rider leaves", () => {
+  const cases = [
+    { name: "last rider left", args: [true, false, 2, 0], want: true },
+    { name: "auto off", args: [false, false, 2, 0], want: false },
+    { name: "riders aboard", args: [true, false, 2, 1], want: false },
+    { name: "still empty", args: [true, false, 0, 0], want: false },
+    { name: "first read after a move", args: [true, false, -1, 0], want: false },
+    { name: "turned on with an empty pod", args: [true, true, -1, 0], want: true },
+    { name: "turned on with riders", args: [true, true, -1, 3], want: false },
+    { name: "no ridden pod", args: [true, true, 2, -1], want: false },
+  ];
+  for (const { name, args, want } of cases) assert.equal(ride.autoHop(...args), want, name);
+});

@@ -27,6 +27,8 @@
     #stripMessage:empty { display: none; }
     .hint { color: #b7c8d6; font-size: 12px; }
     #credit { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 2px 7px; border-radius: 3px; background: #101d28b3; font-size: 11px; }
+    #minimap { position: absolute; right: 8px; bottom: 44px; width: 240px; height: 240px; border-radius: 50%; pointer-events: none; }
+    #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
     #credit[hidden] { display: none; }
     #credit a { color: #b7d7f5; }
   </style>
@@ -41,7 +43,7 @@
 </head>
 <body>
   <canvas id="scene"></canvas>
-  <div id="panel"><label>Pod <select id="pod"></select></label></div>
+  <div id="panel"><label>Pod <select id="pod"></select></label> <label title="Move to another pod after each drop-off"><input type="checkbox" id="auto"> Auto</label></div>
   <div id="hud" aria-live="off">
     <div id="hudSpeed"></div>
     <div id="hudState"></div>
@@ -56,6 +58,8 @@
     <span id="stripMessage" role="status"></span>
     <span class="hint">Drag to look. C: chase camera.</span>
   </div>
+  <canvas id="minimap" aria-label="Map around the pod"></canvas>
+  <div id="fade"></div>
   <div id="diagnostics" aria-live="off"></div>
   <div id="credit" hidden>Map data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</div>
   <div id="status" role="status">Loading the ride…</div>

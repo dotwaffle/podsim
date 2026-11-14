@@ -4,7 +4,8 @@ Status: the maintainer approved this design on 2026-11-14.
 Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
 Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
 Milestone M3a is built, and the maintainer accepted it in Chrome on 2026-11-14, after the fixes for the map flicker, the black sky, and the map sharpness.
-M3b and M4 are not built.
+Milestone M3b is built and waits for the maintainer's check in Chrome.
+M4 is not built.
 
 ## Goal
 
@@ -70,6 +71,7 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
 | `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, remaining route, session speed and pause, connection, and the outcome of the last command. |
+| `ride.nextPod(podID)` | In auto mode, when the page moves to another pod | The pod that auto mode rides after `podID`, or an empty string. |
 | `ride.setSpeed(speed)` | On user action | It sends a `speed` command for the session that the page shows, through the retry-safe command path of `remote.Client`. It returns the error text when the client cannot send the command. The HUD shows the reply. |
 
 `frame` uses `remote.Motion.Sample`, so the 3D view has the same 250 ms delay as the 2D view.
@@ -148,8 +150,10 @@ The page opens on the pod in `?pod=ID`, or else shows the pod list.
 The list shows the ID, the class, the activity, and the origin and destination of the first rider.
 
 In auto mode, after the last rider of the ridden pod leaves, the page moves to another pod with a fade.
+The Auto box and `?auto=1` turn on auto mode.
+When the user turns on auto mode on a pod with no riders, the page moves at once.
 It takes the nearest pod that carries riders.
-If there is no such pod, it takes the nearest pod that goes to a pickup.
+If there is no such pod, it takes the nearest pod that a pending trip waits for.
 If there is neither, it stays on the current pod.
 Ties go to the lowest pod ID, so the choice is repeatable for a given state.
 
@@ -162,7 +166,10 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
   The next stop is the first stop of the pod, or else the destination of the first party aboard.
   The client gets the route window as `Vehicle.Presentation`, and the ETA uses the lengths and speed limits of its lanes from the pod lane on, with no waits.
   If the route continues past the window, the panel shows "over" the window distance and time.
-- Mini-map: a 2D canvas with the network, the ridden pod, and the pods near it.
+- Mini-map: a round 2D canvas that shows 600 m around the ridden pod, with the direction of the pod up.
+  It shows the lanes, the stations, the other pods in their class colors, and a north mark, and it draws 10 times a second.
+  A grid of 250 m cells holds the lane segments, so a draw reads only the segments near the pod.
+  On LondonFull, the grid takes 18 ms to build, and a draw reads about 110 segments.
 - Session strip: the session speed, the pause state, the connection state, the "Ride at 1x" button, and the outcome of the last command.
   The diagnostics line shows the frame rate.
 

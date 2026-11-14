@@ -29,6 +29,7 @@ func main() {
 	api.Set("ids", js.FuncOf(page.ids))
 	api.Set("hud", js.FuncOf(page.hud))
 	api.Set("setSpeed", js.FuncOf(page.setSpeed))
+	api.Set("nextPod", js.FuncOf(page.nextPod))
 	js.Global().Set("podsimRide", api)
 	select {}
 }
@@ -127,6 +128,16 @@ func (p *ridePage) hud(_ js.Value, args []js.Value) any {
 		return nil
 	}
 	return string(data)
+}
+
+// nextPod returns the pod that auto mode rides after the pod with the ID
+// args[0], or an empty string.
+func (p *ridePage) nextPod(_ js.Value, args []js.Value) any {
+	p.update()
+	if len(args) == 0 || args[0].Type() != js.TypeString {
+		return ""
+	}
+	return ride.NextPod(p.state, args[0].String())
 }
 
 // setSpeed sends a speed command with the speed args[0] for the session
