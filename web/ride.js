@@ -49,6 +49,8 @@
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
   const SHADOW_FRUSTUM = 260;
+  // A 4,096-pixel shadow map over the frustum gives texels of about 6 cm.
+  const SHADOW_MAP_SIZE = 4096;
   // The mini-map shows the network 1.5 km around the ridden pod, with north
   // up.
   const MINIMAP_SIZE = 240;
@@ -414,6 +416,23 @@
       if (!best || distance < best.distance) best = { name: stop.name, distance };
     }
     return best;
+  }
+
+  // snapShadowCenter returns the position p of a directional light with the
+  // unit direction d, moved to whole shadow texels of size texel. Babylon
+  // looks from the light position along d with up +y, so the snap uses the
+  // x and y axes of that view. When the light follows the camera, a snapped
+  // shadow map keeps each shadow edge on the same texels, and the edges do
+  // not crawl. Vectors are [x, y, z] arrays.
+  function snapShadowCenter(p, d, texel) {
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    let xAxis = cross([0, 1, 0], d);
+    const length = Math.hypot(...xAxis);
+    xAxis = xAxis.map((value) => value / length);
+    const yAxis = cross(d, xAxis);
+    const x = Math.round(dot(p, xAxis) / texel) * texel, y = Math.round(dot(p, yAxis) / texel) * texel, z = dot(p, d);
+    return [0, 1, 2].map((i) => x * xAxis[i] + y * yAxis[i] + z * d[i]);
   }
 
   // autoHop reports whether auto mode moves to another pod. It moves when
@@ -844,9 +863,9 @@
     fill.diffuse = color(B, SKY);
     fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
     buildSky(B, scene);
-    const shadows = new B.ShadowGenerator(2048, sun);
+    const shadows = new B.ShadowGenerator(SHADOW_MAP_SIZE, sun);
     shadows.usePercentageCloserFiltering = true;
-    shadows.filteringQuality = B.ShadowGenerator.QUALITY_MEDIUM;
+    shadows.filteringQuality = B.ShadowGenerator.QUALITY_HIGH;
     shadows.bias = 0.0008;
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
     // The nearest cabin part is about 0.5 m from the eye. A larger near plane keeps
@@ -1097,7 +1116,8 @@
       }
       // The light sits back along the sun direction from the camera, so the
       // shadow map covers the ground around the camera.
-      sun.position.copyFrom(camera.position.subtract(sunDirection.scale(400)));
+      const light = camera.position.subtract(sunDirection.scale(400));
+      sun.position.fromArray(snapShadowCenter(light.asArray(), sunDirection.asArray(), SHADOW_FRUSTUM / SHADOW_MAP_SIZE));
       if (ridden >= 0 && now - lastTiles >= TILE_UPDATE_MS) {
         lastTiles = now;
         const at = ridden * POSE_FIELDS;
@@ -1115,7 +1135,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, stopPoints, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, snapShadowCenter, stopPoints, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

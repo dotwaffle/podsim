@@ -343,3 +343,21 @@ test("nearestStop finds the nearest passenger station", () => {
   assert.equal(ride.nearestStop(stops, 55, 0).name, "Alpha");
   assert.equal(ride.nearestStop([], 0, 0), null);
 });
+
+test("snapShadowCenter moves the light to whole texels across its view", () => {
+  const d = [-0.5, -0.75, -0.35], length = Math.hypot(...d), unit = d.map((value) => value / length);
+  const texel = 260 / 4096;
+  // The x and y axes of a Babylon left-handed look-at with up +y.
+  const xAxis = [unit[2], 0, -unit[0]].map((value) => value / Math.hypot(unit[2], unit[0]));
+  const yAxis = [unit[1] * xAxis[2] - unit[2] * xAxis[1], unit[2] * xAxis[0] - unit[0] * xAxis[2], unit[0] * xAxis[1] - unit[1] * xAxis[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  for (const p of [[0, 0, 0], [1234.567, 300.1, -9876.54], [-50000.3, 400, 20000.9]]) {
+    const snapped = ride.snapShadowCenter(p, unit, texel);
+    for (const [name, axis] of [["x", xAxis], ["y", yAxis]]) {
+      const steps = dot(snapped, axis) / texel;
+      assert.ok(Math.abs(steps - Math.round(steps)) < 1e-6, `${name} is ${steps} texels`);
+      assert.ok(Math.abs(dot(snapped, axis) - dot(p, axis)) <= texel / 2 + 1e-9, `${name} moved more than half a texel`);
+    }
+    near(dot(snapped, unit), dot(p, unit), "depth along the light");
+  }
+});
