@@ -1,7 +1,7 @@
 # First-person ride design
 
 Status: the maintainer approved this design on 2026-11-14.
-Milestone M1 is built and waits for the maintainer's check in Chrome.
+Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
 M2, M3, and M4 are not built.
 
 ## Goal
@@ -86,6 +86,7 @@ A lane is a line or a quadratic Bezier curve with one control point, so the tang
 LondonFull has about 2,650 joins of two mainline lanes that turn by more than 0.5 rad, and pods pass them at full speed.
 The seat camera smooths yaw with a 150 ms time constant.
 The pod meshes turn at once at such a join, and M2 can smooth them as the camera does.
+In the M1 check, the maintainer found the turns smooth but a bit quick, so M2 uses a longer time constant.
 The chase camera uses a longer time constant.
 
 ### Coordinates
