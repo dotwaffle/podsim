@@ -743,7 +743,7 @@ Select the number to show the **Checks** section, which lists the errors first a
 When the draft has only warnings, the summary tells you that the scenario is ready to apply and gives the number of warnings.
 
 When the checks find errors, **Pause and apply** does not send the draft and shows the **Checks** section.
-The server checks the project again when you apply it, and it also checks the [limits](reference.md#validation-and-limits) that the editor does not check.
+The server checks the project again when you apply it, with the same [validation and limits](reference.md#validation-and-limits) as the editor.
 If the server project fails these checks, the editor still loads it as the draft, and the section shows the geometry errors that the server reports.
 
 Three checks give warnings and not errors: a junction with no lanes, a network section that no lane connects to the other nodes, and a lane with a [large-class tail](model.md#vehicle-classes) that exceeds its length.

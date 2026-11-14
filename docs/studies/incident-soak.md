@@ -492,6 +492,7 @@ The table gives `TestIncidentSoakCI` before and after that commit, at a load ave
 
 The profile found no other single change that removes half of the check time.
 The largest remaining parts on `london-full-express` are the safety locations of each pod (24 s), the lane indexes of `ExportState` (22 s), and the maps by pod ID in the separation check (about 20 s).
+A later change replaced those maps with slices in the order of the fleet.
 
 ### Order balance
 

@@ -98,7 +98,7 @@ Leaving out `map` keeps the plain background.
 ## Validation and limits
 
 The server and the editor both validate a project, and the server checks it again at each apply.
-The editor checks do not include the limits of the lane pairs, the coordinates, and the track cells, so the server checks these when you apply the project.
+The editor runs the same project validation as the server, so the editor checks include each limit below.
 
 | Item | Limit |
 | --- | --- |
