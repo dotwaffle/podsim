@@ -11,10 +11,16 @@
     #status[hidden] { display: none; }
     #panel { position: absolute; left: 8px; top: 8px; padding: 6px 9px; border-radius: 5px; background: #101d28d9; }
     #panel select { max-width: min(420px, calc(100vw - 80px)); }
-    #diagnostics { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 4px; background: #101d28d9; font: 12px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    #diagnostics { position: absolute; left: 8px; bottom: 8px; padding: 4px 8px; border-radius: 4px; background: #101d28d9; font: 12px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    #streamDiagnostics { position: absolute; right: 8px; bottom: 8px; z-index: 4; max-width: min(330px, calc(100vw - 32px)); max-height: 65vh; overflow: auto; padding: 7px 10px; border: 1px solid #496174; border-radius: 5px; background: #101d28; font: 12px system-ui, sans-serif; }
+    #streamDiagnostics summary { cursor: pointer; }
+    #streamDiagnostics dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+    #streamDiagnostics dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+    #streamDiagnostics p { color: #b7c8d6; line-height: 1.4; }
   </style>
   <script src="wasm_exec.js"></script>
-  <!-- internal/remote calls PodsimStream.inflate to read the state stream. -->
+  <!-- internal/remote calls PodsimStream.inflate to read the state stream.
+       stream.js also adds its connection diagnostics panel. -->
   <script src="stream.js"></script>
   <script src="https://cdn.babylonjs.com/v9.36.0/babylon.js" integrity="sha384-QWFG07sio34fL3sNY9wd1SSoDvD7YVMX3067rJICw3vO2LQQY5m53yB70YlKXnRX" crossorigin="anonymous"></script>
   <script src="ride.js"></script>

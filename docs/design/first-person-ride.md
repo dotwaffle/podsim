@@ -1,7 +1,8 @@
 # First-person ride design
 
 Status: the maintainer approved this design on 2026-11-14.
-Nothing in this document is built.
+Milestone M1 is built and waits for the maintainer's check in Chrome.
+M2, M3, and M4 are not built.
 
 ## Goal
 
@@ -75,11 +76,16 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 
 `sim.Pod` has no heading.
 `remote.Motion.Sample` interpolates the position and the speed along the route, but it keeps `laneID` and `laneDistance` of the earlier frame.
-Thus `internal/ride` keeps the sampled position of each pod from the previous animation frame.
-The heading is the direction from that position to the new position.
-If the pod moved less than 1 cm, the heading is the tangent of the lane at `laneDistance`, or the earlier heading if the pod has no lane.
+Thus `internal/ride` keeps an anchor position and a heading for each pod.
+When the pod is 10 cm or more from its anchor, the heading becomes the direction from the anchor to the pod, and the pod position becomes the new anchor.
+A pod that moved less keeps its heading, so a stopped or a slow pod does not turn, and the result does not depend on the frame rate.
+A pod on a reverse lane of a bay faces against its direction of travel, so its heading turns by pi.
+A new pod, or a pod that moved more than 50 m in one frame, gets the tangent of its lane at `laneDistance`.
+A pod at a berth has no lane, so it gets the end direction of a lane that arrives at the berth node and is not a reverse lane.
 A lane is a line or a quadratic Bezier curve with one control point, so the tangent has an exact formula.
-The seat camera smooths yaw with a 150 ms time constant, because two lanes can meet at an angle.
+LondonFull has about 2,650 joins of two mainline lanes that turn by more than 0.5 rad, and pods pass them at full speed.
+The seat camera smooths yaw with a 150 ms time constant.
+The pod meshes turn at once at such a join, and M2 can smooth them as the camera does.
 The chase camera uses a longer time constant.
 
 ### Coordinates
@@ -91,8 +97,10 @@ Babylon stores vertex positions as float32.
 At 20 km from the origin, float32 resolution is about 2 mm, and the seat camera is less than 1 m from the cabin, so the cabin can jitter.
 LondonFull extends about 34 km west of its origin.
 The page creates the Babylon engine with `useLargeWorldRendering`, which draws the scene relative to the camera.
-The M1 acceptance includes a ride at the far edge of LondonFull with no visible cabin jitter.
-If the cabin jitters, the bridge subtracts an origin near the camera in float64 before it fills the array, and the page moves the scene by the same origin.
+The cabin moves with the camera, so float32 resolution does not move it.
+The beams, the ground, and the pod instances keep absolute positions, and the large-world option can miss some of them.
+The M1 acceptance includes a ride near x = -33 km with no shimmer at the edge of the beam ahead of the pod.
+If the beam edge shimmers, the page builds each mesh around a local origin, and the bridge subtracts an origin near the camera in float64 before it fills the array.
 A test pins the axis mapping with a station pair of known compass direction.
 
 ## Scene
@@ -200,7 +208,7 @@ The passenger flow logs its state changes.
 ## Milestones
 
 1. M1: the bridge, `/ride.html` with Babylon, the guideway, the pods, the stations, plain ground, and the seat camera on a chosen pod.
-   Acceptance: LondonFull at 60 frames per second, no camera yaw jump at lane joins, and no cabin jitter at the far edge of the network.
+   Acceptance: LondonFull at 60 frames per second, no camera yaw jump at lane joins, and no beam shimmer at the far edge of the network.
 2. M2: the HUD speed and state, the trip panel, the session strip, mouse look, and the chase camera.
 3. M3: map tiles, the mini-map, auto mode, station signs, shadows, and a gradient sky.
 4. M4: the passenger flow.

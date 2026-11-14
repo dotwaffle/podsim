@@ -67,7 +67,7 @@ func (p *ridePage) topology(js.Value, []js.Value) any {
 }
 
 // frame fills the Float64Array of args[0] with the poses of the pods, and
-// returns { count, version, generation, connected, error }. The array must have
+// returns { count, version, generation, session, connected, error }. The array must have
 // space for ride.PoseFields numbers for each pod. A short array gets only
 // the pods that fit, and count tells how many pods there are.
 func (p *ridePage) frame(_ js.Value, args []js.Value) any {
@@ -84,7 +84,7 @@ func (p *ridePage) frame(_ js.Value, args []js.Value) any {
 		view := js.Global().Get("Uint8Array").New(out.Get("buffer"), out.Get("byteOffset"), count*8)
 		js.CopyBytesToJS(view, p.bytes)
 	}
-	return map[string]any{"count": info.Count, "version": float64(info.Version), "generation": float64(info.Generation), "connected": p.connected, "error": p.client.ConnectionError()}
+	return map[string]any{"count": info.Count, "version": float64(info.Version), "generation": float64(info.Generation), "session": info.Session, "connected": p.connected, "error": p.client.ConnectionError()}
 }
 
 // ids returns the pod IDs in the order of the poses of the last frame, as

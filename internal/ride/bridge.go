@@ -3,6 +3,7 @@
 package ride
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"time"
@@ -17,9 +18,14 @@ import (
 // heading, speed, and class index.
 const PoseFields = 5
 
-// minMove is the smallest movement in meters that sets a new heading. A
-// shorter movement keeps the earlier heading, or the lane tangent.
-const minMove = 0.01
+// headingStep is the movement in meters from the anchor of a pod that sets
+// a new heading. A pod that moved less keeps its heading, so a stopped or a
+// slow pod does not turn, and the result does not depend on the frame rate.
+const headingStep = 0.1
+
+// maxStep is the largest movement in meters between two frames that sets a
+// heading. A longer jump, as after a restore, uses the lane tangent.
+const maxStep = 50
 
 // Classes gives the pod classes in the order of the class index of a frame.
 var Classes = []sim.VehicleClass{sim.LegacyClass, sim.CompactClass, sim.GroupClass, sim.ExpressClass}
@@ -30,11 +36,14 @@ type Bridge struct {
 	motion   remote.Motion
 	revision revisionKey
 	lanes    laneTable
+	// berths holds the direction of a pod at each berth.
+	berths map[string]float64
 	// headings holds the pose of each pod in the last frame. spare is the
 	// map of the frame before it, which Frame clears and uses again.
 	headings, spare map[string]heading
 	ids             []string
 	version         uint64
+	session         string
 }
 
 type revisionKey struct {
@@ -42,9 +51,11 @@ type revisionKey struct {
 	generation, rev    uint64
 }
 
+// heading is the direction of a pod, and the position where the bridge
+// last set it.
 type heading struct {
-	at    sim.Point
-	angle float64
+	anchor sim.Point
+	angle  float64
 }
 
 // FrameInfo describes a frame that Frame wrote.
@@ -55,6 +66,9 @@ type FrameInfo struct {
 	Version uint64
 	// Generation is the session generation of the frame.
 	Generation uint64
+	// Session changes with the server start, the epoch, or the generation.
+	// Then the network can be different.
+	Session string
 }
 
 // Observe adds state to the motion buffer when it is a new revision.
@@ -68,7 +82,9 @@ func (b *Bridge) Observe(state session.State, at time.Time) {
 	}
 	if key.serverStart != b.revision.serverStart || key.epoch != b.revision.epoch || key.generation != b.revision.generation {
 		b.lanes = newLaneTable(state.Network)
+		b.berths = b.lanes.berthHeadings(state.Network)
 		b.headings, b.spare = nil, nil
+		b.session = fmt.Sprintf("%s/%s/%d", state.ServerStart, state.Epoch, state.Generation)
 	}
 	b.revision = key
 	b.motion.Observe(state, at)
@@ -91,9 +107,9 @@ func (b *Bridge) Frame(at time.Time, out []float64) ([]float64, FrameInfo) {
 		if !changed && b.ids[i] != pod.ID {
 			changed = true
 		}
-		angle := b.heading(pod, previous)
-		b.headings[pod.ID] = heading{at: pod.Position, angle: angle}
-		out = append(out, pod.Position.X, pod.Position.Y, angle, pod.Speed, float64(classIndex(pod.Class)))
+		next := b.heading(pod, previous)
+		b.headings[pod.ID] = next
+		out = append(out, pod.Position.X, pod.Position.Y, next.angle, pod.Speed, float64(classIndex(pod.Class)))
 	}
 	if changed {
 		b.ids = b.ids[:0]
@@ -102,29 +118,48 @@ func (b *Bridge) Frame(at time.Time, out []float64) ([]float64, FrameInfo) {
 		}
 		b.version++
 	}
-	return out, FrameInfo{Count: len(snapshot.Vehicles), Version: b.version, Generation: b.revision.generation}
+	return out, FrameInfo{Count: len(snapshot.Vehicles), Version: b.version, Generation: b.revision.generation, Session: b.session}
 }
 
 // IDs returns the pod IDs in the order of the last frame.
 func (b *Bridge) IDs() []string { return slices.Clone(b.ids) }
 
-// heading returns the direction of travel of pod in radians, in world
-// coordinates, where y points south.
-func (b *Bridge) heading(pod sim.Pod, previous map[string]heading) float64 {
+// heading returns the direction that the front of pod faces, in radians,
+// in world coordinates, where y points south. A pod on a reverse lane of a
+// bay faces against its direction of travel.
+func (b *Bridge) heading(pod sim.Pod, previous map[string]heading) heading {
+	turn := 0.0
+	if b.lanes[pod.LaneID].reverse {
+		turn = math.Pi
+	}
 	last, known := previous[pod.ID]
 	if known {
-		dx, dy := pod.Position.X-last.at.X, pod.Position.Y-last.at.Y
-		if math.Hypot(dx, dy) >= minMove {
-			return math.Atan2(dy, dx)
+		dx, dy := pod.Position.X-last.anchor.X, pod.Position.Y-last.anchor.Y
+		moved := math.Hypot(dx, dy)
+		if moved < headingStep {
+			return last
+		}
+		if moved <= maxStep {
+			return heading{anchor: pod.Position, angle: wrap(math.Atan2(dy, dx) + turn)}
 		}
 	}
 	if angle, ok := b.lanes.tangent(pod.LaneID, pod.LaneDistance); ok {
-		return angle
+		return heading{anchor: pod.Position, angle: wrap(angle + turn)}
 	}
-	if known {
-		return last.angle
+	// A pod at a berth has no lane.
+	if angle, ok := b.berths[pod.BerthID]; ok {
+		return heading{anchor: pod.Position, angle: angle}
 	}
-	return 0
+	return heading{anchor: pod.Position, angle: last.angle}
+}
+
+// wrap returns angle in the range (-pi, pi].
+func wrap(angle float64) float64 {
+	angle = math.Remainder(angle, 2*math.Pi)
+	if angle <= -math.Pi {
+		angle += 2 * math.Pi
+	}
+	return angle
 }
 
 func classIndex(class sim.VehicleClass) int {
@@ -146,18 +181,61 @@ type laneShape struct {
 	control  *sim.Point
 	// lengths holds the arc length at each sample of a curve.
 	lengths []float64
+	// reverse is true for a reverse lane of a maneuver group.
+	reverse bool
 }
 
 type laneTable map[string]laneShape
+
+// berthHeadings returns the direction of a pod at each berth: the end
+// direction of a lane that arrives at the berth node and is not a reverse
+// lane. A lane of the station of the berth comes first. A berth with no
+// such lane is not in the result.
+func (t laneTable) berthHeadings(network sim.Network) map[string]float64 {
+	type arrival struct {
+		angle   float64
+		station string
+	}
+	arriving := make(map[string][]arrival)
+	for _, lane := range network.Lanes {
+		if t[lane.ID].reverse {
+			continue
+		}
+		if angle, ok := t.tangent(lane.ID, math.Inf(1)); ok {
+			arriving[lane.To] = append(arriving[lane.To], arrival{angle, lane.StationID})
+		}
+	}
+	headings := make(map[string]float64)
+	for _, station := range network.Stations {
+		for _, berth := range station.Berths {
+			choices := arriving[berth.Node]
+			if len(choices) == 0 {
+				continue
+			}
+			choice := choices[0]
+			if i := slices.IndexFunc(choices, func(a arrival) bool { return a.station == station.ID }); i >= 0 {
+				choice = choices[i]
+			}
+			headings[berth.ID] = choice.angle
+		}
+	}
+	return headings
+}
 
 func newLaneTable(network sim.Network) laneTable {
 	nodes := make(map[string]sim.Point, len(network.Nodes))
 	for _, node := range network.Nodes {
 		nodes[node.ID] = node.Position
 	}
+	reverse := make(map[string]bool)
+	for _, group := range network.ManeuverGroups {
+		for _, id := range group.ReverseLaneIDs {
+			reverse[id] = true
+		}
+	}
 	table := make(laneTable, len(network.Lanes))
 	for _, lane := range network.Lanes {
-		shape := laneShape{from: nodes[lane.From], to: nodes[lane.To]}
+		shape := laneShape{from: nodes[lane.From], to: nodes[lane.To], reverse: reverse[lane.ID]}
 		if lane.Control != nil {
 			control := *lane.Control
 			shape.control = &control

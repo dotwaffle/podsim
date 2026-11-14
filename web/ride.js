@@ -343,8 +343,8 @@
     const diagnostics = document.getElementById("diagnostics");
     const params = new URLSearchParams(root.location.search);
     let requested = params.get("pod") || "", podList = [], ids = [], version = -1;
-    let generation = -1, world = null, poses = new Float64Array(0), yaw = NaN, lastTime = performance.now();
-    let bridgeTime = 0, connected = false;
+    let session = "", world = null, poses = new Float64Array(0), yaw = NaN, lastTime = performance.now();
+    let bridgeTime = 0, connected = false, connectionError = "";
 
     picker.addEventListener("change", () => {
       requested = picker.value;
@@ -369,7 +369,7 @@
       const topology = JSON.parse(text);
       if (world) for (const mesh of world.meshes) mesh.dispose(false, true);
       world = buildWorld(B, scene, topology);
-      generation = topology.generation;
+      session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
       version = -1;
       status.hidden = true;
       return true;
@@ -422,7 +422,7 @@
     engine.runRenderLoop(() => {
       const now = performance.now(), seconds = (now - lastTime) / 1000;
       lastTime = now;
-      if (generation < 0 && !rebuild()) { show("Waiting for the server…"); return; }
+      if (session === "" && !rebuild()) { show("Waiting for the server…"); return; }
       const started = performance.now();
       let info = ride.frame(poses);
       if (info.count * POSE_FIELDS > poses.length) {
@@ -431,7 +431,9 @@
       }
       bridgeTime = performance.now() - started;
       connected = info.connected;
-      if (info.generation !== generation) { rebuild(); return; }
+      connectionError = info.error;
+      // A new server start, epoch, or generation can change the network.
+      if (info.session !== session) { rebuild(); return; }
       if (info.version !== version) {
         version = info.version;
         // ids has the order of the poses. The pod list has the order of the
@@ -445,7 +447,7 @@
 
     root.setInterval(() => {
       const draws = instrumentation.drawCallsCounter.lastSecAverage;
-      diagnostics.textContent = `${engine.getFps().toFixed(0)} fps · bridge ${bridgeTime.toFixed(2)} ms · ${draws.toFixed(0)} draws · ${ids.length} pods · ${connected ? "connected" : "disconnected"}`;
+      diagnostics.textContent = `${engine.getFps().toFixed(0)} fps · bridge ${bridgeTime.toFixed(2)} ms · ${draws.toFixed(0)} draws · ${ids.length} pods · ${connected ? "connected" : `disconnected ${connectionError}`}`;
     }, 500);
     root.addEventListener("resize", () => engine.resize());
   }

@@ -21,8 +21,11 @@ func testNetwork() sim.Network {
 			{ID: "south", From: "b", To: "c", SpeedLimit: 10},
 			// The curve starts east and ends south.
 			{ID: "curve", From: "a", To: "c", Control: &sim.Point{X: 100, Y: 0}, SpeedLimit: 8, StationID: "s"},
+			// A pod on back moves west and faces east.
+			{ID: "back", From: "b", To: "a", SpeedLimit: 2, StationID: "s"},
 		},
-		Stations: []sim.Station{{ID: "s", Name: "Stop", Berths: []sim.Berth{{ID: "s1", Node: "c"}}}},
+		ManeuverGroups: []sim.ManeuverGroup{{ID: "g", StationID: "s", LaneIDs: []string{"east"}, ReverseLaneIDs: []string{"back"}}},
+		Stations:       []sim.Station{{ID: "s", Name: "Stop", Berths: []sim.Berth{{ID: "s1", Node: "c"}}}},
 	}
 }
 
@@ -59,24 +62,64 @@ func TestLaneTangent(t *testing.T) {
 	}
 }
 
+func TestBerthHeadings(t *testing.T) {
+	network := testNetwork()
+	// Berth s2 is at node a. Only the reverse lane back arrives there.
+	network.Stations[0].Berths = append(network.Stations[0].Berths, sim.Berth{ID: "s2", Node: "a"})
+	// Berth t1 is at node b. The lane east arrives there, and it is not a
+	// lane of station t.
+	network.Stations = append(network.Stations, sim.Station{ID: "t", Berths: []sim.Berth{{ID: "t1", Node: "b"}}})
+	// At node c, the lane south comes first, but the lane west is the only
+	// lane of station s there.
+	network.Lanes[2].StationID = ""
+	network.Nodes = append(network.Nodes, sim.Node{ID: "d", Position: sim.Point{X: 200, Y: 100}})
+	network.Lanes = append(network.Lanes, sim.Lane{ID: "west", From: "d", To: "c", SpeedLimit: 2, StationID: "s"})
+	headings := newLaneTable(network).berthHeadings(network)
+	want := map[string]float64{"s1": math.Pi, "t1": 0}
+	if len(headings) != len(want) {
+		t.Fatalf("berth headings = %v, want %v", headings, want)
+	}
+	for id, angle := range want {
+		if got, ok := headings[id]; !ok || !near(got, angle) {
+			t.Fatalf("berth headings = %v, want %v", headings, want)
+		}
+	}
+}
+
 func TestHeading(t *testing.T) {
-	bridge := Bridge{lanes: newLaneTable(testNetwork())}
+	network := testNetwork()
+	lanes := newLaneTable(network)
+	bridge := Bridge{lanes: lanes, berths: lanes.berthHeadings(network)}
+	at := func(angle float64) map[string]heading { return map[string]heading{"p": {angle: angle}} }
 	tests := []struct {
-		name     string
-		pod      sim.Pod
-		previous map[string]heading
-		want     float64
+		name       string
+		pod        sim.Pod
+		previous   map[string]heading
+		want       float64
+		wantAnchor sim.Point
 	}{
-		{"movement sets heading", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 5}, LaneID: "east"}, map[string]heading{"p": {at: sim.Point{}, angle: 0}}, math.Pi / 2},
-		{"short movement uses lane", sim.Pod{ID: "p", Position: sim.Point{X: 0.001}, LaneID: "south"}, map[string]heading{"p": {angle: 1}}, math.Pi / 2},
-		{"short movement without lane keeps heading", sim.Pod{ID: "p", Position: sim.Point{X: 0.001}}, map[string]heading{"p": {angle: 1}}, 1},
-		{"new pod uses lane", sim.Pod{ID: "p", LaneID: "south"}, nil, math.Pi / 2},
-		{"new pod without lane", sim.Pod{ID: "p"}, nil, 0},
+		{"movement sets heading", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 5}, LaneID: "east"}, at(0), math.Pi / 2, sim.Point{X: 0, Y: 5}},
+		// A short movement keeps the heading and the anchor, so a slow pod
+		// turns only after it moves headingStep from the anchor.
+		{"short movement keeps heading", sim.Pod{ID: "p", Position: sim.Point{X: 0.05}, LaneID: "south"}, at(1), 1, sim.Point{}},
+		{"stopped pod keeps heading", sim.Pod{ID: "p", LaneID: "south"}, at(1), 1, sim.Point{}},
+		{"reverse lane faces against travel", sim.Pod{ID: "p", Position: sim.Point{X: -1}, LaneID: "back"}, at(0), 0, sim.Point{X: -1}},
+		{"jump uses lane", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 80}, LaneID: "south"}, at(0), math.Pi / 2, sim.Point{X: 0, Y: 80}},
+		{"jump on reverse lane", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 80}, LaneID: "back"}, at(1), 0, sim.Point{X: 0, Y: 80}},
+		{"jump without lane keeps heading", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 80}}, at(1), 1, sim.Point{X: 0, Y: 80}},
+		{"new pod uses lane", sim.Pod{ID: "p", LaneID: "south"}, nil, math.Pi / 2, sim.Point{}},
+		{"new pod on reverse lane", sim.Pod{ID: "p", LaneID: "back"}, nil, 0, sim.Point{}},
+		{"new pod without lane", sim.Pod{ID: "p"}, nil, 0, sim.Point{}},
+		// Berth s1 is at node c. The lane south arrives there, and the curve
+		// of the same station also arrives there going south.
+		{"new pod at berth", sim.Pod{ID: "p", StationID: "s", BerthID: "s1"}, nil, math.Pi / 2, sim.Point{}},
+		{"jump to berth", sim.Pod{ID: "p", Position: sim.Point{X: 0, Y: 80}, StationID: "s", BerthID: "s1"}, at(1), math.Pi / 2, sim.Point{X: 0, Y: 80}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := bridge.heading(test.pod, test.previous); !near(got, test.want) {
-				t.Fatalf("heading = %v, want %v", got, test.want)
+			got := bridge.heading(test.pod, test.previous)
+			if !near(got.angle, test.want) || got.anchor != test.wantAnchor {
+				t.Fatalf("heading = %+v, want angle %v anchor %v", got, test.want, test.wantAnchor)
 			}
 		})
 	}
@@ -101,7 +144,7 @@ func TestFramePacksPoses(t *testing.T) {
 	bridge.Observe(pausedState(1, first, second), now)
 	poses, info := bridge.Frame(now, nil)
 	want := []float64{3, 4, math.Pi / 2, 2, 2, 7, 8, 0, 0, 0}
-	if info.Count != 2 || info.Generation != 1 || len(poses) != len(want) {
+	if info.Count != 2 || info.Generation != 1 || info.Session != "s/e/1" || len(poses) != len(want) {
 		t.Fatalf("frame = %v, %+v", poses, info)
 	}
 	for i := range want {
@@ -133,7 +176,7 @@ func TestFramePacksPoses(t *testing.T) {
 
 func TestNewTopology(t *testing.T) {
 	topology := NewTopology(pausedState(1))
-	if len(topology.Lanes) != 3 || topology.Lanes[2].Control == nil || topology.Lanes[2].StationID != "s" {
+	if len(topology.Lanes) != 4 || topology.Lanes[2].Control == nil || topology.Lanes[2].StationID != "s" {
 		t.Fatalf("lanes = %+v", topology.Lanes)
 	}
 	if len(topology.Stations) != 1 || len(topology.Stations[0].Berths) != 1 || topology.Stations[0].Berths[0] != (sim.Point{X: 100, Y: 100}) {
