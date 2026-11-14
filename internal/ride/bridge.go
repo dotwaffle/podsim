@@ -371,7 +371,8 @@ func NewTopology(state session.State) Topology {
 	return topology
 }
 
-// PodSummary is one row of the pod list of the page.
+// PodSummary is one row of the pod list of the page. From and To are the
+// station names of the trip of the first rider aboard.
 type PodSummary struct {
 	ID       string           `json:"id"`
 	Class    sim.VehicleClass `json:"class"`
@@ -382,7 +383,20 @@ type PodSummary struct {
 }
 
 // Pods returns a summary of each pod of state, in the order of the state.
+// A station with no name shows its ID.
 func Pods(state session.State) []PodSummary {
+	names := make(map[string]string, len(state.Network.Stations))
+	for _, station := range state.Network.Stations {
+		if station.Name != "" {
+			names[station.ID] = station.Name
+		}
+	}
+	name := func(id string) string {
+		if text, ok := names[id]; ok {
+			return text
+		}
+		return id
+	}
 	pods := make([]PodSummary, 0, len(state.Simulation.Vehicles))
 	for _, vehicle := range state.Simulation.Vehicles {
 		class := vehicle.Pod.Class
@@ -395,7 +409,7 @@ func Pods(state session.State) []PodSummary {
 				continue
 			}
 			if summary.Riders == 0 {
-				summary.From, summary.To = rider.From, rider.To
+				summary.From, summary.To = name(rider.From), name(rider.To)
 			}
 			summary.Riders++
 		}

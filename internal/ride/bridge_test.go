@@ -194,6 +194,7 @@ func TestPods(t *testing.T) {
 	state := pausedState(1, sim.Pod{ID: "01", Activity: sim.Traveling}, sim.Pod{ID: "02", Class: sim.CompactClass})
 	state.Simulation.Vehicles[0].Riders = []sim.Request{
 		{ID: 1, From: "x", To: "y", Completed: true},
+		// Station s has the name Stop, and station t is not in the network.
 		{ID: 2, From: "s", To: "t"},
 		{ID: 3, From: "u", To: "v"},
 	}
@@ -201,7 +202,7 @@ func TestPods(t *testing.T) {
 	if len(pods) != 2 {
 		t.Fatalf("pods = %+v", pods)
 	}
-	if got := pods[0]; got.Class != sim.LegacyClass || got.Riders != 2 || got.From != "s" || got.To != "t" || got.Activity != sim.Traveling {
+	if got := pods[0]; got.Class != sim.LegacyClass || got.Riders != 2 || got.From != "Stop" || got.To != "t" || got.Activity != sim.Traveling {
 		t.Fatalf("first pod = %+v", got)
 	}
 	if got := pods[1]; got.Class != sim.CompactClass || got.Riders != 0 || got.From != "" {
