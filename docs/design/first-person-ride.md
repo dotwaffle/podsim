@@ -5,7 +5,7 @@ Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: t
 Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
 Milestone M3a is built, and the maintainer accepted it in Chrome on 2026-11-14, after the fixes for the map flicker, the black sky, and the map sharpness.
 Milestone M3b is built, and the maintainer accepted it in Chrome on 2026-11-14, after a north-up mini-map, damped turns, a route progress bar, a nearest stop, sharper shadows, and station labels.
-Milestone M4 is built and waits for the maintainer's check in Chrome.
+Milestone M4 is built, and the maintainer accepted it in Chrome on 2026-11-14.
 
 ## Goal
 
