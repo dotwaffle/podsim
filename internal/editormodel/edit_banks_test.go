@@ -476,8 +476,8 @@ func TestBankMinimumSpacingInRotatedFrames(t *testing.T) {
 }
 
 // TestRemoveBerthRefusalsNameTheBlockingItem pins the text of each Remove
-// berth refusal. Each text names the station, and the lane and the node
-// that block the removal.
+// berth refusal. Each text names the station and the berth, node, bank,
+// or lane that blocks the removal.
 func TestRemoveBerthRefusalsNameTheBlockingItem(t *testing.T) {
 	t.Parallel()
 	spur := func(from, to, stationID string) func(map[string]any) {

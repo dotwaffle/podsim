@@ -109,7 +109,7 @@ func (c *editCycle) syncEmpty() {
 
 // run does one cycle with a geometry edit. It returns false, with the engine
 // unchanged, when the engine refuses the edit. A draft that is not valid
-// after the edit stops the benchmark. The second result is the network of
+// after the edit stops the benchmark. The first result is the network of
 // the edit reply.
 func (c *editCycle) run(edit string) (jsontext.Value, bool) {
 	c.b.Helper()
@@ -145,8 +145,9 @@ func (c *editCycle) report(cycles int) {
 
 // BenchmarkEditCycle measures the worker time of one geometry edit of the
 // LondonFull Express preset, by worker operation. Each cycle changes the
-// network, so no cycle reads a result of the cycle before it for the same
-// network. The moveNode case keeps the topology. The lane case adds a lane
+// network bytes. A check can still use a result of an earlier cycle when its
+// key matches, such as the parking verdict for the same topology. The
+// moveNode case keeps the topology. The lane case adds a lane
 // in one cycle and deletes it in the next.
 //
 // Run it with -benchtime=5x or more, and compare the medians of 7 runs.

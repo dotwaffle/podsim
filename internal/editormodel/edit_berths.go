@@ -381,7 +381,7 @@ func (g geometryDraft) markLastBerthRow(chainStation map[string]any, berthID str
 
 // removeBankBerth removes berthID from bank. A bank with no berths left goes
 // from station, and its gate nodes and their lanes go to gone. It refuses a
-// gate node with a lane of a different station.
+// lane of a different station at any node of gone.
 func (g geometryDraft) removeBankBerth(station, bank map[string]any, berthID string, gone berthRemoval) error {
 	bank["berthIDs"] = slices.DeleteFunc(items(bank["berthIDs"]), func(id any) bool { return id == berthID })
 	if len(items(bank["berthIDs"])) != 0 {
