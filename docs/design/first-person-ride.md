@@ -240,7 +240,12 @@ The passenger flow logs its state changes.
 
 ## Later items
 
-- Visual grade separation at crossings.
+- Station levels, after M4, as the maintainer chose on 2026-11-14.
+  The page derives a height for each lane, and the model stores no elevation.
+  Station lanes sit on a platform level below the mainline, and the entry and exit lanes are ramps.
+  A deck slab is under the station lanes, and a lane with a reverse twin on the same nodes draws once.
+  The same derived heights give visual grade separation at crossings.
+  On LondonFull, 5,216 of the 9,024 lanes are station lanes, a median of 15 for each station, and 272 lanes have a reverse twin.
 - A "Ride" button in the 2D pod inspector.
 - A glTF pod model.
 - Walking between a start location and a station.
