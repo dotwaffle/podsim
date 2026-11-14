@@ -4,7 +4,7 @@ Status: the maintainer approved this design on 2026-11-14.
 Milestone M1 is built, and the maintainer accepted it in Chrome on 2026-11-14: the frame rate on LondonFull was good, and the only console error was the missing favicon.
 Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, with a note that the look needs more work.
 Milestone M3a is built, and the maintainer accepted it in Chrome on 2026-11-14, after the fixes for the map flicker, the black sky, and the map sharpness.
-Milestone M3b is built and waits for the maintainer's check in Chrome.
+Milestone M3b is built, and the maintainer accepted it in Chrome on 2026-11-14, after a north-up mini-map, damped turns, a route progress bar, a nearest stop, sharper shadows, and station labels.
 M4 is not built.
 
 ## Goal
