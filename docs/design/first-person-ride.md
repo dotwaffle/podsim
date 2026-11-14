@@ -116,9 +116,11 @@ A test pins the axis mapping with a station pair of known compass direction.
   A pool of 12 name signs goes to the stations within 900 m of the camera, because a texture for each of 600 stations uses too much memory.
 - Ground: map tiles when `geo` is present, from the tile source of `web/tiles.js`, with the OpenStreetMap credit on the page.
   The ride page does not need the `map` setting that the 2D view needs, but it refuses a `map` setting that is not valid.
-  A ring of zoom 17 tiles covers 700 m around the ridden pod, over a ring of zoom 14 tiles that covers the fog distance.
-  The page asks for at most 8 new tiles each second.
-  The sky, the plain ground, the far ring, and the near ring draw first, in that order, and write no depth.
+  Three rings surround the ridden pod: zoom 18 tiles to 300 m, zoom 16 tiles to 1.2 km, and zoom 14 tiles to the fog distance.
+  A zoom 18 pixel is about 0.37 m at London, and the tiles have 16x anisotropic filtering, because the camera sees the ground at a low angle.
+  In the second M3a check, zoom 17 tiles near the pod looked pixelated.
+  The page asks for at most 12 new tiles each second, nearest ring first.
+  The sky, the plain ground, and the rings from far to near draw first, in that order, and write no depth.
   Nothing is below the ground, so the other meshes draw over them, and the layers cannot fight in the depth buffer.
   In the first M3a check, layers a few centimeters apart with a depth offset flickered.
   Without `geo`, the ground is a plain textured plane.

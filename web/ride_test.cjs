@@ -229,5 +229,6 @@ test("groundLayerOrder draws the ground layers first, in their order", () => {
   const list = [sub("pod"), sub("near", L.nearTiles), sub("beam"), sub("ground", L.ground), sub("far", L.farTiles), sub("sky", L.sky)];
   const sorted = [...list].sort(ride.groundLayerOrder).map((entry) => entry.name);
   assert.deepEqual(sorted, ["sky", "ground", "far", "near", "pod", "beam"]);
+  assert.ok(L.farTiles < L.midTiles && L.midTiles < L.nearTiles, "a nearer ring draws later");
   assert.equal(ride.groundLayerOrder(sub("pod"), sub("beam")), 0);
 });

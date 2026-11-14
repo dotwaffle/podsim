@@ -37,13 +37,13 @@
   const HUD_INTERVAL_MS = 250;
   const RADIUS = 6371000;
   const DEGREE = Math.PI / 180;
-  // Map tiles: a detailed ring near the camera over a coarse ring to the fog.
-  const NEAR_TILE_ZOOM = 17;
-  const NEAR_TILE_RADIUS = 700;
-  const FAR_TILE_ZOOM = 14;
   const MAX_TILES_PER_RING = 64;
   // New tiles to request in each update, so a jump does not start a burst.
-  const TILE_REQUESTS_PER_UPDATE = 8;
+  // The rings ask in the order of TILE_RINGS, so the near tiles come first.
+  const TILE_REQUESTS_PER_UPDATE = 12;
+  // The camera sees the ground at a low angle, so the tiles need anisotropic
+  // filtering to stay sharp.
+  const TILE_ANISOTROPY = 16;
   const TILE_UPDATE_MS = 1000;
   // Station signs: a fixed pool, given to the nearest stations.
   const SIGN_COUNT = 12;
@@ -52,7 +52,7 @@
   // Ground layers draw first, in this order, and write no depth. Nothing in
   // the scene is below the ground, so the layers cannot fight in the depth
   // buffer, and every other mesh draws over them.
-  const GROUND_LAYERS = { sky: 1, ground: 2, farTiles: 3, nearTiles: 4 };
+  const GROUND_LAYERS = { sky: 1, ground: 2, farTiles: 3, midTiles: 4, nearTiles: 5 };
 
   // groundLayerOrder sorts the opaque submeshes of a rendering group: the
   // ground layers in their order, then the other meshes in Babylon's order.
@@ -70,6 +70,13 @@
   }
   const FOG_START = 600;
   const FOG_END = 3000;
+  // Map tiles: rings around the ridden pod, from detailed near the pod to
+  // coarse at the fog. A zoom 18 tile pixel is about 0.37 m at London.
+  const TILE_RINGS = [
+    { zoom: 18, radius: 300, layer: "nearTiles" },
+    { zoom: 16, radius: 1200, layer: "midTiles" },
+    { zoom: 14, radius: FOG_END, layer: "farTiles" },
+  ];
   // The sky color at the horizon, which the fog also uses, and at the top.
   const SKY = [0.74, 0.82, 0.9];
   const SKY_TOP = [0.25, 0.45, 0.78];
@@ -554,9 +561,9 @@
       if (!enabled) return;
       const wanted = new Map();
       // The far ring lies under the near ring.
-      // The near ring draws after the far ring, so it covers it.
-      for (const [zoom, radius, layer] of [[FAR_TILE_ZOOM, FOG_END, GROUND_LAYERS.farTiles], [NEAR_TILE_ZOOM, NEAR_TILE_RADIUS, GROUND_LAYERS.nearTiles]]) {
-        for (const tile of groundTiles(topology.geo, x, y, zoom, radius, MAX_TILES_PER_RING)) wanted.set(tile.key, { tile, layer });
+      // A nearer ring draws after a farther ring, so it covers it.
+      for (const ring of TILE_RINGS) {
+        for (const tile of groundTiles(topology.geo, x, y, ring.zoom, ring.radius, MAX_TILES_PER_RING)) wanted.set(tile.key, { tile, layer: GROUND_LAYERS[ring.layer] });
       }
       for (const [key, mesh] of meshes) {
         if (!wanted.has(key)) { mesh.dispose(false, true); meshes.delete(key); }
@@ -573,6 +580,7 @@
         const url = tiles.URL_TEMPLATE.replace("{z}", tile.z).replace("{x}", tile.x).replace("{y}", tile.y);
         material.diffuseTexture = new B.Texture(url, scene, false, true);
         material.diffuseTexture.wrapU = material.diffuseTexture.wrapV = B.Texture.CLAMP_ADDRESSMODE;
+        material.diffuseTexture.anisotropicFilteringLevel = TILE_ANISOTROPY;
         material.specularColor = new B.Color3(0, 0, 0);
         material.backFaceCulling = false;
         mesh.material = material;
