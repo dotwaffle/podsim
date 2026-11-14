@@ -265,6 +265,7 @@ The passenger flow logs its state changes.
 ## Station levels
 
 The maintainer chose on 2026-11-14 to lower the stations after M4, because the station lanes at the guideway height looked messy.
+The levels are built, and the maintainer accepted them in Chrome on 2026-11-14.
 On LondonFull, 5,216 of the 9,024 lanes are station lanes, a median of 15 for each station, and 272 lanes have a reverse twin on the same nodes.
 The page derives each height from the network, and the model stores no elevation.
 
