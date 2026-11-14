@@ -34,15 +34,19 @@ type HUDRider struct {
 	To        string `json:"to"`
 }
 
-// HUDRoute is the rest of the route of the pod. The stream sends a window of
-// the route. When the route continues past the window, Partial is true, and
-// the distance and the time are the part in the window.
+// HUDRoute is the progress of the pod along its route. The stream sends a
+// window of the route. When the route starts before the window, Before is
+// true, and TraveledMeters is the part in the window. When the route
+// continues past the window, After is true, and the remaining distance and
+// the time are the part in the window.
 type HUDRoute struct {
+	TraveledMeters  float64 `json:"traveledMeters"`
 	RemainingMeters float64 `json:"remainingMeters"`
 	// Seconds is the time to drive the remaining distance at the speed
 	// limits of the lanes, with no waits.
 	Seconds float64 `json:"seconds"`
-	Partial bool    `json:"partial"`
+	Before  bool    `json:"before"`
+	After   bool    `json:"after"`
 }
 
 // HUDSession is the state of the shared session.
@@ -101,13 +105,13 @@ func (b *Bridge) HUD(state session.State, podID string, connection HUDSession) H
 	if nextStop != "" {
 		hud.NextStop = names.of(nextStop)
 	}
-	hud.Route = b.remainingRoute(vehicle)
+	hud.Route = b.routeProgress(vehicle)
 	return hud
 }
 
-// remainingRoute returns the rest of the route window of vehicle, or nil
-// when the vehicle has no route.
-func (b *Bridge) remainingRoute(vehicle sim.Vehicle) *HUDRoute {
+// routeProgress returns the progress of vehicle along its route window, or
+// nil when the vehicle has no route.
+func (b *Bridge) routeProgress(vehicle sim.Vehicle) *HUDRoute {
 	window := vehicle.Presentation
 	if window == nil || len(window.Motion) == 0 {
 		return nil
@@ -118,11 +122,16 @@ func (b *Bridge) remainingRoute(vehicle sim.Vehicle) *HUDRoute {
 		return nil
 	}
 	first := int(window.Current - window.Start) // #nosec G115 -- checked above.
-	route := &HUDRoute{Partial: window.After}
+	route := &HUDRoute{Before: window.Before, After: window.After}
+	for _, lane := range window.Motion[:first] {
+		route.TraveledMeters += b.lanes.length(lane.ID)
+	}
 	for i, lane := range window.Motion[first:] {
 		length := b.lanes.length(lane.ID)
 		if i == 0 && vehicle.Pod.LaneID == lane.ID {
-			length = max(0, length-vehicle.Pod.LaneDistance)
+			done := min(length, max(0, vehicle.Pod.LaneDistance))
+			route.TraveledMeters += done
+			length -= done
 		}
 		route.RemainingMeters += length
 		if lane.SpeedLimit > 0 {

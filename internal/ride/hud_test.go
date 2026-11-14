@@ -41,7 +41,8 @@ func TestHUD(t *testing.T) {
 		t.Fatalf("next stop = %q", hud.NextStop)
 	}
 	// 60 m left on east at 10 m/s, then 100 m of south at 10 m/s.
-	if hud.Route == nil || !near(hud.Route.RemainingMeters, 160) || !near(hud.Route.Seconds, 16) || !hud.Route.Partial {
+	// 100 m of south before the pod lane and 40 m of east are behind the pod.
+	if hud.Route == nil || !near(hud.Route.TraveledMeters, 140) || !near(hud.Route.RemainingMeters, 160) || !near(hud.Route.Seconds, 16) || hud.Route.Before || !hud.Route.After {
 		t.Fatalf("route = %+v", hud.Route)
 	}
 	if hud.Session != (HUDSession{Speed: 15, Paused: true, Connected: true, Message: "done"}) {
@@ -71,13 +72,15 @@ func TestHUDRoute(t *testing.T) {
 		{"current before start", sim.Vehicle{Presentation: &sim.RoutePresentation{Start: 3, Current: 2, Motion: []sim.Lane{east, south}}}, nil},
 		// A pod at a berth has no lane, so the first lane counts in full.
 		{"at a berth", sim.Vehicle{Presentation: &sim.RoutePresentation{Motion: []sim.Lane{east, south}}}, &HUDRoute{RemainingMeters: 200, Seconds: 20}},
-		{"lane distance past the end", sim.Vehicle{Pod: sim.Pod{LaneID: "east", LaneDistance: 150}, Presentation: &sim.RoutePresentation{Motion: []sim.Lane{east}}}, &HUDRoute{}},
+		{"lane distance past the end", sim.Vehicle{Pod: sim.Pod{LaneID: "east", LaneDistance: 150}, Presentation: &sim.RoutePresentation{Motion: []sim.Lane{east}}}, &HUDRoute{TraveledMeters: 100}},
+		{"negative lane distance", sim.Vehicle{Pod: sim.Pod{LaneID: "east", LaneDistance: -5}, Presentation: &sim.RoutePresentation{Motion: []sim.Lane{east}}}, &HUDRoute{RemainingMeters: 100, Seconds: 10}},
 		{"lane with no limit", sim.Vehicle{Presentation: &sim.RoutePresentation{Motion: []sim.Lane{{ID: "east"}}}}, &HUDRoute{RemainingMeters: 100}},
+		{"window cut at both ends", sim.Vehicle{Pod: sim.Pod{LaneID: "south", LaneDistance: 30}, Presentation: &sim.RoutePresentation{Start: 7, Current: 8, Before: true, After: true, Motion: []sim.Lane{east, south, east}}}, &HUDRoute{TraveledMeters: 130, RemainingMeters: 170, Seconds: 17, Before: true, After: true}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := bridge.remainingRoute(test.vehicle)
-			if (got == nil) != (test.want == nil) || got != nil && (!near(got.RemainingMeters, test.want.RemainingMeters) || !near(got.Seconds, test.want.Seconds) || got.Partial != test.want.Partial) {
+			got := bridge.routeProgress(test.vehicle)
+			if (got == nil) != (test.want == nil) || got != nil && (!near(got.TraveledMeters, test.want.TraveledMeters) || !near(got.RemainingMeters, test.want.RemainingMeters) || !near(got.Seconds, test.want.Seconds) || got.Before != test.want.Before || got.After != test.want.After) {
 				t.Fatalf("route = %+v, want %+v", got, test.want)
 			}
 		})

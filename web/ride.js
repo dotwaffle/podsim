@@ -49,11 +49,11 @@
   const SIGN_COUNT = 12;
   const SIGN_RADIUS = 900;
   const SHADOW_FRUSTUM = 260;
-  // The mini-map shows the network 600 m around the ridden pod, with north
+  // The mini-map shows the network 1.5 km around the ridden pod, with north
   // up.
   const MINIMAP_SIZE = 240;
-  const MINIMAP_RADIUS = 600;
-  const MINIMAP_CELL = 250;
+  const MINIMAP_RADIUS = 1500;
+  const MINIMAP_CELL = 500;
   const MINIMAP_INTERVAL_MS = 100;
   // Auto mode fades to black, moves to the next pod, and fades back.
   const FADE_MS = 400;
@@ -395,6 +395,27 @@
       [half + size * (forward * cos - right * sin), half + size * (forward * sin + right * cos)]);
   }
 
+  // stopPoints returns the passenger stations that have berths, each at the
+  // center of its berths.
+  function stopPoints(stations) {
+    return stations.filter((station) => !station.parkingOnly && station.berths.length > 0).map((station) => ({
+      name: station.name || station.id,
+      x: station.berths.reduce((sum, berth) => sum + berth.x, 0) / station.berths.length,
+      y: station.berths.reduce((sum, berth) => sum + berth.y, 0) / station.berths.length,
+    }));
+  }
+
+  // nearestStop returns the stop of stops nearest to world (x, y), with its
+  // distance, or null when there are no stops. Ties go to the first stop.
+  function nearestStop(stops, x, y) {
+    let best = null;
+    for (const stop of stops) {
+      const distance = Math.hypot(stop.x - x, stop.y - y);
+      if (!best || distance < best.distance) best = { name: stop.name, distance };
+    }
+    return best;
+  }
+
   // autoHop reports whether auto mode moves to another pod. It moves when
   // the last rider leaves, or at once when the user turned on auto mode on
   // an empty pod. riders is -1 when the session has no ridden pod.
@@ -419,7 +440,7 @@
   function hudView(hud) {
     const session = hud.session || {};
     const view = {
-      speed: "", state: "Pod not in the session", wait: "", trip: [], next: "", route: "",
+      speed: "", state: "Pod not in the session", wait: "", trip: [], next: "", route: "", progress: -1,
       session: `Session ${session.speed}x${session.paused ? ", paused" : ""}${session.connected ? "" : `, disconnected${session.error ? `: ${session.error}` : ""}`}`,
       message: session.message || "",
       rideAt1x: session.connected === true && session.speed !== 1,
@@ -431,10 +452,14 @@
     view.trip = hud.riders.map((rider) => `${rider.partySize} ${rider.partySize === 1 ? "passenger" : "passengers"}: ${rider.from} to ${rider.to}`);
     view.next = hud.nextStop ? `Next stop: ${hud.nextStop}` : (hud.riders.length === 0 ? "No passengers" : "");
     if (hud.route) {
-      // The time is at the speed limits with no waits. A partial route is
-      // the part of the route that the stream sends.
-      const distance = formatDistance(hud.route.remainingMeters), time = formatDuration(hud.route.seconds);
-      view.route = hud.route.partial ? `Route: over ${distance}, over ${time}` : `Route: ${distance}, about ${time}`;
+      // The time is at the speed limits with no waits. When the route goes
+      // on after the window that the stream sends, the values are the part
+      // in the window. The progress is the part of the route in the window
+      // that is behind the pod.
+      const { traveledMeters: traveled = 0, remainingMeters: remaining } = hud.route;
+      const distance = formatDistance(remaining), time = formatDuration(hud.route.seconds);
+      view.route = hud.route.after ? `Route: over ${distance}, over ${time}` : `Route: ${distance}, about ${time}`;
+      view.progress = traveled + remaining > 0 ? traveled / (traveled + remaining) : 1;
     }
     return view;
   }
@@ -721,10 +746,7 @@
   function createMiniMap(canvas, topology) {
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const index = segmentIndex(topology.lanes, nodes, MINIMAP_CELL);
-    const stations = topology.stations.filter((station) => station.berths.length > 0).map((station) => ({
-      x: station.berths.reduce((sum, berth) => sum + berth.x, 0) / station.berths.length,
-      y: station.berths.reduce((sum, berth) => sum + berth.y, 0) / station.berths.length,
-    }));
+    const stations = stopPoints(topology.stations);
     const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
     const context = canvas.getContext("2d");
 
@@ -762,12 +784,12 @@
         context.fill();
       };
       for (const station of stations) {
-        if (Math.abs(station.x - x) <= MINIMAP_RADIUS && Math.abs(station.y - y) <= MINIMAP_RADIUS) dot(station.x - x, station.y - y, 3.5, "#f3c479");
+        if (Math.abs(station.x - x) <= MINIMAP_RADIUS && Math.abs(station.y - y) <= MINIMAP_RADIUS) dot(station.x - x, station.y - y, 3, "#f3c479");
       }
       for (let i = 0; i < count; i++) {
         const at = i * POSE_FIELDS, dx = poses[at] - x, dy = poses[at + 1] - y;
         if (i === ridden || Math.abs(dx) > MINIMAP_RADIUS || Math.abs(dy) > MINIMAP_RADIUS) continue;
-        dot(dx, dy, 2.5, classColors[poses[at + 4] | 0] || classColors[0]);
+        dot(dx, dy, 2, classColors[poses[at + 4] | 0] || classColors[0]);
       }
       // The ridden pod is an arrow at the center.
       context.beginPath();
@@ -865,12 +887,12 @@
     const resetTurns = () => { for (const turn of [seatTurn, chaseTurn, mapTurn]) turn.angle = NaN; };
     const autoBox = document.getElementById("auto"), fade = document.getElementById("fade");
     const miniMapCanvas = document.getElementById("minimap");
-    let miniMap = null, lastMap = 0;
+    let miniMap = null, lastMap = 0, stops = [], riddenIndex = -1;
     // armed is true from the moment the user turns on auto mode until the
     // page reads the riders of the pod. lastRiders is -1 when not known.
     autoBox.checked = params.get("auto") === "1";
     let armed = autoBox.checked, lastRiders = -1, hopping = false;
-    const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
+    const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "hudProgress", "hudProgressBar", "hudNear", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
 
     // Mouse look: drag to turn the view. On release, the view returns to forward.
     canvas.addEventListener("pointerdown", (event) => { looking = true; canvas.setPointerCapture(event.pointerId); });
@@ -944,6 +966,7 @@
       for (const mesh of world.receivers) mesh.receiveShadows = true;
       tileLayer = createTileLayer(B, scene, topology, credit);
       miniMap = createMiniMap(miniMapCanvas, topology);
+      stops = stopPoints(topology.stations);
       lastTiles = 0;
       session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
       version = -1;
@@ -1028,6 +1051,12 @@
       hudElements.hudTrip.replaceChildren(...view.trip.map((line) => Object.assign(document.createElement("div"), { textContent: line })));
       hudElements.hudNext.textContent = view.next;
       hudElements.hudRoute.textContent = view.route;
+      hudElements.hudProgress.hidden = view.progress < 0;
+      hudElements.hudProgressBar.style.width = `${(Math.max(0, view.progress) * 100).toFixed(1)}%`;
+      hudElements.hudProgress.setAttribute("aria-valuenow", String(Math.round(Math.max(0, view.progress) * 100)));
+      const near = riddenIndex >= 0 && riddenIndex < ids.length && ids[riddenIndex] === requested
+        ? nearestStop(stops, poses[riddenIndex * POSE_FIELDS], poses[riddenIndex * POSE_FIELDS + 1]) : null;
+      hudElements.hudNear.textContent = near ? `Near ${near.name}, ${formatDistance(near.distance)}` : "";
       hudElements.stripSession.textContent = view.session;
       hudElements.stripMessage.textContent = view.message;
       hudElements.rideAt1x.disabled = !view.rideAt1x;
@@ -1057,6 +1086,7 @@
         refreshPods();
       }
       const ridden = updatePods(info.count, seconds);
+      riddenIndex = ridden;
       moveCamera(ridden, seconds);
       if (ridden >= 0) {
         const mapHeading = dampAngle(mapTurn, poses[ridden * POSE_FIELDS + 2], seconds, SEAT_YAW_SECONDS);
@@ -1085,7 +1115,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, miniMapArrow, stopPoints, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

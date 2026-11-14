@@ -187,7 +187,7 @@ test("hudView shows the pod, the trip, and the session", () => {
     found: true, podID: "01", class: "compact", activity: "Traveling", speed: 10, speedLimit: 14,
     waitReason: "Pod ahead", blockedBy: "02",
     riders: [{ partySize: 1, from: "Bank", to: "Oval" }, { partySize: 3, from: "Bank", to: "Kennington" }],
-    nextStop: "Oval", route: { remainingMeters: 1500, seconds: 125, partial: true },
+    nextStop: "Oval", route: { traveledMeters: 500, remainingMeters: 1500, seconds: 125, before: false, after: true },
     session: { speed: 15, paused: false, connected: true, message: "" },
   };
   const view = ride.hudView(hud);
@@ -197,7 +197,11 @@ test("hudView shows the pod, the trip, and the session", () => {
   assert.deepEqual(view.trip, ["1 passenger: Bank to Oval", "3 passengers: Bank to Kennington"]);
   assert.equal(view.next, "Next stop: Oval");
   assert.equal(view.route, "Route: over 1.5 km, over 2:05");
-  assert.equal(ride.hudView({ ...hud, route: { remainingMeters: 400, seconds: 30, partial: false } }).route, "Route: 400 m, about 0:30");
+  near(view.progress, 0.25, "progress");
+  const whole = ride.hudView({ ...hud, route: { traveledMeters: 0, remainingMeters: 400, seconds: 30, before: false, after: false } });
+  assert.equal(whole.route, "Route: 400 m, about 0:30");
+  near(whole.progress, 0, "progress at the start");
+  near(ride.hudView({ ...hud, route: { traveledMeters: 0, remainingMeters: 0, seconds: 0 } }).progress, 1, "progress of an empty route");
   assert.equal(view.session, "Session 15x");
   assert.equal(view.rideAt1x, true);
 
@@ -205,6 +209,7 @@ test("hudView shows the pod, the trip, and the session", () => {
   assert.equal(empty.next, "No passengers");
   assert.equal(empty.wait, "");
   assert.equal(empty.route, "");
+  assert.equal(empty.progress, -1);
   assert.equal(empty.speed, "36 km/h");
   assert.equal(empty.session, "Session 1x, paused, disconnected: lost");
   assert.equal(empty.rideAt1x, false);
@@ -321,4 +326,20 @@ test("autoHop moves after the last rider leaves", () => {
     { name: "no ridden pod", args: [true, true, 2, -1], want: false },
   ];
   for (const { name, args, want } of cases) assert.equal(ride.autoHop(...args), want, name);
+});
+
+test("nearestStop finds the nearest passenger station", () => {
+  const stations = [
+    { id: "a", name: "Alpha", berths: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+    { id: "depot", name: "Depot", parkingOnly: true, berths: [{ x: 101, y: 0 }] },
+    { id: "b", name: "", berths: [{ x: 100, y: 0 }] },
+    { id: "empty", name: "Empty", berths: [] },
+  ];
+  const stops = ride.stopPoints(stations);
+  assert.deepEqual(stops, [{ name: "Alpha", x: 10, y: 0 }, { name: "b", x: 100, y: 0 }]);
+  assert.deepEqual(ride.nearestStop(stops, 90, 0), { name: "b", distance: 10 });
+  assert.deepEqual(ride.nearestStop(stops, 10, 30), { name: "Alpha", distance: 30 });
+  // A tie goes to the first stop.
+  assert.equal(ride.nearestStop(stops, 55, 0).name, "Alpha");
+  assert.equal(ride.nearestStop([], 0, 0), null);
 });

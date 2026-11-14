@@ -20,7 +20,11 @@
     #hud { position: absolute; right: 8px; top: 8px; min-width: 220px; max-width: min(360px, calc(100vw - 32px)); padding: 8px 11px; border-radius: 5px; background: #101d28d9; line-height: 1.45; }
     #hudSpeed { font-size: 22px; font-variant-numeric: tabular-nums; }
     #hudWait { color: #f3c479; }
-    #hudWait:empty, #hudNext:empty, #hudRoute:empty, #hudTrip:empty { display: none; }
+    #hudWait:empty, #hudNext:empty, #hudRoute:empty, #hudTrip:empty, #hudNear:empty { display: none; }
+    #hudProgress { height: 6px; margin: 4px 0 2px; border-radius: 3px; background: #2a3c4b; overflow: hidden; }
+    #hudProgress[hidden] { display: none; }
+    #hudProgressBar { height: 100%; width: 0; background: #6fb3e8; }
+    #hudNear { color: #b7c8d6; }
     #hudTrip { margin-top: 6px; padding-top: 6px; border-top: 1px solid #496174; }
     #strip { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 10px; border-radius: 5px; background: #101d28d9; white-space: nowrap; }
     #stripMessage { color: #f3c479; }
@@ -51,6 +55,8 @@
     <div id="hudTrip"></div>
     <div id="hudNext"></div>
     <div id="hudRoute"></div>
+    <div id="hudProgress" role="progressbar" aria-label="Route progress" hidden><div id="hudProgressBar"></div></div>
+    <div id="hudNear"></div>
   </div>
   <div id="strip">
     <span id="stripSession"></span>

@@ -70,7 +70,7 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 | `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 5 numbers for each pod: x, y, heading, speed, and class index. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
-| `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, remaining route, session speed and pause, connection, and the outcome of the last command. |
+| `ride.hud(podID)` | 4 times a second | JSON: class, activity, speed, lane speed limit, wait reason, `blockedBy`, riders aboard, next stop, route progress, session speed and pause, connection, and the outcome of the last command. |
 | `ride.nextPod(podID)` | In auto mode, when the page moves to another pod | The pod that auto mode rides after `podID`, or an empty string. |
 | `ride.setSpeed(speed)` | On user action | It sends a `speed` command for the session that the page shows, through the retry-safe command path of `remote.Client`. It returns the error text when the client cannot send the command. The HUD shows the reply. |
 
@@ -168,10 +168,16 @@ If the ridden pod leaves the fleet, for example after a project apply, the page 
   The next stop is the first stop of the pod, or else the destination of the first party aboard.
   The client gets the route window as `Vehicle.Presentation`, and the ETA uses the lengths and speed limits of its lanes from the pod lane on, with no waits.
   If the route continues past the window, the panel shows "over" the window distance and time.
-- Mini-map: a round 2D canvas that shows 600 m around the ridden pod, with north up.
+  A bar shows the progress along the current route: the distance behind the pod over the route length in the window.
+  Each leg of a shared ride is its own route, so the bar starts again at each stop.
+- Nearest stop: the name of the nearest passenger station to the ridden pod and its distance, so the rider can get their bearings.
+  The center of the berths of a station is its position, and parking-only stations do not count.
+  The maintainer asked for the bar and the nearest stop in the M3b check.
+- Mini-map: a round 2D canvas that shows 1.5 km around the ridden pod, with north up.
+  The first version showed 600 m, and in the M3b check the maintainer asked for a wider view.
   It shows the lanes, the stations, the other pods in their class colors, and a north mark, and it draws 10 times a second.
-  A grid of 250 m cells holds the lane segments, so a draw reads only the segments near the pod.
-  On LondonFull, the grid takes 18 ms to build, and a draw reads about 110 segments.
+  A grid of 500 m cells holds the lane segments, so a draw reads only the segments near the pod.
+  On LondonFull, the grid takes 16 ms to build, and a draw reads about 460 of the 11,509 segments in less than 1 ms.
 - Session strip: the session speed, the pause state, the connection state, the "Ride at 1x" button, and the outcome of the last command.
   The diagnostics line shows the frame rate.
 
