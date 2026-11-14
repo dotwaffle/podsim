@@ -1204,9 +1204,9 @@
     pipeline.imageProcessing.toneMappingType = B.ImageProcessingConfiguration.TONEMAPPING_ACES;
     pipeline.imageProcessing.exposure = 1.1;
     pipeline.imageProcessing.contrast = 1.15;
-    pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.85;
-    pipeline.bloomWeight = 0.2;
+    // Bloom spread the bright map tiles into soft blotches on the dark cabin
+    // pillars, so the pipeline has no bloom.
+    pipeline.bloomEnabled = false;
     const signs = createSigns(B, scene);
     const credit = document.getElementById("credit");
     let tileLayer = null, lastTiles = 0;

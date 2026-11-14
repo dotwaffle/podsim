@@ -139,7 +139,8 @@ A test pins the axis mapping with a station pair of known compass direction.
   A 4,096-pixel map over a 260 m square around the camera fixed the edges, but the shadows stopped about 130 m ahead, and the maintainer asked for twice the distance.
   Without WebGL2, the page uses that single map.
   The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
-- Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, ACES tone mapping, and a weak bloom.
+- Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, and ACES tone mapping.
+  In the check of the cascaded shadows, a weak bloom (threshold 0.85, weight 0.2) spread the bright map tiles into soft blotches on the edges of the dark cabin pillars, so the page has no bloom.
 - Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
   On LondonFull, 6,720 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 718 between station lanes.
   Most mainline crossings are in hubs: a ring of nodes where each entry joins each exit by a straight chord, so the chords cross in the middle.
