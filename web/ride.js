@@ -14,6 +14,16 @@
   const PILLAR_MIN_HEIGHT = 1;
   // A straight ramp has a point at least every LEVEL_STEP meters.
   const LEVEL_STEP = 8;
+  // The deck of a hub is a little lower than a beam top, so a station beam
+  // that crosses it does not fight it in the depth buffer.
+  const HUB_DECK_DROP = 0.05;
+  // A hub is a group of mainline lanes that cross each other with no shared
+  // node, with at least HUB_CROSSINGS crossings and HUB_LANES lanes. A lane
+  // longer than HUB_LANE_LIMIT passes a hub, so it is not part of one.
+  const HUB_CROSSINGS = 10;
+  const HUB_LANES = 4;
+  const HUB_LANE_LIMIT = 400;
+  const HUB_CELL = 100;
   const MAX_PILLARS = 60000;
   // A curved lane gets one sample at most every CURVE_STEP meters.
   const CURVE_STEP = 4;
@@ -199,6 +209,126 @@
       seen.add(key);
       return true;
     });
+  }
+
+  // segmentsCross reports whether the segments a-b and c-d cross at a point
+  // inside both of them.
+  function segmentsCross(a, b, c, d) {
+    const rx = b.x - a.x, ry = b.y - a.y, sx = d.x - c.x, sy = d.y - c.y, den = rx * sy - ry * sx;
+    if (den === 0) return false;
+    const u = ((c.x - a.x) * sy - (c.y - a.y) * sx) / den, v = ((c.x - a.x) * ry - (c.y - a.y) * rx) / den;
+    return u > 0 && u < 1 && v > 0 && v < 1;
+  }
+
+  // convexHull returns the convex hull of points, counterclockwise in world
+  // coordinates, with no repeated point.
+  function convexHull(points) {
+    const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+    const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    const half = (list) => {
+      const out = [];
+      for (const point of list) {
+        while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], point) <= 0) out.pop();
+        out.push(point);
+      }
+      out.pop();
+      return out;
+    };
+    if (sorted.length < 3) return sorted;
+    return [...half(sorted), ...half(sorted.reverse())];
+  }
+
+  // findHubs returns the hubs of the mainline lanes: groups of lanes that
+  // cross each other with no shared node. Each hub has the IDs of its lanes
+  // and the convex hull of their end points. The simulation does not control
+  // such crossings, so a pod passes through a pod on a crossing lane.
+  function findHubs(lanes, nodes) {
+    const segments = [], buckets = new Map();
+    const candidates = lanes.filter((lane) => !lane.stationID && nodes.has(lane.from) && nodes.has(lane.to));
+    candidates.forEach((lane, index) => {
+      const points = laneSamples(nodes.get(lane.from), nodes.get(lane.to), lane.control);
+      let length = 0;
+      for (let i = 1; i < points.length; i++) length += Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y);
+      if (length > HUB_LANE_LIMIT) return;
+      for (let i = 1; i < points.length; i++) {
+        const a = points[i - 1], b = points[i], segment = segments.length;
+        segments.push({ index, a, b });
+        for (let cx = Math.floor(Math.min(a.x, b.x) / HUB_CELL); cx <= Math.floor(Math.max(a.x, b.x) / HUB_CELL); cx++) {
+          for (let cy = Math.floor(Math.min(a.y, b.y) / HUB_CELL); cy <= Math.floor(Math.max(a.y, b.y) / HUB_CELL); cy++) {
+            const key = `${cx},${cy}`;
+            if (!buckets.has(key)) buckets.set(key, []);
+            buckets.get(key).push(segment);
+          }
+        }
+      }
+    });
+    // parent is a union-find forest over the candidate lanes.
+    const parent = candidates.map((_, i) => i);
+    const find = (i) => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    const crossings = new Map(), seen = new Set();
+    for (const list of buckets.values()) {
+      for (let i = 0; i < list.length; i++) {
+        for (let j = i + 1; j < list.length; j++) {
+          const p = segments[list[i]], q = segments[list[j]];
+          if (p.index === q.index) continue;
+          const a = candidates[p.index], b = candidates[q.index];
+          if (a.from === b.from || a.from === b.to || a.to === b.from || a.to === b.to) continue;
+          const pair = list[i] < list[j] ? `${list[i]},${list[j]}` : `${list[j]},${list[i]}`;
+          if (seen.has(pair) || !segmentsCross(p.a, p.b, q.a, q.b)) continue;
+          seen.add(pair);
+          parent[find(p.index)] = find(q.index);
+          crossings.set(p.index, (crossings.get(p.index) || 0) + 1);
+        }
+      }
+    }
+    const groups = new Map();
+    for (const index of crossings.keys()) {
+      const root = find(index);
+      if (!groups.has(root)) groups.set(root, { lanes: new Set(), crossings: 0 });
+    }
+    candidates.forEach((lane, index) => {
+      const group = groups.get(find(index));
+      if (group) group.lanes.add(index);
+    });
+    for (const [index, count] of crossings) groups.get(find(index)).crossings += count;
+    const hubs = [];
+    for (const group of groups.values()) {
+      if (group.crossings < HUB_CROSSINGS || group.lanes.size < HUB_LANES) continue;
+      const members = [...group.lanes].map((index) => candidates[index]);
+      const ends = members.flatMap((lane) => [nodes.get(lane.from), nodes.get(lane.to)]);
+      hubs.push({ laneIDs: new Set(members.map((lane) => lane.id)), hull: convexHull(ends), crossings: group.crossings });
+    }
+    return hubs;
+  }
+
+  // deckGeometry returns the vertex data of a flat deck over the convex
+  // polygon hull of world points, with its top at top and the depth
+  // BEAM_DEPTH. It has a top face and side walls, with vertex colors as the
+  // beams have.
+  function deckGeometry(hull, top) {
+    const positions = [], normals = [], colors = [], indices = [];
+    const add = (point, height, normal, shade) => {
+      const [x, z] = toScene(point.x, point.y);
+      positions.push(x, height, z);
+      normals.push(...normal);
+      colors.push(shade, shade, shade * 0.97, 1);
+      return positions.length / 3 - 1;
+    };
+    if (hull.length < 3) return { positions: new Float32Array(), normals: new Float32Array(), colors: new Float32Array(), indices: new Uint32Array() };
+    // The beam material draws both sides, so the winding does not matter.
+    const first = add(hull[0], top, [0, 1, 0], 0.42);
+    const rim = hull.slice(1).map((point) => add(point, top, [0, 1, 0], 0.42));
+    for (let i = 0; i + 1 < rim.length; i++) indices.push(first, rim[i], rim[i + 1]);
+    for (let i = 0; i < hull.length; i++) {
+      const a = hull[i], b = hull[(i + 1) % hull.length];
+      const [ax, az] = toScene(a.x, a.y), [bx, bz] = toScene(b.x, b.y), length = Math.hypot(bx - ax, bz - az) || 1;
+      // The hull is counterclockwise in world coordinates, so this normal
+      // points out of the deck.
+      const normal = [-(bz - az) / length, 0, (bx - ax) / length];
+      const v = [add(a, top, normal, 0.82), add(b, top, normal, 0.82), add(a, top - BEAM_DEPTH, normal, 0.82), add(b, top - BEAM_DEPTH, normal, 0.82)];
+      indices.push(v[0], v[2], v[1], v[1], v[2], v[3]);
+    }
+    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), indices: new Uint32Array(indices) };
   }
 
   // beamGeometry returns the vertex data of a box beam along each lane. Each
@@ -680,12 +810,27 @@
     beamMaterial.diffuseColor = new B.Color3(1, 1, 1);
     beamMaterial.specularColor = new B.Color3(0.08, 0.08, 0.08);
     beamMaterial.backFaceCulling = false;
-    // A reverse twin draws in the same place, so it draws once.
-    const lanes = uniqueLanes(topology.lanes), levels = topology.levels;
+    // A reverse twin draws in the same place, so it draws once. A hub draws
+    // as one deck in place of the beams of its crossing lanes.
+    const hubs = findHubs(topology.lanes, nodes);
+    const hubLanes = new Set(hubs.flatMap((hub) => [...hub.laneIDs]));
+    const lanes = uniqueLanes(topology.lanes).filter((lane) => !hubLanes.has(lane.id)), levels = topology.levels;
     for (let start = 0; start < lanes.length; start += LANES_PER_CHUNK) {
       const geometry = beamGeometry(lanes.slice(start, start + LANES_PER_CHUNK), nodes, levels);
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(`beams${start}`, scene);
+      const data = new B.VertexData();
+      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.indices = geometry.indices;
+      data.applyToMesh(mesh);
+      mesh.material = beamMaterial;
+      mesh.isPickable = false;
+      mesh.freezeWorldMatrix();
+      meshes.push(mesh); casters.push(mesh); receivers.push(mesh);
+    }
+    for (const [index, hub] of hubs.entries()) {
+      const geometry = deckGeometry(hub.hull, BEAM_TOP - HUB_DECK_DROP);
+      if (geometry.indices.length === 0) continue;
+      const mesh = new B.Mesh(`hub${index}`, scene);
       const data = new B.VertexData();
       data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.indices = geometry.indices;
       data.applyToMesh(mesh);
@@ -701,7 +846,8 @@
     const pillar = B.MeshBuilder.CreateCylinder("pillar", { height: BEAM_TOP - BEAM_DEPTH, diameterTop: 0.55, diameterBottom: 0.75, tessellation: 12 }, scene);
     pillar.material = concrete;
     pillar.isPickable = false;
-    const points = pillarPoints(lanes, nodes, levels);
+    // A pillar holds each corner of a hub deck.
+    const points = [...pillarPoints(lanes, nodes, levels), ...hubs.flatMap((hub) => hub.hull.map((point) => [...toScene(point.x, point.y), BEAM_TOP - HUB_DECK_DROP]))];
     const pillarMatrices = new Float32Array(points.length * 16);
     // The cylinder is as tall as a mainline pillar, so a lower beam scales it.
     points.forEach(([x, z, top], i) => {
@@ -1390,7 +1536,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

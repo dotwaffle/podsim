@@ -505,3 +505,72 @@ test("beamGeometry and pillarPoints follow the levels", () => {
   near(pillars[0][0], 30, "pillar x");
   near(pillars[0][2], ride.levelHeight(24, LEVELS) + (ride.levelHeight(32, LEVELS) - ride.levelHeight(24, LEVELS)) * 0.75, "pillar top");
 });
+
+test("convexHull keeps the outer points counterclockwise", () => {
+  const points = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }, { x: 5, y: 5 }, { x: 5, y: 0 }, { x: 0, y: 0 }];
+  assert.deepEqual(ride.convexHull(points), [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]);
+  assert.deepEqual(ride.convexHull([{ x: 1, y: 1 }, { x: 2, y: 2 }]), [{ x: 1, y: 1 }, { x: 2, y: 2 }]);
+});
+
+test("findHubs groups crossing mainline lanes", () => {
+  // A ring of 8 nodes. Each node joins the node across the ring, so the 4
+  // chords cross in the middle, and each joins the node 3 steps on, which
+  // adds more crossings.
+  const nodes = new Map(), lanes = [];
+  for (let i = 0; i < 8; i++) nodes.set(`r${i}`, { x: 100 * Math.cos(i * Math.PI / 4), y: 100 * Math.sin(i * Math.PI / 4) });
+  for (let i = 0; i < 8; i++) lanes.push({ id: `c${i}`, from: `r${i}`, to: `r${(i + 3) % 8}` });
+  for (let i = 0; i < 4; i++) lanes.push({ id: `d${i}`, from: `r${i}`, to: `r${i + 4}` });
+  // An approach lane ends on the ring and crosses nothing.
+  nodes.set("far", { x: 1000, y: 0 });
+  lanes.push({ id: "approach", from: "far", to: "r0" });
+  // A pair of lanes far away cross once, which is not a hub.
+  for (const [id, x, y] of [["p", 5000, 0], ["q", 5100, 0], ["u", 5050, -50], ["v", 5050, 50]]) nodes.set(id, { x, y });
+  lanes.push({ id: "pq", from: "p", to: "q" }, { id: "uv", from: "u", to: "v" });
+  // A station lane through the ring and a long lane over it are not part of it.
+  nodes.set("west", { x: -2000, y: 1 }); nodes.set("east", { x: 2000, y: 1 });
+  lanes.push({ id: "long", from: "west", to: "east" });
+  lanes.push({ id: "station", from: "r2", to: "r6", stationID: "s" });
+  const hubs = ride.findHubs(lanes, nodes);
+  assert.equal(hubs.length, 1);
+  assert.deepEqual([...hubs[0].laneIDs].sort(), ["c0", "c1", "c2", "c3", "c4", "c5", "c6", "c7", "d0", "d1", "d2", "d3"]);
+  assert.equal(hubs[0].hull.length, 8);
+  assert.ok(hubs[0].crossings >= 10, `crossings ${hubs[0].crossings}`);
+});
+
+test("deckGeometry has a top at the deck height and outward walls", () => {
+  const hull = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }];
+  const deck = ride.deckGeometry(hull, 5);
+  // A fan of 2 triangles on top, and 2 triangles on each of 4 walls.
+  assert.equal(deck.indices.length, (2 + 8) * 3);
+  const count = deck.positions.length / 3;
+  for (let i = 0; i < count; i++) {
+    const [x, y, z] = deck.positions.subarray(i * 3, i * 3 + 3), [nx, ny, nz] = deck.normals.subarray(i * 3, i * 3 + 3);
+    assert.ok(y === 5 || Math.abs(y - (5 - 0.7)) < 1e-6, `height ${y}`);
+    if (ny === 1) continue;
+    // The deck center is at scene (5, -5). A wall normal points away from it.
+    assert.ok(nx * (x - 5) + nz * (z + 5) > 0, `normal ${[nx, ny, nz]} at ${[x, z]} points inward`);
+  }
+  for (const index of deck.indices) assert.ok(index < count);
+  assert.equal(ride.deckGeometry(hull.slice(0, 2), 5).indices.length, 0);
+});
+
+test("segmentsCross counts only a crossing inside both segments", () => {
+  const p = (x, y) => ({ x, y });
+  assert.equal(ride.segmentsCross(p(-1, 0), p(1, 0), p(0, -1), p(0, 1)), true, "X");
+  assert.equal(ride.segmentsCross(p(-1, 0), p(1, 0), p(0, -1), p(0, 0)), false, "T: one end on the other segment");
+  assert.equal(ride.segmentsCross(p(-1, 0), p(1, 0), p(-1, 1), p(1, 1)), false, "parallel");
+  assert.equal(ride.segmentsCross(p(-1, 0), p(1, 0), p(2, -1), p(2, 1)), false, "apart");
+});
+
+test("findHubs leaves lanes that share a node at grade", () => {
+  // Straight lanes fan out from node o. Curves leave o below the fan and
+  // sweep up across all of it, so each curve crosses each straight lane.
+  // The simulation controls these crossings at the shared junction o, so
+  // they are not a hub.
+  const nodes = new Map([["o", { x: 0, y: 0 }]]), lanes = [];
+  for (let i = 0; i < 6; i++) {
+    nodes.set(`a${i}`, { x: 100, y: 20 * i }); nodes.set(`b${i}`, { x: 100, y: 130 + 10 * i });
+    lanes.push({ id: `a${i}`, from: "o", to: `a${i}` }, { id: `b${i}`, from: "o", to: `b${i}`, control: { x: 50, y: -150 } });
+  }
+  assert.deepEqual(ride.findHubs(lanes, nodes), []);
+});

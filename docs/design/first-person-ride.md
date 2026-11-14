@@ -138,8 +138,16 @@ A test pins the axis mapping with a station pair of known compass direction.
   If the edges are still too coarse, cascaded shadow maps are the next step.
   The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, ACES tone mapping, and a weak bloom.
-- Crossings: the beams and pods of two crossing lanes intersect.
-  Visual grade separation is a later item.
+- Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
+  On LondonFull, 6,720 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 718 between station lanes.
+  Most mainline crossings are in hubs: a ring of nodes where each entry joins each exit by a straight chord, so the chords cross in the middle.
+  A crossing has a median of 132 other crossings within 150 m, and only 11 have none, so a flyover for each crossing does not fit.
+- Hubs: the page groups mainline lanes that cross with no shared node, and a group with at least 10 crossings and 4 lanes is a hub.
+  A lane longer than 400 m passes a hub, so it is not part of one.
+  A hub draws as one deck over the convex hull of the lane end points, 5 cm below the beam top, with a pillar at each corner, in place of the chord beams.
+  The pods stay at the mainline height.
+  On LondonFull, 37 hubs hold 2,694 of the 2,905 mainline crossings, a typical hub is an octagon 125 m wide, and the search takes about 40 ms in Node.
+  The maintainer chose the deck on 2026-11-14, and the real fix of a hub belongs to the station layout study, because it changes the model.
 
 ## Cameras and input
 
@@ -294,7 +302,8 @@ The page derives each height from the network, and the model stores no elevation
 
 ## Later items
 
-- Visual grade separation at crossings, with the derived heights of the station levels.
+- Grade separation of the crossings that are not in a hub: about 210 between mainline lanes, and the crossings of station lanes near a diverge.
+  The station layout study can remove most of them.
 - A "Ride" button in the 2D pod inspector.
 - A glTF pod model.
 - Walking between a start location and a station.
