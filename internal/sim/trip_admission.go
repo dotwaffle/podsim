@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 // ExpressService declares one directed hub pair and its pooling party cap.
@@ -141,13 +142,48 @@ func (s *Simulation) validateTripOptions(options TripOptions) (TripOptions, erro
 			return options, nil
 		}
 	}
+	return TripOptions{}, s.tripRefusal(options, request, from, to)
+}
+
+// tripRefusal returns the error for a trip that no pod fits. When a class
+// of the fleet connects the stations but takes only smaller parties, the
+// party size is the cause. Otherwise, when a class admits the party, no
+// berths of that class connect the stations. Each class gives one answer,
+// so it is tested one time.
+func (s *Simulation) tripRefusal(options TripOptions, request Request, from, to Station) error {
+	var tested []VehicleClass
+	admits, largest := false, 0
 	for i := range s.vehicles {
-		v := &s.vehicles[i]
-		if ValidateVehicleClassProfileWithOrderContract(v.Pod.Class, s.orderContract) == nil && CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: options, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil {
-			return TripOptions{}, fmt.Errorf("passenger route %s to %s: %w", options.From, options.To, ErrUnreachable)
+		class := s.vehicles[i].Pod.Class
+		if slices.Contains(tested, class) {
+			continue
+		}
+		tested = append(tested, class)
+		if ValidateVehicleClassProfileWithOrderContract(class, s.orderContract) != nil {
+			continue
+		}
+		if CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: class, Request: options, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil {
+			admits = true
+			continue
+		}
+		profile, ok := LookupVehicleClassWithOrderContract(class, s.orderContract)
+		if party := min(profile.MaxNewPartySize, profile.Capacity()); ok && party < options.PartySize && s.stationsConnectedForClass(from, to, class) {
+			largest = max(largest, party)
 		}
 	}
-	return TripOptions{}, fmt.Errorf("no certified compatible vehicle and passenger path: %w", ErrPartyAdmission)
+	switch {
+	case largest > 0:
+		return fmt.Errorf("party of %d does not fit a pod that serves %s and %s (largest %d): %w", options.PartySize, stationName(from), stationName(to), largest, ErrPartyAdmission)
+	case admits:
+		return fmt.Errorf("passenger route %s to %s: %w", stationName(from), stationName(to), ErrUnreachable)
+	}
+	return fmt.Errorf("no certified compatible vehicle and passenger path: %w", ErrPartyAdmission)
+}
+
+// stationName returns the name of a station for an error, or its ID when
+// it has no name.
+func stationName(station Station) string {
+	return cmp.Or(station.Name, station.ID)
 }
 
 func requestFromOptions(options TripOptions, id int, tick int64) Request {
