@@ -12,7 +12,8 @@ On the next lane, which has no resource of the node, the body of the pod can sti
 For example, lane A is 24 m long, and lane B leaves the same node at 3 degrees: at the end of A, the two lanes are 1.26 m apart.
 A converging lane whose body range reaches its start has the same problem on the lane before it.
 In LondonFull with ramps, 685 of the 9,944 sides of lateral merge pairs have an extent that covers the whole lane.
-The rule must not be adopted until the maintainer chooses a fix.
+On 2026-11-15, the maintainer chose to exclude these pairs, as clause 5 of section 2 now says.
+The study runs with the field set again after the fix, and the adoption decision follows them.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.
@@ -51,6 +52,10 @@ A pair is a lateral pair when all of these are true:
 2. Neither lane is a loop, and the two lanes do not share both endpoints (`sharedEndpoints`, `junction_conflicts.go:72`).
 3. Both lanes are small: no large class and no geometry tail, as for the depot `small` member (`internal/sim/depot_lateral.go:70`).
 4. Neither lane is in a maneuver group or a depot.
+5. On neither lane does the body range reach the far end of the lane: the start for a converging pair, or the end for a diverging pair.
+   A join step at the far end counts as part of the lane.
+   Where the body range reaches the far end, the body of a pod can still meet the other body after the pod leaves the lane and releases the junction.
+   Such a pair keeps the isotropic rule.
 
 Through pairs, crossings, and every other pair keep the isotropic rule.
 Pairs with a large class keep 20 m, as the Express contract requires (`docs/contracts/express-physical-encoding-contract-proposal.md:206`).
