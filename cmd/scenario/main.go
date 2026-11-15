@@ -43,6 +43,7 @@ type capacity struct {
 	stationScale                 float64
 	compactStations              []string
 	junctions                    scenarios.LondonJunctions
+	lateralMerges                bool
 }
 
 func run(arguments []string, stdout, stderr io.Writer) error {
@@ -61,6 +62,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	flags.Float64Var(&options.stationScale, "station-scale", 0, "London presets only: scale of each passenger station past its throat, greater than 0 and at most 1; omit to keep the preset value of 0.5")
 	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
 	junctions := flags.String("junctions", "", "London presets only: chords or ramps, the junctions that join the links of a station; omit to keep the preset value of chords")
+	flags.BoolVar(&options.lateralMerges, "lateral-merges", false, "London presets only: set lateralMerges on the network, so that the lanes of shallow merges and splits get lateral merge pairs; omit to keep it off")
 	var incidents incidentFlags
 	incidents.register(flags)
 	if err := flags.Parse(arguments); err != nil {
@@ -160,7 +162,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset"}
 	if fixture, ok := fixtures[name]; ok {
-		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions"} {
+		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "lateral-merges"} {
 			if options.set[key] {
 				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
 			}
@@ -181,7 +183,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if name == "london-central" || name == "london-full" {
 		return londonPresetConfig(name, options)
 	}
-	for _, flag := range []string{"station-pods", "parking-pods", "station-scale", "compact-stations", "junctions"} {
+	for _, flag := range []string{"station-pods", "parking-pods", "station-scale", "compact-stations", "junctions", "lateral-merges"} {
 		if options.set[flag] {
 			return project.Config{}, fmt.Errorf("-%s applies only to the London presets", flag)
 		}
@@ -243,7 +245,14 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 			return project.Config{}, fmt.Errorf("-berths names Compact station %q, which has the 4 bays of the compact station; use -compact-stations none or a list without it", id)
 		}
 	}
-	return build(london)
+	config, err := build(london)
+	if err != nil {
+		return project.Config{}, err
+	}
+	if options.set["lateral-merges"] {
+		config.Network.LateralMerges = options.lateralMerges
+	}
+	return config, nil
 }
 
 // parseJunctions parses a -junctions value.

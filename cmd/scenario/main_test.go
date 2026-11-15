@@ -357,6 +357,25 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("name %q, %d chords, %d ramps, summary %q", ramps.Name, count["-move-"], count["-ramp-"], summary)
 		}
 	})
+	t.Run("lateral merges", func(t *testing.T) {
+		t.Parallel()
+		var preset, off bytes.Buffer
+		if err := run([]string{"-preset", "london-central"}, &preset, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		if err := run([]string{"-preset", "london-central", "-lateral-merges=false"}, &off, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(preset.Bytes(), off.Bytes()) {
+			t.Fatal("-lateral-merges=false changed the preset")
+		}
+		for _, preset := range []string{"london-central", "london-full"} {
+			config, _ := generate(t, "-preset", preset, "-junctions", "ramps", "-lateral-merges")
+			if !config.Network.LateralMerges {
+				t.Fatalf("%s: -lateral-merges did not set the network field", preset)
+			}
+		}
+	})
 	t.Run("London", func(t *testing.T) {
 		t.Parallel()
 		config, summary := generate(t, "-preset", "london-central", "-berths", "940GZZLUKSX=3", "-station-pods", "0", "-parking-pods", "12", "-parking-berths", "12")
@@ -405,6 +424,10 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "junctions for a fixture", arguments: []string{"-preset", "compact-station", "-junctions", "ramps"}, err: "-junctions does not apply to the compact station fixture"},
 		{name: "junctions for the Express preset", arguments: []string{"-preset", "london-full-express", "-junctions", "ramps"}, err: "-junctions does not apply to the LondonFull Express preset"},
 		{name: "unknown junctions", arguments: []string{"-preset", "london-central", "-junctions", "loops"}, err: `-junctions "loops" is not chords or ramps`},
+		{name: "lateral merges for a ring", arguments: []string{"-preset", "busy", "-lateral-merges"}, err: "-lateral-merges applies only to the London presets"},
+		{name: "lateral merges for the mesh", arguments: []string{"-preset", "scale100", "-lateral-merges"}, err: "-lateral-merges applies only to the London presets"},
+		{name: "lateral merges for a fixture", arguments: []string{"-preset", "compact-station", "-lateral-merges"}, err: "-lateral-merges does not apply to the compact station fixture"},
+		{name: "lateral merges for the Express preset", arguments: []string{"-preset", "london-full-express", "-lateral-merges"}, err: "-lateral-merges does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
