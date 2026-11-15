@@ -153,13 +153,19 @@ const (
 	// left edge of the text to the right edge of the buttons.
 	demandTextWidth = 244
 	// demandErrorLines is the largest number of lines for the demand
-	// error.
-	demandErrorLines = 2
+	// error. Long London station names need three lines.
+	demandErrorLines = 3
+	// demoErrorLines is the largest number of lines for the demand error
+	// when Start traffic demo shows. The button takes the place of the
+	// third line. It shows only for the example project, whose station
+	// names are short.
+	demoErrorLines = 2
 )
 
 // demandLabels returns the text of the Demand panel for state. fit is the
 // fit of the small text. Below the counters, the last demand error shows in
-// amber on at most demandErrorLines lines.
+// amber on at most demandErrorLines lines, or demoErrorLines lines when
+// Start traffic demo shows.
 func demandLabels(state session.State, fit textFit) []label {
 	demand := state.Demand
 	labels := []label{
@@ -173,7 +179,11 @@ func demandLabels(state session.State, fit textFit) []label {
 		labels[1].value = fmt.Sprintf("Trains: %d made / %d missed", c.Made, c.Missed)
 		labels[2].value = fmt.Sprintf("%d unserved / %d unresolved", c.Unserved, c.Unresolved)
 	}
-	for index, line := range wrapText(demand.Error, fit, demandErrorLines) {
+	lines := demandErrorLines
+	if state.DemoAvailable {
+		lines = demoErrorLines
+	}
+	for index, line := range wrapText(demand.Error, fit, lines) {
 		labels = append(labels, label{x: 816, y: 299 + 13*float64(index), size: 10, value: line, color: amber})
 	}
 	return labels

@@ -123,9 +123,9 @@ func TestDemandClicks(t *testing.T) {
 	}
 }
 
-// londonDemandError is a demand error with London station IDs. It is one
+// londonDemandError is a demand error with London station names. It is one
 // of the longest errors that the demand stream can report.
-const londonDemandError = "passenger route 940GZZLUEUS to 940GZZLUGDG: destination is unreachable"
+const londonDemandError = "passenger route Cutty Sark (for Maritime Greenwich) to Hammersmith (Dist&Picc Line): destination is unreachable"
 
 // TestDemandLabelsFitPanel checks that each label of the Demand panel stays
 // in the right panel and clears the buttons and the other labels, also with
@@ -133,46 +133,61 @@ const londonDemandError = "passenger route 940GZZLUEUS to 940GZZLUGDG: destinati
 func TestDemandLabelsFitPanel(t *testing.T) {
 	t.Parallel()
 	for _, layout := range controlLayouts {
-		t.Run(layout.name, func(t *testing.T) {
-			t.Parallel()
-			game := controlTestGame(t, layout.input)
-			game.showDemand = true
-			game.state.Demand.Error = londonDemandError
-			game.state.Demand.Generated, game.state.Demand.Skipped = 123456, 123456
-			game.state.Redistribution = true
-			game.state.Simulation.RebalanceMoves, game.state.Simulation.EmptyDistanceMeters = 12345, 12345600
-			controls := game.buttons()
-			panel := area{left: game.layout.right(796), top: game.layout.y(headerHeight), right: game.layout.right(1076), bottom: game.layout.bottom(538)}
-			labels := demandLabels(game.state, game.demandTextFit())
-			if !slices.ContainsFunc(labels, func(value label) bool { return value.value == demandSavesNote && value.color == muted }) {
-				t.Fatalf("Demand panel does not show %q in the muted color", demandSavesNote)
+		for _, demo := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s demo %v", layout.name, demo), func(t *testing.T) {
+				t.Parallel()
+				testDemandLabelsFitPanel(t, layout.input, demo)
+			})
+		}
+	}
+}
+
+// testDemandLabelsFitPanel checks the Demand panel of one layout with the
+// longest London error. Without Start traffic demo, the error shows in full
+// on at most demandErrorLines lines. With the button, the error ends after
+// demoErrorLines lines and clears the button.
+func testDemandLabelsFitPanel(t *testing.T, input layoutInput, demo bool) {
+	t.Helper()
+	game := controlTestGame(t, input)
+	game.showDemand = true
+	game.state.DemoAvailable = demo
+	game.state.Demand.Error = londonDemandError
+	game.state.Demand.Generated, game.state.Demand.Skipped = 123456, 123456
+	game.state.Redistribution = true
+	game.state.Simulation.RebalanceMoves, game.state.Simulation.EmptyDistanceMeters = 12345, 12345600
+	controls := game.buttons()
+	panel := area{left: game.layout.right(796), top: game.layout.y(headerHeight), right: game.layout.right(1076), bottom: game.layout.bottom(538)}
+	labels := demandLabels(game.state, game.demandTextFit())
+	if !slices.ContainsFunc(labels, func(value label) bool { return value.value == demandSavesNote && value.color == muted }) {
+		t.Fatalf("Demand panel does not show %q in the muted color", demandSavesNote)
+	}
+	var errorLines []string
+	for _, value := range labels {
+		if value.color == amber {
+			errorLines = append(errorLines, value.value)
+		}
+	}
+	switch got := strings.Join(errorLines, " "); {
+	case demo && len(errorLines) > demoErrorLines:
+		t.Errorf("amber error lines = %q, want at most %d lines beside Start traffic demo", errorLines, demoErrorLines)
+	case !demo && (got != londonDemandError || len(errorLines) > demandErrorLines):
+		t.Errorf("amber error lines = %q, want %q on at most %d lines", errorLines, londonDemandError, demandErrorLines)
+	}
+	for index, value := range labels {
+		got := game.labelArea(value)
+		if got.left < panel.left || got.top < panel.top || got.right > panel.right || got.bottom > panel.bottom {
+			t.Errorf("label %q %+v escapes panel %+v", value.value, got, panel)
+		}
+		for _, control := range controls {
+			if got.overlaps(buttonArea(control)) {
+				t.Errorf("label %q %+v overlaps control %q %+v", value.value, got, control.action, buttonArea(control))
 			}
-			var errorLines []string
-			for _, value := range labels {
-				if value.color == amber {
-					errorLines = append(errorLines, value.value)
-				}
+		}
+		for _, other := range labels[index+1:] {
+			if got.overlaps(game.labelArea(other)) {
+				t.Errorf("label %q %+v overlaps label %q %+v", value.value, got, other.value, game.labelArea(other))
 			}
-			if got := strings.Join(errorLines, " "); got != londonDemandError || len(errorLines) > demandErrorLines {
-				t.Errorf("amber error lines = %q, want %q on at most %d lines", errorLines, londonDemandError, demandErrorLines)
-			}
-			for index, value := range labels {
-				got := game.labelArea(value)
-				if got.left < panel.left || got.top < panel.top || got.right > panel.right || got.bottom > panel.bottom {
-					t.Errorf("label %q %+v escapes panel %+v", value.value, got, panel)
-				}
-				for _, control := range controls {
-					if got.overlaps(buttonArea(control)) {
-						t.Errorf("label %q %+v overlaps control %q %+v", value.value, got, control.action, buttonArea(control))
-					}
-				}
-				for _, other := range labels[index+1:] {
-					if got.overlaps(game.labelArea(other)) {
-						t.Errorf("label %q %+v overlaps label %q %+v", value.value, got, other.value, game.labelArea(other))
-					}
-				}
-			}
-		})
+		}
 	}
 }
 
