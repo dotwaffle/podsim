@@ -23,8 +23,12 @@ The isotropic rule has the same gap, and the exclusion does not remove it.
 The isotropic extent of a lane also ends at the lane end, so on the next lane a body can meet a body on the partner lane, with the field set or not.
 A scratch run of this geometry on 2026-11-15 gave the same overlap with the field set and unset.
 The committed tests do not repeat this run.
-In LondonFull, each such pair of lanes has two different separation groups and no shared node, so the model treats them as separate levels, as step 4 of section 3 says.
-The [lane-end protection](lane-end-protection.md) proposal measures this claim and gives the options to close the gap.
+The [lane-end protection](lane-end-protection.md) design measured this gap on 2026-11-15.
+For each pair that clause 5 excludes, the two lanes on London have different separation groups and no shared node, so the model treats them as separate levels.
+The other lanes that join at a far end share a node with the partner lane, are in one maneuver group, are depot lanes, or are at least 12 m away.
+London and Express run the all-pairs bank audit, because they have maneuver groups.
+The gap stays open only in a project without banks or maneuver groups, where `Check` still reports a close pair.
+The maintainer chose to keep this record and to add no check.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.
@@ -115,6 +119,7 @@ Take a lateral pair A and B at node N, and pods p on A and q on B.
    So the grown bodies of p and q are disjoint, and their references are at least 3.1 m apart.
 4. The steps cover only lanes that share the node.
    Lanes that share no node keep their rule: a separation group, a depot or bank audit, or no check.
+   A network with banks or maneuver groups runs the bank audit on all pairs, and other networks have no check (see the [lane-end protection](lane-end-protection.md) design).
 5. No step uses time or speed, so the argument holds at each tick rate, as section 1.2 of the tick-rate contract requires.
 6. At the node and after it, the node resource and the follow model give the old spacing.
    The node range of each lane and the To node of the last cell keep one pod at the node.

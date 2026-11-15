@@ -1,7 +1,11 @@
 # Lane-end protection
 
-Status: the maintainer approved this design on 2026-11-15.
-The decisions are C2 for L2, the separation-group exemption for L1, clause 5 for L4, a correction of the lateral merge design when C2 lands for L5, and the pass right after the existing audit for L6.
+Status: decided on 2026-11-15.
+The maintainer chose option D: the gap stays, with a correct record.
+The maintainer first approved C2.
+Section 11 gives the measurements of C2 and C1 that changed the decision.
+The other decisions are the separation-group exemption for L1 and clause 5 for L4.
+L3 and L6 do not apply to D, and the record of L5 is corrected.
 Code references are for `959912c7`.
 The counts come from a scratch test at `959912c7`, which did not land.
 A number in a table with the "Measured" heading, or a statement marked "measured", comes from that test.
@@ -241,6 +245,7 @@ A project without banks or maneuver groups keeps the gap, and only `Check` sees 
 
 Use C2 and D together.
 Run the all-pairs bank audit on every network, and keep the separation-group exemption, with a correct record.
+Section 11 replaces this recommendation with D.
 
 Take pods p on C and q on B, where A and B are a pair at N, and C adjoins A at its far end.
 With C2, one of these is true of C and B (inferred from the code):
@@ -298,7 +303,7 @@ Option B leaves the converging half open and lets a pod hold N while it waits.
 | ID | Decision | Options | Recommendation |
 | --- | --- | --- | --- |
 | L1 | Protection across separation groups | Keep the exemption, deny it when an incident lane joins the two reaches (the rule of `reachSeparated` for large pairs, `bank_geometry.go:158`, `plane_reach.go`), or carry N across groups (option A with groups ignored) | Keep the exemption. The reach rule refuses 1,171 cases on LondonFull chords and 1,852 on ramps, so the London generator must change. Option A costs a reach of up to 337.4 m on ramps. |
-| L2 | Same-plane gap in a project without the all-pairs audit | C2, C1, A with groups respected, or D only | C2. It closes the gap with no runtime change. Every preset and the 9 test networks pass, and 2 unit-test fixtures need changes. |
+| L2 | Same-plane gap in a project without the all-pairs audit | C2, C1, A with groups respected, or D only | C2 at first, then D. Section 11 gives the measurements. |
 | L3 | If A: bound for `MaxJunctionPairs` | Count the adjoining lanes of each side in the limit, or allow one step and refuse a longer carry | Count them. On LondonFull chords, the count is 58,686, and the total with the 49,440 sides is 108,126, inside the limit. |
 | L4 | Clause 5 | Keep it, or replace it with a body carry of option A | Keep it. A replacement needs option A, and on LondonFull ramps the body reach of the excluded sides is up to 171.5 m. |
 | L5 | Record | Correct the "Lane ends" paragraph and step 4 of section 3 of the lateral merge design | Correct both when C2 lands. |
@@ -363,3 +368,25 @@ It found the direction sound, and it found four problems, which this text now ad
 
 The review confirmed the static lane-pair argument, the audit coverage of all lanes and berths, the option A bound as a conservative bound, the open converging half of option B, and the restore behavior.
 It could not verify the scratch counts, because it did not run code.
+
+## 11. Build attempt and decision
+
+A build of C2 on 2026-11-15 stopped at step 1 of section 9, before any test changed.
+With the all-pairs audit, `go test -short ./...` failed 73 top-level tests in `internal/sim`, `internal/project`, `internal/editormodel`, and `cmd/serve` (measured).
+About 20 fixture builders were refused, not 2.
+Most are berth fans whose in and out lanes come closer than 12 m with no shared node, and limit rings whose last lane runs back over the others.
+Five tests pin a later refusal that the new pass comes before, including invalid preset variants of `TestPresetWithCapacity`.
+No valid preset, Express, or network of `scenario_networks.json.gz` was refused.
+
+A scratch build of C1 then measured the narrower option, and nothing landed.
+It refused no preset, Express, or test network, but it refused about 16 fixture builders, with the same berth fans and return lanes (measured).
+Their lanes cross or come within 2.45 m to 11.8 m of each other.
+In the tests that move pods, no pod used a refused pair of lanes (measured).
+C1 needs the junction extents in validation, so `ValidateNetwork` on LondonFull goes from about 185 ms to about 760 ms (measured, at a host load of about 17).
+In the position of L6, it also comes before two pinned lane-length refusals.
+One step past the far end was enough on every measured network.
+
+Thus neither code option is narrow, and the gap is already closed on every preset, on Express, and on the test networks.
+London and Express run the all-pairs audit, because they have maneuver groups, and no side of a ring preset reaches a lane end.
+The gap stays open only in a project without banks or maneuver groups, where `Check` still reports a close pair.
+The maintainer chose D.
