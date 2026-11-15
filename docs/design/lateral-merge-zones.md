@@ -1,6 +1,8 @@
 # Lateral merge zones
 
-Status: proposed, not approved.
+Status: the maintainer approved this design on 2026-11-15.
+The maintainer chose these options: the gated field (D4, option B), merges and splits (D1), a margin of 1 m (D2), the debris partners (D5), and the contract amendments (D7).
+D3 and D6 follow the recommendations.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.
