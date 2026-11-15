@@ -45,6 +45,33 @@ The shortest route of each AM peak flow on the chords network, from the exit of 
 This count covers passenger routes only.
 It does not include the empty moves of the pods, and it uses free-flow routes.
 
+## Where pods wait
+
+A follow-up run of seed 1 at 15 requests per minute sampled each stopped pod once per second, with its lane and the next node.
+Seed 1 is one of the two seeds that ramps did not drain, and this is one seed only.
+Chords have 1,221 pod-seconds of junction wait, and ramps have 2,986.
+The increase is at the merges:
+
+| Place | Chords | Ramps |
+| --- | ---: | ---: |
+| Before a merge: a ramp or a chord before a join node or a departure portal | 68 s | 1,535 s |
+| Before a merge: an on-slip from a station before a departure portal | 24 s | 301 s |
+| Before a split: the line before a split node or an arrival portal | 720 s | 586 s |
+| Inside stations and parking | 409 s | 564 s |
+
+Only pods on ramps stop before the join nodes.
+Pods on the line do not stop there.
+Bank and Monument has at least 607 s of the waits at split and join nodes.
+
+A possible cause, which this study did not check, is the length of the conflict zones at the join nodes.
+Two lanes at one node conflict where they are nearer than the clearance, and a pod enters only when the whole conflict zone is clear.
+At the 6 join nodes with the most waiting, the zone on the ramp is 50 m to 53 m, and the zone on the line is 12 m or 13 m.
+At the 4 split nodes with the most waiting, the zones are 12 m or 13 m.
+Of all conflict zones of the ramps network, the median is 13 m and the 90th percentile is 24 m.
+A ramp joins the line at a shallow angle, so the last part of the ramp stays near the line.
+A pod on a ramp can then need a long gap in the line traffic before it enters.
+The rules of the simulator that decide which pod goes first at a merge can also add to the waits.
+
 ## Method
 
 The measured source is `b3d79964`.
