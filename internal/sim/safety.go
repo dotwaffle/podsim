@@ -120,11 +120,13 @@ type separationIndex struct {
 	// is nil when the observation has no positions.
 	chains []safetyChain
 	// keys holds the separation key of each pod that is equal to its bound
-	// pod, certified the certified pairs, and lateral the lateral pairs.
-	// keys is nil when the observation has no keys.
+	// pod, certified the certified pairs, lateral the lateral pairs, and
+	// merges the lateral merge pairs. keys is nil when the observation has
+	// no keys.
 	keys      []separationKey
 	certified certifiedPairs
 	lateral   *depotLateral
+	merges    *depotLateral
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
 }
@@ -141,7 +143,7 @@ func (o SafetyObservation) separationIndex() separationIndex {
 		index.chains = make([]safetyChain, len(o.Pods))
 	}
 	if len(o.keys) > 0 {
-		index.keys, index.certified, index.lateral = make([]separationKey, len(o.Pods)), o.certified, o.lateral
+		index.keys, index.certified, index.lateral, index.merges = make([]separationKey, len(o.Pods)), o.certified, o.lateral, o.merges
 	}
 	slots := podSlots{bound: o.bound}
 	for i, pod := range o.Pods {
@@ -253,8 +255,9 @@ func (index *separationIndex) skip(squared, ceiling, smallestSquared float64) bo
 // too close. A pair whose bound keys form a certified pair of the maneuver
 // certification is skipped. A small pair that a window certifies needs
 // compactClearance at the speed of the follower (see certifiedClearance). A
-// small pair whose bound keys form a lateral pair needs the clearance of
-// that pair (see lateralClearance). Every other small pair needs Clearance.
+// small pair whose bound keys form a lateral pair or a lateral merge pair
+// needs the clearance of that pair (see lateralClearance). Every other
+// small pair needs Clearance.
 func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (counted, violates bool) {
 	if len(index.keys) > 0 && index.certified.certified(index.keys[i], index.keys[j]) {
 		return false, false
@@ -277,6 +280,11 @@ func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (co
 	}
 	if minimum == Clearance && len(index.keys) > 0 {
 		if clearance, ok := index.lateral.clearance(index.keys[i], index.keys[j]); ok {
+			minimum = clearance
+		}
+	}
+	if minimum == Clearance && len(index.keys) > 0 {
+		if clearance, ok := index.merges.clearance(index.keys[i], index.keys[j]); ok {
 			minimum = clearance
 		}
 	}

@@ -181,6 +181,15 @@ func (l *depotLateral) neighborLanes(lane int) []int {
 	return l.neighbors[lane]
 }
 
+// lanePoints returns the polyline of a lane that has a neighbor.
+func (l *depotLateral) lanePoints(lane int) ([]Point, bool) {
+	if l == nil {
+		return nil, false
+	}
+	points, ok := l.points[lane]
+	return points, ok
+}
+
 // lateralBuilder holds the network data of the members.
 type lateralBuilder struct {
 	network            Network

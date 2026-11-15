@@ -95,10 +95,11 @@ func (s *Simulation) debrisSegment(lane int, from, to float64) ([]resource, erro
 // suspension contract): each resource of each cell of the lane that meets
 // [from - Clearance, to + Clearance], and then each resource of each cell
 // of a lateral neighbor of the lane that comes closer than Clearance to
-// the segment. A cell meets the interval when the closed ranges share a
-// point. A cell at a lane end holds the node and the junction resources,
-// so debris near a junction also blocks the lanes that share it. The
-// footprint is a function of the network and the segment.
+// the segment. A lateral neighbor is a depot lane of a lateral pair, or the
+// partner of a lateral merge pair. A cell meets the interval when the
+// closed ranges share a point. A cell at a lane end holds the node and the
+// junction resources, so debris near a junction also blocks the lanes that
+// share it. The footprint is a function of the network and the segment.
 func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 	cells := s.laneCells[s.network.Lanes[lane].ID]
 	length := s.graph.lengths[lane]
@@ -121,24 +122,47 @@ func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 		}
 		add(cells.cell(cell))
 	}
-	neighbors := s.lateral.neighborLanes(lane)
+	neighbors := lateralNeighbors(s.lateral.neighborLanes(lane), s.merges.neighborLanes(lane))
 	if len(neighbors) == 0 {
 		return footprint
 	}
 	// A lateral neighbor can be closer than Clearance to the lane, so its
 	// cells near the segment are in the footprint too.
-	segment := polylinePiece(s.lateral.points[lane], from, to)
+	segment := polylinePiece(s.lateralPoints(lane), from, to)
 	for _, neighbor := range neighbors {
 		cells, length := s.laneCells[s.network.Lanes[neighbor].ID], s.graph.lengths[neighbor]
 		count := cells.count()
 		for cell := range count {
-			piece := polylinePiece(s.lateral.points[neighbor], cellOffset(cell, count, length), cellOffset(cell+1, count, length))
+			piece := polylinePiece(s.lateralPoints(neighbor), cellOffset(cell, count, length), cellOffset(cell+1, count, length))
 			if bankPathsClose(segment, piece, Clearance) {
 				add(cells.cell(cell))
 			}
 		}
 	}
 	return footprint
+}
+
+// lateralNeighbors returns the lateral neighbors of a lane: its depot
+// neighbors and its lateral merge partners, in network lane order, each
+// one time. A lane is not in both, because a lateral merge pair has no
+// depot lane.
+func lateralNeighbors(depot, merges []int) []int {
+	if len(merges) == 0 {
+		return depot
+	}
+	neighbors := slices.Concat(depot, merges)
+	slices.Sort(neighbors)
+	return slices.Compact(neighbors)
+}
+
+// lateralPoints returns the polyline of a lane that has a lateral
+// neighbor.
+func (s *Simulation) lateralPoints(lane int) []Point {
+	if points, ok := s.lateral.lanePoints(lane); ok {
+		return points
+	}
+	points, _ := s.merges.lanePoints(lane)
+	return points
 }
 
 // activeDebris returns the number of debris records.

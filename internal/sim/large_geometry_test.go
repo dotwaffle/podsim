@@ -229,7 +229,7 @@ func TestLargeGeometryJunctionBoundAndSkip(t *testing.T) {
 			t.Parallel()
 			n := Network{Nodes: []Node{{ID: "a"}, {ID: "junction", Position: Point{X: 1000}}, {ID: "b", Position: Point{X: 1000, Y: 100}}},
 				Lanes: []Lane{{ID: "approach", From: "a", To: "junction", SpeedLimit: 14, VehicleClasses: largeGeometryClasses(t, tc.first)}, {ID: "exit", From: "junction", To: "b", SpeedLimit: 14, VehicleClasses: largeGeometryClasses(t, tc.second)}}}
-			conflicts := buildJunctionConflicts(n)
+			conflicts := junctionConflictsOf(n)
 			if len(conflicts["approach"]) != 1 || len(conflicts["exit"]) != 1 || !reflect.DeepEqual(n.JunctionPairs(), []int{0, 2, 0}) {
 				t.Fatalf("junction lost ordered pairs: %+v", conflicts)
 			}

@@ -16,6 +16,16 @@ import (
 	"testing"
 )
 
+// junctionConflictsOf returns the junction conflicts of a network, with
+// the lateral merge pairs that PrepareNetwork builds. The network does not
+// need to be valid.
+func junctionConflictsOf(network Network) map[string][]laneConflict {
+	positions := indexNodePositions(network.Nodes)
+	maneuvers, _ := newManeuverIndex(network, positions)
+	depots, _ := newDepotIndex(network, positions)
+	return buildJunctionConflicts(network, newMergeLateral(network, indexGeometryTails(network), maneuvers, depots))
+}
+
 // referenceJunctionConflicts is the junction conflict table before the
 // segment bounds. It measures every sample against every segment.
 func referenceJunctionConflicts(network Network) map[string][]laneConflict {
@@ -103,7 +113,7 @@ func encodeJunctionConflicts(conflicts map[string][]laneConflict) string {
 // differs from the reference table.
 func checkJunctionConflictsMatchReference(t *testing.T, network Network) {
 	t.Helper()
-	got := encodeJunctionConflicts(buildJunctionConflicts(network))
+	got := encodeJunctionConflicts(junctionConflictsOf(network))
 	want := encodeJunctionConflicts(referenceJunctionConflicts(network))
 	if want == "" {
 		t.Fatal("network has no junction conflicts")

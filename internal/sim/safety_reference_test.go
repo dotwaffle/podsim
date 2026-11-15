@@ -68,6 +68,9 @@ func (o SafetyObservation) checkSeparationReference() (float64, error) {
 			if clearance, ok := o.lateral.clearance(a, b); bound && minimum == Clearance && ok {
 				minimum = clearance
 			}
+			if clearance, ok := o.merges.clearance(a, b); bound && minimum == Clearance && ok {
+				minimum = clearance
+			}
 			dx := first.Position.X - second.Position.X
 			dy := first.Position.Y - second.Position.Y
 			gapSquared := dx*dx + dy*dy
@@ -247,7 +250,8 @@ func randomSeparationObservation(r *rand.Rand) SafetyObservation {
 }
 
 // addRandomKeys gives separation keys to the pods of an observation, with
-// random certified and lateral pairs of those keys. Some pods have no key.
+// random certified, lateral, and lateral merge pairs of those keys. Some
+// pods have no key.
 func addRandomKeys(r *rand.Rand, o *SafetyObservation) {
 	keys := []separationKey{laneKey(0), laneKey(1), laneKey(2), berthKey(0), berthKey(1), berthKey(2)}
 	key := func() separationKey { return keys[r.IntN(len(keys))] }
@@ -261,6 +265,12 @@ func addRandomKeys(r *rand.Rand, o *SafetyObservation) {
 	o.lateral = &depotLateral{pairs: make(map[[2]separationKey]float64)}
 	for range r.IntN(8) {
 		o.lateral.pairs[keyPair(key(), key())] = clearances[r.IntN(len(clearances))]
+	}
+	if r.IntN(2) == 0 {
+		o.merges = &depotLateral{pairs: make(map[[2]separationKey]float64)}
+		for range r.IntN(4) {
+			o.merges.pairs[keyPair(laneKey(r.IntN(3)), laneKey(r.IntN(3)))] = lateralClearance(0)
+		}
 	}
 	if r.IntN(2) == 0 {
 		o.certified = make(certifiedPairs)

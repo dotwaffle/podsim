@@ -122,6 +122,11 @@ type Network struct {
 	Stations       []Station       `json:"stations"`
 	ManeuverGroups []ManeuverGroup `json:"maneuverGroups,omitzero" digest:"ext=13"`
 	Depots         []Depot         `json:"depots,omitzero" digest:"ext=14"`
+	// LateralMerges turns on the lateral merge pairs (see newMergeLateral):
+	// two small lanes that both end or both start at one node keep a
+	// shorter junction conflict zone, and their pods keep lateralClearance(0)
+	// in place of Clearance. The zero value keeps the isotropic zones.
+	LateralMerges bool `json:"lateralMerges,omitzero" digest:"ext=16"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.

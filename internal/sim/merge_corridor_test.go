@@ -98,7 +98,20 @@ type corridorCase struct {
 	// corridorPlatoonGap apart in a platoon and corridorQueueGap apart
 	// between two platoons. Otherwise all pods are corridorQueueGap apart.
 	platoonQueue bool
+	// lateral sets LateralMerges on the network. The run then checks the
+	// grown bodies of the pods of each lateral merge pair at each tick, in
+	// place of the 12 m of checkTraffic, which such a pair does not keep.
+	lateral bool
+	// whole runs all 900 s, also after each pod enters the exit lane. It
+	// moves the destination station corridorFarDestination meters farther,
+	// so that no pod reaches it in that time.
+	whole bool
 }
+
+// corridorFarDestination moves the destination station of a whole run.
+// The berth fan of the station is closer than Clearance to a berth node,
+// so a pod that reaches the station is too close to a parked pod.
+const corridorFarDestination = 10000.0
 
 type corridorResult struct {
 	// headway is the mean time in seconds between two pods at the measure
@@ -110,6 +123,9 @@ type corridorResult struct {
 	// linked counts the pods that were in a platoon at some tick, and
 	// largest is the largest platoon.
 	linked, largest int
+	// lateralGap is the smallest distance between two pods of a lateral
+	// merge pair, or +Inf.
+	lateralGap float64
 }
 
 // runMergeCorridor restores a stopped queue of corridorStreamPods pods on
@@ -119,6 +135,14 @@ type corridorResult struct {
 func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	t.Helper()
 	network := mergeCorridor(test.side, test.sideDegrees)
+	network.LateralMerges = test.lateral
+	if test.whole {
+		for index := range network.Nodes {
+			if node := &network.Nodes[index]; node.Position.X > corridorExitLength {
+				node.Position.X += corridorFarDestination
+			}
+		}
+	}
 	laneIndex := make(map[string]int, len(network.Lanes))
 	for index, lane := range network.Lanes {
 		laneIndex[lane.ID] = index
@@ -176,10 +200,22 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	measured, entered := make(map[string]bool), make(map[string]bool)
 	var ticks []int64
 	var order []string
+	lateralGap := math.Inf(1)
 	for range 900 * TicksPerSecond {
 		s.Step()
 		snapshot := s.Snapshot()
-		checkTraffic(t, snapshot)
+		if test.lateral {
+			// Check covers the positions, the berths, and the separation
+			// of the other pairs. checkTraffic also bounds the speed.
+			for _, v := range snapshot.Vehicles {
+				if v.Pod.Speed > 14 {
+					t.Fatalf("tick %d: pod %s at %v m/s", snapshot.Tick, v.Pod.ID, v.Pod.Speed)
+				}
+			}
+			lateralGap = min(lateralGap, checkMergeBodies(t, s))
+		} else {
+			checkTraffic(t, snapshot)
+		}
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", snapshot.Tick, err)
 		}
@@ -196,7 +232,7 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 				order = append(order, stream[v.Pod.ID])
 			}
 		}
-		if len(entered) == len(fleet) {
+		if len(entered) == len(fleet) && !test.whole {
 			break
 		}
 	}
@@ -214,7 +250,7 @@ func runMergeCorridor(t *testing.T, test corridorCase) corridorResult {
 	if len(ticks) != len(fleet) {
 		t.Fatalf("%d pods passed the measure point, want %d", len(ticks), len(fleet))
 	}
-	return corridorResult{headway: meanHeadway(ticks), order: order, linked: len(platoons.linked), largest: platoons.largest}
+	return corridorResult{headway: meanHeadway(ticks), order: order, linked: len(platoons.linked), largest: platoons.largest, lateralGap: lateralGap}
 }
 
 // meanHeadway returns the mean time in seconds between two ticks after
@@ -242,6 +278,11 @@ func TestMergeCorridorHeadway(t *testing.T) {
 		{name: "two streams, 90 degree merge", side: true, sideDegrees: 90, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.633},
 		{name: "two streams, 30 degree merge", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead, want: 8.633},
 		{name: "two streams, 15 degree merge", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead, want: 10.800},
+		// The lateral merge pairs shorten the zones of the shallow merges,
+		// so the 15 degree merge gets the headway of the 90 degree merge.
+		{name: "two streams, 30 degree merge, lateral merges", side: true, sideDegrees: 30, streams: []string{"main", "side"}, queueHead: feedHead, lateral: true, want: 8.633},
+		{name: "two streams, 15 degree merge, lateral merges", side: true, sideDegrees: 15, streams: []string{"main", "side"}, queueHead: feedHead, lateral: true, want: 8.633},
+		{name: "two streams, 6 degree merge, lateral merges", side: true, sideDegrees: 6, streams: []string{"main", "side"}, queueHead: feedHead, lateral: true, want: 10.800},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

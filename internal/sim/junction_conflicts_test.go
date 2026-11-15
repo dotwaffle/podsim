@@ -23,7 +23,7 @@ func TestFleetBuildsJunctionConflictsOnce(t *testing.T) {
 				t.Fatal(err)
 			}
 			// NewFleet builds the table from its owned copy of the network.
-			want := buildJunctionConflicts(s.network)
+			want := junctionConflictsOf(s.network)
 			if len(want) == 0 {
 				t.Fatal("fixture has no junction conflicts")
 			}
@@ -85,7 +85,7 @@ func TestNetworkIndexesRebuildJunctionConflicts(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			s := tc.build(t)
-			want := buildJunctionConflicts(s.network)
+			want := junctionConflictsOf(s.network)
 			if len(want[tc.lane]) == 0 {
 				t.Fatalf("fixture lane %q has no junction conflicts", tc.lane)
 			}
@@ -344,7 +344,7 @@ func TestJunctionConflictsReuseExtents(t *testing.T) {
 			if want == "" {
 				t.Fatal("network has no junction conflicts")
 			}
-			if got := encodeJunctionConflicts(buildJunctionConflicts(tc.network)); got != want {
+			if got := encodeJunctionConflicts(junctionConflictsOf(tc.network)); got != want {
 				t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 			}
 		})

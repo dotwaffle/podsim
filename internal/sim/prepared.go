@@ -66,6 +66,10 @@ type networkIndexes struct {
 	// lateral holds the lateral pairs of the depot lanes. The bank audit,
 	// the safety observation, and the debris footprint read it.
 	lateral *depotLateral
+	// merges holds the lateral merge pairs (see newMergeLateral), or nil
+	// when the network does not set LateralMerges. The junction conflicts,
+	// the safety observation, and the debris footprint read it.
+	merges *depotLateral
 	// platoonData holds the network data that links read.
 	platoonData platoonIndexData
 	// pickupBounds holds the free-flow bounds of each station, by station
@@ -199,11 +203,12 @@ func validateLargeLaneCells(id string, length float64, count int) error {
 
 func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
+	merges := newMergeLateral(owned, prepared.tails, prepared.maneuvers, prepared.depots)
 	p := &PreparedNetwork{
 		network: owned, graph: prepared.graph, tails: prepared.tails, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
-		berthKeys: prepared.berthKeys, lateral: prepared.lateral,
+		berthKeys: prepared.berthKeys, lateral: prepared.lateral, merges: merges,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
-		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned),
+		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned, merges),
 		berthResources: indexBerthResources(owned),
 	}
 	p.indexSafety()

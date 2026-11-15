@@ -84,7 +84,7 @@ func TestGeometryOperationsUseCurrentNodes(t *testing.T) {
 	t.Parallel()
 	n := polylineNetwork()
 	before := buildLaneGeometry(n)
-	_ = buildJunctionConflicts(n)
+	_ = junctionConflictsOf(n)
 	original := before["straight"].segments[0].from
 	n.Nodes[0].Position = Point{X: 17, Y: -31}
 	if got, want := buildLaneGeometry(n), referenceLaneGeometry(n); !reflect.DeepEqual(got, want) {
