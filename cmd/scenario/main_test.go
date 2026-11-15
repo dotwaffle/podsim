@@ -332,6 +332,31 @@ func TestRunCapacityFlags(t *testing.T) {
 			t.Fatalf("diverge to entry = %v meters, want %v", distance, math.Hypot(20, 60))
 		}
 	})
+	t.Run("junctions", func(t *testing.T) {
+		t.Parallel()
+		var preset, chords bytes.Buffer
+		if err := run([]string{"-preset", "london-central"}, &preset, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		if err := run([]string{"-preset", "london-central", "-junctions", "chords"}, &chords, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(preset.Bytes(), chords.Bytes()) {
+			t.Fatal("-junctions chords changed the preset")
+		}
+		ramps, summary := generate(t, "-preset", "london-central", "-junctions", "ramps")
+		count := map[string]int{}
+		for _, lane := range ramps.Network.Lanes {
+			for _, kind := range []string{"-move-", "-ramp-"} {
+				if strings.Contains(lane.ID, kind) {
+					count[kind]++
+				}
+			}
+		}
+		if !strings.HasSuffix(ramps.Name, " (custom capacity)") || count["-move-"] != 0 || count["-ramp-"] == 0 || !strings.Contains(summary, " soft_conflicts=0\n") {
+			t.Fatalf("name %q, %d chords, %d ramps, summary %q", ramps.Name, count["-move-"], count["-ramp-"], summary)
+		}
+	})
 	t.Run("London", func(t *testing.T) {
 		t.Parallel()
 		config, summary := generate(t, "-preset", "london-central", "-berths", "940GZZLUKSX=3", "-station-pods", "0", "-parking-pods", "12", "-parking-berths", "12")
@@ -375,6 +400,11 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
+		{name: "junctions for a ring", arguments: []string{"-preset", "busy", "-junctions", "ramps"}, err: "-junctions applies only to the London presets"},
+		{name: "junctions for the mesh", arguments: []string{"-preset", "scale100", "-junctions", "chords"}, err: "-junctions applies only to the London presets"},
+		{name: "junctions for a fixture", arguments: []string{"-preset", "compact-station", "-junctions", "ramps"}, err: "-junctions does not apply to the compact station fixture"},
+		{name: "junctions for the Express preset", arguments: []string{"-preset", "london-full-express", "-junctions", "ramps"}, err: "-junctions does not apply to the LondonFull Express preset"},
+		{name: "unknown junctions", arguments: []string{"-preset", "london-central", "-junctions", "loops"}, err: `-junctions "loops" is not chords or ramps`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -108,6 +108,11 @@ type londonParkingSource struct {
 type londonPortal struct {
 	node     string
 	position sim.Point
+	// half is the index in the network lanes of the carriageway lane
+	// between the portal and the middle of its link, and mid is the
+	// position of the middle node. The ramps split this lane.
+	half int
+	mid  sim.Point
 }
 
 type londonStationPortals struct {
@@ -188,7 +193,23 @@ type LondonOptions struct {
 	// most 1. Parking facilities keep scale 1, and the arrival and
 	// departure lanes of a Compact station stay outside its bays.
 	StationScale float64
+	// Junctions selects the junctions that join the links of a station.
+	// The zero value is LondonChords.
+	Junctions LondonJunctions
 }
+
+// LondonJunctions selects the junctions of the London stations.
+type LondonJunctions int
+
+const (
+	// LondonChords joins each arrival portal of a station to each
+	// departure portal with a movement lane, U-turns included.
+	LondonChords LondonJunctions = iota
+	// LondonRamps joins the links of a station with directional ramps,
+	// without U-turns. Split nodes along each arrival and join nodes along
+	// each departure are 2-way nodes. See docs/design/london-junctions.md.
+	LondonRamps
+)
 
 // DefaultLondonCentralOptions returns owned options of the London preset.
 // Each Parking facility is a depot, seven passenger stations are Compact
@@ -246,6 +267,8 @@ type londonCapacity struct {
 	lanes int
 	// compact holds, for each site, whether it is a Compact station.
 	compact []bool
+	// junctions selects the junctions of the stations.
+	junctions LondonJunctions
 }
 
 // hasCompact reports whether a site is a Compact station.
@@ -299,9 +322,10 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 }
 
 // equal reports whether the capacity has the pitch, the scale, the berth and pod
-// counts, and the station layouts of the other capacity.
+// counts, the station layouts, and the junctions of the other capacity.
 func (capacity londonCapacity) equal(other londonCapacity) bool {
-	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other)
+	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other) &&
+		capacity.junctions == other.junctions
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -334,9 +358,12 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 	if options.ParkingLanes < 0 {
 		return londonCapacity{}, errors.New("parking lanes must not be negative")
 	}
+	if options.Junctions != LondonChords && options.Junctions != LondonRamps {
+		return londonCapacity{}, fmt.Errorf("unknown London junctions %d", options.Junctions)
+	}
 	capacity := londonCapacity{
 		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, scale: options.StationScale, lanes: options.ParkingLanes,
-		compact: make([]bool, len(ids)),
+		compact: make([]bool, len(ids)), junctions: options.Junctions,
 	}
 	for _, id := range options.CompactStations {
 		index := slices.Index(ids, id)
@@ -515,18 +542,34 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 	if err := checkLondonSize(network, source, portals, capacity, limits); err != nil {
 		return sim.Network{}, err
 	}
+	// slips holds the portals of the slip roads of each site. With chords,
+	// these are the portals of the station or of the gateway station.
+	slips := make([]londonStationPortals, 0, len(source.Stations)+len(facilities))
+	for _, station := range source.Stations {
+		slips = append(slips, *portals[station.ID])
+	}
+	for _, parking := range facilities {
+		slips = append(slips, *portals[parking.Gateway])
+	}
+	var junctions []londonJunction
+	if capacity.junctions == LondonRamps {
+		var err error
+		if junctions, err = planLondonJunctions(network, source, positions, portals, neighbors, slips); err != nil {
+			return sim.Network{}, err
+		}
+	}
 	input := londonHeadingInput{links: londonLaneSegments(network)}
 	indexes := make(map[string]int, len(source.Stations))
 	for index, station := range source.Stations {
 		center := positions[station.ID]
 		indexes[station.ID] = index
-		input.links = append(input.links, londonMovementSegments(center, *portals[station.ID])...)
+		input.links = append(input.links, londonStationSegments(junctions, index, center, *portals[station.ID])...)
 		input.centers = append(input.centers, center)
 		input.sites = append(input.sites, londonSite{
 			center: center, berths: capacity.berths[index], pitch: capacity.pitch, own: index,
 			scale: capacity.scale, side: capacity.side(index),
-			arrivals:   londonPortalPositions(portals[station.ID].arrivals),
-			departures: londonPortalPositions(portals[station.ID].departures),
+			arrivals:   londonPortalPositions(slips[index].arrivals),
+			departures: londonPortalPositions(slips[index].departures),
 			preferred:  londonStationPreferences(center, neighbors[station.ID]),
 		})
 	}
@@ -535,11 +578,12 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		if !ok {
 			panic(fmt.Sprintf("unknown London parking gateway %q", parking.Gateway))
 		}
+		site := len(source.Stations) + index
 		input.sites = append(input.sites, londonSite{
-			center: positions[parking.Gateway], berths: capacity.search(len(source.Stations) + index), pitch: capacity.pitch, own: gateway,
+			center: positions[parking.Gateway], berths: capacity.search(site), pitch: capacity.pitch, own: gateway,
 			scale: 1, side: londonStationSide,
-			arrivals:   londonPortalPositions(portals[parking.Gateway].arrivals),
-			departures: londonPortalPositions(portals[parking.Gateway].departures),
+			arrivals:   londonPortalPositions(slips[site].arrivals),
+			departures: londonPortalPositions(slips[site].departures),
 			preferred:  []londonPreference{{direction: parking.Direction}},
 		})
 	}
@@ -549,9 +593,13 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 	}
 	shapes := mirrorLondonStations(input, headings)
 	for index, station := range source.Stations {
-		addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
+		if junctions != nil {
+			junctions[index].add(&network)
+		} else {
+			addLondonMovements(&network, station.ID, positions[station.ID], *portals[station.ID])
+		}
 		addLondonStation(&network, londonStationInput{
-			id: station.ID, name: station.Name, portals: *portals[station.ID],
+			id: station.ID, name: station.Name, portals: slips[index],
 			shape: shapes[index], compact: capacity.compact[index],
 		})
 	}
@@ -559,11 +607,59 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		site := len(source.Stations) + index
 		depot, _ := capacity.depot(site)
 		addLondonStation(&network, londonStationInput{
-			id: parking.ID, name: parking.Name, portals: *portals[parking.Gateway], parking: true,
+			id: parking.ID, name: parking.Name, portals: slips[site], parking: true,
 			shape: shapes[site], depot: depot,
 		})
 	}
 	return network, nil
+}
+
+// londonStationSegments returns the junction lanes of the passenger
+// station at index as segments for the heading search: the ramps and the
+// staged lanes of its junction, or without junctions its movement lanes.
+// Then the search keeps the station cores away from these lanes.
+func londonStationSegments(junctions []londonJunction, index int, center sim.Point, portals londonStationPortals) []londonSegment {
+	if junctions != nil {
+		return junctions[index].segments
+	}
+	return londonMovementSegments(center, portals)
+}
+
+// planLondonJunctions returns the ramps junction of each passenger
+// station, in source order, and sets the slip portals of each site. A
+// station has a slip site for itself and then one for each Parking
+// facility that it is the gateway of. The direction of a slip site is its
+// preferred heading: the middle of the widest free angle between the links
+// of a station, or the direction of a Parking facility.
+func planLondonJunctions(network sim.Network, source londonSource, positions map[string]sim.Point, portals map[string]*londonStationPortals, neighbors map[string][]sim.Point, slips []londonStationPortals) ([]londonJunction, error) {
+	junctions := make([]londonJunction, 0, len(source.Stations))
+	for index, station := range source.Stations {
+		center := positions[station.ID]
+		input := londonJunctionInput{
+			id: station.ID, name: station.Name, center: center, portals: *portals[station.ID], lanes: network.Lanes,
+			slips: []float64{londonStationPreferences(center, neighbors[station.ID])[0].direction},
+		}
+		for _, neighbor := range neighbors[station.ID] {
+			input.directions = append(input.directions, math.Atan2(neighbor.Y-center.Y, neighbor.X-center.X))
+		}
+		var sites []int
+		for parking, facility := range londonParkingFacilities {
+			if facility.Gateway == station.ID {
+				input.slips = append(input.slips, facility.Direction)
+				sites = append(sites, len(source.Stations)+parking)
+			}
+		}
+		junction, err := planLondonJunction(input)
+		if err != nil {
+			return nil, err
+		}
+		slips[index] = junction.slips[0]
+		for slip, site := range sites {
+			slips[site] = junction.slips[slip+1]
+		}
+		junctions = append(junctions, junction)
+	}
+	return junctions, nil
 }
 
 // checkLondonSize returns an error when the London network with the
@@ -576,6 +672,15 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 // the nodes and lanes of its layout in place of the berths, and a Compact
 // station has those of the compact station in place of the berths and the
 // through lane.
+//
+// With ramps, a passenger station with n links has n(n - 1) ramps in place
+// of the movement lanes. Each portal of the station has n turns, n - 1
+// ramps and the slip road of the station, and one more turn for each
+// Parking facility at the station. A portal with m turns has m - 2 new
+// nodes, if m is more than 2, and a new lane for each new node. A staged
+// chain has the same counts as a chain along the carriageway. The count
+// is an upper bound: a turn that is too tight for a ramp drops before the
+// build (see planLondonJunction), and then its portals have fewer turns.
 func checkLondonSize(network sim.Network, source londonSource, portals map[string]*londonStationPortals, capacity londonCapacity, limits londonLimits) error {
 	nodes, lanes := len(network.Nodes), len(network.Lanes)
 	compact := compactStation(nil, "", "")
@@ -583,7 +688,19 @@ func checkLondonSize(network sim.Network, source londonSource, portals map[strin
 		var station londonStationPortals
 		if index < len(source.Stations) {
 			station = *portals[source.Stations[index].ID]
-			lanes += len(station.arrivals) * len(station.departures)
+			if capacity.junctions == LondonRamps {
+				n := len(station.arrivals)
+				turns := n
+				for _, facility := range londonParkingFacilities {
+					if facility.Gateway == source.Stations[index].ID {
+						turns++
+					}
+				}
+				chains := 2 * n * max(0, turns-2)
+				nodes, lanes = nodes+chains, lanes+chains+n*(n-1)
+			} else {
+				lanes += len(station.arrivals) * len(station.departures)
+			}
 		} else {
 			station = *portals[londonParkingFacilities[index-len(source.Stations)].Gateway]
 		}
@@ -659,13 +776,16 @@ func addLondonCarriageway(network *sim.Network, portals map[string]*londonStatio
 	prefix := fmt.Sprintf("london-link-%03d", index+1)
 	aDepartureID, aArrivalID := prefix+"-a-departure", prefix+"-a-arrival"
 	bDepartureID, bArrivalID := prefix+"-b-departure", prefix+"-b-arrival"
-	aDeparture := londonPortal{node: aDepartureID, position: add(aPortalCenter, perpendicular)}
-	aArrival := londonPortal{node: aArrivalID, position: add(aPortalCenter, scale(perpendicular, -1))}
-	bDeparture := londonPortal{node: bDepartureID, position: add(bPortalCenter, scale(perpendicular, -1))}
-	bArrival := londonPortal{node: bArrivalID, position: add(bPortalCenter, perpendicular)}
+	abMid, baMid := add(midpoint, perpendicular), add(midpoint, scale(perpendicular, -1))
+	// The four lanes follow in the order ab-1, ab-2, ba-1, ba-2.
+	first := len(network.Lanes)
+	aDeparture := londonPortal{node: aDepartureID, position: add(aPortalCenter, perpendicular), half: first, mid: abMid}
+	bArrival := londonPortal{node: bArrivalID, position: add(bPortalCenter, perpendicular), half: first + 1, mid: abMid}
+	bDeparture := londonPortal{node: bDepartureID, position: add(bPortalCenter, scale(perpendicular, -1)), half: first + 2, mid: baMid}
+	aArrival := londonPortal{node: aArrivalID, position: add(aPortalCenter, scale(perpendicular, -1)), half: first + 3, mid: baMid}
 	network.Nodes = append(network.Nodes,
-		sim.Node{ID: abMidID, Position: add(midpoint, perpendicular)},
-		sim.Node{ID: baMidID, Position: add(midpoint, scale(perpendicular, -1))},
+		sim.Node{ID: abMidID, Position: abMid},
+		sim.Node{ID: baMidID, Position: baMid},
 		sim.Node{ID: aDepartureID, Position: aDeparture.position},
 		sim.Node{ID: aArrivalID, Position: aArrival.position},
 		sim.Node{ID: bDepartureID, Position: bDeparture.position},
@@ -704,17 +824,25 @@ func addLondonMovements(network *sim.Network, stationID string, center sim.Point
 // and the control point is nil.
 func londonMovementControl(arrival, departure, center sim.Point) *sim.Point {
 	if math.Hypot(departure.X-arrival.X, departure.Y-arrival.Y) < 2*sim.Clearance {
-		dx, dy := departure.X-arrival.X, departure.Y-arrival.Y
-		projection := (center.X-arrival.X)*dx + (center.Y-arrival.Y)*dy
-		chordSquared := dx*dx + dy*dy
-		if chordSquared > 0 && (projection <= 0 || projection >= chordSquared) {
-			shift := 0.5 - projection/chordSquared
-			center.X += shift * dx
-			center.Y += shift * dy
-		}
-		return new(center)
+		return new(londonCenteredControl(arrival, departure, center))
 	}
 	return nil
+}
+
+// londonCenteredControl returns the control point of a curved lane from
+// one point to another: the station position, moved to the perpendicular
+// bisector of the chord when a control leg does not advance along the
+// chord.
+func londonCenteredControl(from, to, center sim.Point) sim.Point {
+	dx, dy := to.X-from.X, to.Y-from.Y
+	projection := (center.X-from.X)*dx + (center.Y-from.Y)*dy
+	chordSquared := dx*dx + dy*dy
+	if chordSquared > 0 && (projection <= 0 || projection >= chordSquared) {
+		shift := 0.5 - projection/chordSquared
+		center.X += shift * dx
+		center.Y += shift * dy
+	}
+	return center
 }
 
 // londonMovementSegments returns the movement lanes of a station as
