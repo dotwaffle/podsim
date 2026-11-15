@@ -159,6 +159,7 @@ The study runs LondonFull with chords and with ramps.
 It uses the method of the [station scale study](../studies/station-scale.md), at 15 requests per minute and at one higher rate, with seeds 1 to 3.
 A timed pilot comes first.
 The study also counts the U-turn chords that the chord network uses.
+The [junction study](../studies/london-junctions.md) has the results.
 
 Ramps are adopted when these hold:
 
