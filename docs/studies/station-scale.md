@@ -65,6 +65,25 @@ The other two seeds each have one unfinished request at minute 120.
 The mean wait is 0.9% to 1.7% longer, the empty distance 0.6% to 1.1% longer, and the mean journey changes by at most 0.2%.
 The presets keep 2 berths at Bank.
 
+## Scale 0.4 with six seeds
+
+On November 15, 2026, a paired run at `68a213f1` compared scale 0.4 with scale 0.5 over seeds 1 to 6, with the method below.
+At this source, the presets set lateral merges.
+
+| Scale | Drained | Mean wait | p95 wait | Mean journey | Junction wait | Track wait | Stopped pod time | Empty distance |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0.5 | 6/6 | 205 s | 761 s | 892 s | 663 s | 240 s | 1,144 s | 3,736 km |
+| 0.4 | 5/6 | -1.7% | -0.5% | -1.1% | +3.5% | +20.4% | +5.5% | -1.5% |
+
+Each change is the mean of the paired changes for each seed.
+At scale 0.4, seed 1 has one unfinished request at minute 120.
+The mean wait is 1.1% to 2.6% shorter for each seed, and the mean journey 0.9% to 1.2% shorter.
+The track wait changes by -56% to +104% for each seed, and the junction wait by -36% to +50%.
+
+Scale 0.4 shortens the median path from the diverge to a berth from 196 m to 155 m.
+The berth pitch and the width of the berth lanes stay large, because lanes that are not joined stay at least the 12 m clearance apart.
+The maintainer kept scale 0.5.
+
 ## Method
 
 The measured source is `d8089c89`.
