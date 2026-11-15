@@ -160,6 +160,8 @@ It uses the method of the [station scale study](../studies/station-scale.md), at
 A timed pilot comes first.
 The study also counts the U-turn chords that the chord network uses.
 The [junction study](../studies/london-junctions.md) has the results.
+On 2026-11-15, the maintainer kept chords, because ramps fail the drain criterion by one seed.
+A follow-up looks for the cause of the longer junction waits before a new decision.
 
 Ramps are adopted when these hold:
 
