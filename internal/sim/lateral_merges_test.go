@@ -115,7 +115,12 @@ func TestLateralMergeStraightExtents(t *testing.T) {
 // the heading of the lane at the reference. It shares no code with the
 // sweep.
 func mergeBody(position Point, heading float64) [4]Point {
-	const grow = 0.5
+	return mergeBodyGrown(position, heading, 0)
+}
+
+// mergeBodyGrown is mergeBody with each side grown by extra meters more.
+func mergeBodyGrown(position Point, heading, extra float64) [4]Point {
+	grow := 0.5 + extra
 	s, c := math.Sincos(heading)
 	var corners [4]Point
 	for index, corner := range [4][2]float64{{-lateralRear - grow, -sweepHalfWidth - grow}, {sweepFront + grow, -sweepHalfWidth - grow}, {sweepFront + grow, sweepHalfWidth + grow}, {-lateralRear - grow, sweepHalfWidth + grow}} {
@@ -635,10 +640,485 @@ func farEndPoses(network Network, lane Lane, node string) []referencePose {
 	return poses
 }
 
-// TestScenarioLateralMergesShortenExtents sets LateralMerges on each
-// network of testdata/scenario_networks.json.gz. Each extent lies inside
-// the isotropic extent of the same pair, up to the rounding of the
-// samples of the isotropic extent, and each extent at a node where both
+// mergeCornerReach returns the largest distance of a corner of
+// mergeBodyGrown from its reference.
+func mergeCornerReach(extra float64) float64 {
+	grow := 0.5 + extra
+	return math.Hypot(max(sweepFront, lateralRear)+grow, sweepHalfWidth+grow)
+}
+
+// mergePose is a reference pose of the lateral merge reference: a position,
+// its distance along the lane, a heading, and turn, the angle of the
+// rotation that the pose samples, or 0 for a pose on a segment.
+type mergePose struct {
+	position Point
+	distance float64
+	heading  float64
+	turn     float64
+}
+
+// mergeTurnPoses samples a rotation by turn from heading at a point, so
+// that a corner of the body moves at most step from one pose to the next.
+// The number of parts is even, so the middle heading is a pose.
+func mergeTurnPoses(at Point, distance, heading, turn, step float64) []mergePose {
+	parts := max(2, 2*int(math.Ceil(math.Abs(turn)*mergeCornerReach(0)/(2*step))))
+	poses := make([]mergePose, 0, parts+1)
+	for part := range parts + 1 {
+		poses = append(poses, mergePose{position: at, distance: distance, heading: heading + turn*float64(part)/float64(parts), turn: turn})
+	}
+	return poses
+}
+
+// mergeHeadings returns the heading of the first and of the last segment
+// with length of a polyline. ok is false for a polyline with no length.
+func mergeHeadings(points []Point) (first, last float64, ok bool) {
+	for i := 1; i < len(points); i++ {
+		if pointDistance(points[i-1], points[i]) == 0 {
+			continue
+		}
+		heading := math.Atan2(points[i].Y-points[i-1].Y, points[i].X-points[i-1].X)
+		if !ok {
+			first = heading
+		}
+		last, ok = heading, true
+	}
+	return first, last, ok
+}
+
+// mergeLanePoses returns reference poses of a polyline. On each segment
+// with length, it samples the offsets in the range that span gives that
+// are multiples of step, and the end of the segment when the range
+// reaches it, at the heading of the segment. At each inner point where
+// turn is true, it samples the turn from the segment before to the segment
+// after with mergeTurnPoses and turnStep.
+func mergeLanePoses(points []Point, step, turnStep float64, span func(a, b Point, length, distance float64) (float64, float64), turn func(at Point, distance float64) bool) []mergePose {
+	var poses []mergePose
+	distance, previous, started := 0.0, 0.0, false
+	for i := 1; i < len(points); i++ {
+		a, b := points[i-1], points[i]
+		length := pointDistance(a, b)
+		if length == 0 {
+			continue
+		}
+		heading := math.Atan2(b.Y-a.Y, b.X-a.X)
+		if started && turn(a, distance) {
+			poses = append(poses, mergeTurnPoses(a, distance, previous, math.Remainder(heading-previous, 2*math.Pi), turnStep)...)
+		}
+		lo, hi := span(a, b, length, distance)
+		for k := math.Ceil(max(0, lo) / step); k*step < length && k*step <= hi; k++ {
+			poses = append(poses, mergePose{position: lanePoint(a, b, length, k*step), distance: distance + k*step, heading: heading})
+		}
+		if hi >= length && lo <= length {
+			poses = append(poses, mergePose{position: b, distance: distance + length, heading: heading})
+		}
+		distance += length
+		previous, started = heading, true
+	}
+	return poses
+}
+
+// mergeJoins holds the lanes that end at each node and the lanes that
+// start at each node, in lane order.
+type mergeJoins struct {
+	incoming, outgoing map[string][]Lane
+}
+
+func newMergeJoins(network Network) mergeJoins {
+	joins := mergeJoins{incoming: make(map[string][]Lane), outgoing: make(map[string][]Lane)}
+	for _, lane := range network.Lanes {
+		joins.incoming[lane.To] = append(joins.incoming[lane.To], lane)
+		joins.outgoing[lane.From] = append(joins.outgoing[lane.From], lane)
+	}
+	return joins
+}
+
+// poses returns the turns at the start of a lane, from each lane that ends
+// there, or at its end, to each lane that starts there. A joined lane with
+// no length gives a full turn.
+func (j mergeJoins) poses(network Network, lane Lane, atStart bool, step float64) []mergePose {
+	points := network.Polyline(lane)
+	first, last, _ := mergeHeadings(points)
+	at, distance, joined := points[len(points)-1], network.Length(lane), j.outgoing[lane.To]
+	if atStart {
+		at, distance, joined = points[0], 0, j.incoming[lane.From]
+	}
+	var poses []mergePose
+	for _, other := range joined {
+		otherFirst, otherLast, ok := mergeHeadings(network.Polyline(other))
+		switch {
+		case !ok:
+			poses = append(poses, mergeTurnPoses(at, distance, 0, 2*math.Pi, step)...)
+		case atStart:
+			poses = append(poses, mergeTurnPoses(at, distance, otherLast, math.Remainder(first-otherLast, 2*math.Pi), step)...)
+		default:
+			poses = append(poses, mergeTurnPoses(at, distance, last, math.Remainder(otherFirst-last, 2*math.Pi), step)...)
+		}
+	}
+	return poses
+}
+
+// mergeBox is an axis-aligned box.
+type mergeBox struct{ minX, minY, maxX, maxY float64 }
+
+// mergeBoxOf returns the box of a polyline, grown by margin on each side.
+func mergeBoxOf(points []Point, margin float64) mergeBox {
+	box := mergeBox{minX: math.Inf(1), minY: math.Inf(1), maxX: math.Inf(-1), maxY: math.Inf(-1)}
+	for _, p := range points {
+		box = mergeBox{minX: min(box.minX, p.X), minY: min(box.minY, p.Y), maxX: max(box.maxX, p.X), maxY: max(box.maxY, p.Y)}
+	}
+	return mergeBox{minX: box.minX - margin, minY: box.minY - margin, maxX: box.maxX + margin, maxY: box.maxY + margin}
+}
+
+func (box mergeBox) holds(p Point) bool {
+	return p.X >= box.minX && p.X <= box.maxX && p.Y >= box.minY && p.Y <= box.maxY
+}
+
+// clip returns the range of offsets of the segment from a to b that is in
+// the box, or an empty range.
+func (box mergeBox) clip(a, b Point, length float64) (float64, float64) {
+	lo, hi := 0.0, 1.0
+	for _, edge := range [4][2]float64{{a.X - b.X, a.X - box.minX}, {b.X - a.X, box.maxX - a.X}, {a.Y - b.Y, a.Y - box.minY}, {b.Y - a.Y, box.maxY - a.Y}} {
+		p, q := edge[0], edge[1]
+		switch {
+		case p == 0 && q < 0:
+			return 1, 0
+		case p < 0:
+			lo = max(lo, q/p)
+		case p > 0:
+			hi = min(hi, q/p)
+		}
+	}
+	return lo * length, hi * length
+}
+
+// mergeObstacles holds the reference poses of the other lane of a
+// candidate pair, with their exact bodies, in groups in a grid of cells.
+type mergeObstacles struct {
+	poses  []mergePose
+	bodies [][4]Point
+	groups []mergeGroup
+	cells  map[[2]int64][]int
+	cell   float64
+	// radius is the largest radius of a group.
+	radius float64
+}
+
+// mergeGroup is a run of poses [first, last] on one segment, or one pose
+// of a turn. The rectangle that the bodies of the run sweep, grown by
+// mergeGroupPad, holds the body at each pose of the run, so a body that is
+// clear of the rectangle is clear of each pose of the run. A group speeds
+// up the reference and does not change its result.
+type mergeGroup struct {
+	first, last int
+	rectangle   [4]Point
+	center      Point
+	radius      float64
+	// ready reports that the bodies of the poses of the group are in
+	// mergeObstacles.bodies.
+	ready bool
+}
+
+// The number of poses in a group on a segment, and the growth of its
+// rectangle for the rounding of the positions of the poses.
+const (
+	mergeGroupPoses = 32
+	mergeGroupPad   = 1e-6
+)
+
+// newMergeObstacles samples a lane as the sweep sees it: each segment every
+// step meters, each inner turn, and the turns to the lanes joined at both
+// ends. It keeps the poses in the box, and the poses on a segment one step
+// beyond the box, so that each position of the lane in the box has a pose
+// within step/2. A lane with no length is a full turn at its start.
+func newMergeObstacles(network Network, joins mergeJoins, lane Lane, step float64, box mergeBox) *mergeObstacles {
+	points := network.Polyline(lane)
+	o := &mergeObstacles{cells: make(map[[2]int64][]int), cell: 2 * mergeCornerReach(0)}
+	if _, _, ok := mergeHeadings(points); !ok {
+		o.poses = mergeTurnPoses(points[0], 0, 0, 2*math.Pi, step)
+	} else {
+		o.poses = mergeLanePoses(points, step, step, func(a, b Point, length, _ float64) (float64, float64) {
+			lo, hi := box.clip(a, b, length)
+			if lo > hi {
+				return 1, 0
+			}
+			return lo - step, hi + step
+		}, func(at Point, _ float64) bool { return box.holds(at) })
+		for _, atStart := range []bool{true, false} {
+			for _, pose := range joins.poses(network, lane, atStart, step) {
+				if box.holds(pose.position) {
+					o.poses = append(o.poses, pose)
+				}
+			}
+		}
+	}
+	o.bodies = make([][4]Point, len(o.poses))
+	// A run continues while the poses are on a segment, at its heading, and
+	// each pose is ahead of the pose before it.
+	for first := 0; first < len(o.poses); {
+		last := first
+		for last+1 < len(o.poses) && last+1-first < mergeGroupPoses && o.poses[first].turn == 0 && o.poses[last+1].turn == 0 &&
+			o.poses[last+1].heading == o.poses[first].heading && o.poses[last+1].distance > o.poses[last].distance {
+			last++
+		}
+		rear := mergeBodyGrown(o.poses[first].position, o.poses[first].heading, mergeGroupPad)
+		front := mergeBodyGrown(o.poses[last].position, o.poses[last].heading, mergeGroupPad)
+		group := mergeGroup{first: first, last: last, rectangle: [4]Point{rear[0], front[1], front[2], rear[3]}}
+		for _, corner := range group.rectangle {
+			group.center = Point{X: group.center.X + corner.X/4, Y: group.center.Y + corner.Y/4}
+		}
+		for _, corner := range group.rectangle {
+			group.radius = max(group.radius, pointDistance(group.center, corner))
+		}
+		o.radius = max(o.radius, group.radius)
+		key := o.key(group.center)
+		o.cells[key] = append(o.cells[key], len(o.groups))
+		o.groups = append(o.groups, group)
+		first = last + 1
+	}
+	return o
+}
+
+func (o *mergeObstacles) key(p Point) [2]int64 {
+	return [2]int64{int64(math.Floor(p.X / o.cell)), int64(math.Floor(p.Y / o.cell))}
+}
+
+// meets reports whether the body at a pose, grown by extra, overlaps the
+// exact body at a pose of the obstacles.
+func (o *mergeObstacles) meets(pose mergePose, extra float64) bool {
+	body := mergeBodyGrown(pose.position, pose.heading, extra)
+	reach := mergeCornerReach(extra)
+	low := o.key(Point{X: pose.position.X - reach - o.radius, Y: pose.position.Y - reach - o.radius})
+	high := o.key(Point{X: pose.position.X + reach + o.radius, Y: pose.position.Y + reach + o.radius})
+	for x := low[0]; x <= high[0]; x++ {
+		for y := low[1]; y <= high[1]; y++ {
+			for _, index := range o.cells[[2]int64{x, y}] {
+				group := &o.groups[index]
+				if pointDistance(pose.position, group.center) > reach+group.radius || mergeBodiesDisjoint(body, group.rectangle) {
+					continue
+				}
+				if !group.ready {
+					for i := group.first; i <= group.last; i++ {
+						o.bodies[i] = mergeBody(o.poses[i].position, o.poses[i].heading)
+					}
+					group.ready = true
+				}
+				for i := group.first; i <= group.last; i++ {
+					if !mergeBodiesDisjoint(body, o.bodies[i]) {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// mergeSide is the lateral merge reference of one lane of a candidate pair
+// against the other lane of the pair at node.
+//
+// The sweep counts a part of a step as a meeting when the rectangle that
+// holds the body over the part is not clear of the other lane, within
+// resolution. On a segment, that rectangle is the body over the part. On a
+// rotation by an angle a, it holds the body at the middle heading grown by
+// mergeCornerReach(0)*a/2 on each side. The reference samples each lane
+// every step meters, and each turn so that a corner moves at most step, so
+// each pose of a lane is within step/2 of a sampled pose. A body grown by
+// step + resolution, and by mergeCornerReach(0)*a/2 at a pose of a
+// rotation by a, then meets the sampled bodies of the other lane wherever
+// the sweep can count a meeting. The exact body meets them only where the
+// sweep must count one.
+type mergeSide struct {
+	network    Network
+	lane       Lane
+	points     []Point
+	length     float64
+	converging bool
+	step       float64
+	// grow is step + resolution.
+	grow      float64
+	obstacles *mergeObstacles
+}
+
+// newMergeSide samples the other lane in a box about lane.
+func newMergeSide(network Network, joins mergeJoins, lane, other Lane, node string, step float64) *mergeSide {
+	s := &mergeSide{network: network, lane: lane, points: network.Polyline(lane), length: network.Length(lane), converging: lane.To == node, step: step}
+	// The sweep bisects a step of the other lane to a corner travel of
+	// 1e-3 m, or to a depth of 20 on a long step.
+	otherPoints, longest := network.Polyline(other), 0.0
+	for i := 1; i < len(otherPoints); i++ {
+		longest = max(longest, pointDistance(otherPoints[i-1], otherPoints[i]))
+	}
+	resolution := max(1e-3, (longest+2*math.Pi*mergeCornerReach(0))/(1<<20)) + 1e-6
+	s.grow = step + resolution
+	// The box holds each body that a pose of the lane, grown by the most
+	// that a pose of the lane grows, can meet.
+	turns := mergeLanePoses(s.points, step, step, func(_, _ Point, _, _ float64) (float64, float64) { return 1, 0 }, func(Point, float64) bool { return true })
+	turn := 0.0
+	for _, pose := range append(turns, joins.poses(network, lane, s.converging, step)...) {
+		turn = max(turn, math.Abs(pose.turn))
+	}
+	largest := s.grow + mergeCoarseStep/2 + mergeCornerReach(0)*turn/2
+	s.obstacles = newMergeObstacles(network, joins, other, step, mergeBoxOf(s.points, mergeCornerReach(largest)+mergeCornerReach(0)+step))
+	return s
+}
+
+// far returns the distance of a position on the lane from its far end: the
+// start when converging, or the end otherwise.
+func (s *mergeSide) far(distance float64) float64 {
+	if s.converging {
+		return distance
+	}
+	return s.length - distance
+}
+
+// extra returns the growth of the body at a pose for an upper bound.
+func (s *mergeSide) extra(pose mergePose) float64 {
+	return s.grow + mergeCornerReach(0)*math.Abs(pose.turn)/2
+}
+
+// reachesFar checks clause 5 at the far end of the lane. The sweep counts
+// the far end as reached when the body over a part of the segment at the
+// far end, of at most conflictSampleStep and at least min(span,
+// conflictSampleStep/2), or the body in a turn to a lane joined at the far
+// end, is not clear. certain reports that an exact body there meets the
+// other lane, so the sweep must count it, and possible that a grown body
+// there meets it, so the sweep can count it.
+func (s *mergeSide) reachesFar(joins mergeJoins) (certain, possible bool) {
+	first, last := -1, -1
+	for i := 1; i < len(s.points); i++ {
+		if pointDistance(s.points[i-1], s.points[i]) > 0 {
+			if first < 0 {
+				first = i
+			}
+			last = i
+		}
+	}
+	if first < 0 {
+		// A lane with no length is a full turn at its start, all of it at
+		// the far end.
+		for _, pose := range mergeTurnPoses(s.points[0], 0, 0, 2*math.Pi, s.step) {
+			certain = certain || s.obstacles.meets(pose, 0)
+			possible = possible || s.obstacles.meets(pose, s.extra(pose))
+		}
+		return certain, possible
+	}
+	segment := first
+	if !s.converging {
+		segment = last
+	}
+	span := pointDistance(s.points[segment-1], s.points[segment])
+	// Only the segment at the far end has poses.
+	poses := mergeLanePoses(s.points, s.step, s.step, func(a, b Point, _, _ float64) (float64, float64) {
+		if a != s.points[segment-1] || b != s.points[segment] {
+			return 1, 0
+		}
+		if s.converging {
+			return 0, conflictSampleStep + 2*s.step
+		}
+		return span - conflictSampleStep - 2*s.step, span
+	}, func(Point, float64) bool { return false })
+	poses = append(poses, joins.poses(s.network, s.lane, s.converging, s.step)...)
+	for _, pose := range poses {
+		u := s.far(pose.distance)
+		if pose.turn != 0 || u <= min(span, conflictSampleStep/2) {
+			certain = certain || s.obstacles.meets(pose, 0)
+		}
+		if pose.turn != 0 || u <= conflictSampleStep+s.step {
+			possible = possible || s.obstacles.meets(pose, s.extra(pose))
+		}
+	}
+	return certain, possible
+}
+
+// mergeCoarseStep is the sample step in meters of the first pass of
+// mergeSide.bodyRange.
+const mergeCoarseStep = 1.0
+
+// bodyRange returns the distance along the lane of the first pose from the
+// far end whose exact body meets the other lane, inner, and of the first
+// pose whose grown body meets it, outer. It stops after the far end of the
+// node range plus the sample pads. inner and outer are +Inf when converging
+// and -Inf otherwise when no pose meets.
+//
+// A first pass samples the segments every mergeCoarseStep meters, with the
+// body grown by mergeCoarseStep/2 more. Each pose of the second pass is
+// within mergeCoarseStep/2 of a pose of the first pass on the same
+// segment, or is a pose of the first pass, so the grown body of the second
+// pass meets the other lane only at mergeCoarseStep/2 or less before the
+// first meeting of the first pass. The second pass starts there, and the
+// first pass goes mergeCoarseStep/2 further.
+func (s *mergeSide) bodyRange() (inner, outer float64) {
+	none := math.Inf(1)
+	if !s.converging {
+		none = math.Inf(-1)
+	}
+	limit := s.length - Clearance + conflictSampleStep + 2*s.step
+	coarse, _ := s.scan(mergeCoarseStep, mergeCoarseStep/2, math.Inf(-1), limit+mergeCoarseStep/2, false)
+	if math.IsInf(coarse, 1) {
+		return none, none
+	}
+	outer, inner = s.scan(s.step, 0, coarse-mergeCoarseStep/2, limit, true)
+	if math.IsInf(outer, 1) {
+		return none, none
+	}
+	outer = s.distance(outer)
+	if math.IsInf(inner, 1) {
+		return none, outer
+	}
+	return s.distance(inner), outer
+}
+
+// distance converts a distance from the far end to a distance along the
+// lane.
+func (s *mergeSide) distance(far float64) float64 {
+	if s.converging {
+		return far
+	}
+	return s.length - far
+}
+
+// scan samples the lane every step meters from the far end, from the
+// distance from to the distance limit from the far end. It returns the
+// distance from the far end of the first pose whose body, grown by
+// s.extra and more, meets the other lane, and with exact, the first pose
+// after it whose exact body meets the other lane. Each is +Inf when no
+// pose meets.
+func (s *mergeSide) scan(step, more, from, limit float64, exact bool) (grown, inner float64) {
+	grown, inner = math.Inf(1), math.Inf(1)
+	low, high := max(0, from), limit
+	if !s.converging {
+		low, high = s.length-limit, s.length-max(0, from)
+	}
+	window := func(distance float64) bool { return distance >= low && distance <= high }
+	poses := mergeLanePoses(s.points, step, s.step, func(_, _ Point, _, distance float64) (float64, float64) {
+		return low - step - distance, high + step - distance
+	}, func(_ Point, distance float64) bool { return window(distance) })
+	// The poses are in the order of the lane.
+	if !s.converging {
+		slices.Reverse(poses)
+	}
+	for _, pose := range poses {
+		if !window(pose.distance) {
+			continue
+		}
+		if math.IsInf(grown, 1) && s.obstacles.meets(pose, s.extra(pose)+more) {
+			grown = s.far(pose.distance)
+			if !exact {
+				return grown, inner
+			}
+		}
+		if !math.IsInf(grown, 1) && s.obstacles.meets(pose, 0) {
+			return grown, s.far(pose.distance)
+		}
+	}
+	return grown, inner
+}
+
+// TestScenarioLateralMergesShortenExtents compares each network of
+// testdata/scenario_networks.json.gz with LateralMerges set and with it
+// cleared. With the field set, some extent is shorter, and each extent
+// lies inside the isotropic extent of the same pair, up to the rounding of
+// the samples of the isotropic extent. Each extent at a node where both
 // lanes end or both start holds the node range. For each lateral merge
 // pair, the grown body at the far end of each lane, and in the turn to each
 // lane joined there, clears the grown body at each reference pose of the
@@ -651,6 +1131,7 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			network := networks[name]
+			network.LateralMerges = false
 			off := junctionConflictsOf(network)
 			network.LateralMerges = true
 			on := junctionConflictsOf(network)
@@ -701,6 +1182,9 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 				}
 			})
 			t.Logf("%d shorter extents, %d lateral merge pair sides", shorter, sides)
+			if shorter == 0 {
+				t.Error("no extent is shorter with LateralMerges set")
+			}
 		})
 	}
 }

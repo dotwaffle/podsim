@@ -167,7 +167,7 @@ No migration is needed before v1.
 | Item | With the gate off | With the gate on |
 | --- | --- | --- |
 | Junction tables, all networks | Same | Lateral pairs shorter |
-| `TestJunctionConflictsMatchReference`, `TestScenarioJunctionConflictsMatchReference` | Pass | The reference (`junction_conflicts_reference_test.go:21`) uses `Clearance` only and needs a brute-force body reference. `testdata/scenario_networks.json.gz` is input and does not change, unless a ramps network is added. |
+| `TestJunctionConflictsMatchReference`, `TestScenarioJunctionConflictsMatchReference` | Pass | The reference uses `Clearance` only, so the scenario test checks each lateral merge pair against a brute-force body reference, and each network also runs with the field cleared. The London entry of `testdata/scenario_networks.json.gz` is the current LondonCentral preset, with the field set. |
 | `TestMergeCorridorHeadway`, `TestMergeCorridorPlatoonHeadway` (`internal/sim/merge_corridor_test.go:234`, `:264`) | Same | The 15 degree pins (10.800 s, and 6.017 s and 3.523 s with platoons) are expected to move toward the 90 degree values (8.633 s). The 30 degree cases may not move, because of cell rounding. New gated cases get new pins. |
 | `TestPresetOutputIsPinned`, London project hashes (`internal/scenarios/london_full_test.go:187`) | Same | LondonCentral and LondonFull set the field since 88794af4, so their hashes changed. Express stays. |
 | `command_digests.txt` | Same | Same, because no command in the file uses a London preset |

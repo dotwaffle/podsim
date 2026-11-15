@@ -165,18 +165,234 @@ func TestJunctionConflictsMatchReference(t *testing.T) {
 // TestScenarioJunctionConflictsMatchReference compares the table on each
 // preset network and on rings with many berths, where many long lanes meet
 // at one node. TestWriteConflictFixture in package scenarios writes the
-// networks.
+// networks. Each network runs with LateralMerges cleared, against the
+// isotropic reference, and with LateralMerges set, against the lateral
+// merge reference.
 func TestScenarioJunctionConflictsMatchReference(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	networks := scenarioNetworks(t)
+	if !networks["London"].LateralMerges {
+		t.Fatal("the London network of the fixture does not set LateralMerges")
+	}
 	networks["far London"] = translateNetwork(networks["London"], Point{X: 3e7, Y: -2e7})
 	for _, name := range slices.Sorted(maps.Keys(networks)) {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			checkJunctionConflictsMatchReference(t, networks[name])
-		})
+		for _, lateral := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s lateral %v", name, lateral), func(t *testing.T) {
+				t.Parallel()
+				network := networks[name]
+				network.LateralMerges = lateral
+				if !lateral {
+					checkJunctionConflictsMatchReference(t, network)
+					return
+				}
+				counts := checkMergeConflictsMatchReference(t, network)
+				if counts.lateral == 0 {
+					t.Fatal("the network has no lateral merge pair")
+				}
+				if strings.HasSuffix(name, "London") && counts.excluded == 0 {
+					t.Fatal("clause 5 excludes no pair of the network")
+				}
+			})
+		}
 	}
+}
+
+// mergeReferenceStep is the sample step in meters of the lateral merge
+// reference.
+const mergeReferenceStep = 0.05
+
+// mergeExpected is an extent of the lateral merge reference: the least and
+// the greatest start and end that the table can have. An extent with
+// exact set is an isotropic extent, and the table must have it bit for
+// bit.
+type mergeExpected struct {
+	junction   string
+	start, end [2]float64
+	exact      bool
+}
+
+// mergeCounts are the numbers of the candidate pairs of a network, which
+// meet clauses 1 to 4 of a lateral merge pair: the pairs that clause 5
+// certainly excludes, the pairs that it certainly keeps, the pairs where
+// the reference cannot tell, and the pairs of these that the table keeps.
+type mergeCounts struct {
+	excluded, lateral, undecided, kept int
+}
+
+// referenceMergeConflicts returns the junction conflict table of a network
+// that sets LateralMerges. It decides clauses 1 to 4 from the lanes, the
+// geometry tails, the maneuver groups, and the depots. It decides clause 5
+// and the body range by brute force (mergeSide), with the sample step
+// mergeReferenceStep.
+//
+// A candidate pair is lateral when the grown body at the far end of
+// neither lane meets the other lane, and it keeps the isotropic extent when
+// the exact body at the far end of either lane meets the other lane. For a
+// pair between these cases, the sweep can decide either way, so the
+// reference takes the decision of the table of the network, and checks the
+// extent of that decision.
+//
+// The extent of a lateral pair is the body range and the node range, with
+// the sample pad. The sweep counts a meeting at a part of at most
+// conflictSampleStep, from the start of the part when converging, or to
+// its end otherwise. The reference bounds the far end of the body range
+// of the sweep by two poses from the far end: inner, the first pose whose
+// exact body meets the other lane, and outer, the first pose whose grown
+// body meets it (mergeSide). The far end is at most inner, and at least
+// outer less conflictSampleStep and less step/2, the distance from the
+// meeting of the sweep to the nearest pose. Thus the tolerance comes from
+// the sample step: the body grows by step plus the resolution of the
+// sweep across the lane, and the far end can move by conflictSampleStep
+// plus step/2 along it. Every other extent is the isotropic extent of
+// referenceConflictExtent, bit for bit.
+func referenceMergeConflicts(network Network, step float64) (map[string][]mergeExpected, mergeCounts) {
+	positions := indexNodePositions(network.Nodes)
+	maneuvers, _ := newManeuverIndex(network, positions)
+	depots, _ := newDepotIndex(network, positions)
+	tails := indexGeometryTails(network)
+	group, express := string(GroupClass), string(ExpressClass)
+	eligible := func(lane Lane) bool {
+		return !lane.VehicleClasses.Allows(group) && !lane.VehicleClasses.Allows(express) && tails[lane.ID] == (geometryTails{}) &&
+			!maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
+	}
+	candidate := func(node string, lane, other Lane) bool {
+		if lane.From == lane.To || other.From == other.To ||
+			lane.From == other.From && lane.To == other.To || lane.From == other.To && lane.To == other.From {
+			return false
+		}
+		return (lane.To == node && other.To == node || lane.From == node && other.From == node) && eligible(lane) && eligible(other)
+	}
+	// The table of the network decides only the pairs that the reference
+	// cannot decide.
+	var table *depotLateral
+	laneIndex := make(map[string]int, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		if _, ok := laneIndex[lane.ID]; !ok {
+			laneIndex[lane.ID] = index
+		}
+	}
+	joins := newMergeJoins(network)
+	points := make(map[string][]Point, len(network.Lanes))
+	incident := make(map[string][]Lane)
+	for _, lane := range network.Lanes {
+		points[lane.ID] = network.Polyline(lane)
+		incident[lane.From] = append(incident[lane.From], lane)
+		incident[lane.To] = append(incident[lane.To], lane)
+	}
+	var counts mergeCounts
+	// lateral holds each side of each lateral pair, by lane and other lane.
+	lateral := make(map[[2]string]mergeExpected)
+	decided := make(map[[2]string]bool)
+	conflicts := make(map[string][]mergeExpected)
+	for _, node := range network.Nodes {
+		for _, lane := range incident[node.ID] {
+			for _, other := range incident[node.ID] {
+				if lane.ID == other.ID {
+					continue
+				}
+				if candidate(node.ID, lane, other) && !decided[[2]string{lane.ID, other.ID}] {
+					decided[[2]string{lane.ID, other.ID}], decided[[2]string{other.ID, lane.ID}] = true, true
+					sides := [2]*mergeSide{newMergeSide(network, joins, lane, other, node.ID, step), newMergeSide(network, joins, other, lane, node.ID, step)}
+					certain, possible := false, false
+					for _, side := range sides {
+						c, p := side.reachesFar(joins)
+						certain, possible = certain || c, possible || p
+					}
+					keep := !possible
+					switch {
+					case certain:
+						counts.excluded++
+					case possible:
+						counts.undecided++
+						if table == nil {
+							table = newMergeLateral(network, tails, maneuvers, depots)
+						}
+						keep = table.mergePartner(laneIndex[lane.ID], laneIndex[other.ID])
+						if keep {
+							counts.kept++
+						}
+					default:
+						counts.lateral++
+					}
+					if keep {
+						lateral[[2]string{lane.ID, other.ID}] = sides[0].expected(node.ID)
+						lateral[[2]string{other.ID, lane.ID}] = sides[1].expected(node.ID)
+					}
+				}
+				if expected, ok := lateral[[2]string{lane.ID, other.ID}]; ok {
+					conflicts[lane.ID] = append(conflicts[lane.ID], expected)
+					continue
+				}
+				start, end := referenceConflictExtent(points[lane.ID], points[other.ID])
+				if !math.IsInf(start, 1) {
+					conflicts[lane.ID] = append(conflicts[lane.ID], mergeExpected{junction: node.ID, start: [2]float64{start, start}, end: [2]float64{end, end}, exact: true})
+				}
+			}
+		}
+	}
+	return conflicts, counts
+}
+
+// expected returns the extent of the lane of a lateral pair at node.
+func (s *mergeSide) expected(node string) mergeExpected {
+	inner, outer := s.bodyRange()
+	pad := conflictSampleStep + s.step/2
+	if s.converging {
+		return mergeExpected{
+			junction: node,
+			start:    [2]float64{max(0, min(outer-pad, s.length-Clearance)-conflictSampleStep), max(0, min(inner, s.length-Clearance)-conflictSampleStep)},
+			end:      [2]float64{s.length, s.length},
+		}
+	}
+	return mergeExpected{
+		junction: node,
+		end:      [2]float64{min(s.length, max(inner, Clearance)+conflictSampleStep), min(s.length, max(outer+pad, Clearance)+conflictSampleStep)},
+	}
+}
+
+// checkMergeConflictsMatchReference compares the table of a network that
+// sets LateralMerges with referenceMergeConflicts. The bounds of a lateral
+// extent have a slack of 1e-9 m for the rounding of the distances along a
+// lane.
+func checkMergeConflictsMatchReference(t *testing.T, network Network) mergeCounts {
+	t.Helper()
+	got := junctionConflictsOf(network)
+	want, counts := referenceMergeConflicts(network, mergeReferenceStep)
+	t.Logf("candidate pairs: %d excluded by clause 5, %d lateral, %d undecided, of which the table keeps %d", counts.excluded, counts.lateral, counts.undecided, counts.kept)
+	const slack = 1e-9
+	within := func(value float64, bounds [2]float64) bool {
+		return value >= bounds[0]-slack && value <= bounds[1]+slack
+	}
+	failures := 0
+	for _, lane := range slices.Sorted(maps.Keys(want)) {
+		if len(got[lane]) != len(want[lane]) {
+			t.Fatalf("lane %s has %d extents, want %d", lane, len(got[lane]), len(want[lane]))
+		}
+		for index, w := range want[lane] {
+			g := got[lane][index]
+			if g.junction != w.junction {
+				t.Fatalf("lane %s extent %d at %s, want %s", lane, index, g.junction, w.junction)
+			}
+			var ok bool
+			if w.exact {
+				ok = math.Float64bits(g.start) == math.Float64bits(w.start[0]) && math.Float64bits(g.end) == math.Float64bits(w.end[0])
+			} else {
+				ok = within(g.start, w.start) && within(g.end, w.end)
+			}
+			if !ok {
+				t.Errorf("lane %s extent %d at %s: [%v, %v], want start in %v and end in %v", lane, index, w.junction, g.start, g.end, w.start, w.end)
+				failures++
+				if failures == 10 {
+					t.FailNow()
+				}
+			}
+		}
+	}
+	if extra := len(got) - len(want); extra != 0 {
+		t.Fatalf("the table has extents for %d lanes more than the reference", extra)
+	}
+	return counts
 }
 
 // scenarioNetworks returns the networks in
