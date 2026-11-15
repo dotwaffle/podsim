@@ -1,8 +1,7 @@
 # Lane-end protection
 
-Status: proposed.
-On 2026-11-15, the maintainer chose C2 for L2, kept the separation-group exemption for L1, and chose the pass right after the existing audit for L6.
-L4 and L5 are open.
+Status: the maintainer approved this design on 2026-11-15.
+The decisions are C2 for L2, the separation-group exemption for L1, clause 5 for L4, a correction of the lateral merge design when C2 lands for L5, and the pass right after the existing audit for L6.
 Code references are for `959912c7`.
 The counts come from a scratch test at `959912c7`, which did not land.
 A number in a table with the "Measured" heading, or a statement marked "measured", comes from that test.
