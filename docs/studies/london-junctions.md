@@ -16,6 +16,7 @@ Ramps put each split and each merge on a 2-way node along the carriageway, so po
 The ramps of the dropped turns are not there, and 5.6% of the AM peak demand uses such a turn on its chords route.
 This study did not measure how each of these adds to the longer waits.
 On 2026-11-15, the maintainer kept chords and asked for a follow-up on the cause of the longer junction waits.
+The [lateral merge zones](../design/lateral-merge-zones.md) design proposes a simulator change for shallow merges.
 
 ## Service
 
