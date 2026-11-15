@@ -1,7 +1,7 @@
 # Service contract proposals
 
 Status: approved October 2, 2026.
-Amended through November 4, 2026.
+Amended through November 15, 2026.
 Git history holds the dated amendment notes and the earlier text.
 The compact station queue section went with station buffers and compact station queues on October 7, 2026.
 The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
@@ -44,8 +44,13 @@ Approve these data and compatibility rules as one foundation:
   There, the follower keeps `4 + min(8, 1 + 2u)` meters behind the pod ahead, where `u` is the braking distance of the follower at its speed.
   Two small pods on a certified lateral pair of depot lanes (`internal/sim/depot_lateral.go`) keep `W(v) = 3.1 + v²/2` meters, where `v` is the higher lane limit of the pair.
   That rule assumes guideway-bound pods: a pod stays within 0.25 meters of its lane and follows its heading.
+  When the network sets `lateralMerges`, two small pods on a lateral merge pair keep 3.1 meters, under the same guideway-bound assumption.
+  A lateral merge pair is two small lanes that both end at one node or both start at it, as the [lateral merge zones](../design/lateral-merge-zones.md) design defines.
+  The junction of the node orders the two pods, so this rule has no speed term.
   Every other pair of small pods keeps 12 meters, and a pair with a large pod keeps 20 meters.
   Debris clearance stays 12 meters, and debris on a depot lane also blocks the cells of the neighbor depot lanes within 12 meters.
+  Debris on a lane of a lateral merge pair also blocks the cells of the partner lane within 12 meters.
+  Amended 2026-11-15, by maintainer decision: the lateral merge pair and its debris rule, behind the `lateralMerges` network field.
   Group has an approved physical profile (`internal/sim/vehicle_class.go`).
   Express needs an approved physical profile, through the `express-v1` contract, before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.
