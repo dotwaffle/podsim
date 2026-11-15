@@ -24,6 +24,7 @@ The isotropic extent of a lane also ends at the lane end, so on the next lane a 
 A scratch run of this geometry on 2026-11-15 gave the same overlap with the field set and unset.
 The committed tests do not repeat this run.
 In LondonFull, each such pair of lanes has two different separation groups and no shared node, so the model treats them as separate levels, as step 4 of section 3 says.
+The [lane-end protection](lane-end-protection.md) proposal measures this claim and gives the options to close the gap.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.

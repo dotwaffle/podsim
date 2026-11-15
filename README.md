@@ -169,7 +169,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 
 ### Designs
 
-`docs/design/` holds [adoption gates](docs/design/experimental-adoption.md), [release readiness](docs/design/release-readiness.md), [dependency notes](docs/design/dependencies.md), and the designs for [car journeys](docs/design/car-journey-design.md), the [energy estimate](docs/design/energy-model-design.md), [Group pods](docs/design/group-physics-design.md), [onboard pickups](docs/design/onboard-pickup-design.md), the [first-person ride](docs/design/first-person-ride.md), the [London junctions](docs/design/london-junctions.md), and the [lateral merge zones](docs/design/lateral-merge-zones.md).
+`docs/design/` holds [adoption gates](docs/design/experimental-adoption.md), [release readiness](docs/design/release-readiness.md), [dependency notes](docs/design/dependencies.md), and the designs for [car journeys](docs/design/car-journey-design.md), the [energy estimate](docs/design/energy-model-design.md), [Group pods](docs/design/group-physics-design.md), [onboard pickups](docs/design/onboard-pickup-design.md), the [first-person ride](docs/design/first-person-ride.md), the [London junctions](docs/design/london-junctions.md), the [lateral merge zones](docs/design/lateral-merge-zones.md), and the proposed [lane-end protection](docs/design/lane-end-protection.md).
 
 ### Studies
 
