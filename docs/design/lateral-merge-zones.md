@@ -169,8 +169,8 @@ No migration is needed before v1.
 | Junction tables, all networks | Same | Lateral pairs shorter |
 | `TestJunctionConflictsMatchReference`, `TestScenarioJunctionConflictsMatchReference` | Pass | The reference (`junction_conflicts_reference_test.go:21`) uses `Clearance` only and needs a brute-force body reference. `testdata/scenario_networks.json.gz` is input and does not change, unless a ramps network is added. |
 | `TestMergeCorridorHeadway`, `TestMergeCorridorPlatoonHeadway` (`internal/sim/merge_corridor_test.go:234`, `:264`) | Same | The 15 degree pins (10.800 s, and 6.017 s and 3.523 s with platoons) are expected to move toward the 90 degree values (8.633 s). The 30 degree cases may not move, because of cell rounding. New gated cases get new pins. |
-| `TestPresetOutputIsPinned`, London project hashes (`internal/scenarios/london_full_test.go:187`) | Same | LondonFull changes only if a preset sets the field. Express stays. |
-| `command_digests.txt` | Same | Same, because preset commands do not set the field |
+| `TestPresetOutputIsPinned`, London project hashes (`internal/scenarios/london_full_test.go:187`) | Same | LondonCentral and LondonFull set the field since 88794af4, so their hashes changed. Express stays. |
+| `command_digests.txt` | Same | Same, because no command in the file uses a London preset |
 | `state_v12.json`, `stream_*` goldens | Same | Same |
 | Byte proofs (`TestPlainStateFileWorstCaseSize` and the others in AGENTS.md) | Run again: the worst-case project gets one more member | Same as off |
 | `TestAcuteJunctionLanesPreservePhysicalClearance`, other `checkTraffic` callers | Same | Move to `Check` with the lateral table |
@@ -216,6 +216,7 @@ Mutations, with the table of the `verify-by-mutation` skill:
 
 The method is that of the [London junction study](../studies/london-junctions.md#method): the AM peak of LondonFull, 60 minutes of arrivals, at most 60 more minutes, sharing and redistribution off, free-flow routing, and virtual platoons.
 `cmd/scenario` gets a `-lateral-merges` flag that sets the field.
+Since the adoption, the London presets set the field, and `-lateral-merges=false` clears it.
 
 The study records means over seeds and paired changes, not the values of each seed, so the off arms run again.
 
