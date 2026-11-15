@@ -419,6 +419,8 @@ Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 The optional network member `maneuverGroups` of the [compact bays](model.md#compact-bays) is absent from a network without groups.
 The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` follow the same rule.
+The network member `lateralMerges` of the [lateral merge pairs](model.md#junctions) is absent when it is false, so the save version stays the same.
+A physical restore of a network that sets it checks the separation of a lateral merge pair with 3.1 meters.
 A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane.
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.

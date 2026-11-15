@@ -35,6 +35,7 @@ A project that names no class gets Legacy pods, and the London presets use Compa
 
 A large class needs more room, and the rest of this document refers to it by that name.
 A pair of pods with a large class keeps 20 meters of clearance, where other pairs keep 12 meters, and a lane that admits a large class must be at least 40 meters long.
+Two kinds of small pairs can be closer than 12 meters: the lateral pairs of [depot lanes](#parking-depots), and the [lateral merge pairs](#junctions) of a network that sets `lateralMerges`.
 The route position of a large class is the center of its body envelope, which has a 6-meter radius.
 
 A lane, a station, or a berth can list the classes that can use it.
@@ -210,6 +211,17 @@ The station bank check uses the same rule for the parts of two paths that are on
 Each junction has one conflict resource for nearby sections of its incident lanes.
 The controller derives these sections from the same geometry that it uses for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including the downstream cells needed to cross lane endpoints, and it releases the resource after the pod reaches the end of that section.
+
+A network that sets `lateralMerges` has [lateral merge pairs](design/lateral-merge-zones.md).
+Such a pair is two lanes that both end at a node or both start at it, with no loop and not the same two nodes.
+Both lanes must be small, with no large class and no large-class tail, and neither lane can be in a Compact station or a depot.
+The section of such a pair holds each position where the body of a pod can meet the body of a pod on the other lane, and the 12 meters next to the node.
+The body is 2.5 meters behind the route position, 3.7 meters ahead, and 1.05 meters to each side, and each side grows by 0.5 meters.
+A shallow merge thus gets a shorter section than the 12-meter clearance gives.
+The two pods of such a pair keep 3.1 meters, and the junction orders them.
+The rule assumes that a pod stays within 0.25 meters of its lane, also at line speed.
+Debris on a lane of the pair also blocks the cells of the other lane within 12 meters.
+The other pairs at the node keep their sections.
 
 Admission follows these rules:
 

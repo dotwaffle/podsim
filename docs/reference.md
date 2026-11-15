@@ -32,7 +32,7 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | --- | --- | --- |
 | `version` | The project version, now 1. | Required |
 | `name` | The scenario name. | Required |
-| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups` and `depots`. | Required |
+| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups`, `depots`, and `lateralMerges`. | Required |
 | `fleet` | One placement for each pod: `id`, `stationID`, `berthID`, and an optional `class`. | Required |
 | `demand` | The demand settings: `enabled`, `perMinute`, `pattern`, `seed`, and the optional `destination`, `profile`, `band`, and `dailyStartMinute`. | Required |
 | `redistribution` | A Boolean that turns on [guarded positioning](model.md#redistribution). The presets and the example project set it to true. | Off |
@@ -51,6 +51,12 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | `emergencies` | [Emergency settings](operations.md#emergencies). Emergencies are on with or without this member. | The default values |
 | `orderContract` | `express-v1`, which selects the [Express](model.md#vehicle-classes) order bounds. | Plain bounds |
 | `expressServices` | Directed hub pairs for Express, at most 300. | None |
+
+### Lateral merges
+
+The network member `lateralMerges` is a Boolean that turns on the [lateral merge pairs](model.md#junctions) of shallow merges and splits.
+Absent or false keeps the junction zones of each pair of lanes at a node, so that no preset or saved project changes.
+The presets do not set it.
 
 ### Generated order consent
 
@@ -501,6 +507,7 @@ They do not apply to `independent-banks` or `compact-station`.
 | `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` at scale 1, so its approved geometry does not change. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
+| `-lateral-merges` | London presets only. Set [`lateralMerges`](#lateral-merges) on the network, which gives the lanes of shallow merges and splits shorter junction zones. The project name does not change. `london-full-express` keeps its junction zones, so its qualification evidence stays valid. |
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json
