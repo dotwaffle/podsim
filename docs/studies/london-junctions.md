@@ -72,6 +72,13 @@ A ramp joins the line at a shallow angle, so the last part of the ramp stays nea
 A pod on a ramp can then need a long gap in the line traffic before it enters.
 The rules of the simulator that decide which pod goes first at a merge can also add to the waits.
 
+The clearance of a junction conflict is 12 m, or 20 m for the large classes, in all directions.
+Thus two lanes that meet at an angle `a` conflict for about 12 m / sin(a) from the node.
+A trial on 2026-11-15 moved the control point of each ramp halfway to the midpoint of its chord, except where the midpoint is on the side of the station core.
+The ramps still met the line at 3 to 21 degrees, and the conflict zones did not become shorter: the 75th percentile on the ramp side went from 50.3 m to 49.0 m.
+With straight ramps, Gallions Reach does not fit.
+A ramp that joins a line at a small angle, as on a real guideway, therefore keeps a long conflict zone in this simulator.
+
 ## Method
 
 The measured source is `b3d79964`.
