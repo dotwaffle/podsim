@@ -2,6 +2,8 @@
 
 Status: the maintainer approved this design on 2026-11-15.
 Slice 1 is built as the `-junctions ramps` option.
+The study is done, and on 2026-11-15 the maintainer kept chords, because ramps failed the drain criterion by one seed.
+The follow-up is the [lateral merge zones](lateral-merge-zones.md) design, built behind the `lateralMerges` network field.
 The presets keep chords.
 The maintainer made the decisions below on 2026-11-15.
 
@@ -162,6 +164,7 @@ The study also counts the U-turn chords that the chord network uses.
 The [junction study](../studies/london-junctions.md) has the results.
 On 2026-11-15, the maintainer kept chords, because ramps fail the drain criterion by one seed.
 A follow-up looks for the cause of the longer junction waits before a new decision.
+The [lateral merge zones](lateral-merge-zones.md) design follows from it.
 
 Ramps are adopted when these hold:
 
@@ -174,5 +177,5 @@ A drain difference of one seed therefore leads to three more seeds before the de
 ## Slices
 
 1. The generator option, the flag, through stations, termini, junctions with chains, staged ramps, and the tests.
-2. The study, and the adoption decision.
+2. The study (done), and the adoption decision (open).
 3. After adoption: the presets use ramps, and the ride page draws flyover levels in place of the hub decks.

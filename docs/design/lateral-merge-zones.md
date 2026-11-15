@@ -3,6 +3,16 @@
 Status: the maintainer approved this design on 2026-11-15.
 The maintainer chose these options: the gated field (D4, option B), merges and splits (D1), a margin of 1 m (D2), the debris partners (D5), and the contract amendments (D7).
 D3 and D6 follow the recommendations.
+The rule is built behind the `lateralMerges` network field, and the presets do not set it.
+The [junction study](../studies/london-junctions.md#lateral-merge-zones) has the results with the field set.
+
+Known issue, found by a review on 2026-11-15: the safety argument of section 3 fails where the body range of a lane reaches the far end of the lane.
+The extent of a diverging lane stops at the lane end, and the pod releases the junction there (`internal/sim/lateral_merges.go:169`, `internal/sim/traffic.go:950`).
+On the next lane, which has no resource of the node, the body of the pod can still meet the body of a pod on the partner lane.
+For example, lane A is 24 m long, and lane B leaves the same node at 3 degrees: at the end of A, the two lanes are 1.26 m apart.
+A converging lane whose body range reaches its start has the same problem on the lane before it.
+In LondonFull with ramps, 685 of the 9,944 sides of lateral merge pairs have an extent that covers the whole lane.
+The rule must not be adopted until the maintainer chooses a fix.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.
@@ -106,7 +116,7 @@ These places assume the isotropic 12 m between pods of a junction pair:
 | `checkTraffic` (`internal/sim/traffic_test.go:302`) | Breaks on a shallow merge. It checks 12 m for all pods. `TestAcuteJunctionLanesPreservePhysicalClearance` (`junction_conflicts_test.go:99`) uses it. |
 | Service contract, clearance layer A (`docs/contracts/service-contract-proposals.md:47`) | Breaks: "Every other pair of small pods keeps 12 meters." Needs an amendment. |
 | Debris footprint (`docs/contracts/incident-suspension-contract-proposal.md:505`) and "Debris clearance stays 12 meters" (`service-contract-proposals.md:48`) | Breaks. A lateral neighbor is only a depot lane, so a pod on B can pass debris on A at 3.1 m (decision D5). |
-| Tick-rate contract, sections 1.2 and 1.5 | Holds. Section 1.2 is a path-gap argument. Section 1.5 lists the depot lateral pairs and gets a line for lateral merge pairs. The smallest gap of 6.000 m in section 1.7 is evidence, not a rule. |
+| Tick-rate contract, sections 1.2 and 1.5 | Holds. Section 1.2 is a path-gap argument. Section 1.5 lists the depot lateral pairs. A later amendment, with maintainer approval, can add a line for lateral merge pairs. The smallest gap of 6.000 m in section 1.7 is evidence, not a rule. |
 | Tick-rate contract, section 1.4 | Holds. Link clearance is along one route. |
 | Express contract, 20 m and actual paths (`express-physical-encoding-contract-proposal.md:206`, `:217`) | Holds, because clause 3 excludes large pairs. |
 | Bank audit (`internal/sim/bank_geometry.go:31`) | Holds. It leaves shared endpoints to junction control, which still orders them. |
@@ -133,7 +143,7 @@ A network field with a safe zero value keeps `stateVersion` 12 (`internal/sessio
 The stream frames refer to the network by index (`internal/session/stream_frame.go:65`), and the project that carries the field reaches clients as it does today, so `StreamVersion` stays 10.
 The HTTP state and the saved state carry the field only when it is set.
 
-Recommendation: option B for the study.
+Decision: option B for the study.
 At adoption, either set the field in the LondonFull presets and keep Express off, or remove the field and take option C.
 No migration is needed before v1.
 
@@ -151,7 +161,7 @@ No migration is needed before v1.
 | `TestAcuteJunctionLanesPreservePhysicalClearance`, other `checkTraffic` callers | Same | Move to `Check` with the lateral table |
 | Start time (`MaxJunctionPairs`, `internal/project/config.go:46`) | Same | The body sweep costs more for each lateral pair; measure `NewFleet` on LondonFull |
 
-## 6. Open decisions
+## 6. Decisions
 
 | ID | Decision | Options | Recommendation |
 | --- | --- | --- | --- |

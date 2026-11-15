@@ -6,6 +6,9 @@ Milestone M2 is built, and the maintainer accepted it in Chrome on 2026-11-14, w
 Milestone M3a is built, and the maintainer accepted it in Chrome on 2026-11-14, after the fixes for the map flicker, the black sky, and the map sharpness.
 Milestone M3b is built, and the maintainer accepted it in Chrome on 2026-11-14, after a north-up mini-map, damped turns, a route progress bar, a nearest stop, sharper shadows, and station labels.
 Milestone M4 is built, and the maintainer accepted it in Chrome on 2026-11-14.
+The station levels are built, and the maintainer accepted them in Chrome on 2026-11-14.
+The cabin HUD and the textures are built, and the maintainer accepted them in Chrome on 2026-11-15.
+The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer has not checked it in Chrome yet.
 
 ## Goal
 
@@ -29,7 +32,7 @@ The maintainer made these decisions on 2026-11-14.
 | Speed | The page shows the session speed. A "Ride at 1x" button sends the existing `speed` command, which changes the speed for all viewers. |
 | Height | All guideway is at one height. At a crossing, pods and beams of the two lanes intersect. |
 | Ground | Map tiles on a flat ground plane when the project has a geographic reference, and plain ground otherwise. |
-| Models | Procedural meshes. No model files. |
+| Models | Procedural meshes at M1 to M4. A generated glTF pod model, `web/pod.glb`, replaced the procedural pod later. The repository holds no authored model files. |
 | Pod choice | A pod list, a `?pod=ID` URL, and an auto mode that moves to another pod after a drop-off. |
 | Camera | The front seat, mouse look that returns to forward, and a chase camera. |
 | HUD | An HTML overlay with speed and state, a trip panel, a mini-map, and a session strip. |
@@ -152,15 +155,15 @@ A test pins the axis mapping with a station pair of known compass direction.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, and ACES tone mapping.
   In the check of the cascaded shadows, a weak bloom (threshold 0.85, weight 0.2) spread the bright map tiles into soft blotches on the edges of the dark cabin pillars, so the page has no bloom.
 - Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
-  On LondonFull, 6,720 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 718 between station lanes.
+  On LondonFull at station scale 1, 6,720 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 718 between station lanes.
   Most mainline crossings are in hubs: a ring of nodes where each entry joins each exit by a straight chord, so the chords cross in the middle.
   A crossing has a median of 132 other crossings within 150 m, and only 11 have none, so a flyover for each crossing does not fit.
 - Hubs: the page groups mainline lanes that cross with no shared node, and a group with at least 10 crossings and 4 lanes is a hub.
   A lane longer than 400 m passes a hub, so it is not part of one.
   A hub draws as one deck over the convex hull of the lane end points, 5 cm below the beam top, with a pillar at each corner, in place of the chord beams.
   The pods stay at the mainline height.
-  On LondonFull, 37 hubs hold 2,694 of the 2,905 mainline crossings, a typical hub is an octagon 125 m wide, and the search takes about 40 ms in Node.
-  The maintainer chose the deck on 2026-11-14, and the real fix of a hub belongs to the station layout study, because it changes the model.
+  On LondonFull at station scale 1, 37 hubs hold 2,694 of the 2,905 mainline crossings, a typical hub is an octagon 125 m wide, and the search takes about 40 ms in Node.
+  The maintainer chose the deck on 2026-11-14, and the real fix of a hub belongs to the [London junction design](london-junctions.md), because it changes the model.
 
 ## Cameras and input
 
@@ -303,7 +306,7 @@ The page derives each height from the network, and the model stores no elevation
   Between them, the height follows a smoothstep curve, so a ramp starts and ends level, and its steepest grade is 5%.
 - A point on a lane has the distance of its two nodes, interpolated by the fraction of the lane length.
   A pod at a berth has the distance of the berth node.
-- On LondonFull, the berth nodes are 354 m to 546 m from the mainline, so each berth is at the station level.
+- On LondonFull at station scale 1, the berth nodes are 354 m to 546 m from the mainline, so each berth is at the station level.
   68 berths are on mainline nodes, and they stay at the guideway height.
   The 3 station lanes between two mainline nodes are through lanes of banks, and they stay at the guideway height too.
 - Go computes the heights in `internal/ride`.
@@ -315,7 +318,7 @@ The page derives each height from the network, and the model stores no elevation
 - The platform slabs, the station signs, and the platform camera use the height of their station: the mean height of its berths.
 - The pods stay level on a ramp.
   At a grade of at most 5%, a pitch of less than 3 degrees does not show.
-- On LondonFull, 301 of the 312 stations are at the station level, and 136 pairs of twin lanes draw once.
+- On LondonFull at station scale 1, 301 of the 312 stations are at the station level, and 136 pairs of twin lanes draw once.
   A pod on a ramp is within 1 cm of the beam that the page draws under it.
   The beams and the pillars take about 240 ms to build in Node.
 
@@ -441,6 +444,6 @@ Each texture is gray, and the page multiplies it by the color of the surface.
 ## Later items
 
 - Grade separation of the crossings that are not in a hub: about 210 between mainline lanes, and the crossings of station lanes near a diverge.
-  The station layout study can remove most of them.
+  The [London junction design](london-junctions.md) can remove most of them if the presets adopt ramps.
 - Walking between a start location and a station.
 - Stored elevation stays out of scope, as the [brief](../../PROJECT_BRIEF.md#4-scope-limits) says.

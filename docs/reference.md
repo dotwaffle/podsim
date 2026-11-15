@@ -491,9 +491,9 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 ### Capacity flags
 
-The capacity flags change the berths, the initial pods, and the berth pitch of a preset.
+The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the Compact stations, and the junctions of a preset, and `-lateral-merges` sets one network field.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
-They do not apply to `independent-banks` or `compact-station`.
+They do not apply to `independent-banks`, `compact-station`, or `london-full-express`.
 
 | Flag | Effect |
 | --- | --- |
