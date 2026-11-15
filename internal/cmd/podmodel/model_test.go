@@ -5,13 +5,18 @@ import (
 	"encoding/binary"
 	"encoding/json/v2"
 	"flag"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
-var updateModel = flag.Bool("update-model", false, "rewrite web/pod.glb")
+var (
+	updateModel   = flag.Bool("update-model", false, "rewrite web/pod.glb")
+	updateStretch = flag.Bool("update-stretch", false, "rewrite testdata/stretch.json")
+)
 
 // modelPath is web/pod.glb, relative to this package.
 var modelPath = filepath.Join("..", "..", "..", "web", "pod.glb")
@@ -43,34 +48,76 @@ type decodedPart struct {
 	indices   []int
 }
 
-// decodedScreen is a screen node of a GLB file: its translation, rotation,
-// and scale.
-type decodedScreen struct {
-	translation [3]float64
-	rotation    [4]float64
-	scale       [3]float64
-}
-
-// corners returns the corners of the screen in the model frame, in order
-// around the screen. The screen is the unit square of its node frame in
-// the x-y plane, as encodeGLB writes it.
-func (s decodedScreen) corners() [4]vec3 {
-	r := quat{s.rotation[0], s.rotation[1], s.rotation[2], s.rotation[3]}
+// screenCorners returns the corners of a screen node in the model frame:
+// the bottom left, the bottom right, the top right, and the top left, in
+// the x-y plane of the node frame. The screen is the unit square of its
+// node frame in the x-y plane, as encodeGLB writes it.
+func screenCorners(translation [3]float64, rotation [4]float64, scale [3]float64) [4]vec3 {
+	r := quat{rotation[0], rotation[1], rotation[2], rotation[3]}
 	var out [4]vec3
 	for i, c := range [4][2]float64{{-0.5, -0.5}, {0.5, -0.5}, {0.5, 0.5}, {-0.5, 0.5}} {
-		out[i] = vec(s.translation).add(r.rotate(vec3{c[0] * s.scale[0], c[1] * s.scale[1], 0}))
+		out[i] = vec(translation).add(r.rotate(vec3{c[0] * scale[0], c[1] * scale[1], 0}))
 	}
 	return out
 }
 
 // decodedModel is a GLB file read back from the bytes: its parts by node
-// name, the node names in order, the eye translation, and the screens by
-// node name.
+// name, the node names in order, the eye translation, the corners of each
+// screen by node name, and the length of the pod.
 type decodedModel struct {
 	names   []string
 	parts   map[string]decodedPart
 	eye     [3]float64
-	screens map[string]decodedScreen
+	screens map[string][4]vec3
+	length  float64
+}
+
+// The vehicle classes of internal/sim are 4 m and 6 m long.
+var classLengths = []float64{4, 6}
+
+// stretchCut is STRETCH_CUT of web/ride.js. A class that is longer than the
+// model stretches only behind this z of the model.
+const stretchCut = -0.2
+
+// stretchZ is stretchZ of web/ride.js for the model length. It returns the
+// z in a pod of scale times the model length of the point at z of the
+// model, and the stretch of z there. testdata/stretch.json holds sample
+// values, which the node tests compare with the page.
+func stretchZ(z, scale float64) (float64, float64) {
+	shift := (scale - 1) * modelLength / 2
+	if z >= stretchCut {
+		return z + shift, 1
+	}
+	grow := 2 * shift / (stretchCut + modelLength/2)
+	return z + shift + (z-stretchCut)*grow, 1 + grow
+}
+
+// stretched returns m as the ride page draws it for a class of length
+// meters. The checks of the sight lines do not use the normals, so they do
+// not change.
+func (m decodedModel) stretched(length float64) decodedModel {
+	scale := length / modelLength
+	z := func(v float64) float64 {
+		out, _ := stretchZ(v, scale)
+		return out
+	}
+	out := decodedModel{names: m.names, parts: make(map[string]decodedPart), eye: m.eye, screens: make(map[string][4]vec3), length: length}
+	out.eye[2] = z(m.eye[2])
+	for name, p := range m.parts {
+		positions := make([][3]float64, len(p.positions))
+		for i, position := range p.positions {
+			positions[i] = [3]float64{position[0], position[1], z(position[2])}
+		}
+		p.positions = positions
+		out.parts[name] = p
+	}
+	for name, corners := range m.screens {
+		for i := range corners {
+			corners[i].Z = z(corners[i].Z)
+		}
+		out.screens[name] = corners
+	}
+	return out
 }
 
 // decodeGLB reads data as a GLB file and checks its structure.
@@ -118,7 +165,7 @@ func decodeGLB(t *testing.T, data []byte) decodedModel {
 		}
 		return out
 	}
-	model := decodedModel{parts: make(map[string]decodedPart), screens: make(map[string]decodedScreen)}
+	model := decodedModel{parts: make(map[string]decodedPart), screens: make(map[string][4]vec3), length: modelLength}
 	for _, node := range doc.Nodes {
 		model.names = append(model.names, node.Name)
 		if node.Mesh == nil {
@@ -130,7 +177,7 @@ func decodeGLB(t *testing.T, data []byte) decodedModel {
 			case node.Rotation == nil || node.Scale == nil:
 				t.Fatalf("screen node %s has no rotation or no scale", node.Name)
 			default:
-				model.screens[node.Name] = decodedScreen{*node.Translation, *node.Rotation, *node.Scale}
+				model.screens[node.Name] = screenCorners(*node.Translation, *node.Rotation, *node.Scale)
 			}
 			continue
 		}
@@ -307,8 +354,9 @@ func vec(a [3]float64) vec3 { return vec3{a[0], a[1], a[2]} }
 
 // TestModelSightLines checks what the rider sees from the eye. Ahead and to
 // the sides, the first surface is glass. Above and below, it is the cabin.
+// The rider sees the same in each class.
 func TestModelSightLines(t *testing.T) {
-	m := encodedModel(t)
+	model := encodedModel(t)
 	tests := []struct {
 		name      string
 		direction vec3
@@ -330,12 +378,15 @@ func TestModelSightLines(t *testing.T) {
 		{"at the middle pillar", vec3{0.74, 0, -0.5}, "cabin"},
 		{"beside the middle pillar", vec3{0.74, 0, -0.42}, "glass"},
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			if got, _ := firstHit(m, vec(m.eye), test.direction.unit()); got != test.want {
-				t.Fatalf("first surface = %q, want %q", got, test.want)
-			}
-		})
+	for _, length := range classLengths {
+		m := model.stretched(length)
+		for _, test := range tests {
+			t.Run(fmt.Sprintf("%gm/%s", length, test.name), func(t *testing.T) {
+				if got, _ := firstHit(m, vec(m.eye), test.direction.unit()); got != test.want {
+					t.Fatalf("first surface = %q, want %q", got, test.want)
+				}
+			})
+		}
 	}
 }
 
@@ -354,8 +405,7 @@ func firstHit(m decodedModel, origin, direction vec3) (string, float64) {
 			try(name, vec(p.positions[p.indices[i]]), vec(p.positions[p.indices[i+1]]), vec(p.positions[p.indices[i+2]]))
 		}
 	}
-	for name, s := range m.screens {
-		q := s.corners()
+	for name, q := range m.screens {
 		try(name, q[0], q[1], q[2])
 		try(name, q[0], q[2], q[3])
 	}
@@ -363,24 +413,32 @@ func firstHit(m decodedModel, origin, direction vec3) (string, float64) {
 }
 
 // TestModelScreens checks that the rider sees each screen whole, from the
-// front, and that each screen is in the cabin. The sight lines of
-// TestModelSightLines check that the screens do not hide the view ahead.
+// front, and that each screen is in the cabin, in each class. The sight
+// lines of TestModelSightLines check that the screens do not hide the view
+// ahead.
 func TestModelScreens(t *testing.T) {
-	m := encodedModel(t)
+	for _, length := range classLengths {
+		t.Run(fmt.Sprintf("%gm", length), func(t *testing.T) {
+			checkScreens(t, encodedModel(t).stretched(length))
+		})
+	}
+}
+
+func checkScreens(t *testing.T, m decodedModel) {
+	t.Helper()
 	origin := vec(m.eye)
-	half := [3]float64{modelWidth / 2, modelHeight / 2, modelLength / 2}
-	for name, s := range m.screens {
-		corners := s.corners()
+	half := [3]float64{modelWidth / 2, modelHeight / 2, m.length / 2}
+	for name, corners := range m.screens {
 		center := corners[0].add(corners[2]).scale(0.5)
+		right, up := corners[1].sub(corners[0]).unit(), corners[3].sub(corners[0]).unit()
 		// The face of the screen is toward -z of its frame, so it points to
 		// the eye.
-		r := quat{s.rotation[0], s.rotation[1], s.rotation[2], s.rotation[3]}
-		if face := r.rotate(vec3{0, 0, -1}); face.dot(origin.sub(center).unit()) < 0.95 {
+		if face := up.cross(right); face.dot(origin.sub(center).unit()) < 0.95 {
 			t.Errorf("%s faces %v, not the eye", name, face)
 		}
 		// The top of the screen is up, so the page does not draw the
 		// readouts upside down.
-		if up := r.rotate(vec3{0, 1, 0}); up.Y < 0.8 {
+		if up.Y < 0.8 {
 			t.Errorf("%s has up %v", name, up)
 		}
 		// The near plane of the seat camera is 0.3 m from the eye.
@@ -406,6 +464,110 @@ func TestModelScreens(t *testing.T) {
 	}
 	if len(m.screens) != len(cabinScreens) {
 		t.Fatalf("the model has %d screens, want %d", len(m.screens), len(cabinScreens))
+	}
+}
+
+// TestModelStretchCut checks that the stretch of a longer class keeps the
+// front of the cabin. The rider seat is ahead of the cut, and the bench is
+// behind it, so no seat stretches. The cut is behind the middle pillar and
+// ahead of the rear nose, so the shell stretches only where its sections
+// do not change. The eye sees each screen corner at the same place in each
+// class.
+func TestModelStretchCut(t *testing.T) {
+	if stretchCut >= -pillarHalfWidth || stretchCut <= -(modelLength/2-noseLength) {
+		t.Fatalf("the cut %v is not in the middle body behind the middle pillar", stretchCut)
+	}
+	m := encodedModel(t)
+	seat := m.parts["seat"]
+	var ahead, behind int
+	for i := 0; i < len(seat.indices); i += 3 {
+		var side [2]int
+		for _, index := range seat.indices[i : i+3] {
+			if seat.positions[index][2] >= stretchCut {
+				side[0]++
+			} else {
+				side[1]++
+			}
+		}
+		if side[0] != 0 && side[1] != 0 {
+			t.Fatalf("seat triangle %d crosses the cut at z = %v", i/3, stretchCut)
+		}
+		ahead, behind = ahead+side[0], behind+side[1]
+	}
+	if ahead == 0 || behind == 0 {
+		t.Fatalf("the seat has %d vertices ahead of the cut and %d behind it, want the rider seat ahead and the bench behind", ahead, behind)
+	}
+	if eye.Z < stretchCut {
+		t.Fatalf("the eye %v is behind the cut", eye)
+	}
+	base := classLengths[0]
+	want := m.stretched(base)
+	for _, length := range classLengths[1:] {
+		got := m.stretched(length)
+		for name, corners := range got.screens {
+			for i, corner := range corners {
+				d, e := corner.sub(vec(got.eye)), want.screens[name][i].sub(vec(want.eye))
+				if d.sub(e).length() > 1e-9 {
+					t.Errorf("%g m class: %s corner %d is at %v from the eye, want %v as in the %g m class", length, name, i, d, e, base)
+				}
+			}
+		}
+		if front := want.length/2 - want.eye[2]; math.Abs(got.length/2-got.eye[2]-front) > 1e-9 {
+			t.Errorf("%g m class: the eye is %v m from the front, want %v m", length, got.length/2-got.eye[2], front)
+		}
+	}
+}
+
+// stretchFixture holds the stretch cut, the model length, and the output of
+// stretchZ for sample points. The node tests of web/ride.js read the same
+// file, so the two versions of the stretch cannot differ.
+type stretchFixture struct {
+	Cut         float64       `json:"cut"`
+	ModelLength float64       `json:"modelLength"`
+	Cases       []stretchCase `json:"cases"`
+}
+
+type stretchCase struct {
+	Scale float64 `json:"scale"`
+	Z     float64 `json:"z"`
+	Want  float64 `json:"want"`
+	Slope float64 `json:"slope"`
+}
+
+func TestStretchFixture(t *testing.T) {
+	want := stretchFixture{Cut: stretchCut, ModelLength: modelLength}
+	for _, length := range classLengths {
+		for _, z := range []float64{-modelLength / 2, -1.17, -0.6, -0.3, stretchCut, -0.15, eye.Z, modelLength / 2} {
+			got, slope := stretchZ(z, length/modelLength)
+			want.Cases = append(want.Cases, stretchCase{length / modelLength, z, got, slope})
+		}
+	}
+	// The ends of the model go to the ends of the class.
+	for _, c := range want.Cases {
+		if math.Abs(c.Z) == modelLength/2 && math.Abs(math.Abs(c.Want)-c.Scale*modelLength/2) > 1e-12 {
+			t.Fatalf("stretchZ(%v, %v) = %v, want the end of the class", c.Z, c.Scale, c.Want)
+		}
+	}
+	path := filepath.Join("testdata", "stretch.json")
+	if *updateStretch {
+		data, err := json.Marshal(want, json.Deterministic(true))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read the fixture, or run go test -run TestStretchFixture -update-stretch: %v", err)
+	}
+	var got stretchFixture
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Cut != want.Cut || got.ModelLength != want.ModelLength || !slices.Equal(got.Cases, want.Cases) {
+		t.Fatalf("fixture = %+v, want %+v; run go test -run TestStretchFixture -update-stretch", got, want)
 	}
 }
 

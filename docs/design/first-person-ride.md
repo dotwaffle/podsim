@@ -367,7 +367,8 @@ The cabin HUD and the textures are built, and the maintainer has not checked the
 The pod model has these screen nodes, after the `eye` node.
 Each node has a translation, a rotation, and a scale, and no mesh.
 In the frame of its node, a screen is the unit square in the x-y plane, scaled by the node scale, with its face toward -z.
-The page builds each screen from these values, with the x sign change and the class stretch of the cabin.
+The page builds each screen from these values, with the x sign change.
+A longer class does not change the place of a screen from the eye.
 
 | Node | Size | Place, from the eye | Readouts |
 | --- | --- | --- | --- |
@@ -382,6 +383,19 @@ The page builds each screen from these values, with the x sign change and the cl
   A model test checks that the rider sees each screen corner first on its sight line, so no part hides a screen, and no screen is outside the cabin.
 - The new `seat` part has the seat of the rider and a bench at the rear that faces forward.
   The seat backs stay below the eye, so the rider sees out of the rear window.
+- A class that is longer than the 4 m model stretches only behind a cut at z = -0.2 m of the model.
+  The cut is between the back of the rider seat and the rear bench.
+- Ahead of the cut, the parts move to the new front and keep their shape.
+  So the eye, the dashboard, the screens, the banner, the rider seat, and the middle pillar have the same place from the front of the pod in each class.
+- Behind the cut, the shell, the glass, the gear, the cabin, and the bench stretch to the new rear.
+  In a 6 m pod, the stretch there is about 2.1, and the textures stretch with the parts.
+  The bench is then about 1 m deep, and the rear nose is about 1.9 m long.
+- The 4 m class does not change.
+- `STRETCH_CUT` in `web/ride.js` and `stretchCut` in the model tests have the same value.
+  `internal/cmd/podmodel/testdata/stretch.json` has sample values of the stretch, and a node test compares the page with them.
+  `go test ./internal/cmd/podmodel -run TestStretchFixture -update-stretch` writes the file again.
+- The sight-line test and the screen test of the model run for the 4 m class and the 6 m class, with the same sight lines.
+  A test checks that the eye sees each screen corner at the same place in both classes.
 - A screen canvas has 2,000 pixels for each meter of the screen size, for example 540 by 320 pixels for `speedScreen`.
 - The page draws the screens when the data changes, at most 4 times a second, and the map screen 10 times a second.
   The map screen and the overlay map use the same draw function, which takes the canvas size.

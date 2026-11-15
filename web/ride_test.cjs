@@ -633,13 +633,15 @@ test("parsePodModel refuses a damaged file", () => {
 });
 
 test("stretchPart keeps the normals at right angles to the surface", () => {
-  // The triangle slopes along z, so a stretch in z turns its normal.
-  const a = [0, 0, 0], b = [1, 0, 1], c = [0, 1, 0];
+  // The triangle slopes along z behind the cut, so a stretch in z turns its
+  // normal.
+  const a = [0, 0, -2], b = [1, 0, -1], c = [0, 1, -2];
   const normal = [-1, 0, 1].map((value) => value / Math.sqrt(2));
   const part = { positions: Float32Array.from([...a, ...b, ...c]), normals: Float32Array.from([...normal, ...normal, ...normal]) };
-  const { positions, normals } = ride.stretchPart(part, 1.5);
-  near(positions[5], 1.5, "stretched z");
-  assert.equal(part.positions[5], 1, "the part does not change");
+  const { positions, normals } = ride.stretchPart(part, 1.5, 4);
+  near(positions[2], -3, "the rear end");
+  assert.ok(Math.abs(positions[5] - ride.stretchZ(-1, 1.5, 4)[0]) < 1e-6, `stretched z ${positions[5]}`);
+  assert.equal(part.positions[5], -1, "the part does not change");
   for (const corner of [1, 2]) {
     const edge = [0, 1, 2].map((k) => positions[3 * corner + k] - positions[k]);
     const dot = edge[0] * normals[0] + edge[1] * normals[1] + edge[2] * normals[2];
@@ -652,9 +654,10 @@ test("seatEye places the eye as writePodMatrix places the pod", () => {
   const eye = [0.2, 0.3, 0.5], scale = 1.5, yaw = 0.7, x = 10, top = 5, z = -4;
   const matrix = new Float32Array(16);
   ride.writePodMatrix(matrix, 0, x, top, z, yaw);
-  const local = [eye[0], eye[1], eye[2] * scale];
+  const local = [eye[0], eye[1], ride.stretchZ(eye[2], scale, 4)[0]];
+  near(local[2], 1.5, "the eye stays 1.5 m from the front");
   const want = [0, 1, 2].map((k) => local[0] * matrix[k] + local[1] * matrix[4 + k] + local[2] * matrix[8 + k] + matrix[12 + k]);
-  const got = ride.seatEye(x, top, z, yaw, eye, scale);
+  const got = ride.seatEye(x, top, z, yaw, eye, scale, 4);
   for (let k = 0; k < 3; k++) assert.ok(Math.abs(got[k] - want[k]) < 1e-5, `axis ${k}: ${got[k]} != ${want[k]}`);
 });
 
@@ -846,9 +849,9 @@ test("the cabin screens draw each text inside the screen", () => {
 test("screenQuad faces the eye and reads left to right and top up", () => {
   const model = ride.parsePodModel(podModelBuffer());
   for (const stretch of [1, 1.5]) {
-    const eye = [model.eye[0], model.eye[1], model.eye[2] * stretch];
+    const eye = [model.eye[0], model.eye[1], ride.stretchZ(model.eye[2], stretch, model.length)[0]];
     for (const [name, screen] of Object.entries(model.screens)) {
-      const quad = ride.screenQuad(screen, stretch), p = (i) => [0, 1, 2].map((k) => quad.positions[3 * i + k]);
+      const quad = ride.screenQuad(screen, stretch, model.length), p = (i) => [0, 1, 2].map((k) => quad.positions[3 * i + k]);
       // In the scene, +x is to the right of the rider and +y is up. u grows
       // from corner 0 to corner 1, and v from corner 1 to corner 2.
       const right = p(1).map((value, k) => value - p(0)[k]), up = p(2).map((value, k) => value - p(1)[k]);
@@ -857,16 +860,62 @@ test("screenQuad faces the eye and reads left to right and top up", () => {
       assert.deepEqual([...quad.uvs], [0, 0, 1, 0, 1, 1, 0, 1]);
       const center = [0, 1, 2].map((k) => (p(0)[k] + p(2)[k]) / 2), toEye = eye.map((value, k) => value - center[k]);
       const normal = [0, 1, 2].map((k) => quad.normals[k]), dot = normal.reduce((sum, value, k) => sum + value * toEye[k], 0);
-      // A stretch turns the screens a little away from the eye.
-      assert.ok(dot > (stretch === 1 ? 0.999 : 0.9) * Math.hypot(...toEye), `${name} faces away from the eye`);
+      assert.ok(dot > 0.999 * Math.hypot(...toEye), `${name} faces away from the eye`);
       const { along } = windings(quad.positions, quad.normals, quad.indices);
       assert.equal(along, 0, `${name} winds as a back face`);
     }
   }
-  // The stretch moves the screens as stretchPart moves the cabin.
-  const screen = model.screens.speedScreen;
-  const z = (stretch) => ride.screenQuad(screen, stretch).positions[2];
-  assert.ok(Math.abs(z(1.5) - 1.5 * z(1)) < 1e-5, `stretched z ${z(1.5)}, unstretched ${z(1)}`);
+});
+
+test("stretchZ matches the stretch of internal/cmd/podmodel", () => {
+  const fixture = JSON.parse(require("node:fs").readFileSync(require("node:path").join(__dirname, "../internal/cmd/podmodel/testdata/stretch.json"), "utf8"));
+  assert.equal(ride.STRETCH_CUT, fixture.cut, "the cut");
+  for (const { scale, z, want, slope } of fixture.cases) {
+    const [got, gotSlope] = ride.stretchZ(z, scale, fixture.modelLength);
+    near(got, want, `z ${z} at scale ${scale}`);
+    near(gotSlope, slope, `slope at z ${z} and scale ${scale}`);
+  }
+});
+
+test("a longer class keeps the cabin front and stretches behind the rider seat", () => {
+  const model = ride.parsePodModel(podModelBuffer());
+  const scale = 1.5, shift = (scale - 1) * model.length / 2;
+  // From the front of the pod, the eye and the screens do not move.
+  const eye = (stretch) => ride.seatEye(0, 0, 0, 0, model.eye, stretch, model.length);
+  near(eye(scale)[2] - shift, eye(1)[2], "eye z from the front");
+  for (const [name, screen] of Object.entries(model.screens)) {
+    const short = ride.screenQuad(screen, 1, model.length), long = ride.screenQuad(screen, scale, model.length);
+    for (let i = 0; i < short.positions.length; i++) {
+      const moved = i % 3 === 2 ? shift : 0;
+      assert.ok(Math.abs(long.positions[i] - moved - short.positions[i]) < 1e-6, `${name} position ${i}: ${long.positions[i]} and ${short.positions[i]}`);
+      assert.ok(Math.abs(long.normals[i] - short.normals[i]) < 1e-6, `${name} normal ${i}`);
+    }
+  }
+  for (const [name, part] of Object.entries(model.parts)) {
+    // The 4 m class keeps the model positions.
+    assert.deepEqual(ride.stretchPart(part, 1, model.length).positions, part.positions, `${name} at scale 1`);
+    const { positions, normals } = ride.stretchPart(part, scale, model.length);
+    let behind = 0;
+    for (let i = 2; i < positions.length; i += 3) {
+      const z = part.positions[i];
+      if (z >= ride.STRETCH_CUT) {
+        assert.ok(Math.abs(positions[i] - shift - z) < 1e-6, `${name} vertex ${(i - 2) / 3} ahead of the cut moves by ${positions[i] - z}`);
+        for (const k of [i - 2, i - 1, i]) assert.ok(Math.abs(normals[k] - part.normals[k]) < 1e-6, `${name} normal ${k} ahead of the cut`);
+      } else {
+        behind++;
+        // Behind the cut, the part stretches, so each point moves back from
+        // where a plain shift would put it.
+        assert.ok(positions[i] - shift < z - 1e-6 || z > ride.STRETCH_CUT - 1e-6, `${name} vertex ${(i - 2) / 3} behind the cut does not stretch`);
+      }
+    }
+    assert.ok(behind > 0, `${name} has no vertex behind the cut`);
+    const { along } = windings(positions, normals, part.indices);
+    assert.equal(along, 0, `${name}: ${along} triangles wind as back faces when stretched`);
+  }
+  // The body reaches the ends of the class length.
+  const zs = Object.values(model.parts).flatMap((part) => [...ride.stretchPart(part, scale, model.length).positions.filter((_, i) => i % 3 === 2)]);
+  assert.ok(Math.abs(Math.min(...zs) + scale * model.length / 2) < 1e-6, `rear end ${Math.min(...zs)}`);
+  assert.ok(Math.abs(Math.max(...zs) - scale * model.length / 2) < 1e-6, `front end ${Math.max(...zs)}`);
 });
 
 test("attachTexture keeps the flat color when a texture does not load", () => {

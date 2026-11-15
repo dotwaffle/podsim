@@ -34,6 +34,12 @@
   const POD_WIDTH = 1.5;
   // The eye of the seat camera, above the top of the beam.
   const EYE_HEIGHT = 1.35;
+  // STRETCH_CUT is a z of the pod model between the back of the rider seat
+  // and the rear bench. A class that is longer than the model stretches
+  // only behind it, so the eye, the dashboard, and the screens stay at the
+  // same place from the front of the pod in each class.
+  // internal/cmd/podmodel has the same value and tests the stretch.
+  const STRETCH_CUT = -0.2;
   // Time constants of the camera turns, in seconds. A longer value makes a
   // sharp lane join turn the view more slowly.
   const SEAT_YAW_SECONDS = 0.35;
@@ -528,15 +534,28 @@
     return { parts, eye, screens, length: 2 * half };
   }
 
+  // stretchZ returns the z in a pod of scale times the model length of the
+  // point at z of the pod model, which is length meters long, and the
+  // stretch of z there. The part ahead of STRETCH_CUT moves to the new
+  // front, and the part behind it stretches to the new rear. At scale 1,
+  // the z does not change.
+  function stretchZ(z, scale, length) {
+    const shift = (scale - 1) * length / 2;
+    if (z >= STRETCH_CUT) return [z + shift, 1];
+    const grow = 2 * shift / (STRETCH_CUT + length / 2);
+    return [z + shift + (z - STRETCH_CUT) * grow, 1 + grow];
+  }
+
   // screenQuad returns the vertex data of a screen of the pod model in the
-  // frame of the cabin mesh, with z scaled by stretch, as stretchPart does.
+  // frame of the cabin mesh, stretched to scale times the model length, as
+  // stretchPart does. length is the model length.
   // In the glTF frame of its node, the screen is the unit square from -0.5
   // to 0.5 in x and y, scaled by the node scale, with its face toward -z.
   // There, +x is the left of the rider, because glTF is right-handed. u
   // grows to the right of the rider, and v = 1 is the top edge, which is
   // the top row of the canvas when the texture inverts y, as tileQuad
   // says.
-  function screenQuad(screen, stretch) {
+  function screenQuad(screen, scale, length) {
     const [qx, qy, qz, qw] = screen.rotation, [tx, ty, tz] = screen.translation, [sx, sy] = screen.scale;
     // rotate turns v by the quaternion.
     const rotate = ([x, y, z]) => {
@@ -548,34 +567,38 @@
     const corners = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]];
     const positions = new Float32Array(12), normals = new Float32Array(12);
     const face = rotate([0, 0, -1]);
-    const normal = [-face[0], face[1], face[2] / stretch], length = Math.hypot(...normal);
     corners.forEach(([cx, cy], i) => {
       const [x, y, z] = rotate([cx * sx, cy * sy, 0]);
-      positions.set([-(tx + x), ty + y, (tz + z) * stretch], 3 * i);
-      normals.set(normal.map((value) => value / length), 3 * i);
+      const [stretched, slope] = stretchZ(tz + z, scale, length);
+      positions.set([-(tx + x), ty + y, stretched], 3 * i);
+      const normal = [-face[0], face[1], face[2] / slope], size = Math.hypot(...normal);
+      normals.set(normal.map((value) => value / size), 3 * i);
     });
     return { positions, normals, uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), indices: new Uint16Array([0, 1, 2, 0, 2, 3]) };
   }
 
-  // stretchPart returns the positions and the normals of part with z scaled
-  // by scale. A normal scales by the inverse, so it stays at right angles to
-  // the surface.
-  function stretchPart(part, scale) {
+  // stretchPart returns the positions and the normals of part, a part of
+  // the pod model of length meters, stretched by stretchZ to scale times
+  // that length. The z of a normal divides by the stretch, so the normal
+  // stays at right angles to the surface.
+  function stretchPart(part, scale, length) {
     const positions = Float32Array.from(part.positions), normals = Float32Array.from(part.normals);
     for (let i = 0; i < positions.length; i += 3) {
-      positions[i + 2] *= scale;
-      normals[i + 2] /= scale;
-      const length = Math.hypot(normals[i], normals[i + 1], normals[i + 2]);
-      normals[i] /= length; normals[i + 1] /= length; normals[i + 2] /= length;
+      const [z, slope] = stretchZ(positions[i + 2], scale, length);
+      positions[i + 2] = z;
+      normals[i + 2] /= slope;
+      const size = Math.hypot(normals[i], normals[i + 1], normals[i + 2]);
+      normals[i] /= size; normals[i + 1] /= size; normals[i + 2] /= size;
     }
     return { positions, normals };
   }
 
   // seatEye returns the scene position of the eye for a pod at scene (x, z)
-  // with yaw, as writePodMatrix places the pod. eye is the model eye and
-  // scale is the class length over the model length.
-  function seatEye(x, top, z, yaw, eye, scale) {
-    const c = Math.cos(yaw), s = Math.sin(yaw), ex = eye[0], ez = eye[2] * scale;
+  // with yaw, as writePodMatrix places the pod. eye is the model eye, scale
+  // is the class length over the model length, and length is the model
+  // length.
+  function seatEye(x, top, z, yaw, eye, scale, length) {
+    const c = Math.cos(yaw), s = Math.sin(yaw), ex = eye[0], [ez] = stretchZ(eye[2], scale, length);
     return [x + c * ex + s * ez, top + POD_HEIGHT / 2 + eye[1], z - s * ex + c * ez];
   }
 
@@ -1224,12 +1247,12 @@
 
   function color(B, rgb) { return new B.Color3(rgb[0], rgb[1], rgb[2]); }
 
-  // modelMesh makes a mesh from a part of the pod model, with z scaled by
-  // scale.
-  function modelMesh(B, scene, name, part, scale) {
+  // modelMesh makes a mesh from a part of the pod model, stretched to the
+  // class length.
+  function modelMesh(B, scene, name, part, cls, model) {
     const mesh = new B.Mesh(name, scene);
     const data = new B.VertexData();
-    const { positions, normals } = stretchPart(part, scale);
+    const { positions, normals } = stretchPart(part, cls.lengthMeters / model.length, model.length);
     data.positions = positions; data.normals = normals; data.indices = part.indices;
     // The texture stretches with the part.
     if (part.uvs) data.uvs = part.uvs;
@@ -1261,7 +1284,7 @@
   // instances draw a class in a few calls.
   function buildPodMesh(B, scene, cls, rgb, model) {
     const [shell, glass, gear] = model
-      ? ["shell", "glass", "gear"].map((name) => modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls.lengthMeters / model.length))
+      ? ["shell", "glass", "gear"].map((name) => modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls, model))
       : proceduralPodParts(B, scene, cls);
     const shellMaterial = new B.StandardMaterial(`shell-${cls.name}`, scene);
     shellMaterial.diffuseColor = color(B, rgb);
@@ -1295,7 +1318,7 @@
   function buildModelCabin(B, scene, cls, model) {
     const names = ["cabin", "seat"].filter((name) => model.parts[name]), materials = {};
     const meshes = names.map((name) => {
-      const mesh = modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls.lengthMeters / model.length);
+      const mesh = modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls, model);
       const material = new B.StandardMaterial(`${name}-${cls.name}`, scene);
       material.diffuseColor = color(B, model.parts[name].color);
       // The windows light the cabin. The emissive color stands in for that
@@ -1339,14 +1362,14 @@
       mesh.setEnabled(false);
       screens.set(name, { node, mesh, texture, width, height, stretch: NaN });
     }
-    // place shows the screens in cabin, a cabin mesh with z scaled by
-    // stretch. The screens are not children of the cabin, so a rebuild
-    // disposes each mesh once.
+    // place shows the screens in cabin, a cabin mesh stretched to stretch
+    // times the model length. The screens are not children of the cabin,
+    // so a rebuild disposes each mesh once.
     function place(cabin, stretch) {
       for (const screen of screens.values()) {
         if (screen.stretch !== stretch) {
           const data = new B.VertexData();
-          Object.assign(data, screenQuad(screen.node, stretch));
+          Object.assign(data, screenQuad(screen.node, stretch, model.length));
           data.applyToMesh(screen.mesh);
           screen.stretch = stretch;
         }
@@ -2068,7 +2091,7 @@
         pod.cabin.position.set(x, poses[at + 5] + POD_HEIGHT / 2, z);
         pod.cabin.rotation.y = yaw;
         if (mode === "cabin") world.screens.place(pod.cabin, pod.length / podModel.length);
-        camera.position.fromArray(seatEye(x, poses[at + 5], z, yaw, podModel.eye, pod.length / podModel.length));
+        camera.position.fromArray(seatEye(x, poses[at + 5], z, yaw, podModel.eye, pod.length / podModel.length, podModel.length));
         return;
       }
       // The eye is near the front of the pod.
@@ -2223,7 +2246,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
