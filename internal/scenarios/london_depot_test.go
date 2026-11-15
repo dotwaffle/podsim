@@ -215,7 +215,7 @@ func TestLondonDepots(t *testing.T) {
 					}
 					checkLondonDepots(t, config, lanes, slots, options.ParkingPods)
 					checkLondonParity(t, reference, config, nil, londonFacilityIDs()...)
-					if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+					if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 						t.Fatalf("name %q", config.Name)
 					}
 				})
@@ -347,7 +347,7 @@ func TestLondonDepotCapacityIsNotThePreset(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(config.Network.Depots) != len(londonParkingFacilities) || config.Name != preset.name+customCapacitySuffix {
+		if len(config.Network.Depots) != len(londonParkingFacilities) || config.Name != preset.name+CustomCapacitySuffix {
 			t.Fatalf("%s: %d depots, name %q", preset.name, len(config.Network.Depots), config.Name)
 		}
 	}

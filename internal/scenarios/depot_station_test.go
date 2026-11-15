@@ -35,7 +35,7 @@ func TestDepotRingRuns(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasSuffix(config.Name, customCapacitySuffix) || len(config.Network.Depots) != 1 || len(config.Network.Depots[0].Lanes) != 2 {
+	if !strings.HasSuffix(config.Name, CustomCapacitySuffix) || len(config.Network.Depots) != 1 || len(config.Network.Depots[0].Lanes) != 2 {
 		t.Fatalf("project %q has depots %+v", config.Name, config.Network.Depots)
 	}
 	parked := make(map[string]string)

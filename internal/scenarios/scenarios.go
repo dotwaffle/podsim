@@ -225,7 +225,7 @@ func PresetWith(name string, change func(*Parameters)) (project.Config, error) {
 	}
 	custom := !sameParameters(preset.parameters(), parameters, preset.pitch)
 	if custom {
-		parameters.Name += customCapacitySuffix
+		parameters.Name += CustomCapacitySuffix
 	}
 	config, err := preset.build(parameters)
 	if err != nil {

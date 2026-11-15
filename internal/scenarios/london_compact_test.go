@@ -167,7 +167,7 @@ func TestLondonCompactStations(t *testing.T) {
 					if !reflect.DeepEqual(config, preset.preset()) {
 						t.Fatal("the default layout is not the preset")
 					}
-				} else if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+				} else if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 					t.Fatalf("name %q", config.Name)
 				}
 				checkLondonParity(t, preset.ordinary(t), config, options.CompactStations, replaced...)
@@ -198,7 +198,7 @@ func TestLondonCompactEachStation(t *testing.T) {
 			}
 			checkLondonCompact(t, config, []string{id}, londonStationPods)
 			checkLondonParity(t, reference, config, []string{id})
-			if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+			if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 				t.Fatalf("name %q", config.Name)
 			}
 		})
@@ -220,7 +220,7 @@ func TestLondonCompactIsNotThePreset(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(config.Network.ManeuverGroups) != 1 || config.Name != test.preset.name+customCapacitySuffix {
+		if len(config.Network.ManeuverGroups) != 1 || config.Name != test.preset.name+CustomCapacitySuffix {
 			t.Fatalf("%s: %d groups, name %q", test.preset.name, len(config.Network.ManeuverGroups), config.Name)
 		}
 	}

@@ -118,7 +118,7 @@ func TestLondonFullWith(t *testing.T) {
 			if test.name == "default" && !reflect.DeepEqual(config, LondonFull()) {
 				t.Fatal("default full options differ from preset")
 			}
-			if test.name != "default" && !strings.HasSuffix(config.Name, customCapacitySuffix) {
+			if test.name != "default" && !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 				t.Fatal("custom capacity name missing")
 			}
 		})

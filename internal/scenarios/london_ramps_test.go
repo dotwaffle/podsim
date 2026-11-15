@@ -418,7 +418,7 @@ func TestLondonRampsPresets(t *testing.T) {
 				t.Fatal(build.err)
 			}
 			config, network := build.config, build.config.Network
-			if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+			if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 				t.Fatalf("project name %q has no custom capacity suffix", config.Name)
 			}
 			source, err := test.source()

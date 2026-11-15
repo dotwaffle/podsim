@@ -129,7 +129,7 @@ func TestLondonStationScaleOptions(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.HasSuffix(config.Name, customCapacitySuffix) {
+		if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 			t.Fatalf("project name %q has no custom capacity suffix", config.Name)
 		}
 	})

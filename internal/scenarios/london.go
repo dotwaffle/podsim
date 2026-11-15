@@ -49,9 +49,9 @@ const (
 	// londonStationScale is the default station scale. See
 	// docs/studies/station-scale.md.
 	londonStationScale = 0.5
-	// customCapacitySuffix ends the name of a generated project with other
+	// CustomCapacitySuffix ends the name of a generated project with other
 	// than the default capacity.
-	customCapacitySuffix = " (custom capacity)"
+	CustomCapacitySuffix = " (custom capacity)"
 	// londonDepotLength is the longest depot at a Parking facility, the
 	// distance between the entry and the exit of an ordinary station. The
 	// heading search uses the ordinary shape, and a depot of this length
@@ -452,7 +452,7 @@ func mustLondonConfig() project.Config {
 }
 
 // londonConfig builds and validates the London project with the capacity.
-// Without defaultCapacity, the project name ends with customCapacitySuffix.
+// Without defaultCapacity, the project name ends with CustomCapacitySuffix.
 // The project keeps profile, so the caller gives an owned copy.
 func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity bool, profile project.DemandProfile) (project.Config, error) {
 	network, err := londonNetwork(source, capacity)
@@ -461,7 +461,7 @@ func londonConfig(source londonSource, capacity londonCapacity, defaultCapacity 
 	}
 	name := "LondonCentral"
 	if !defaultCapacity {
-		name += customCapacitySuffix
+		name += CustomCapacitySuffix
 	}
 	config := project.Config{
 		Version: 1,

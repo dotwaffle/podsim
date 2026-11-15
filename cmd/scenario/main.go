@@ -252,6 +252,11 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	if options.set["lateral-merges"] {
 		config.Network.LateralMerges = options.lateralMerges
 	}
+	// The field changes the junction zones, so a project that sets it gets
+	// the name suffix of a changed layout, one time.
+	if config.Network.LateralMerges && !strings.HasSuffix(config.Name, scenarios.CustomCapacitySuffix) {
+		config.Name += scenarios.CustomCapacitySuffix
+	}
 	return config, nil
 }
 

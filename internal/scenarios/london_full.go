@@ -132,7 +132,7 @@ func londonFullConfig(source londonSource, capacity londonCapacity, defaultCapac
 	}
 	name := "LondonFull"
 	if !defaultCapacity {
-		name += customCapacitySuffix
+		name += CustomCapacitySuffix
 	}
 	config := project.Config{
 		Version: 1, Name: name, Network: network,

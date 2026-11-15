@@ -374,6 +374,13 @@ func TestRunCapacityFlags(t *testing.T) {
 			if !config.Network.LateralMerges {
 				t.Fatalf("%s: -lateral-merges did not set the network field", preset)
 			}
+			if strings.Count(config.Name, " (custom capacity)") != 1 || !strings.HasSuffix(config.Name, " (custom capacity)") {
+				t.Fatalf("%s: name %q, want one suffix (custom capacity)", preset, config.Name)
+			}
+		}
+		config, _ := generate(t, "-preset", "london-central", "-lateral-merges")
+		if !config.Network.LateralMerges || config.Name != "LondonCentral (custom capacity)" {
+			t.Fatalf("-lateral-merges: name %q, lateralMerges %v", config.Name, config.Network.LateralMerges)
 		}
 	})
 	t.Run("London", func(t *testing.T) {
