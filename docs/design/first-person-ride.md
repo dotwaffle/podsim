@@ -317,6 +317,47 @@ The page derives each height from the network, and the model stores no elevation
   A pod on a ramp is within 1 cm of the beam that the page draws under it.
   The beams and the pillars take about 240 ms to build in Node.
 
+## Cabin HUD and textures
+
+The maintainer asked on 2026-11-15 for a HUD that looks more like a game and for textures that make the scene more appealing.
+The maintainer made these decisions on 2026-11-15.
+The HUD is an original design, and it copies the look of no game.
+
+| Topic | Decision |
+| --- | --- |
+| Style | A racing layout: a large speed readout with an arc gauge, a round mini-map, a next-stop banner with the ETA, and a stop ladder for the route progress. |
+| Placement | In the seat view, the readouts are in the cabin. A head-up banner on the windscreen shows the next stop and the ETA. Screens on the dashboard show the speed gauge, the mini-map, the stop ladder, the wait reason, and the riders aboard. |
+| Controls | The buttons and pickers stay a slim screen overlay, restyled to match: the pod picker, auto mode, **Ride at 1x**, the trip menu, and the session strip. |
+| Chase view | The chase view shows the same readouts as a screen overlay in the racing layout. |
+| Textures | Generated in the repository, as `web/pod.glb` is. No photographs and no third-party images. |
+
+### HUD
+
+- The data does not change: the `ride.hud` fields, the ETA, the route window, the nearest stop, and the mini-map data stay as they are.
+- The page draws each cabin screen on a canvas and shows it as a dynamic texture on a plane in the cabin.
+  It draws the screens when the HUD data changes, at most 4 times a second, and the mini-map 10 times a second.
+  The page needs no Babylon GUI script.
+- The pod model gets named screen nodes on the dashboard and a banner node at the top of the windscreen, so the model owns their places.
+  The model tests pin the names and check that the screens do not hide the view ahead.
+- The screens are emissive, so they stay readable at night and in shade.
+  They move with the cabin when the user looks around.
+- A text that does not fit its screen is cut at a word boundary, as the mini-map labels are.
+
+### Textures
+
+- A generator in the repository writes small tiling textures as PNG files under `web/`, with the standard library only.
+  A test fails when a file does not match the generator output, as `TestModelFile` does for the pod model.
+- The textures: concrete for the beams, the pillars, and the station decks; panel lines and a livery stripe for the pod shell; a fabric weave for the seats; and a matte grain for the dashboard.
+- The pod model gets texture coordinates for the shell and the cabin.
+- The class color of a pod still tints its shell.
+- The page falls back to the flat colors when a texture does not load.
+
+### Checks
+
+- Go tests: the texture files match the generator, each texture tiles without a seam, and the model has the screen nodes and texture coordinates in range.
+- Node tests: the layout of each screen, the text cut, the stop ladder, and the overlay layout of the chase view.
+- The maintainer checks the look in Chrome.
+
 ## Later items
 
 - Grade separation of the crossings that are not in a hub: about 210 between mainline lanes, and the crossings of station lanes near a diverge.
