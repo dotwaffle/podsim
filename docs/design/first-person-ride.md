@@ -8,7 +8,7 @@ Milestone M3b is built, and the maintainer accepted it in Chrome on 2026-11-14, 
 Milestone M4 is built, and the maintainer accepted it in Chrome on 2026-11-14.
 The station levels are built, and the maintainer accepted them in Chrome on 2026-11-14.
 The cabin HUD and the textures are built, and the maintainer accepted them in Chrome on 2026-11-15.
-The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer has not checked it in Chrome yet.
+The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer accepted it in Chrome on 2026-11-15.
 
 ## Goal
 
