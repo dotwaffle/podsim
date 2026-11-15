@@ -35,11 +35,13 @@ const expressGatePitch = 41
 // is not a depot, 16 Express pods, and an Express service in each direction.
 // It is project D of docs/studies/express-hub-fixture.md. Its approved
 // geometry is that of LondonFull before the smaller stations, so it starts
-// from LondonFull at station scale 1.
+// from LondonFull at station scale 1. Its network does not set
+// LateralMerges, because the Express qualification is for the isotropic
+// junction zones.
 func LondonFullExpress() project.Config {
 	expressBaseOnce.Do(func() {
 		var err error
-		if expressBase, err = generateLondonFull(1); err != nil {
+		if expressBase, err = generateLondonFull(1, false); err != nil {
 			panic(err)
 		}
 	})
@@ -58,7 +60,7 @@ var (
 // GenerateLondonFullExpress returns the LondonFull Express preset without
 // a cache.
 func GenerateLondonFullExpress() (project.Config, error) {
-	config, err := generateLondonFull(1)
+	config, err := generateLondonFull(1, false)
 	if err != nil {
 		return project.Config{}, err
 	}

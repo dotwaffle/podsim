@@ -205,17 +205,18 @@ func TestRestorePhysicalLondon(t *testing.T) {
 // TestLondonPlatoonsRestoreAndClone restores and clones London when pods
 // travel in platoons. The schedules of the other London restore and clone
 // tests form no platoon link. This test requests 120 AM peak journeys, four
-// each second. The first link forms at about 148 s. At that tick, the test
+// each second. With the lateral merges of the preset, the first link forms
+// at about 422 s. At that tick, the test
 // restores the physical state and clones the simulation. Then it runs the
 // clone and the restored simulation for 30 s.
 func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 	if testing.Short() {
-		t.Skip("the London platoon test runs for about 9 s with the race detector")
+		t.Skip("the London platoon test runs for about 16 s with the race detector")
 	}
 	t.Parallel()
 	const (
 		requests  = 120
-		linkTicks = 200 * sim.TicksPerSecond
+		linkTicks = 450 * sim.TicksPerSecond
 		runTicks  = 30 * sim.TicksPerSecond
 	)
 	config := LondonCentral()

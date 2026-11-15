@@ -62,7 +62,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	flags.Float64Var(&options.stationScale, "station-scale", 0, "London presets only: scale of each passenger station past its throat, greater than 0 and at most 1; omit to keep the preset value of 0.5")
 	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
 	junctions := flags.String("junctions", "", "London presets only: chords or ramps, the junctions that join the links of a station; omit to keep the preset value of chords")
-	flags.BoolVar(&options.lateralMerges, "lateral-merges", false, "London presets only: set lateralMerges on the network, so that the lanes of shallow merges and splits get lateral merge pairs; omit to keep it off")
+	flags.BoolVar(&options.lateralMerges, "lateral-merges", false, "London presets only: whether the network sets lateralMerges, which gives the lanes of shallow merges and splits lateral merge pairs; omit to keep the preset value of true")
 	var incidents incidentFlags
 	incidents.register(flags)
 	if err := flags.Parse(arguments); err != nil {
@@ -238,6 +238,9 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	if options.set["junctions"] {
 		london.Junctions = options.junctions
 	}
+	if options.set["lateral-merges"] {
+		london.NoLateralMerges = !options.lateralMerges
+	}
 	// The preset gives each LondonFull station a berth count, so only the
 	// -berths flag tells an explicit count of a Compact station.
 	for _, id := range london.CompactStations {
@@ -245,19 +248,7 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 			return project.Config{}, fmt.Errorf("-berths names Compact station %q, which has the 4 bays of the compact station; use -compact-stations none or a list without it", id)
 		}
 	}
-	config, err := build(london)
-	if err != nil {
-		return project.Config{}, err
-	}
-	if options.set["lateral-merges"] {
-		config.Network.LateralMerges = options.lateralMerges
-	}
-	// The field changes the junction zones, so a project that sets it gets
-	// the name suffix of a changed layout, one time.
-	if config.Network.LateralMerges && !strings.HasSuffix(config.Name, scenarios.CustomCapacitySuffix) {
-		config.Name += scenarios.CustomCapacitySuffix
-	}
-	return config, nil
+	return build(london)
 }
 
 // parseJunctions parses a -junctions value.

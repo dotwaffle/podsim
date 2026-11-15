@@ -889,13 +889,14 @@ const londonCompactStations = ["940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940
 test("London projects with depots, Compact stations, and lateral merges keep their scenario through import and export", needsGo, () => {
   const optOut = ["-parking-lanes", "0", "-compact-stations", "none"];
   const cases = [
-    { flags: ["london-central"], depots: 3, groups: 7 },
-    { flags: ["london-central", "-junctions", "ramps", "-lateral-merges"], depots: 3, groups: 7, lateralMerges: true },
-    { flags: ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")], depots: 3, groups: 7 },
-    { flags: ["london-central", ...optOut], depots: 0, groups: 0 },
-    { flags: ["london-full"], depots: 3, groups: 8 },
-    { flags: ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")], depots: 3, groups: 8 },
-    { flags: ["london-full", ...optOut], depots: 0, groups: 0 },
+    { flags: ["london-central"], depots: 3, groups: 7, lateralMerges: true },
+    { flags: ["london-central", "-junctions", "ramps"], depots: 3, groups: 7, lateralMerges: true },
+    { flags: ["london-central", "-lateral-merges=false"], depots: 3, groups: 7 },
+    { flags: ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")], depots: 3, groups: 7, lateralMerges: true },
+    { flags: ["london-central", ...optOut], depots: 0, groups: 0, lateralMerges: true },
+    { flags: ["london-full"], depots: 3, groups: 8, lateralMerges: true },
+    { flags: ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")], depots: 3, groups: 8, lateralMerges: true },
+    { flags: ["london-full", ...optOut], depots: 0, groups: 0, lateralMerges: true },
   ];
   for (const { flags, depots, groups, lateralMerges } of cases) {
     const name = flags.join(" ");

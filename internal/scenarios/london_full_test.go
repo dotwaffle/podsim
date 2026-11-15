@@ -165,8 +165,9 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 }
 
 // TestLondonCentralMirroredBytesPinned pins LondonCentral, and the
-// opt-out layout at station scale 1 at the hash of the preset before
-// depots, Compact stations, and the smaller stations became the default.
+// opt-out layout at station scale 1 without lateral merges at the hash of
+// the preset before depots, Compact stations, the smaller stations, and
+// lateral merges became the default.
 func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
@@ -174,7 +175,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		t.Fatal("central display name changed")
 	}
 	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
-	options.StationScale = 1
+	options.StationScale, options.NoLateralMerges = 1, true
 	optOut, err := LondonCentralWith(options)
 	if err != nil {
 		t.Fatal(err)
@@ -184,7 +185,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		config project.Config
 		want   string
 	}{
-		{"default", config, "91a01f42b84322d71c7372100ca688eb72a92732c8f5dbfa9a1a893ff4d1856c"},
+		{"default", config, "1332abe2acdcd5a2d95ffb62705a66ae824ca48af0ebce6e0a3a6ade9628e807"},
 		{"opt-out", optOut, "b3b8f3a1695804fcd398d71bedc4f4718e84e8b9448ce422109edfb8d7f12807"},
 	} {
 		test.config.Name = "Central London Underground-derived PRT"

@@ -9,9 +9,9 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-// TestLondonFullExpress checks that the Express preset is a valid project,
-// that the generator without the cache gives the same project, and that it
-// leaves LondonFull unchanged.
+// TestLondonFullExpress checks that the Express preset is a valid project
+// without lateral merges, that the generator without the cache gives the
+// same project, and that it leaves LondonFull unchanged.
 func TestLondonFullExpress(t *testing.T) {
 	t.Parallel()
 	before := LondonFull()
@@ -28,6 +28,11 @@ func TestLondonFullExpress(t *testing.T) {
 	}
 	if err := project.Validate(config); err != nil {
 		t.Fatal(err)
+	}
+	// The Express qualification is for the isotropic junction zones, so
+	// the network does not set the field that LondonFull sets.
+	if config.Network.LateralMerges || generated.Network.LateralMerges || !before.Network.LateralMerges {
+		t.Fatalf("Express LateralMerges %v, generated %v, LondonFull %v", config.Network.LateralMerges, generated.Network.LateralMerges, before.Network.LateralMerges)
 	}
 	if config.OrderContract != sim.ExpressOrderContract || len(config.ExpressServices) != 2 {
 		t.Fatalf("contract %q, %d services", config.OrderContract, len(config.ExpressServices))

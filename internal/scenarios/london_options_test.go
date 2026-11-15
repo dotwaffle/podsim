@@ -48,6 +48,33 @@ func TestLondonWithDefaultOptionsIsLondon(t *testing.T) {
 	}
 }
 
+// TestLondonLateralMergesOption checks that the London presets set
+// LateralMerges, and that NoLateralMerges gives the preset network without
+// the field and with the name suffix.
+func TestLondonLateralMergesOption(t *testing.T) {
+	t.Parallel()
+	if !LondonCentral().Network.LateralMerges || !LondonFull().Network.LateralMerges {
+		t.Fatal("a London preset does not set LateralMerges")
+	}
+	options := DefaultLondonCentralOptions()
+	if options.NoLateralMerges || DefaultLondonFullOptions().NoLateralMerges {
+		t.Fatal("the default options turn off the lateral merges")
+	}
+	options.NoLateralMerges = true
+	config, err := LondonCentralWith(options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if config.Network.LateralMerges || config.Name != "LondonCentral"+CustomCapacitySuffix {
+		t.Fatalf("name %q, LateralMerges %v, want the suffix and no field", config.Name, config.Network.LateralMerges)
+	}
+	preset := LondonCentral()
+	preset.Network.LateralMerges = false
+	if !reflect.DeepEqual(config.Network, preset.Network) || !reflect.DeepEqual(config.Fleet, preset.Fleet) {
+		t.Fatal("NoLateralMerges changed more than the network field")
+	}
+}
+
 func TestLondonWithCapacity(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

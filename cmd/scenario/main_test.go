@@ -119,15 +119,15 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
 		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
-		"london-central":      "b4aa49e25988029e608eefebe42526da5debb21c8f03a8ad7eca725532687edc",
-		"london-full":         "ebee7fd21f841af1a2e27949b086a1018654ad6ef4c2e5e47dd3498ea1f8e865",
+		"london-central":      "af3910caad1a094b64ad3af36b4e8450eba5d39f413ce0c25a3ada35dbb1c5db",
+		"london-full":         "d1b78b514e6deac9f67fb04b36265fea25b040234f85dc59ad1ae847f3d5914c",
 		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central":      "98872d902a7109289d750d53664a87ff0d81eedd7753075b5e6db42140e51c0c",
-		"london-full":         "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726",
+		"london-central":      "693a4ab4e01a3db7d67744d76d72610496822852bd2e5358741835142a1f37c7",
+		"london-full":         "441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d",
 		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
 	}
 	for preset, want := range tests {
@@ -179,17 +179,17 @@ func TestRunLondonOptOut(t *testing.T) {
 		flags                 []string
 		groups, depots        int
 	}{
-		{name: "LondonCentral", preset: "london-central", network: "b3f314699b701cac8457802f07573caac6540c36c0181e8255174464e8ade1c3",
+		{name: "LondonCentral", preset: "london-central", network: "6c588fb4a1b515fa741975f82af07fe0908727205076e38fc4b7afce6b265234",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonCentral without depots", preset: "london-central", network: "c74c1274a0ff4fcb72f2df0f0a17921c408b88fd8d67461fa731a93d30e1103c",
+		{name: "LondonCentral without depots", preset: "london-central", network: "4ea9902e9a26f414dc87a9da2254b57b9fa0236f5cc301b20d8e09e53c8b80f2",
 			flags: []string{"-parking-lanes", "0"}, groups: 7},
-		{name: "LondonCentral without Compact stations", preset: "london-central", network: "3bd49459fcef5f7486203eacaa1760c18fd9aa03da6f6cfe049c4b81448a88ad",
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: "fd4267cf18993117691f8cc6d9a50a8acc7e0ef9cede9f09bcfa08fba2fb48d4",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
-		{name: "LondonFull", preset: "london-full", network: "c8a78a199a5075f8c8e207493f858718b24dae83843f68669c0797980bcffe7e",
+		{name: "LondonFull", preset: "london-full", network: "b42cb02a0417be4cfde13cbee8e36ab4fc2f0c6fce15651d96e87c36a12eb675",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: "505f382fbfdf60d1c9f17cbf72b3b3e64a982b8c4d12cdaf4454c52f44f994e8",
+		{name: "LondonFull without depots", preset: "london-full", network: "5b25877d840fd2d1f9212e6c5db79c7d16544ee493ef0a870c5c3d297247f083",
 			flags: []string{"-parking-lanes", "0"}, groups: 8},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: "9c44751dbc4d3cdefb69f58c9a7667f36a2f69975d2166f930132c2bfb55dba2",
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "6f04a34bd880e1e61ab7c74f3fdd3bf8b35aca99453859e21d3e6fffeb2da510",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {
@@ -359,28 +359,47 @@ func TestRunCapacityFlags(t *testing.T) {
 	})
 	t.Run("lateral merges", func(t *testing.T) {
 		t.Parallel()
-		var preset, off bytes.Buffer
+		var preset, on bytes.Buffer
 		if err := run([]string{"-preset", "london-central"}, &preset, io.Discard); err != nil {
 			t.Fatal(err)
 		}
-		if err := run([]string{"-preset", "london-central", "-lateral-merges=false"}, &off, io.Discard); err != nil {
+		if err := run([]string{"-preset", "london-central", "-lateral-merges"}, &on, io.Discard); err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(preset.Bytes(), off.Bytes()) {
-			t.Fatal("-lateral-merges=false changed the preset")
+		if !bytes.Equal(preset.Bytes(), on.Bytes()) {
+			t.Fatal("-lateral-merges changed the preset")
 		}
-		for _, preset := range []string{"london-central", "london-full"} {
-			config, _ := generate(t, "-preset", preset, "-junctions", "ramps", "-lateral-merges")
-			if !config.Network.LateralMerges {
-				t.Fatalf("%s: -lateral-merges did not set the network field", preset)
-			}
-			if strings.Count(config.Name, " (custom capacity)") != 1 || !strings.HasSuffix(config.Name, " (custom capacity)") {
-				t.Fatalf("%s: name %q, want one suffix (custom capacity)", preset, config.Name)
-			}
+		// Without the field, the network is the network of the preset, with
+		// chords or ramps, before the presets set it.
+		networks := map[string]map[string]string{
+			"london-central": {
+				"chords": "98872d902a7109289d750d53664a87ff0d81eedd7753075b5e6db42140e51c0c",
+				"ramps":  "f797fb2ff315cbd4c4a6acd9f0a3746d224289a5a1bdc31b042dd8fb581e10b0",
+			},
+			"london-full": {
+				"chords": "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726",
+				"ramps":  "029781d541c2d9b43be66ba05a52b7d4cc33d2b3b4538c8f9cb26c158b8e0c7b",
+			},
 		}
-		config, _ := generate(t, "-preset", "london-central", "-lateral-merges")
-		if !config.Network.LateralMerges || config.Name != "LondonCentral (custom capacity)" {
-			t.Fatalf("-lateral-merges: name %q, lateralMerges %v", config.Name, config.Network.LateralMerges)
+		for preset, junctionNetworks := range networks {
+			for junctions, network := range junctionNetworks {
+				t.Run(preset+" "+junctions, func(t *testing.T) {
+					t.Parallel()
+					config, summary := generate(t, "-preset", preset, "-junctions", junctions, "-lateral-merges=false")
+					if config.Network.LateralMerges {
+						t.Fatal("-lateral-merges=false set the network field")
+					}
+					if strings.Count(config.Name, " (custom capacity)") != 1 || !strings.HasSuffix(config.Name, " (custom capacity)") {
+						t.Fatalf("name %q, want one suffix (custom capacity)", config.Name)
+					}
+					if !strings.Contains(summary, " network_sha256="+network+" ") {
+						t.Fatalf("summary = %q, want network SHA-256 %s", summary, network)
+					}
+					if config, _ = generate(t, "-preset", preset, "-junctions", junctions); !config.Network.LateralMerges {
+						t.Fatal("the preset value did not set the network field")
+					}
+				})
+			}
 		}
 	})
 	t.Run("London", func(t *testing.T) {
@@ -435,6 +454,10 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "lateral merges for the mesh", arguments: []string{"-preset", "scale100", "-lateral-merges"}, err: "-lateral-merges applies only to the London presets"},
 		{name: "lateral merges for a fixture", arguments: []string{"-preset", "compact-station", "-lateral-merges"}, err: "-lateral-merges does not apply to the compact station fixture"},
 		{name: "lateral merges for the Express preset", arguments: []string{"-preset", "london-full-express", "-lateral-merges"}, err: "-lateral-merges does not apply to the LondonFull Express preset"},
+		{name: "no lateral merges for a ring", arguments: []string{"-preset", "busy", "-lateral-merges=false"}, err: "-lateral-merges applies only to the London presets"},
+		{name: "no lateral merges for the mesh", arguments: []string{"-preset", "scale100", "-lateral-merges=false"}, err: "-lateral-merges applies only to the London presets"},
+		{name: "no lateral merges for a fixture", arguments: []string{"-preset", "compact-station", "-lateral-merges=false"}, err: "-lateral-merges does not apply to the compact station fixture"},
+		{name: "no lateral merges for the Express preset", arguments: []string{"-preset", "london-full-express", "-lateral-merges=false"}, err: "-lateral-merges does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

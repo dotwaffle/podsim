@@ -46,12 +46,13 @@ func LondonFull() project.Config {
 // all the memory of the result, and the garbage collector can release it.
 // The project is the same as the project of LondonFull.
 func GenerateLondonFull() (project.Config, error) {
-	return generateLondonFull(londonStationScale)
+	return generateLondonFull(londonStationScale, true)
 }
 
-// generateLondonFull builds LondonFull with the default options and the
-// station scale. It has the preset name at each scale.
-func generateLondonFull(scale float64) (project.Config, error) {
+// generateLondonFull builds LondonFull with the default options, the
+// station scale, and the LateralMerges field of the network. It has the
+// preset name at each scale.
+func generateLondonFull(scale float64, lateralMerges bool) (project.Config, error) {
 	source, err := decodeLondonFullSource()
 	if err != nil {
 		return project.Config{}, err
@@ -61,7 +62,7 @@ func generateLondonFull(scale float64) (project.Config, error) {
 		return project.Config{}, err
 	}
 	options := londonFullOptions(profile)
-	options.StationScale = scale
+	options.StationScale, options.NoLateralMerges = scale, !lateralMerges
 	capacity, err := options.resolve(source)
 	if err != nil {
 		return project.Config{}, err
