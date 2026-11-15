@@ -4,7 +4,8 @@ Status: proposed on November 7, 2026.
 On November 7, 2026, the maintainer approved rows E1 to E6, E8, S1, A15 to A18, and B1.
 On November 8, 2026, the maintainer approved row E7, after the bank routing work below.
 The approved rows are in the physical contract, the standee contract, the stage 7 contract, and the station banks document.
-D is not qualified until the Chrome check of row E6 and the browser readings of row E7 pass.
+D was not qualified until the Chrome check of row E6 and the browser readings of row E7 passed.
+On November 15, 2026, the maintainer passed both checks on D in desktop Chrome at `68a213f1`, so D is qualified.
 
 ## Scope
 
@@ -109,11 +110,17 @@ These results come from the risk checks of November 7, 2026, on project D (`expr
   D now costs the same server CPU as ordinary LondonFull, within the spread of the runs.
   The hub parties, 4 orders a second of wall time, add about 60 percent.
   Peak RSS includes the project load.
-  Retained frames, decoded client memory, and browser responsiveness are not measured yet.
+  On November 15, 2026, the maintainer found the browser responsive on D in Chrome, with the tab memory and CPU of the Chrome task manager.
+  This check was on D only, and it gave no numbers.
+  Retained frames and decoded client memory are not measured.
 - `TestLondonExpressRemoteLoads` runs the Go client against a live D session over HTTP and WebSocket.
   The client reads the D topology, and its stream shows Express pods with parties of 12, 13, and 20 aboard.
   `TestLondonExpressRemoteRecovery` runs the sequence recovery, the topology replacement of a new epoch, and the atomic rejection of the Go client on D frames.
-  The WASM client and desktop Chrome are not checked yet.
+  On November 15, 2026, the maintainer checked the WASM client in desktop Chrome on D.
+  Parties of 12, 13, and 20 from Waterloo to Bank boarded Express pods.
+  A reload during a trip recovered the stream.
+  A party of 20 from Arsenal to King's Cross was refused, and nothing else changed.
+  A reset replaced the topology.
 - With the index, D runs at about 170 s of wall time per simulated hour, with the oracle at each tick and without saves.
 - The Express byte proofs pass under the current caps.
   `TestExpressStateFileWorstCaseSize` measures a saved state of 105,174,023 bytes against the 128 MiB cap.
