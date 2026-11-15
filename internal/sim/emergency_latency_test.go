@@ -211,8 +211,9 @@ type choiceTickInput struct {
 }
 
 // newChoiceTickFixture places a pod at each berth of the passenger
-// stations of the network, up to the fleet limit, with the routing
-// policy. When warm is true, it first runs 600 ticks of traffic, with a
+// stations of the network that admits the legacy class, up to the fleet
+// limit, with the routing policy. When warm is true, it first runs 600
+// ticks of traffic, with a
 // trip between random passenger stations every 20 ticks. It then makes
 // four idle pods board for another passenger station, and steps until the
 // four pods travel and can divert. When warm is false, it returns a clone
@@ -230,7 +231,7 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 		}
 		passenger = append(passenger, station.ID)
 		for _, berth := range station.Berths {
-			if len(fleet) < 600 {
+			if len(fleet) < 600 && berthAllows(station, berth, LegacyClass) {
 				fleet = append(fleet, Placement{ID: fmt.Sprintf("%03d", len(fleet)+1), StationID: station.ID, BerthID: berth.ID})
 			}
 		}

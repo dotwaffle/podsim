@@ -204,7 +204,7 @@ func TestFinishingPodMatchesFleetOrder(t *testing.T) {
 	var placements []Placement
 	for _, station := range network.Stations {
 		for _, berth := range station.Berths {
-			if len(placements) < 160 {
+			if len(placements) < 160 && berthAllows(station, berth, LegacyClass) {
 				placements = append(placements, Placement{ID: fmt.Sprintf("%03d", len(placements)+1), StationID: station.ID, BerthID: berth.ID})
 			}
 		}
