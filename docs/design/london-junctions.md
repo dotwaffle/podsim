@@ -1,6 +1,7 @@
 # London junction design
 
-Status: proposed on 2026-11-15.
+Status: the maintainer approved this design on 2026-11-15.
+Slice 1 is in progress.
 The maintainer made the decisions below on 2026-11-15.
 
 ## Goal
