@@ -17,7 +17,7 @@ The ramps of the dropped turns are not there, and 5.6% of the AM peak demand use
 This study did not measure how each of these adds to the longer waits.
 On 2026-11-15, the maintainer kept chords and asked for a follow-up on the cause of the longer junction waits.
 The approved [lateral merge zones](../design/lateral-merge-zones.md) design changes the junction conflicts of shallow merges, behind a network field.
-With [lateral merges](#lateral-merge-zones), ramps drain 5 of 6 seeds, as chords without lateral merges do, and meet the adoption criteria.
+With [lateral merges](#lateral-merge-zones), ramps drain 3 of 6 seeds and still fail the drain criterion, and chords drain 6 of 6.
 
 ## Service
 
@@ -84,27 +84,32 @@ A ramp that joins a line at a small angle, as on a real guideway, therefore keep
 ## Lateral merge zones
 
 The [lateral merge zones](../design/lateral-merge-zones.md) rule is in the simulator since `5f89e611`, behind the `lateralMerges` network field.
+Since `085e845d`, the rule excludes each pair whose body range reaches the far end of a lane, and the table below is for that source.
 This section runs chords and ramps with the field set, with the same method and demand schedules.
 The runs with the field unset have the same results as the runs above, seed by seed, so they are not run again.
 
 | Rate | Seeds | Network | Drained | Mean wait | p95 wait | Mean journey | p95 journey | Junction wait | Track wait | Stopped pod time | Empty distance |
 | ---: | ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 15/min | 1 to 6 | chords | 5/6 | 205 s | 758 s | 892 s | 2,036 s | 1,140 s | 274 s | 1,700 s | 3,734 km |
-| 15/min | 1 to 6 | chords, lateral merges | 6/6 | +0.1% | +0.1% | 0.0% | -0.4% | -40% | +4% | -29% | +0.1% |
-| 15/min | 1 to 6 | ramps, lateral merges | 5/6 | +2.3% | +3.0% | +1.4% | +1.0% | +45% | +54% | +39% | +0.7% |
+| 15/min | 1 to 6 | chords, lateral merges | 6/6 | +0.1% | +0.3% | 0.0% | -0.4% | -41% | -7% | -31% | 0.0% |
+| 15/min | 1 to 6 | ramps, lateral merges | 3/6 | +2.1% | +2.1% | +1.3% | +0.7% | +52% | +52% | +43% | +0.2% |
 | 20/min | 1 to 3 | chords | 0/3 | 381 s | 1,255 s | 1,078 s | 2,447 s | 1,987 s | 404 s | 2,545 s | 6,601 km |
-| 20/min | 1 to 3 | chords, lateral merges | 0/3 | +0.6% | +0.2% | +0.2% | +0.9% | -54% | -27% | -46% | +1.0% |
-| 20/min | 1 to 3 | ramps, lateral merges | 0/3 | +8.4% | +6.5% | +3.7% | +4.0% | +60% | +110% | +64% | +5.2% |
+| 20/min | 1 to 3 | chords, lateral merges | 0/3 | +0.4% | -2.7% | +0.1% | +0.6% | -55% | -47% | -51% | +0.1% |
+| 20/min | 1 to 3 | ramps, lateral merges | 0/3 | +8.3% | +7.2% | +3.6% | +3.8% | +84% | +141% | +87% | +4.7% |
 
 Each change is the mean of the paired changes from chords without lateral merges.
-With lateral merges, ramps leave one request with seed 1 at 15 requests per minute.
-At 20 requests per minute, 3 to 5 requests remain at minute 120 in each arm.
+With lateral merges, ramps leave one request with each of seeds 1, 3, and 4 at 15 requests per minute.
+At 20 requests per minute, 2 to 6 requests remain at minute 120 in each arm.
 
-Against chords without lateral merges, ramps with lateral merges meet the adoption criteria of the junction design.
-They drain 5 of 6 seeds, as chords do, and the mean wait and the mean journey are 2.3% and 1.4% longer.
-Against chords with lateral merges, which drain 6 of 6, the mean wait of ramps is 2.2% longer and the mean journey 1.5% longer.
+Against chords without lateral merges, ramps with lateral merges fail the drain criterion of the junction design: they drain 3 of 6 seeds, against 5 of 6.
+Their mean wait and mean journey are 2.1% and 1.3% longer, so they pass the 5% criterion.
+Against chords with lateral merges, which drain 6 of 6, the mean wait of ramps is 2.1% longer and the mean journey 1.3% longer.
 
-The stopped-pod sample of seed 1 at 15 requests per minute shows where the junction waits are now:
+The first build of the rule, at `5f89e611`, did not exclude the pairs that reach a lane end.
+With it, ramps drained 5 of 6 seeds, with a mean wait 2.3% and a mean journey 1.4% longer than chords without lateral merges, and chords drained 6 of 6.
+The excluded pairs keep the longer isotropic zones, so the junction waits of ramps are longer after the fix.
+
+The stopped-pod sample of seed 1 at 15 requests per minute, with the first build of the rule, shows where the junction waits were:
 
 | Place | Chords | Chords, lateral merges | Ramps | Ramps, lateral merges |
 | --- | ---: | ---: | ---: | ---: |
@@ -116,10 +121,10 @@ The stopped-pod sample of seed 1 at 15 requests per minute shows where the junct
 Lateral merges remove most of the waits before the splits, and about a third of the waits before the merges of ramps.
 Pods on ramps still wait 877 s before join nodes, so the longer conflict zones were one cause of the merge waits, but not the only cause.
 
-A safety run checked the rule on LondonFull with ramps and lateral merges.
+A safety run checked the rule on LondonFull with ramps and lateral merges, with both builds of the rule.
 It ran 30 simulated minutes with virtual platoons and one AM peak request each 4 s, 450 requests in total.
 At each tick, `SafetyObservation.Check` passed, and the grown bodies of the pods on each lateral merge pair did not overlap.
-The smallest distance between two pods of a lateral merge pair was 4.32 m, against the 3.1 m of the rule.
+The smallest distance between two pods of a lateral merge pair was 4.32 m in both runs, against the 3.1 m of the rule.
 
 ## Method
 
@@ -137,6 +142,6 @@ mise run compare -- -project /tmp/podsim-ramps.json -pattern profile -bands am-p
 
 Seeds 4 to 6 ran at 15 requests per minute only, because the drain difference at seeds 1 to 3 was one seed.
 
-The lateral merge runs use the source `b42b6a59`, and the same commands with `-lateral-merges` added to `cmd/scenario`.
+The lateral merge runs use the sources `b42b6a59` (first build) and `3fc026de` (with the lane-end exclusion), and the same commands with `-lateral-merges` added to `cmd/scenario`.
 The runs without lateral merges at this source gave the same rows as at `b3d79964` for seed 1.
 A run of one seed with lateral merges took 31 s and 801 MB.
