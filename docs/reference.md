@@ -55,8 +55,8 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 ### Lateral merges
 
 The network member `lateralMerges` is a Boolean that turns on the [lateral merge pairs](model.md#junctions) of shallow merges and splits.
-Absent or false keeps the junction zones of each pair of lanes at a node, so that no preset or saved project changes.
-The presets do not set it.
+Absent or false keeps the junction zones of each pair of lanes at a node.
+The `london-central` and `london-full` presets set it, and the other presets do not.
 
 ### Generated order consent
 
@@ -491,7 +491,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 ### Capacity flags
 
-The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the Compact stations, and the junctions of a preset, and `-lateral-merges` sets one network field.
+The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the Compact stations, and the junctions of a preset, and `-lateral-merges` changes one network field.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
 They do not apply to `independent-banks`, `compact-station`, or `london-full-express`.
 
@@ -507,7 +507,7 @@ They do not apply to `independent-banks`, `compact-station`, or `london-full-exp
 | `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` at scale 1, so its approved geometry does not change. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
-| `-lateral-merges` | London presets only. Set [`lateralMerges`](#lateral-merges) on the network, which gives the lanes of shallow merges and splits shorter junction zones. The project name ends with " (custom capacity)". `london-full-express` keeps its junction zones, so its qualification evidence stays valid. |
+| `-lateral-merges=false` | London presets only. Do not set [`lateralMerges`](#lateral-merges) on the network, so that the lanes of shallow merges and splits keep the longer junction zones. The default is true, the preset value, which gives these lanes shorter junction zones. With `=false`, the project name ends with " (custom capacity)". Use the form with `=`, because `-lateral-merges false` is the flag and a positional argument. `london-full-express` does not set the field, so its qualification evidence stays valid. |
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json

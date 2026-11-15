@@ -3,7 +3,9 @@
 Status: the maintainer approved this design on 2026-11-15.
 The maintainer chose these options: the gated field (D4, option B), merges and splits (D1), a margin of 1 m (D2), the debris partners (D5), and the contract amendments (D7).
 D3 and D6 follow the recommendations.
-The rule is built behind the `lateralMerges` network field, and the presets do not set it.
+The rule is built behind the `lateralMerges` network field.
+On 2026-11-15, the maintainer adopted it for LondonCentral and LondonFull, which set the field.
+`london-full-express` does not set it, so its behavior does not change.
 The [junction study](../studies/london-junctions.md#lateral-merge-zones) has the results with the field set.
 
 Lane ends, found by a review on 2026-11-15: the safety argument of section 3 failed where the body range of a lane reached the far end of the lane.

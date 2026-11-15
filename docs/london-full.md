@@ -59,6 +59,9 @@ Its guideways connect through Canary Wharf DLR, and its demand endpoints are exc
 Poplar uses the shared heading search without an override.
 LondonCentral's headings and capacity remain unchanged.
 
+The preset sets [`lateralMerges`](reference.md#lateral-merges), as LondonCentral does, so two small lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
+`london-full-express` does not set it.
+
 The layout audit reports no hard conflicts and one soft conflict.
 Soft conflicts describe overlap or proximity to source station positions.
 They do not establish that a running simulation is safe or that a demand rate is sustainable.
@@ -122,7 +125,7 @@ In each band, the shares of all stations add to 2, but the largest shares of all
 
 The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 1 soft conflict, and its indented export has 14,823,638 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 1 soft conflict, and its indented export has 14,823,665 bytes.
 
 ### Measurements, October 19, 2026
 
@@ -232,8 +235,8 @@ These checks do not establish a sustainable demand rate.
 
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
-The default compact project JSON has 5,612,355 bytes.
-The default indented export has 14,912,499 bytes.
+The default compact project JSON has 5,612,389 bytes.
+The default indented export has 14,912,526 bytes.
 The saved-state cap is 128 MiB.
 The plain and Express saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Stream JSON is capped at 64 MiB, with 32,832 bytes of gzip overhead; HTTP state has a separate 128 MiB cap.

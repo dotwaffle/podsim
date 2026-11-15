@@ -18,6 +18,7 @@ This study did not measure how each of these adds to the longer waits.
 On 2026-11-15, the maintainer kept chords and asked for a follow-up on the cause of the longer junction waits.
 The approved [lateral merge zones](../design/lateral-merge-zones.md) design changes the junction conflicts of shallow merges, behind a network field.
 With [lateral merges](#lateral-merge-zones), ramps drain 3 of 6 seeds and still fail the drain criterion, and chords drain 6 of 6.
+On 2026-11-15, the maintainer adopted chords with lateral merges for LondonCentral and LondonFull.
 
 ## Service
 
@@ -145,3 +146,4 @@ Seeds 4 to 6 ran at 15 requests per minute only, because the drain difference at
 The lateral merge runs use the sources `b42b6a59` (first build) and `3fc026de` (with the lane-end exclusion), and the same commands with `-lateral-merges` added to `cmd/scenario`.
 The runs without lateral merges at this source gave the same rows as at `b3d79964` for seed 1.
 A run of one seed with lateral merges took 31 s and 801 MB.
+After the adoption, the presets set the field, so at a later source, add `-lateral-merges=false` to `cmd/scenario` to build the networks without lateral merges.
