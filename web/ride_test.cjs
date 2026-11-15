@@ -602,7 +602,14 @@ function windings(positions, normals, indices) {
 
 test("parsePodModel reads the parts and the eye of web/pod.glb", () => {
   const model = ride.parsePodModel(podModelBuffer());
-  assert.deepEqual(Object.keys(model.parts).sort(), ["cabin", "gear", "glass", "shell"]);
+  assert.deepEqual(Object.keys(model.parts).sort(), ["cabin", "gear", "glass", "seat", "shell"]);
+  assert.deepEqual(Object.keys(model.screens), ["mapScreen", "speedScreen", "routeScreen", "banner"]);
+  for (const [name, part] of Object.entries(model.parts)) {
+    // MergeMeshes needs the same attributes in each part, so each part has
+    // texture coordinates.
+    assert.equal(part.uvs.length / 2, part.positions.length / 3, `${name} texture coordinates`);
+    assert.ok(part.uvs.every(Number.isFinite), `${name} texture coordinates are finite`);
+  }
   near(model.length, 4, "model length");
   assert.deepEqual(model.eye.map((value) => Math.round(value * 100) / 100 + 0), [0, 0.3, 0.5], "eye");
   near(model.parts.glass.color[0], 0.05, "glass color");
@@ -649,4 +656,291 @@ test("seatEye places the eye as writePodMatrix places the pod", () => {
   const want = [0, 1, 2].map((k) => local[0] * matrix[k] + local[1] * matrix[4 + k] + local[2] * matrix[8 + k] + matrix[12 + k]);
   const got = ride.seatEye(x, top, z, yaw, eye, scale);
   for (let k = 0; k < 3; k++) assert.ok(Math.abs(got[k] - want[k]) < 1e-5, `axis ${k}: ${got[k]} != ${want[k]}`);
+});
+
+// fakeContext is a canvas 2D context that records its calls. A character
+// of text is 0.6 of the font size wide.
+function fakeContext() {
+  const calls = [], state = { font: "10px sans-serif", textAlign: "left", fillStyle: "", globalCompositeOperation: "source-over" };
+  const fontSize = () => Number(/([\d.]+)px/.exec(state.font)[1]);
+  return new Proxy({}, {
+    get(_, name) {
+      if (name === "calls") return calls;
+      if (name === "measureText") return (text) => ({ width: text.length * fontSize() * 0.6 });
+      if (name in state) return state[name];
+      return (...args) => { calls.push({ name, args, font: state.font, size: fontSize(), align: state.textAlign, style: state.fillStyle }); };
+    },
+    set(_, name, value) { state[name] = value; return true; },
+  });
+}
+
+// textsInside checks that each text that context drew is inside a canvas of
+// width by height and that no two texts overlap, and returns the texts. A
+// text box reaches 0.75 of the font size above the baseline and 0.2 below.
+function textsInside(context, width, height) {
+  const boxes = [];
+  for (const call of context.calls.filter((c) => c.name === "fillText")) {
+    const [text, x, y] = call.args, w = text.length * call.size * 0.6;
+    const left = call.align === "right" ? x - w : (call.align === "center" ? x - w / 2 : x);
+    assert.ok(left >= -0.01 && left + w <= width + 0.01, `"${text}" spans ${left} to ${left + w}, outside 0 to ${width}`);
+    assert.ok(y - 0.75 * call.size >= -0.01 && y <= height + 0.01, `"${text}" at y ${y} is outside 0 to ${height}`);
+    const box = { text, left, right: left + w, top: y - 0.75 * call.size, bottom: y + 0.2 * call.size };
+    for (const other of boxes) {
+      const apart = box.right <= other.left || other.right <= box.left || box.bottom <= other.top || other.bottom <= box.top;
+      assert.ok(apart, `"${text}" overlaps "${other.text}"`);
+    }
+    boxes.push(box);
+  }
+  return boxes.map((box) => box.text);
+}
+
+const longHud = {
+  found: true, podID: "0123", class: "compact", activity: "Traveling to the next station of the long route", speed: 20, speedLimit: 22,
+  waitReason: "Pod ahead on the merge at the junction", blockedBy: "0456",
+  riders: [{ partySize: 2, from: "Custom House for ExCel", to: "Cutty Sark for Maritime Greenwich" }, { partySize: 1, from: "Bank", to: "Battersea Power Station" }],
+  nextStop: "Cutty Sark for Maritime Greenwich", route: { traveledMeters: 300, remainingMeters: 900, seconds: 75, before: false, after: true },
+  session: { speed: 1, paused: false, connected: true },
+};
+
+test("hudView gives the fields of the racing layout", () => {
+  const view = ride.hudView(longHud);
+  assert.equal(view.speedKmh, 72);
+  assert.equal(view.limitKmh, 79);
+  assert.equal(view.podName, "0123 (compact)");
+  assert.equal(view.nextName, "Cutty Sark for Maritime Greenwich");
+  assert.equal(view.eta, "over 1:15");
+  assert.equal(view.time, "1:15");
+  assert.equal(view.over, true);
+  assert.equal(view.distance, "over 900 m");
+  assert.equal(view.aboard, 3);
+  const inside = ride.hudView({ ...longHud, speedLimit: 0, route: { ...longHud.route, after: false } });
+  assert.equal(inside.eta, "1:15");
+  assert.equal(inside.distance, "900 m");
+  assert.equal(inside.limitKmh, 0);
+  const missing = ride.hudView({ found: false, riders: [], session: {} });
+  assert.equal(missing.nextName, "");
+  assert.equal(missing.aboard, 0);
+});
+
+test("fitText cuts a text at a word boundary to fit a width", () => {
+  const measure = (text) => text.length * 10;
+  assert.equal(ride.fitText("Bank", 40, measure), "Bank");
+  assert.equal(ride.fitText("Battersea Power Station", 200, measure), "Battersea Power…");
+  assert.equal(ride.fitText("Battersea Power Station", 150, measure), "Battersea…");
+  // A first word that is too wide loses characters.
+  assert.equal(ride.fitText("Walthamstowcentralstation", 60, measure), "Walth…");
+  for (const width of [20, 55, 95, 130]) assert.ok(measure(ride.fitText("Cutty Sark for Maritime Greenwich", width, measure)) <= width, `width ${width}`);
+});
+
+test("waitText cuts blockedBy before the wait reason", () => {
+  const measure = (text) => text.length * 10;
+  assert.equal(ride.waitText("Pod ahead", "", 200, measure), "Pod ahead");
+  assert.equal(ride.waitText("Pod ahead", "0456", 200, measure), "Pod ahead (0456)");
+  assert.equal(ride.waitText("Blocked by incident", "debris-0123456789", 300, measure), "Blocked by incident (debris-…)");
+  assert.equal(ride.waitText("Blocked by incident", "debris-0123456789", 200, measure), "Blocked by incident");
+  assert.equal(ride.waitText("Blocked by incident", "debris-0123456789", 150, measure), "Blocked by…");
+});
+
+test("stopLadder puts the stops behind the pod, the next stop, and the later stops in order", () => {
+  const ladder = ride.stopLadder(longHud, 0.25);
+  assert.deepEqual(ladder.stops, [
+    { name: "Custom House for ExCel", state: "done" },
+    { name: "Bank", state: "done" },
+    { name: "Cutty Sark for Maritime Greenwich", state: "next" },
+    { name: "Battersea Power Station", state: "later" },
+  ]);
+  assert.equal(ladder.oneLeg, false);
+  const items = ride.ladderItems(ladder);
+  assert.deepEqual(items.map((item) => (item.bar ? `bar ${item.progress}` : item.state)), ["done", "done", "bar 0.25", "next", "later"]);
+
+  // One party: a bar from its origin to the next stop.
+  const one = ride.stopLadder({ ...longHud, riders: [longHud.riders[1]], nextStop: "Battersea Power Station" }, 0.5);
+  assert.equal(one.oneLeg, true);
+  assert.deepEqual(one.stops.map((stop) => stop.state), ["done", "next"]);
+  // An empty pod on its way to a pickup has a next stop and no origin.
+  const empty = ride.stopLadder({ ...longHud, riders: [], nextStop: "Oval" }, -1);
+  assert.deepEqual(empty.stops, [{ name: "Oval", state: "next" }]);
+  assert.equal(empty.oneLeg, true);
+  assert.deepEqual(ride.ladderItems(empty).map((item) => (item.bar ? "bar" : item.name)), ["bar", "Oval"]);
+  assert.deepEqual(ride.stopLadder({ found: false }, 0.5), { stops: [], progress: -1, oneLeg: true });
+  // At most three stops come after the next stop, and a stop shows once.
+  const many = { ...longHud, nextStop: "A", riders: ["A", "B", "C", "D", "E", "B"].map((to) => ({ partySize: 1, from: "Bank", to })) };
+  assert.deepEqual(ride.stopLadder(many, 0).stops.map((stop) => stop.name), ["Bank", "A", "B", "C", "D"]);
+});
+
+test("gaugeView scales the gauge above the speed and the limit", () => {
+  const gauge = ride.gaugeView(50 / 3.6, 80 / 3.6);
+  assert.equal(gauge.top, 100);
+  near(gauge.speed, 0.5, "speed fraction");
+  near(gauge.limit, 0.8, "limit fraction");
+  assert.equal(gauge.over, false);
+  assert.equal(ride.gaugeView(0, 0).top, 40);
+  assert.equal(ride.gaugeView(0, 0).limit, -1);
+  const over = ride.gaugeView(130 / 3.6, 100 / 3.6);
+  assert.equal(over.top, 140);
+  assert.equal(over.over, true);
+});
+
+test("hudMode puts the readouts in the cabin only in the seat view of a pod with screens", () => {
+  assert.equal(ride.hudMode(false, false, true, true), "cabin");
+  assert.equal(ride.hudMode(true, false, true, true), "overlay", "chase view");
+  assert.equal(ride.hudMode(false, true, true, true), "overlay", "platform view");
+  assert.equal(ride.hudMode(false, false, false, true), "overlay", "no pod model");
+  assert.equal(ride.hudMode(false, false, true, false), "overlay", "no ridden pod");
+});
+
+test("the cabin screens draw each text inside the screen", () => {
+  const model = ride.parsePodModel(podModelBuffer());
+  const size = (name) => model.screens[name].scale.slice(0, 2).map((value) => Math.round(value * 2000));
+  const view = ride.hudView(longHud), ladder = ride.stopLadder(longHud, view.progress);
+  const near = { name: "Cutty Sark (for Maritime Greenwich)", distance: "1.2 km" };
+  const draws = {
+    speedScreen: (context, w, h) => ride.drawSpeedScreen(context, w, h, view),
+    routeScreen: (context, w, h) => ride.drawRouteScreen(context, w, h, view, ladder, near),
+    banner: (context, w, h) => ride.drawBanner(context, w, h, view),
+  };
+  const texts = {};
+  for (const [name, draw] of Object.entries(draws)) {
+    const [w, h] = size(name), context = fakeContext();
+    draw(context, w, h);
+    texts[name] = textsInside(context, w, h);
+  }
+  assert.ok(texts.speedScreen.includes("72"), texts.speedScreen.join(" | "));
+  assert.ok(texts.speedScreen.includes("79 km/h"), "limit");
+  assert.ok(texts.banner.includes("1:15") && texts.banner.includes("ETA, OVER"), texts.banner.join(" | "));
+  assert.ok(texts.banner.some((text) => text.startsWith("Cutty Sark")), texts.banner.join(" | "));
+  // The long wait reason does not fit, so it is cut at a word boundary.
+  const wait = texts.routeScreen.find((text) => text.startsWith("Pod ahead"));
+  assert.ok(wait && wait.endsWith("…") && "Pod ahead on the merge at the junction".startsWith(wait.slice(0, -1)), wait);
+  assert.ok(texts.routeScreen.includes("3 aboard"), texts.routeScreen.join(" | "));
+  // A station name loses the part in brackets before a word cut.
+  assert.ok(texts.routeScreen.includes("Near Cutty Sark, 1.2 km"), texts.routeScreen.join(" | "));
+
+  // The longest wait reason keeps a full pod ID on the route screen.
+  {
+    const hud = { ...longHud, waitReason: "No parking available", blockedBy: "0456" }, context = fakeContext();
+    const [w, h] = size("routeScreen"), longView = ride.hudView(hud);
+    ride.drawRouteScreen(context, w, h, longView, ride.stopLadder(hud, longView.progress), near);
+    assert.ok(textsInside(context, w, h).includes("No parking available (0456)"));
+  }
+  // A ladder of seven rows draws each row apart.
+  {
+    const hud = { ...longHud, nextStop: "A", riders: ["A", "B", "C", "D"].map((to, i) => ({ partySize: 1, from: `Origin ${i % 2}`, to })) };
+    const context = fakeContext(), [w, h] = size("routeScreen"), manyView = ride.hudView(hud), ladder7 = ride.stopLadder(hud, 0.5);
+    assert.equal(ride.ladderItems(ladder7).length, 7);
+    ride.drawRouteScreen(context, w, h, manyView, ladder7, near);
+    textsInside(context, w, h);
+  }
+
+  // One leg draws a bar with the origin and the next stop, and no stop
+  // ahead draws a message.
+  const [w, h] = size("routeScreen");
+  for (const hud of [{ ...longHud, riders: [{ partySize: 1, from: "Bank", to: "Oval" }], nextStop: "Oval" }, { ...longHud, riders: [], nextStop: "" }]) {
+    const context = fakeContext(), oneView = ride.hudView(hud);
+    ride.drawRouteScreen(context, w, h, oneView, ride.stopLadder(hud, oneView.progress), null);
+    const drawn = textsInside(context, w, h);
+    for (const want of hud.nextStop ? ["Bank", "Oval"] : ["No stop ahead"]) assert.ok(drawn.includes(want), drawn.join(" | "));
+  }
+});
+
+test("screenQuad faces the eye and reads left to right and top up", () => {
+  const model = ride.parsePodModel(podModelBuffer());
+  for (const stretch of [1, 1.5]) {
+    const eye = [model.eye[0], model.eye[1], model.eye[2] * stretch];
+    for (const [name, screen] of Object.entries(model.screens)) {
+      const quad = ride.screenQuad(screen, stretch), p = (i) => [0, 1, 2].map((k) => quad.positions[3 * i + k]);
+      // In the scene, +x is to the right of the rider and +y is up. u grows
+      // from corner 0 to corner 1, and v from corner 1 to corner 2.
+      const right = p(1).map((value, k) => value - p(0)[k]), up = p(2).map((value, k) => value - p(1)[k]);
+      assert.ok(right[0] > 0.5 * Math.hypot(...right), `${name}: u grows to the left`);
+      assert.ok(up[1] > 0.8 * Math.hypot(...up), `${name}: v = 1 is not the top`);
+      assert.deepEqual([...quad.uvs], [0, 0, 1, 0, 1, 1, 0, 1]);
+      const center = [0, 1, 2].map((k) => (p(0)[k] + p(2)[k]) / 2), toEye = eye.map((value, k) => value - center[k]);
+      const normal = [0, 1, 2].map((k) => quad.normals[k]), dot = normal.reduce((sum, value, k) => sum + value * toEye[k], 0);
+      // A stretch turns the screens a little away from the eye.
+      assert.ok(dot > (stretch === 1 ? 0.999 : 0.9) * Math.hypot(...toEye), `${name} faces away from the eye`);
+      const { along } = windings(quad.positions, quad.normals, quad.indices);
+      assert.equal(along, 0, `${name} winds as a back face`);
+    }
+  }
+  // The stretch moves the screens as stretchPart moves the cabin.
+  const screen = model.screens.speedScreen;
+  const z = (stretch) => ride.screenQuad(screen, stretch).positions[2];
+  assert.ok(Math.abs(z(1.5) - 1.5 * z(1)) < 1e-5, `stretched z ${z(1.5)}, unstretched ${z(1)}`);
+});
+
+test("attachTexture keeps the flat color when a texture does not load", () => {
+  const made = [];
+  class Texture {
+    constructor(url, scene, noMipmap, invertY, sampling, onLoad, onError) { Object.assign(this, { url, onLoad, onError, disposed: false }); made.push(this); }
+    dispose() { this.disposed = true; }
+  }
+  Texture.TRILINEAR_SAMPLINGMODE = 3;
+  Texture.WRAP_ADDRESSMODE = 1;
+  const B = { Texture }, warn = console.warn;
+  const loads = { diffuseColor: "white" }, fails = { diffuseColor: "grey" };
+  ride.attachTexture(B, null, "textures/concrete.png", [loads]);
+  assert.equal(loads.diffuseTexture, undefined, "no texture before it loads");
+  made[0].onLoad();
+  assert.equal(loads.diffuseTexture, made[0]);
+  assert.equal(made[0].wrapU, 1);
+  ride.attachTexture(B, null, "textures/missing.png", [fails]);
+  console.warn = () => {};
+  try { made[1].onError("404"); } finally { console.warn = warn; }
+  assert.equal(fails.diffuseTexture, undefined);
+  assert.equal(fails.diffuseColor, "grey");
+  assert.equal(made[1].disposed, true);
+});
+
+test("the concrete has texture coordinates in meters", () => {
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 40, y: 0 }]]);
+  const beam = ride.beamGeometry([{ id: "l", from: "a", to: "b" }], nodes, null);
+  assert.equal(beam.uvs.length / 2, beam.positions.length / 3);
+  // The end of the 40 m beam is 10 texture repeats along.
+  assert.equal(Math.max(...beam.uvs.filter((_, i) => i % 2 === 0)), 10);
+  const deck = ride.deckGeometry([{ x: 30000, y: 0 }, { x: 30040, y: 0 }, { x: 30040, y: 40 }], 5);
+  assert.equal(deck.uvs.length / 2, deck.positions.length / 3);
+  // The deck coordinates start at its first point, so they stay small far
+  // from the origin.
+  assert.ok(deck.uvs.every((value) => Math.abs(value) <= 21), "deck coordinates are small");
+  const uvs = ride.boxUVs([2, 0, 4, 2, 0, 4], [0, 1, 0, 1, 0, 0], 4);
+  assert.deepEqual([...uvs], [0.5, 1, 1, 0]);
+});
+
+test("the mini-map draws in the square that the caller gives", () => {
+  const topology = { nodes: [{ id: "a", position: { x: 0, y: 0 } }, { id: "b", position: { x: 100, y: 0 } }], lanes: [{ id: "l", from: "a", to: "b" }], stations: [] };
+  const map = ride.createMiniMap(topology);
+  for (const size of [240, 360]) {
+    const context = fakeContext();
+    map.draw(context, size, size / 240, 0, 0, 0, new Float64Array(0), 0, -1, -1);
+    const clip = context.calls.find((call) => call.name === "arc");
+    assert.deepEqual(clip.args.slice(0, 3), [size / 2, size / 2, size / 2]);
+    const north = context.calls.find((call) => call.name === "fillText" && call.args[0] === "N");
+    assert.equal(north.args[1], size / 2);
+  }
+});
+
+test("the overlay has the racing layout", () => {
+  const html = require("node:fs").readFileSync(require("node:path").join(__dirname, "ride.html"), "utf8");
+  const rule = (selector) => {
+    const match = new RegExp(`(?:^|\\n)\\s*${selector.replace(/[.#]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(html);
+    assert.ok(match, `no rule for ${selector}`);
+    return Object.fromEntries(match[1].split(";").map((part) => part.split(":").map((value) => value.trim())).filter(([key]) => key));
+  };
+  const centered = (style) => style.left === "50%" && style.transform === "translateX(-50%)";
+  // The speed gauge is at the bottom center, the map at the bottom left,
+  // the next stop and the ladder at the top center, and the status at the
+  // bottom right.
+  assert.ok(centered(rule("#hudGauge")) && rule("#hudGauge").bottom, "gauge");
+  assert.ok(rule("#minimap").left && rule("#minimap").bottom && rule("#minimap")["border-radius"] === "50%", "map");
+  assert.ok(centered(rule("#hudBanner")) && rule("#hudBanner").top, "banner");
+  assert.ok(centered(rule("#hudLadder")) && parseFloat(rule("#hudLadder").top) > parseFloat(rule("#hudBanner").top), "ladder under the banner");
+  assert.ok(rule("#hudStatus").right && rule("#hudStatus").bottom, "status");
+  assert.ok(rule("#panel").left && rule("#panel").top && rule("#strip").right && rule("#strip").top, "controls and strip");
+  // In the seat view, the cabin screens show the readouts.
+  assert.equal(rule("body.cabin #hud, body.cabin #minimap").display, "none");
+  // The page code finds these elements.
+  for (const id of ["hudSpeed", "hudLimit", "hudState", "hudWait", "hudTrip", "hudNext", "hudEta", "hudRoute", "hudStops", "hudProgress", "hudProgressBar", "hudNear", "gauge", "stripSession", "stripMessage", "rideAt1x", "hudPassenger", "minimap"]) {
+    assert.ok(html.includes(`id="${id}"`), id);
+  }
 });

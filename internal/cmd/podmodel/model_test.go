@@ -39,15 +39,38 @@ func TestModelFile(t *testing.T) {
 type decodedPart struct {
 	positions [][3]float64
 	normals   [][3]float64
+	uvs       [][2]float64
 	indices   []int
 }
 
+// decodedScreen is a screen node of a GLB file: its translation, rotation,
+// and scale.
+type decodedScreen struct {
+	translation [3]float64
+	rotation    [4]float64
+	scale       [3]float64
+}
+
+// corners returns the corners of the screen in the model frame, in order
+// around the screen. The screen is the unit square of its node frame in
+// the x-y plane, as encodeGLB writes it.
+func (s decodedScreen) corners() [4]vec3 {
+	r := quat{s.rotation[0], s.rotation[1], s.rotation[2], s.rotation[3]}
+	var out [4]vec3
+	for i, c := range [4][2]float64{{-0.5, -0.5}, {0.5, -0.5}, {0.5, 0.5}, {-0.5, 0.5}} {
+		out[i] = vec(s.translation).add(r.rotate(vec3{c[0] * s.scale[0], c[1] * s.scale[1], 0}))
+	}
+	return out
+}
+
 // decodedModel is a GLB file read back from the bytes: its parts by node
-// name, the node names in order, and the eye translation.
+// name, the node names in order, the eye translation, and the screens by
+// node name.
 type decodedModel struct {
-	names []string
-	parts map[string]decodedPart
-	eye   [3]float64
+	names   []string
+	parts   map[string]decodedPart
+	eye     [3]float64
+	screens map[string]decodedScreen
 }
 
 // decodeGLB reads data as a GLB file and checks its structure.
@@ -95,12 +118,19 @@ func decodeGLB(t *testing.T, data []byte) decodedModel {
 		}
 		return out
 	}
-	model := decodedModel{parts: make(map[string]decodedPart)}
+	model := decodedModel{parts: make(map[string]decodedPart), screens: make(map[string]decodedScreen)}
 	for _, node := range doc.Nodes {
 		model.names = append(model.names, node.Name)
 		if node.Mesh == nil {
-			if node.Translation != nil {
+			switch {
+			case node.Translation == nil:
+				t.Fatalf("node %s has no mesh and no translation", node.Name)
+			case node.Name == "eye":
 				model.eye = *node.Translation
+			case node.Rotation == nil || node.Scale == nil:
+				t.Fatalf("screen node %s has no rotation or no scale", node.Name)
+			default:
+				model.screens[node.Name] = decodedScreen{*node.Translation, *node.Rotation, *node.Scale}
 			}
 			continue
 		}
@@ -118,6 +148,21 @@ func decodeGLB(t *testing.T, data []byte) decodedModel {
 		p.normals = vectors(primitive.Attributes["NORMAL"])
 		if len(p.normals) != len(p.positions) {
 			t.Fatalf("node %s has %d positions and %d normals", node.Name, len(p.positions), len(p.normals))
+		}
+		uvIndex, ok := primitive.Attributes["TEXCOORD_0"]
+		if !ok {
+			t.Fatalf("node %s has no texture coordinates", node.Name)
+		}
+		uvAccessor := doc.Accessors[uvIndex]
+		uvRaw := viewBytes(uvAccessor.BufferView)
+		if uvAccessor.ComponentType != componentFloat || uvAccessor.Type != "VEC2" || uvAccessor.Count != len(p.positions) || len(uvRaw) != uvAccessor.Count*8 {
+			t.Fatalf("node %s has texture coordinate accessor %+v for %d positions", node.Name, uvAccessor, len(p.positions))
+		}
+		p.uvs = make([][2]float64, uvAccessor.Count)
+		for i := range p.uvs {
+			for c := range 2 {
+				p.uvs[i][c] = float64(math.Float32frombits(binary.LittleEndian.Uint32(uvRaw[8*i+4*c:])))
+			}
 		}
 		low, high := [3]float64{math.Inf(1), math.Inf(1), math.Inf(1)}, [3]float64{math.Inf(-1), math.Inf(-1), math.Inf(-1)}
 		for _, position := range p.positions {
@@ -169,12 +214,38 @@ func encodedModel(t *testing.T) decodedModel {
 // The ride page finds the parts and the eye by these node names.
 func TestModelNodes(t *testing.T) {
 	m := encodedModel(t)
-	want := []string{"shell", "glass", "gear", "cabin", "eye"}
+	want := []string{"shell", "glass", "gear", "cabin", "seat", "eye", "mapScreen", "speedScreen", "routeScreen", "banner"}
 	if !equalStrings(m.names, want) {
 		t.Fatalf("nodes = %v, want %v", m.names, want)
 	}
 	if m.eye != eye.arr() {
 		t.Fatalf("eye = %v, want %v", m.eye, eye.arr())
+	}
+}
+
+// The pages tiles the textures, so a texture coordinate can pass 1, but a
+// value far outside the range shows a bad projection.
+func TestModelTextureCoordinates(t *testing.T) {
+	m := encodedModel(t)
+	for _, name := range []string{"shell", "cabin", "seat"} {
+		low, high := [2]float64{math.Inf(1), math.Inf(1)}, [2]float64{math.Inf(-1), math.Inf(-1)}
+		for i, uv := range m.parts[name].uvs {
+			for c, value := range uv {
+				if math.IsNaN(value) || math.IsInf(value, 0) || math.Abs(value) > 8 {
+					t.Fatalf("%s vertex %d has texture coordinates %v", name, i, uv)
+				}
+				low[c], high[c] = min(low[c], value), max(high[c], value)
+			}
+		}
+		// A projection that gives one value to all vertices shows no texture.
+		if high[0]-low[0] < 1 || high[1]-low[1] < 0.5 {
+			t.Fatalf("%s texture coordinates span %v to %v", name, low, high)
+		}
+	}
+	// The livery stripe is at the middle row of the texture, below the
+	// windows and above the running gear.
+	if v := shellProjection(vec3{0, beltLine, 0}, vec3{}); v[1] <= 0.5 {
+		t.Fatalf("the belt line is at v = %v, below the stripe", v[1])
 	}
 }
 
@@ -261,26 +332,81 @@ func TestModelSightLines(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if got := firstHit(m, vec(m.eye), test.direction.unit()); got != test.want {
+			if got, _ := firstHit(m, vec(m.eye), test.direction.unit()); got != test.want {
 				t.Fatalf("first surface = %q, want %q", got, test.want)
 			}
 		})
 	}
 }
 
-// firstHit returns the name of the part that the ray from origin in
-// direction meets first, from either side of a triangle.
-func firstHit(m decodedModel, origin, direction vec3) string {
+// firstHit returns the name of the part or the screen that the ray from
+// origin in direction meets first, from either side of a triangle, and the
+// distance to it.
+func firstHit(m decodedModel, origin, direction vec3) (string, float64) {
 	best, hit := math.Inf(1), ""
+	try := func(name string, a, b, c vec3) {
+		if distance, ok := rayTriangle(origin, direction, a, b, c); ok && distance < best {
+			best, hit = distance, name
+		}
+	}
 	for name, p := range m.parts {
 		for i := 0; i < len(p.indices); i += 3 {
-			a, b, c := vec(p.positions[p.indices[i]]), vec(p.positions[p.indices[i+1]]), vec(p.positions[p.indices[i+2]])
-			if distance, ok := rayTriangle(origin, direction, a, b, c); ok && distance < best {
-				best, hit = distance, name
+			try(name, vec(p.positions[p.indices[i]]), vec(p.positions[p.indices[i+1]]), vec(p.positions[p.indices[i+2]]))
+		}
+	}
+	for name, s := range m.screens {
+		q := s.corners()
+		try(name, q[0], q[1], q[2])
+		try(name, q[0], q[2], q[3])
+	}
+	return hit, best
+}
+
+// TestModelScreens checks that the rider sees each screen whole, from the
+// front, and that each screen is in the cabin. The sight lines of
+// TestModelSightLines check that the screens do not hide the view ahead.
+func TestModelScreens(t *testing.T) {
+	m := encodedModel(t)
+	origin := vec(m.eye)
+	half := [3]float64{modelWidth / 2, modelHeight / 2, modelLength / 2}
+	for name, s := range m.screens {
+		corners := s.corners()
+		center := corners[0].add(corners[2]).scale(0.5)
+		// The face of the screen is toward -z of its frame, so it points to
+		// the eye.
+		r := quat{s.rotation[0], s.rotation[1], s.rotation[2], s.rotation[3]}
+		if face := r.rotate(vec3{0, 0, -1}); face.dot(origin.sub(center).unit()) < 0.95 {
+			t.Errorf("%s faces %v, not the eye", name, face)
+		}
+		// The top of the screen is up, so the page does not draw the
+		// readouts upside down.
+		if up := r.rotate(vec3{0, 1, 0}); up.Y < 0.8 {
+			t.Errorf("%s has up %v", name, up)
+		}
+		// The near plane of the seat camera is 0.3 m from the eye.
+		if distance := center.sub(origin).length(); distance < 0.45 || distance > 1.2 {
+			t.Errorf("%s is %.2f m from the eye", name, distance)
+		}
+		for i, corner := range corners {
+			for c, value := range corner.arr() {
+				if math.Abs(value) > half[c]-cabinInset {
+					t.Errorf("%s corner %d %v is outside the cabin box", name, i, corner)
+				}
+			}
+			// A point a little inside the corner is the first surface on its
+			// sight line, so no part hides the screen and the screen is not
+			// behind the cabin wall.
+			// The point is off the diagonal, which the two triangles share.
+			inside := corner.add(corners[(i+1)%4].sub(corner).scale(0.04)).add(corners[(i+3)%4].sub(corner).scale(0.06))
+			ray := inside.sub(origin)
+			if hit, distance := firstHit(m, origin, ray.unit()); hit != name || math.Abs(distance-ray.length()) > 1e-6 {
+				t.Errorf("the sight line to %s corner %d meets %s at %.3f m, want the screen at %.3f m", name, i, hit, distance, ray.length())
 			}
 		}
 	}
-	return hit
+	if len(m.screens) != len(cabinScreens) {
+		t.Fatalf("the model has %d screens, want %d", len(m.screens), len(cabinScreens))
+	}
 }
 
 // rayTriangle returns the distance along the ray to the triangle a, b, c,

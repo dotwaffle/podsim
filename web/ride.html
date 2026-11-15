@@ -5,41 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Podsim ride</title>
   <style>
-    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; color: #e5edf5; font: 14px system-ui, sans-serif; }
+    /* A racing layout. The controls are a slim bar at the top left and the
+       session strip is at the top right. In the chase and the platform
+       views, the readouts are on the overlay: the next stop at the top
+       center with the stop ladder under it, the speed gauge at the bottom
+       center, the mini-map at the bottom left, and the wait, the riders,
+       and the nearest stop at the bottom right. In the seat view, the
+       cabin screens show the readouts, and body has the class cabin. */
+    :root { --panel: #0a141dd9; --solid: #0a141d; --accent: #35c8ff; --text: #eaf3fa; --dim: #8ca3b6; --warn: #ffb547; --track: #1e3242; }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0b121a; color: var(--text); font: 14px system-ui, sans-serif; }
     #scene { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
     #status { position: absolute; inset: 40% 10% auto; text-align: center; font-size: 16px; }
     #status[hidden] { display: none; }
-    #panel { position: absolute; left: 8px; top: 8px; padding: 6px 9px; border-radius: 5px; background: #101d28d9; }
+    button, select, input { font: inherit; color: var(--text); background: #13222f; border: 1px solid #2c4456; border-radius: 3px; padding: 2px 6px; }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:disabled { color: var(--dim); }
+    #panel { position: absolute; left: 8px; top: 8px; max-width: calc(50vw - 24px); padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--panel); }
     #panel select { max-width: min(420px, calc(100vw - 80px)); }
-    #diagnostics { position: absolute; left: 8px; bottom: 8px; padding: 4px 8px; border-radius: 4px; background: #101d28d9; font: 12px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    #panel > label { margin-right: 8px; }
+    #diagnostics { position: absolute; left: 8px; bottom: 6px; padding: 2px 6px; background: var(--panel); font: 11px system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--dim); }
     #streamDiagnostics { position: absolute; right: 8px; bottom: 8px; z-index: 4; max-width: min(330px, calc(100vw - 32px)); max-height: 65vh; overflow: auto; padding: 7px 10px; border: 1px solid #496174; border-radius: 5px; background: #101d28; font: 12px system-ui, sans-serif; }
     #streamDiagnostics summary { cursor: pointer; }
     #streamDiagnostics dl { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
     #streamDiagnostics dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
     #streamDiagnostics p { color: #b7c8d6; line-height: 1.4; }
-    #hud { position: absolute; right: 8px; top: 8px; min-width: 220px; max-width: min(360px, calc(100vw - 32px)); padding: 8px 11px; border-radius: 5px; background: #101d28d9; line-height: 1.45; }
-    #hudSpeed { font-size: 22px; font-variant-numeric: tabular-nums; }
-    #hudWait { color: #f3c479; }
-    #hudWait:empty, #hudNext:empty, #hudRoute:empty, #hudTrip:empty, #hudNear:empty { display: none; }
-    #hudProgress { height: 6px; margin: 4px 0 2px; border-radius: 3px; background: #2a3c4b; overflow: hidden; }
-    #hudProgress[hidden] { display: none; }
-    #hudProgressBar { height: 100%; width: 0; background: #6fb3e8; }
-    #hudNear { color: #b7c8d6; }
-    #hudTrip { margin-top: 6px; padding-top: 6px; border-top: 1px solid #496174; }
-    #strip { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 5px 10px; border-radius: 5px; background: #101d28d9; white-space: nowrap; }
-    #stripMessage { color: #f3c479; }
+    #strip { position: absolute; right: 8px; top: 8px; display: flex; gap: 10px; align-items: center; max-width: calc(50vw - 24px); padding: 5px 10px; border-right: 3px solid var(--accent); background: var(--panel); white-space: nowrap; overflow: hidden; }
+    #stripMessage { color: var(--warn); overflow: hidden; text-overflow: ellipsis; }
     #stripMessage:empty { display: none; }
-    .hint { color: #b7c8d6; font-size: 12px; }
-    #credit { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); padding: 2px 7px; border-radius: 3px; background: #101d28b3; font-size: 11px; }
-    #minimap { position: absolute; right: 8px; bottom: 44px; width: 240px; height: 240px; border-radius: 50%; pointer-events: none; }
+    .hint { color: var(--dim); font-size: 12px; }
+    #hudBanner { position: absolute; left: 50%; top: 52px; transform: translateX(-50%); display: flex; gap: 22px; align-items: baseline; min-width: 300px; max-width: min(640px, calc(100vw - 32px)); padding: 6px 30px 8px; background: var(--panel); border-top: 3px solid var(--accent); clip-path: polygon(16px 0, 100% 0, calc(100% - 16px) 100%, 0 100%); }
+    #hudNext { flex: 1; min-width: 0; font-size: 22px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #hudNext::before { content: "Next stop"; display: block; color: var(--dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+    #hudNext.noStop::before { content: none; }
+    #hudEta { color: var(--accent); font: italic 800 26px system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    #hudRoute { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
+    #hudEta:empty, #hudRoute:empty { display: none; }
+    #hudLadder { position: absolute; left: 50%; top: 128px; transform: translateX(-50%); max-width: min(640px, calc(100vw - 32px)); }
+    #hudStops { display: flex; gap: 8px; align-items: center; padding: 3px 10px; background: var(--panel); font-size: 13px; white-space: nowrap; }
+    #hudStops:empty { display: none; }
+    #hudStops > span { overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+    #hudStops > span::before { content: "\25CF\00a0"; }
+    #hudStops > span.done { color: #6f8598; }
+    #hudStops > span.next { color: var(--text); font-weight: 700; }
+    #hudStops > span.next::before { color: var(--accent); }
+    #hudStops > span.later { color: var(--dim); }
+    #hudProgress { width: 70px; height: 6px; border-radius: 3px; background: var(--track); overflow: hidden; }
+    #hudStops.oneLeg #hudProgress { width: 180px; }
+    #hudProgress[hidden] { display: none; }
+    #hudProgressBar { height: 100%; width: 0; background: var(--accent); }
+    #hudGauge { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); width: 210px; height: 232px; text-align: center; }
+    #gauge { position: absolute; left: 0; top: 0; width: 210px; height: 210px; border-radius: 50%; background: radial-gradient(closest-side, #0a141dc0 78%, transparent 100%); }
+    #hudSpeed { position: relative; height: 112px; padding-top: 58px; box-sizing: border-box; font: italic 800 58px/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    #hudSpeed:not(:empty)::after { content: "km/h"; display: block; margin-top: 2px; color: var(--dim); font: 600 12px system-ui, sans-serif; }
+    #hudLimit { position: relative; height: 16px; margin-top: 40px; color: var(--warn); font-size: 12px; font-weight: 600; }
+    #hudState { position: relative; max-width: 260px; margin: 22px -25px 0; padding: 2px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--panel); color: var(--dim); font-size: 12px; }
+    #hudState:empty { display: none; }
+    #hudStatus { position: absolute; right: 8px; bottom: 44px; min-width: 200px; max-width: min(340px, calc(100vw - 32px)); padding: 7px 11px; border-right: 3px solid var(--accent); background: var(--panel); line-height: 1.45; }
+    #hudWait { color: var(--warn); font-weight: 600; }
+    #hudWait:empty, #hudTrip:empty, #hudNear:empty { display: none; }
+    #hudNear { color: var(--dim); }
+    #minimap { position: absolute; left: 10px; bottom: 30px; width: 220px; height: 220px; border-radius: 50%; box-shadow: 0 0 0 3px var(--accent); pointer-events: none; }
+    body.cabin #hud, body.cabin #minimap { display: none; }
+    #credit { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); padding: 1px 7px; background: #101d28b3; font-size: 11px; }
     #fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.4s; }
-    #tripMenu { display: grid; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #496174; }
+    #tripMenu { display: grid; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #2c4456; }
     #tripMenu[hidden] { display: none; }
     #tripMenu select { max-width: min(300px, calc(100vw - 120px)); }
     #tripParty { width: 4em; }
-    #tripMessage { color: #f3c479; }
+    #tripMessage { color: var(--warn); }
     #tripMessage:empty, #hudPassenger:empty { display: none; }
-    #hudPassenger { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #496174; color: #b7e0ff; font-weight: 600; }
+    #hudPassenger { margin-top: 6px; padding-top: 6px; border-top: 1px solid #2c4456; color: #b7e0ff; font-weight: 600; }
     #credit[hidden] { display: none; }
     #credit a { color: #b7d7f5; }
   </style>
@@ -66,23 +101,19 @@
       <div class="tripActions"><button type="submit">Order the trip</button> <button id="tripClose" type="button">Close</button></div>
       <div id="tripMessage" role="status"></div>
     </form>
-  </div>
-  <div id="hud" aria-live="off">
     <div id="hudPassenger"></div>
-    <div id="hudSpeed"></div>
-    <div id="hudState"></div>
-    <div id="hudWait"></div>
-    <div id="hudTrip"></div>
-    <div id="hudNext"></div>
-    <div id="hudRoute"></div>
-    <div id="hudProgress" role="progressbar" aria-label="Route progress" hidden><div id="hudProgressBar"></div></div>
-    <div id="hudNear"></div>
   </div>
   <div id="strip">
     <span id="stripSession"></span>
     <button id="rideAt1x" type="button" disabled>Ride at 1x</button>
     <span id="stripMessage" role="status"></span>
     <span class="hint">Drag to look. C: chase camera.</span>
+  </div>
+  <div id="hud" aria-live="off">
+    <div id="hudBanner"><div id="hudNext"></div><div id="hudRoute"></div><div id="hudEta"></div></div>
+    <div id="hudLadder"><div id="hudStops" role="group" aria-label="Stops"></div><div id="hudProgress" role="progressbar" aria-label="Route progress" hidden><div id="hudProgressBar"></div></div></div>
+    <div id="hudGauge"><canvas id="gauge" aria-hidden="true"></canvas><div id="hudSpeed"></div><div id="hudLimit"></div><div id="hudState"></div></div>
+    <div id="hudStatus"><div id="hudWait"></div><div id="hudTrip"></div><div id="hudNear"></div></div>
   </div>
   <canvas id="minimap" aria-label="Map around the pod"></canvas>
   <div id="fade"></div>

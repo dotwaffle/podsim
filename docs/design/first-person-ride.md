@@ -117,7 +117,8 @@ A test pins the axis mapping with a station pair of known compass direction.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
   Vertex colors make the running surface on top darker than the concrete sides.
 - Pods: the page loads `web/pod.glb`, a glTF model that `internal/cmd/podmodel` writes.
-  The model is 4 m long, 1.5 m wide, and 2.1 m tall, with the parts `shell`, `glass`, `gear`, and `cabin`, and an `eye` node at the seat.
+  The model is 4 m long, 1.5 m wide, and 2.1 m tall, with the parts `shell`, `glass`, `gear`, `cabin`, and `seat`, an `eye` node at the seat, and four screen nodes.
+  The section [Cabin HUD and textures](#cabin-hud-and-textures) gives the screens and the textures.
   The body is a loft of rounded sections, with side windows above a belt line, a glass dome at each end, and a pillar ring at the middle and near each end.
   The cabin is the inside of the shell, 4 cm in, and a dashboard.
   For each class, the page stretches the parts to the class length and gives the shell the class color.
@@ -264,14 +265,15 @@ The passenger flow logs its state changes.
 
 ## Build and checks
 
-- `internal/cmd/buildweb` builds `ride.wasm.gz` from `./cmd/ride` and copies `ride.html`, `ride.js`, and `pod.glb`.
+- `internal/cmd/buildweb` builds `ride.wasm.gz` from `./cmd/ride` and copies `ride.html`, `ride.js`, `pod.glb`, and the files in `web/textures`.
 - `go run ./internal/cmd/podmodel` writes `web/pod.glb`.
   `TestModelFile` fails when the file is not the output of the generator, and `go test ./internal/cmd/podmodel -run TestModelFile -update-model` writes it again.
 - The wasm dependency check in `mise.toml` adds `./cmd/ride`, so that `ride.wasm` does not link cloud storage or the preset data.
 - `govulncheck` for `js/wasm` adds `./cmd/ride`.
 - Go tests in `internal/ride`: the heading on lines and curves, the frame packing, the HUD data, the ETA, the auto mode choice, and each step and stop case of the passenger flow.
-- Go tests in `internal/cmd/podmodel`: the GLB structure, the node names, the bounds of the model, the winding of each triangle, and what the rider sees from the eye in each direction.
-- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, the HUD formatting, and the read of the pod model.
+- Go tests in `internal/cmd/podmodel`: the GLB structure, the node names, the bounds of the model, the winding of each triangle, what the rider sees from the eye in each direction, the screens, and the texture coordinates.
+- Go tests in `internal/cmd/texgen`: the texture files, the tiling, and the brightness of the textures.
+- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, the HUD formatting, the read of the pod model, the cabin screens, the stop ladder, the texture fallback, and the overlay layout.
 - CI has no GPU, so no test draws the scene.
 - The maintainer checks each milestone in desktop Chrome.
   The performance target is 60 frames per second on LondonFull at 1x on the maintainer's GPU.
@@ -357,6 +359,70 @@ The HUD is an original design, and it copies the look of no game.
 - Go tests: the texture files match the generator, each texture tiles without a seam, and the model has the screen nodes and texture coordinates in range.
 - Node tests: the layout of each screen, the text cut, the stop ladder, and the overlay layout of the chase view.
 - The maintainer checks the look in Chrome.
+
+### Built
+
+The cabin HUD and the textures are built, and the maintainer has not checked them in Chrome yet.
+
+The pod model has these screen nodes, after the `eye` node.
+Each node has a translation, a rotation, and a scale, and no mesh.
+In the frame of its node, a screen is the unit square in the x-y plane, scaled by the node scale, with its face toward -z.
+The page builds each screen from these values, with the x sign change and the class stretch of the cabin.
+
+| Node | Size | Place, from the eye | Readouts |
+| --- | --- | --- | --- |
+| `mapScreen` | 0.18 m by 0.18 m | 0.6 m away, 31 degrees left, 20 degrees down | The mini-map. |
+| `speedScreen` | 0.27 m by 0.16 m | 0.6 m away, ahead, 23 degrees down | The speed gauge, the speed, the lane limit, the activity, and the pod. |
+| `routeScreen` | 0.24 m by 0.16 m | 0.6 m away, 31 degrees right, 20 degrees down | The distance, the stop ladder, the wait reason with `blockedBy`, the riders aboard, and the nearest stop. |
+| `banner` | 0.6 m by 0.12 m | 0.85 m away, ahead, 19 degrees up | The next stop and the time to it, on a band that the view shows through. |
+
+- The dashboard is wider and higher than before, and each dashboard screen has a frame with a stand in the dashboard.
+- The screens are below the sight line 0.2 down from ahead, and the banner is below the sight line 0.5 up through the front dome.
+  The sight lines of the model tests do not change.
+  A model test checks that the rider sees each screen corner first on its sight line, so no part hides a screen, and no screen is outside the cabin.
+- The new `seat` part has the seat of the rider and a bench at the rear that faces forward.
+  The seat backs stay below the eye, so the rider sees out of the rear window.
+- A screen canvas has 2,000 pixels for each meter of the screen size, for example 540 by 320 pixels for `speedScreen`.
+- The page draws the screens when the data changes, at most 4 times a second, and the map screen 10 times a second.
+  The map screen and the overlay map use the same draw function, which takes the canvas size.
+- A station name that does not fit first loses the part in brackets.
+  Then the word cut of the mini-map labels makes a text shorter.
+- The route screen shows the wait reason with `blockedBy` in brackets.
+  When the line does not fit, `blockedBy` is cut first, so the reason stays whole.
+- With many stops, the rows of the ladder get smaller, so they do not overlap.
+- The overlay of the chase view and of the platform camera has the next stop and the time at the top center, the stop ladder under it, the speed gauge at the bottom center, the round mini-map at the bottom left, and the wait reason, the parties aboard, and the nearest stop at the bottom right.
+- The controls are at the top left, with the trip status under them.
+  The session strip is at the top right in all views, because the seat view also needs the session state.
+- The seat view uses the overlay when the pod model did not load, because the model has the screen nodes.
+- The stop ladder uses the data that the page has: the next stop, and the origin and the destination of each party aboard.
+  The bridge does not send the stops of the route window.
+  The stops behind the pod are the origins of the parties aboard, at most two.
+  After the next stop come the other destinations of the parties aboard, at most three.
+  The order is the order of the riders.
+  With at most one stop behind and none after the next stop, the ladder is a bar from the origin to the next stop.
+  The bar shows the progress of the current route.
+
+The texture generator is `internal/cmd/texgen`, and `go run ./internal/cmd/texgen` writes the files.
+`TestTextureFiles` compares the pixels of each file with the generator output, so a change of the PNG compressor in a new Go release does not fail it.
+`go test ./internal/cmd/texgen -run TestTextureFiles -update-textures` writes the files again.
+The noise uses integer arithmetic only, so each machine gives the same pixels.
+Each texture is gray, and the page multiplies it by the color of the surface.
+
+| File | Size | Bytes | Surfaces |
+| --- | --- | --- | --- |
+| `web/textures/concrete.png` | 256 by 256 | 40,505 | The beams, the hub decks, the pillars, and the station decks. One repeat is 4 m, except on the pillars. |
+| `web/textures/panel.png` | 256 by 256 | 6,936 | The pod shell, tinted by the class color. One repeat is 1 m along the pod and the full height. A dark livery stripe with two thin lines is below the windows, and a panel seam is at the middle of each repeat. |
+| `web/textures/fabric.png` | 128 by 128 | 11,476 | The seats. One repeat is 0.25 m. |
+| `web/textures/dash.png` | 128 by 128 | 9,730 | The cabin inside and the dashboard. One repeat is 0.5 m. |
+
+- The four textures have 68,647 bytes, and `web/pod.glb` grew from 85,016 to 117,352 bytes.
+- Each part of the model has texture coordinates.
+  The glass and the gear have zero coordinates, because Babylon merges only meshes with the same vertex data.
+- The concrete goes once around each pillar, so it has no seam, with the same scale up the pillar.
+  On the pillars, one repeat is about 2 m.
+- The beams and the hub decks get texture coordinates in meters from the start of each lane or the first point of the deck, so the values stay small far from the origin.
+- A texture goes to its materials only after it loads.
+  When it does not load, the page logs a warning, and the surfaces keep their flat colors.
 
 ## Later items
 

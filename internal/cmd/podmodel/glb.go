@@ -33,6 +33,7 @@ var materials = map[string]materialSpec{
 	"glass": {[3]float64{0.05, 0.08, 0.12}, 0.1},
 	"gear":  {[3]float64{0.16, 0.17, 0.19}, 0.8},
 	"cabin": {[3]float64{0.22, 0.23, 0.25}, 0.7},
+	"seat":  {[3]float64{0.2, 0.27, 0.4}, 0.9},
 }
 
 type gltfDocument struct {
@@ -60,6 +61,8 @@ type gltfNode struct {
 	Name        string      `json:"name"`
 	Mesh        *int        `json:"mesh,omitempty"`
 	Translation *[3]float64 `json:"translation,omitempty"`
+	Rotation    *[4]float64 `json:"rotation,omitempty"`
+	Scale       *[3]float64 `json:"scale,omitempty"`
 }
 
 type gltfMesh struct {
@@ -143,6 +146,18 @@ func (w *glbWriter) vectors(points []vec3, withBounds bool) int {
 	return len(w.doc.Accessors) - 1
 }
 
+// texcoords adds texture coordinates as a float VEC2 accessor.
+func (w *glbWriter) texcoords(uvs [][2]float64) int {
+	data := make([]byte, 0, len(uvs)*8)
+	for _, uv := range uvs {
+		for _, value := range uv {
+			data = binary.LittleEndian.AppendUint32(data, math.Float32bits(float32(value)))
+		}
+	}
+	w.doc.Accessors = append(w.doc.Accessors, gltfAccessor{BufferView: w.view(data, targetArray), ComponentType: componentFloat, Count: len(uvs), Type: "VEC2"})
+	return len(w.doc.Accessors) - 1
+}
+
 // indices adds the triangle indices as an unsigned short accessor.
 func (w *glbWriter) indices(values []uint16) int {
 	data := make([]byte, 0, len(values)*2)
@@ -154,8 +169,10 @@ func (w *glbWriter) indices(values []uint16) int {
 }
 
 // encodeGLB returns the model as a binary glTF file. Each part is a node
-// with a mesh and a material of the same name. The eye is a node with no
-// mesh.
+// with a mesh and a material of the same name, and each mesh has texture
+// coordinates. The eye is a node with no mesh. Each screen is a node with
+// no mesh, with the translation, the rotation, and the scale of the
+// screen frame.
 func encodeGLB(m model) ([]byte, error) {
 	w := glbWriter{doc: gltfDocument{Asset: gltfAsset{Version: "2.0", Generator: "podsim podmodel"}, Scenes: []gltfScene{{}}}}
 	for _, p := range m.parts {
@@ -167,9 +184,13 @@ func encodeGLB(m model) ([]byte, error) {
 			BaseColorFactor: [4]float64{spec.color[0], spec.color[1], spec.color[2], 1}, RoughnessFactor: spec.roughness,
 		}})
 		primitive := gltfPrimitive{
-			Attributes: map[string]int{"POSITION": w.vectors(p.positions, true), "NORMAL": w.vectors(p.normals, false)},
-			Indices:    w.indices(p.indices),
-			Material:   len(w.doc.Materials) - 1,
+			Attributes: map[string]int{
+				"POSITION":   w.vectors(p.positions, true),
+				"NORMAL":     w.vectors(p.normals, false),
+				"TEXCOORD_0": w.texcoords(p.uvs),
+			},
+			Indices:  w.indices(p.indices),
+			Material: len(w.doc.Materials) - 1,
 		}
 		w.doc.Meshes = append(w.doc.Meshes, gltfMesh{Name: p.name, Primitives: []gltfPrimitive{primitive}})
 		mesh := len(w.doc.Meshes) - 1
@@ -177,6 +198,11 @@ func encodeGLB(m model) ([]byte, error) {
 	}
 	eye := m.eye.arr()
 	w.doc.Nodes = append(w.doc.Nodes, gltfNode{Name: "eye", Translation: &eye})
+	for _, s := range m.screens {
+		w.doc.Nodes = append(w.doc.Nodes, gltfNode{
+			Name: s.name, Translation: new(s.center.arr()), Rotation: new(s.rotation.arr()), Scale: new([3]float64{s.width, s.height, 1}),
+		})
+	}
 	for i := range w.doc.Nodes {
 		w.doc.Scenes[0].Nodes = append(w.doc.Scenes[0].Nodes, i)
 	}

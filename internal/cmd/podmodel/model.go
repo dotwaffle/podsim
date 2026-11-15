@@ -75,30 +75,43 @@ type part struct {
 	name      string
 	positions []vec3
 	normals   []vec3
+	uvs       [][2]float64
 	indices   []uint16
-	// vertices maps a position and a normal, as the file stores them, to
-	// the index of the vertex, so that triangles share vertices.
-	vertices map[[6]float32]uint16
+	// project gives the texture coordinates of a vertex at position on a
+	// triangle with the face normal face. A part with no projection has
+	// zero texture coordinates.
+	project func(position, face vec3) [2]float64
+	// vertices maps a position, a normal, and texture coordinates, as the
+	// file stores them, to the index of the vertex, so that triangles share
+	// vertices.
+	vertices map[[8]float32]uint16
 }
 
 // addTriangle adds the triangle a, b, c with the vertex normals na, nb, nc.
 // The front face winds counterclockwise, as glTF requires.
 func (p *part) addTriangle(a, b, c, na, nb, nc vec3) {
-	p.indices = append(p.indices, p.vertex(a, na), p.vertex(b, nb), p.vertex(c, nc))
+	face := b.sub(a).cross(c.sub(a))
+	p.indices = append(p.indices, p.vertex(a, na, face), p.vertex(b, nb, face), p.vertex(c, nc, face))
 }
 
-// vertex returns the index of the vertex at position with normal, and adds
-// the vertex if the part does not have it.
-func (p *part) vertex(position, normal vec3) uint16 {
-	key := [6]float32{
+// vertex returns the index of the vertex at position with normal, on a
+// triangle with the face normal face, and adds the vertex if the part does
+// not have it.
+func (p *part) vertex(position, normal, face vec3) uint16 {
+	var uv [2]float64
+	if p.project != nil {
+		uv = p.project(position, face)
+	}
+	key := [8]float32{
 		float32(position.X), float32(position.Y), float32(position.Z),
 		float32(normal.X), float32(normal.Y), float32(normal.Z),
+		float32(uv[0]), float32(uv[1]),
 	}
 	if index, ok := p.vertices[key]; ok {
 		return index
 	}
 	if p.vertices == nil {
-		p.vertices = make(map[[6]float32]uint16)
+		p.vertices = make(map[[8]float32]uint16)
 	}
 	if len(p.positions) > math.MaxUint16 {
 		panic("podmodel: part " + p.name + " has more vertices than 16-bit indices allow")
@@ -107,13 +120,131 @@ func (p *part) vertex(position, normal vec3) uint16 {
 	p.vertices[key] = index
 	p.positions = append(p.positions, position)
 	p.normals = append(p.normals, normal)
+	p.uvs = append(p.uvs, uv)
 	return index
 }
 
-// model holds the parts of the pod and the seat eye.
+// model holds the parts of the pod, the seat eye, and the screens of the
+// cabin.
 type model struct {
-	parts []part
-	eye   vec3
+	parts   []part
+	eye     vec3
+	screens []screen
+}
+
+// The texture coordinates. The shell has u along the pod and v up, with
+// one texture repeat for each shellTile meters of length and one for the
+// model height. The center row of the texture, v = 0.5, is at
+// stripeHeight, so the livery stripe of the texture runs around the pod
+// below the windows. The cabin and the seats use a box projection.
+const (
+	shellTile    = 1.0
+	stripeHeight = -0.45
+	cabinTile    = 0.5
+	seatTile     = 0.25
+)
+
+// shellProjection gives the shell texture coordinates of a position. They
+// depend on the position only, so the shell vertices do not split.
+func shellProjection(position, _ vec3) [2]float64 {
+	return [2]float64{position.Z / shellTile, 0.5 + (position.Y-stripeHeight)/modelHeight}
+}
+
+// boxProjection returns a projection onto the plane of the main axis of
+// the face normal, with one texture repeat for each tile meters.
+func boxProjection(tile float64) func(position, face vec3) [2]float64 {
+	return func(position, face vec3) [2]float64 {
+		x, y, z := math.Abs(face.X), math.Abs(face.Y), math.Abs(face.Z)
+		switch {
+		case x >= y && x >= z:
+			return [2]float64{position.Z / tile, position.Y / tile}
+		case y >= z:
+			return [2]float64{position.X / tile, position.Z / tile}
+		default:
+			return [2]float64{position.X / tile, position.Y / tile}
+		}
+	}
+}
+
+// quat is a rotation as a unit quaternion, in the component order of glTF.
+type quat struct{ X, Y, Z, W float64 }
+
+// axisAngle returns the rotation by angle radians about the unit axis.
+func axisAngle(axis vec3, angle float64) quat {
+	s := math.Sin(angle / 2)
+	return quat{axis.X * s, axis.Y * s, axis.Z * s, math.Cos(angle / 2)}
+}
+
+// mul returns the rotation b followed by the rotation q.
+func (q quat) mul(b quat) quat {
+	return quat{
+		q.W*b.X + q.X*b.W + q.Y*b.Z - q.Z*b.Y,
+		q.W*b.Y - q.X*b.Z + q.Y*b.W + q.Z*b.X,
+		q.W*b.Z + q.X*b.Y - q.Y*b.X + q.Z*b.W,
+		q.W*b.W - q.X*b.X - q.Y*b.Y - q.Z*b.Z,
+	}
+}
+
+// rotate returns v turned by q.
+func (q quat) rotate(v vec3) vec3 {
+	u := vec3{q.X, q.Y, q.Z}
+	t := u.cross(v).scale(2)
+	return v.add(t.scale(q.W)).add(u.cross(t))
+}
+
+func (q quat) arr() [4]float64 { return [4]float64{q.X, q.Y, q.Z, q.W} }
+
+// screen is a flat display in the cabin, width by height meters, centered
+// at center. In its own frame, the screen is the unit square from -0.5 to
+// 0.5 in x and y, scaled by width and height, with +y up and its face
+// toward -z. rotation turns that frame into the model frame. The ride page
+// draws the readouts on the screens.
+type screen struct {
+	name          string
+	center        vec3
+	rotation      quat
+	width, height float64
+}
+
+// facingEye returns a screen of width by height meters, distance meters
+// from the eye. azimuth turns the direction from ahead toward +x, which is
+// the left of the rider, and elevation turns it up. The screen faces the
+// eye.
+func facingEye(name string, azimuth, elevation, distance, width, height float64) screen {
+	direction := vec3{math.Sin(azimuth) * math.Cos(elevation), math.Sin(elevation), math.Cos(azimuth) * math.Cos(elevation)}
+	rotation := axisAngle(vec3{0, 1, 0}, azimuth).mul(axisAngle(vec3{1, 0, 0}, -elevation))
+	return screen{name: name, center: eye.add(direction.scale(distance)), rotation: rotation, width: width, height: height}
+}
+
+// The screens of the cabin. Three screens stand on the dashboard below the
+// sight line ahead: the mini-map on the left, the speed in the middle, and
+// the route on the right. The banner is a head-up display at the top of
+// the front window, below the sight line up through the front dome.
+var cabinScreens = []screen{
+	facingEye("mapScreen", 31*degree, -20*degree, 0.6, 0.18, 0.18),
+	facingEye("speedScreen", 0, -23*degree, 0.6, 0.27, 0.16),
+	facingEye("routeScreen", -31*degree, -20*degree, 0.6, 0.24, 0.16),
+	facingEye("banner", 0, 19*degree, 0.85, 0.6, 0.12),
+}
+
+const degree = math.Pi / 180
+
+// screenBorder is the width of the frame around a dashboard screen, and
+// screenStand is how far the frame reaches below the screen, into the
+// dashboard.
+const (
+	screenBorder = 0.012
+	screenStand  = 0.08
+	screenDepth  = 0.03
+)
+
+// addScreenFrame adds the frame and the stand of a dashboard screen to p,
+// a little behind the screen face.
+func addScreenFrame(p *part, s screen) {
+	axes := [3]vec3{s.rotation.rotate(vec3{1, 0, 0}), s.rotation.rotate(vec3{0, 1, 0}), s.rotation.rotate(vec3{0, 0, 1})}
+	low := vec3{-s.width/2 - screenBorder, -s.height/2 - screenStand, 0.002}
+	high := vec3{s.width/2 + screenBorder, s.height/2 + screenBorder, screenDepth}
+	addOrientedBox(p, s.center, axes, low, high)
 }
 
 // noseRings are the nose rings, from the start of the nose (0) to the last
@@ -190,7 +321,9 @@ func buildModel() model {
 	}
 	tips := [2]vec3{{0, bodyCenter, -modelLength / 2}, {0, bodyCenter, modelLength / 2}}
 	normals := loftNormals(rings, tips)
-	shell, glass, cabin := part{name: "shell"}, part{name: "glass"}, part{name: "cabin"}
+	shell := part{name: "shell", project: shellProjection}
+	glass := part{name: "glass"}
+	cabin := part{name: "cabin", project: boxProjection(cabinTile)}
 	for i := 0; i+1 < len(rings); i++ {
 		for j := range sectionPoints {
 			k := (j + 1) % sectionPoints
@@ -215,9 +348,28 @@ func buildModel() model {
 	// gap under the body but does not show in the cabin.
 	gear := part{name: "gear"}
 	addBox(&gear, vec3{-0.56, -modelHeight / 2, -0.35 * modelLength}, vec3{0.56, -modelHeight/2 + gearHeight + cabinInset/2, 0.35 * modelLength})
-	// The dashboard is below the belt line, in front of the seat.
-	addBox(&cabin, vec3{-0.42, -0.4, eye.Z + 0.4}, vec3{0.42, beltLine, eye.Z + 0.85})
-	return model{parts: []part{shell, glass, gear, cabin}, eye: eye}
+	// The dashboard is below the belt line, in front of the seat. The
+	// screens stand on it.
+	addBox(&cabin, vec3{-0.5, -0.4, eye.Z + 0.35}, vec3{0.5, -0.05, eye.Z + 0.85})
+	for _, s := range cabinScreens {
+		if s.name != "banner" {
+			addScreenFrame(&cabin, s)
+		}
+	}
+	return model{parts: []part{shell, glass, gear, cabin, buildSeats()}, eye: eye, screens: cabinScreens}
+}
+
+// buildSeats returns the seats: the seat of the rider at the front, under
+// and behind the eye, and a bench at the rear that faces forward. The
+// backs stay below the eye, so the rider sees out of the rear window.
+func buildSeats() part {
+	seat := part{name: "seat", project: boxProjection(seatTile)}
+	for _, z := range []float64{0.42, -0.6} {
+		addBox(&seat, vec3{-0.35, -0.68, z - 0.4}, vec3{0.35, -0.48, z - 0.05})
+		addBox(&seat, vec3{-0.5, -0.48, z - 0.47}, vec3{0.5, -0.36, z})
+		addBox(&seat, vec3{-0.5, -0.36, z - 0.57}, vec3{0.5, 0.12, z - 0.47})
+	}
+	return seat
 }
 
 // addInside adds the quad, moved in by cabinInset and turned to face the
@@ -302,6 +454,14 @@ func loftNormals(rings [][]vec3, tips [2]vec3) [][]vec3 {
 
 // addBox adds the box from low to high with flat faces.
 func addBox(p *part, low, high vec3) {
+	addOrientedBox(p, vec3{}, [3]vec3{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}, low, high)
+}
+
+// addOrientedBox adds the box from low to high in the frame at origin with
+// the unit axes, with flat faces. The axes must be a rotation of the model
+// axes.
+func addOrientedBox(p *part, origin vec3, axes [3]vec3, low, high vec3) {
+	toModel := func(v vec3) vec3 { return axes[0].scale(v.X).add(axes[1].scale(v.Y)).add(axes[2].scale(v.Z)) }
 	corner := func(x, y, z int) vec3 {
 		pick := func(bit int, l, h float64) float64 {
 			if bit == 0 {
@@ -326,9 +486,9 @@ func addBox(p *part, low, high vec3) {
 	for _, face := range faces {
 		var q [4]vec3
 		for i, c := range face.corners {
-			q[i] = corner(c[0], c[1], c[2])
+			q[i] = origin.add(toModel(corner(c[0], c[1], c[2])))
 		}
-		n := face.normal
+		n := toModel(face.normal)
 		p.addTriangle(q[0], q[1], q[2], n, n, n)
 		p.addTriangle(q[0], q[2], q[3], n, n, n)
 	}

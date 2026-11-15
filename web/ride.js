@@ -118,6 +118,16 @@
   const SKY = [0.74, 0.82, 0.9];
   const SKY_TOP = [0.25, 0.45, 0.78];
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
+  // Textures: web/textures, which internal/cmd/texgen writes. One repeat of
+  // the concrete covers CONCRETE_TILE meters.
+  const CONCRETE_TILE = 4;
+  const TEXTURE_ANISOTROPY = 8;
+  // The cabin screens have this many canvas pixels for each meter of the
+  // screen size in the pod model.
+  const SCREEN_PIXELS_PER_METER = 2000;
+  // The ladder of the route screen shows at most this many stops after the
+  // next stop.
+  const LADDER_LATER = 3;
   const MODULE_GZIP_LIMIT = 16 * 1024 * 1024;
   const MODULE_LIMIT = 64 * 1024 * 1024;
 
@@ -309,15 +319,22 @@
   // BEAM_DEPTH. It has a top face and side walls, with vertex colors as the
   // beams have.
   function deckGeometry(hull, top) {
-    const positions = [], normals = [], colors = [], indices = [];
+    const positions = [], normals = [], colors = [], uvs = [], indices = [];
+    if (hull.length < 3) return { positions: new Float32Array(), normals: new Float32Array(), colors: new Float32Array(), uvs: new Float32Array(), indices: new Uint32Array() };
+    // The texture coordinates are meters from the first hull point over
+    // CONCRETE_TILE, so they stay small far from the origin.
+    const [ox, oz] = toScene(hull[0].x, hull[0].y);
     const add = (point, height, normal, shade) => {
       const [x, z] = toScene(point.x, point.y);
       positions.push(x, height, z);
       normals.push(...normal);
       colors.push(shade, shade, shade * 0.97, 1);
+      // The top uses x and z. A wall uses its horizontal place and the
+      // height.
+      if (normal[1] > 0.5) uvs.push((x - ox) / CONCRETE_TILE, (z - oz) / CONCRETE_TILE);
+      else uvs.push((x - ox + z - oz) / CONCRETE_TILE, (height - top) / CONCRETE_TILE);
       return positions.length / 3 - 1;
     };
-    if (hull.length < 3) return { positions: new Float32Array(), normals: new Float32Array(), colors: new Float32Array(), indices: new Uint32Array() };
     // The beam material draws both sides, so the winding does not matter.
     const first = add(hull[0], top, [0, 1, 0], 0.42);
     const rim = hull.slice(1).map((point) => add(point, top, [0, 1, 0], 0.42));
@@ -331,13 +348,15 @@
       const v = [add(a, top, normal, 0.82), add(b, top, normal, 0.82), add(a, top - BEAM_DEPTH, normal, 0.82), add(b, top - BEAM_DEPTH, normal, 0.82)];
       indices.push(v[0], v[2], v[1], v[1], v[2], v[3]);
     }
-    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), indices: new Uint32Array(indices) };
+    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
   }
 
   // beamGeometry returns the vertex data of a box beam along each lane. Each
   // face has its own vertices and normals, so the faces have flat shading.
+  // The texture coordinate u is the distance along the lane from its start,
+  // and v is the distance across the face, both over CONCRETE_TILE.
   function beamGeometry(lanes, nodes, levels) {
-    const positions = [], normals = [], colors = [], indices = [];
+    const positions = [], normals = [], colors = [], uvs = [], indices = [];
     const half = BEAM_WIDTH / 2;
     for (const lane of lanes) {
       const profile = laneProfile(lane, nodes, levels);
@@ -352,6 +371,8 @@
         // left is the horizontal unit vector to the left of travel.
         sides.push([-dz, dx]);
       }
+      const along = [0];
+      for (let i = 1; i < points.length; i++) along.push(along[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
       // Each face: two edges, given as [side sign, depth below the top],
       // and a normal. The running surface on top is darker than the
       // concrete sides.
@@ -370,6 +391,7 @@
             positions.push(points[i][0] + left[0] * half * sign, profile[i].h - depth, points[i][1] + left[1] * half * sign);
             normals.push(normal[0], normal[1], normal[2]);
             colors.push(face.shade, face.shade, face.shade * 0.97, 1);
+            uvs.push(along[i] / CONCRETE_TILE, (sign * half + depth) / CONCRETE_TILE);
           }
         }
         for (let i = 0; i + 1 < points.length; i++) {
@@ -378,7 +400,22 @@
         }
       }
     }
-    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), indices: new Uint32Array(indices) };
+    return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
+  }
+
+  // boxUVs returns texture coordinates for a mesh by a box projection: each
+  // vertex uses the plane of the main axis of its normal, with one texture
+  // repeat for each tile meters. The station slabs and the pillars use it.
+  function boxUVs(positions, normals, tile) {
+    const uvs = new Float32Array(positions.length / 3 * 2);
+    for (let i = 0; i < positions.length / 3; i++) {
+      const [x, y, z] = [positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]];
+      const [nx, ny, nz] = [Math.abs(normals[3 * i]), Math.abs(normals[3 * i + 1]), Math.abs(normals[3 * i + 2])];
+      const [u, v] = nx >= ny && nx >= nz ? [z, y] : (ny >= nz ? [x, z] : [x, y]);
+      uvs[2 * i] = u / tile;
+      uvs[2 * i + 1] = v / tile;
+    }
+    return uvs;
   }
 
   // pillarPoints returns scene points [x, z, top] under the lanes, about
@@ -443,10 +480,12 @@
   }
 
   // parsePodModel reads web/pod.glb, which internal/cmd/podmodel writes. It
-  // returns the geometry and the base color of each part by node name, the
-  // seat eye, and the model length. The scene is left-handed and glTF is
-  // right-handed, so x changes sign. With the same index order, the
-  // triangles then wind as Babylon's own meshes do.
+  // returns the geometry, the texture coordinates, and the base color of
+  // each part by node name, the seat eye, the screens, and the model
+  // length. The scene is left-handed and glTF is right-handed, so x changes
+  // sign. With the same index order, the triangles then wind as Babylon's
+  // own meshes do. A screen keeps the glTF translation, rotation, and scale
+  // of its node, and screenQuad changes them to the scene.
   function parsePodModel(buffer) {
     const view = new DataView(buffer);
     const word = (at) => view.getUint32(at, true);
@@ -461,17 +500,20 @@
       if (bytes > v.byteLength || start + v.byteLength > buffer.byteLength) throw new Error("The pod model accessors are not valid.");
       return new Type(buffer.slice(start, start + bytes));
     };
-    const parts = {};
+    const parts = {}, screens = {};
     let eye = null, half = 0;
     for (const node of doc.nodes) {
       if (node.mesh === undefined) {
         if (node.name === "eye") eye = [-node.translation[0], node.translation[1], node.translation[2]];
+        else if (node.translation && node.rotation && node.scale) screens[node.name] = { translation: node.translation, rotation: node.rotation, scale: node.scale };
         continue;
       }
       const primitive = doc.meshes[node.mesh].primitives[0];
       const positions = accessor(primitive.attributes.POSITION, Float32Array, 3);
       const normals = accessor(primitive.attributes.NORMAL, Float32Array, 3);
       const indices = accessor(primitive.indices, Uint16Array, 1);
+      const uvs = primitive.attributes.TEXCOORD_0 === undefined ? null : accessor(primitive.attributes.TEXCOORD_0, Float32Array, 2);
+      if (uvs && uvs.length / 2 !== positions.length / 3) throw new Error("The pod model texture coordinates are not valid.");
       for (let i = 0; i < positions.length; i += 3) {
         positions[i] = -positions[i];
         normals[i] = -normals[i];
@@ -479,11 +521,40 @@
       }
       for (const index of indices) if (index >= positions.length / 3) throw new Error("The pod model indices are not valid.");
       const factor = doc.materials[primitive.material].pbrMetallicRoughness.baseColorFactor;
-      parts[node.name] = { positions, normals, indices, color: factor.slice(0, 3) };
+      parts[node.name] = { positions, normals, uvs, indices, color: factor.slice(0, 3) };
     }
     for (const name of ["shell", "glass", "gear", "cabin"]) if (!parts[name]) throw new Error(`The pod model has no ${name} part.`);
     if (!eye) throw new Error("The pod model has no eye.");
-    return { parts, eye, length: 2 * half };
+    return { parts, eye, screens, length: 2 * half };
+  }
+
+  // screenQuad returns the vertex data of a screen of the pod model in the
+  // frame of the cabin mesh, with z scaled by stretch, as stretchPart does.
+  // In the glTF frame of its node, the screen is the unit square from -0.5
+  // to 0.5 in x and y, scaled by the node scale, with its face toward -z.
+  // There, +x is the left of the rider, because glTF is right-handed. u
+  // grows to the right of the rider, and v = 1 is the top edge, which is
+  // the top row of the canvas when the texture inverts y, as tileQuad
+  // says.
+  function screenQuad(screen, stretch) {
+    const [qx, qy, qz, qw] = screen.rotation, [tx, ty, tz] = screen.translation, [sx, sy] = screen.scale;
+    // rotate turns v by the quaternion.
+    const rotate = ([x, y, z]) => {
+      const cx = 2 * (qy * z - qz * y), cy = 2 * (qz * x - qx * z), cz = 2 * (qx * y - qy * x);
+      return [x + qw * cx + qy * cz - qz * cy, y + qw * cy + qz * cx - qx * cz, z + qw * cz + qx * cy - qy * cx];
+    };
+    // The corners from the bottom left of the rider, counterclockwise as
+    // the rider sees them.
+    const corners = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]];
+    const positions = new Float32Array(12), normals = new Float32Array(12);
+    const face = rotate([0, 0, -1]);
+    const normal = [-face[0], face[1], face[2] / stretch], length = Math.hypot(...normal);
+    corners.forEach(([cx, cy], i) => {
+      const [x, y, z] = rotate([cx * sx, cy * sy, 0]);
+      positions.set([-(tx + x), ty + y, (tz + z) * stretch], 3 * i);
+      normals.set(normal.map((value) => value / length), 3 * i);
+    });
+    return { positions, normals, uvs: new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]), indices: new Uint16Array([0, 1, 2, 0, 2, 3]) };
   }
 
   // stretchPart returns the positions and the normals of part with z scaled
@@ -666,13 +737,37 @@
     }));
   }
 
+  // cutAtWord returns the start of a text that does not fit, cut is that
+  // start, cut back to the last word boundary in it, with an ellipsis. A
+  // start with no word boundary stays whole.
+  function cutAtWord(cut) {
+    const space = cut.lastIndexOf(" ");
+    return `${(space > 0 ? cut.slice(0, space) : cut).trim()}…`;
+  }
+
+  // withoutBrackets returns text without its parts in brackets, or text
+  // when nothing else is left.
+  function withoutBrackets(text) {
+    return text.replace(/\s*\(.*?\)\s*/g, " ").trim() || text;
+  }
+
   // shortLabel returns a station name for the mini-map: the name without a
   // part in brackets, cut at a word boundary to at most limit characters.
   function shortLabel(name, limit) {
-    const plain = name.replace(/\s*\(.*?\)\s*/g, " ").trim() || name;
+    const plain = withoutBrackets(name);
     if (plain.length <= limit) return plain;
-    const cut = plain.slice(0, limit), space = cut.lastIndexOf(" ");
-    return `${(space > 0 ? cut.slice(0, space) : cut).trim()}…`;
+    return cutAtWord(plain.slice(0, limit));
+  }
+
+  // fitText returns text, or else text cut at a word boundary, as
+  // shortLabel cuts, so that it is at most width wide. measure returns the
+  // width of a text. A first word that is too wide loses characters, down
+  // to one character.
+  function fitText(text, width, measure) {
+    if (measure(text) <= width) return text;
+    let end = text.length;
+    while (end > 1 && measure(cutAtWord(text.slice(0, end))) > width) end--;
+    return cutAtWord(text.slice(0, end));
   }
 
   // placeLabels returns the labels that fit with no overlap, at most max.
@@ -792,6 +887,8 @@
     const session = hud.session || {};
     const view = {
       speed: "", state: "Pod not in the session", wait: "", trip: [], next: "", route: "", progress: -1,
+      // The fields of the racing layout: the cabin screens and the overlay.
+      podName: "", activity: "", waitReason: "", blockedBy: "", speedKmh: 0, limitKmh: 0, nextName: "", eta: "", time: "", over: false, distance: "", aboard: 0,
       session: `Session ${session.speed}x${session.paused ? ", paused" : ""}${session.connected ? "" : `, disconnected${session.error ? `: ${session.error}` : ""}`}`,
       message: session.message || "",
       rideAt1x: session.connected === true && session.speed !== 1,
@@ -799,7 +896,15 @@
     if (!hud.found) return view;
     view.speed = formatSpeed(hud.speed) + (hud.speedLimit > 0 ? `, limit ${formatSpeed(hud.speedLimit)}` : "");
     view.state = `${hud.podID} (${hud.class}): ${hud.activity}`;
+    view.podName = `${hud.podID} (${hud.class})`;
+    view.activity = hud.activity || "";
+    view.speedKmh = Math.round(hud.speed * 3.6);
+    view.limitKmh = hud.speedLimit > 0 ? Math.round(hud.speedLimit * 3.6) : 0;
+    view.nextName = hud.nextStop || "";
+    view.aboard = hud.riders.reduce((sum, rider) => sum + rider.partySize, 0);
     if (hud.waitReason) view.wait = `Waiting: ${hud.waitReason}${hud.blockedBy ? ` (${hud.blockedBy})` : ""}`;
+    view.waitReason = hud.waitReason || "";
+    view.blockedBy = hud.blockedBy || "";
     view.trip = hud.riders.map((rider) => `${rider.partySize} ${rider.partySize === 1 ? "passenger" : "passengers"}: ${rider.from} to ${rider.to}`);
     view.next = hud.nextStop ? `Next stop: ${hud.nextStop}` : (hud.riders.length === 0 ? "No passengers" : "");
     if (hud.route) {
@@ -810,9 +915,276 @@
       const { traveledMeters: traveled = 0, remainingMeters: remaining } = hud.route;
       const distance = formatDistance(remaining), time = formatDuration(hud.route.seconds);
       view.route = hud.route.after ? `Route: over ${distance}, over ${time}` : `Route: ${distance}, about ${time}`;
+      view.distance = hud.route.after ? `over ${distance}` : distance;
+      view.eta = hud.route.after ? `over ${time}` : time;
+      view.time = time;
+      view.over = hud.route.after;
       view.progress = traveled + remaining > 0 ? traveled / (traveled + remaining) : 1;
     }
     return view;
+  }
+
+  // stopLadder returns the stops of the ladder of the ridden pod for the
+  // data of ride.hud(), with the route progress of hudView. The bridge
+  // sends the next stop and the origin and the destination of each party
+  // aboard, not the stops of the route window, so the ladder uses them:
+  // the stops behind the pod are the origins of the parties aboard, at
+  // most two, then the next stop, then the other destinations of the
+  // parties aboard, at most LADDER_LATER. The stops keep the order of the
+  // riders. A ladder with at most one stop behind and none after the next
+  // stop is one leg, and the page shows it as a bar from the origin to the
+  // next stop.
+  function stopLadder(hud, progress) {
+    if (!hud.found) return { stops: [], progress: -1, oneLeg: true };
+    const unique = (names) => [...new Set(names.filter(Boolean))];
+    const next = hud.nextStop || "";
+    const ahead = unique([next, ...hud.riders.map((rider) => rider.to)]);
+    const behind = unique(hud.riders.map((rider) => rider.from)).slice(-2);
+    const later = ahead.filter((name) => name !== next).slice(0, LADDER_LATER);
+    const stops = [
+      ...behind.map((name) => ({ name, state: "done" })),
+      ...(next ? [{ name: next, state: "next" }] : []),
+      ...later.map((name) => ({ name, state: "later" })),
+    ];
+    return { stops, progress, oneLeg: behind.length <= 1 && later.length === 0 };
+  }
+
+  // ladderItems returns the stops of a ladder with the pod in place: a bar
+  // with the route progress after the stops behind the pod. The bar is
+  // empty when the progress is not known (-1).
+  function ladderItems(ladder) {
+    const behind = ladder.stops.filter((stop) => stop.state === "done").length;
+    const bar = { bar: true, progress: ladder.progress };
+    return [...ladder.stops.slice(0, behind), bar, ...ladder.stops.slice(behind)];
+  }
+
+  // The speed gauge is an arc of 270 degrees with its gap at the bottom.
+  // Canvas angles turn clockwise from +x.
+  const GAUGE_START = 0.75 * Math.PI;
+  const GAUGE_SWEEP = 1.5 * Math.PI;
+
+  // gaugeView returns the scale of the speed gauge in km/h for the speed
+  // and the lane limit in meters per second: the top of the scale, a
+  // multiple of 20 km/h above the speed and 20% above the limit, and the
+  // fractions of the scale at the speed and at the limit. limit is -1 when
+  // the lane has no limit.
+  function gaugeView(speed, limit) {
+    const kmh = Math.max(0, speed * 3.6), limitKmh = Math.max(0, limit * 3.6);
+    const top = Math.max(40, Math.ceil(Math.max(kmh, limitKmh * 1.2) / 20) * 20);
+    return { top, speed: kmh / top, limit: limitKmh > 0 ? limitKmh / top : -1, over: limitKmh > 0 && kmh > limitKmh + 0.5 };
+  }
+
+  // hudMode returns where the page shows the readouts: "cabin" on the
+  // screens of the cabin in the seat view of a ridden pod, when the pod
+  // model has screens, and "overlay" on the screen overlay otherwise.
+  function hudMode(chase, platform, hasScreens, ridden) {
+    return !chase && !platform && hasScreens && ridden ? "cabin" : "overlay";
+  }
+
+  // The look of the readouts: dark panels, a cyan accent, amber for a wait
+  // and the limit, and red for a speed over the limit.
+  const HUD_FONT = "system-ui, sans-serif";
+  const HUD_COLORS = { panel: "#0a141d", track: "#1e3242", accent: "#35c8ff", text: "#eaf3fa", dim: "#8ca3b6", warn: "#ffb547", over: "#ff5d50", done: "#55697c" };
+
+  // nameChoices returns the texts of a station name for drawText: the name,
+  // then the name without the part in brackets after the place.
+  function nameChoices(name) { return [name, withoutBrackets(name)]; }
+
+  // waitText returns the wait reason with blockedBy in brackets, at most
+  // width wide. When the whole text does not fit, blockedBy is cut first,
+  // so the reason stays whole as long as it can.
+  function waitText(reason, blockedBy, width, measure) {
+    if (!blockedBy) return fitText(reason, width, measure);
+    const whole = `${reason} (${blockedBy})`;
+    if (measure(whole) <= width) return whole;
+    const room = width - measure(`${reason} ()`);
+    if (room < measure("00…")) return fitText(reason, width, measure);
+    return `${reason} (${fitText(blockedBy, room, measure)})`;
+  }
+
+  // drawText draws text at (x, y) on context, cut to fit width. text is one
+  // text, a list of texts from the longest to the shortest, of which the
+  // first that fits draws, or a function of the measure and the width that
+  // returns the text. align is the canvas text alignment at x. It returns
+  // the text that it drew.
+  function drawText(context, text, x, y, width, size, color, align = "left", weight = 600) {
+    context.font = `${weight} ${Math.round(size)}px ${HUD_FONT}`;
+    context.fillStyle = color;
+    context.textAlign = align;
+    context.textBaseline = "alphabetic";
+    const measure = (value) => context.measureText(value).width;
+    const choices = [text].flat();
+    const chosen = typeof text === "function" ? text(measure, width) : (choices.find((choice) => measure(choice) <= width) ?? choices[choices.length - 1]);
+    const fitted = fitText(chosen, width, measure);
+    if (fitted) context.fillText(fitted, x, y);
+    return fitted;
+  }
+
+  // drawPanel fills the rectangle of a screen with the panel color and
+  // draws an accent line along its top.
+  function drawPanel(context, width, height) {
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = HUD_COLORS.panel;
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = HUD_COLORS.accent;
+    context.fillRect(0, 0, width, Math.max(2, height * 0.012));
+  }
+
+  // drawGauge draws the speed arc of gauge, which gaugeView returns, around
+  // (x, y) with the radius radius: a track, the speed, a tick at each
+  // 20 km/h, and a mark at the limit.
+  function drawGauge(context, x, y, radius, gauge) {
+    const width = radius * 0.16, angle = (fraction) => GAUGE_START + GAUGE_SWEEP * Math.min(1, Math.max(0, fraction));
+    context.lineCap = "butt";
+    context.lineWidth = width;
+    context.strokeStyle = HUD_COLORS.track;
+    context.beginPath();
+    context.arc(x, y, radius, GAUGE_START, GAUGE_START + GAUGE_SWEEP);
+    context.stroke();
+    context.strokeStyle = gauge.over ? HUD_COLORS.over : HUD_COLORS.accent;
+    context.beginPath();
+    context.arc(x, y, radius, GAUGE_START, angle(gauge.speed));
+    context.stroke();
+    const tick = (fraction, inner, outer, color, lineWidth) => {
+      const a = angle(fraction);
+      context.strokeStyle = color;
+      context.lineWidth = lineWidth;
+      context.beginPath();
+      context.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
+      context.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
+      context.stroke();
+    };
+    for (let kmh = 0; kmh <= gauge.top; kmh += 20) tick(kmh / gauge.top, radius - width * 1.3, radius - width * 0.7, HUD_COLORS.dim, Math.max(1, width * 0.12));
+    if (gauge.limit >= 0) tick(gauge.limit, radius - width * 0.8, radius + width * 0.8, HUD_COLORS.warn, Math.max(2, width * 0.3));
+  }
+
+  // drawSpeedScreen draws the middle cabin screen: the speed gauge on the
+  // left, the speed in its middle, and the limit, the activity, and the pod
+  // on the right.
+  function drawSpeedScreen(context, width, height, view) {
+    drawPanel(context, width, height);
+    const radius = height * 0.36, x = height * 0.48, y = height * 0.55, pad = height * 0.06;
+    drawGauge(context, x, y, radius, gaugeView(view.speedKmh / 3.6, view.limitKmh / 3.6));
+    drawText(context, String(view.speedKmh), x, y + height * 0.08, radius * 1.5, height * 0.3, HUD_COLORS.text, "center", 800);
+    drawText(context, "km/h", x, y + height * 0.22, radius, height * 0.08, HUD_COLORS.dim, "center");
+    const left = x + radius + height * 0.14, right = width - pad, column = right - left;
+    drawText(context, "LIMIT", left, height * 0.24, column, height * 0.07, HUD_COLORS.dim);
+    drawText(context, view.limitKmh > 0 ? `${view.limitKmh} km/h` : "None", left, height * 0.38, column, height * 0.13, HUD_COLORS.warn, "left", 700);
+    drawText(context, view.activity || view.state, left, height * 0.62, column, height * 0.1, HUD_COLORS.text);
+    drawText(context, view.podName, left, height * 0.78, column, height * 0.08, HUD_COLORS.dim);
+  }
+
+  // drawLadder draws the stop ladder in the rectangle at (x, y) of width by
+  // height. One leg is a bar from the origin to the next stop. A longer
+  // ladder is a column of stops, with the bar of the pod between the last
+  // stop behind it and the next stop.
+  function drawLadder(context, x, y, width, height, ladder, size) {
+    const bar = (bx, by, length, progress, vertical) => {
+      const thickness = size * 0.35;
+      context.fillStyle = HUD_COLORS.track;
+      if (vertical) context.fillRect(bx - thickness / 2, by, thickness, length);
+      else context.fillRect(bx, by - thickness / 2, length, thickness);
+      if (progress < 0) return;
+      context.fillStyle = HUD_COLORS.accent;
+      if (vertical) context.fillRect(bx - thickness / 2, by, thickness, length * progress);
+      else context.fillRect(bx, by - thickness / 2, length * progress, thickness);
+    };
+    const dot = (dx, dy, state, radius = size) => {
+      context.beginPath();
+      context.arc(dx, dy, radius * (state === "next" ? 0.42 : 0.3), 0, 2 * Math.PI);
+      context.fillStyle = state === "done" ? HUD_COLORS.done : (state === "next" ? HUD_COLORS.accent : HUD_COLORS.dim);
+      context.fill();
+    };
+    if (ladder.stops.length === 0) {
+      drawText(context, "No stop ahead", x, y + size, width, size, HUD_COLORS.dim);
+      return;
+    }
+    if (ladder.oneLeg) {
+      const origin = ladder.stops.find((stop) => stop.state === "done"), next = ladder.stops.find((stop) => stop.state === "next");
+      const middle = y + height * 0.42;
+      bar(x + size * 0.4, middle, width - size * 0.8, ladder.progress, false);
+      if (origin) dot(x + size * 0.4, middle, "done");
+      if (next) dot(x + width - size * 0.4, middle, "next");
+      drawText(context, origin ? nameChoices(origin.name) : "", x, middle + size * 1.6, width * 0.48, size * 0.85, HUD_COLORS.dim);
+      drawText(context, next ? nameChoices(next.name) : "", x + width, middle + size * 1.6, width * 0.5, size, HUD_COLORS.text, "right", 700);
+      return;
+    }
+    // With many stops, the rows get smaller, so they do not overlap.
+    const items = ladderItems(ladder), step = height / items.length, track = x + size * 0.5, row = Math.min(size, step * 0.7);
+    // A thin line joins the stops.
+    context.fillStyle = HUD_COLORS.track;
+    context.fillRect(track - size * 0.06, y + step / 2, size * 0.12, height - step);
+    items.forEach((item, i) => {
+      const top = y + step * i, middle = top + step / 2;
+      if (item.bar) { bar(track, top, step, item.progress, true); return; }
+      dot(track, middle, item.state, row);
+      const color = item.state === "next" ? HUD_COLORS.text : HUD_COLORS.dim;
+      drawText(context, nameChoices(item.name), x + size * 1.3, middle + row * 0.35, width - size * 1.3, row * (item.state === "next" ? 1 : 0.85), color, "left", item.state === "next" ? 700 : 500);
+    });
+  }
+
+  // drawRouteScreen draws the right cabin screen: the stop ladder at the
+  // top, then the wait reason with blockedBy, the riders aboard, and the
+  // nearest stop. near is the name and the distance text of the nearest
+  // stop, or null.
+  function drawRouteScreen(context, width, height, view, ladder, near) {
+    drawPanel(context, width, height);
+    const pad = height * 0.07, size = height * 0.085, inner = width - 2 * pad;
+    drawText(context, "ROUTE", pad, pad + size * 0.8, inner * 0.4, size * 0.75, HUD_COLORS.dim);
+    drawText(context, view.distance, width - pad, pad + size * 0.8, inner * 0.58, size * 0.75, HUD_COLORS.dim, "right");
+    drawLadder(context, pad, pad + size * 1.4, inner, height * 0.44, ladder, size);
+    const lines = [
+      view.waitReason ? [(measure, room) => waitText(view.waitReason, view.blockedBy, room, measure), HUD_COLORS.warn] : null,
+      [view.aboard > 0 ? `${view.aboard} aboard` : "No riders aboard", HUD_COLORS.text],
+      near ? [nameChoices(near.name).map((name) => `Near ${name}, ${near.distance}`), HUD_COLORS.dim] : null,
+    ].filter(Boolean);
+    lines.forEach(([text, color], i) => drawText(context, text, pad, height * 0.7 + i * size * 1.2, inner, size * 0.9, color));
+  }
+
+  // drawBanner draws the head-up banner on the windscreen: the next stop on
+  // the left and the time to it on the right, on a dark band that lets the
+  // view show through. The banner texture has alpha.
+  function drawBanner(context, width, height, view) {
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const slant = height * 0.35;
+    context.fillStyle = "rgba(10, 20, 29, 0.62)";
+    context.beginPath();
+    context.moveTo(slant, 0); context.lineTo(width, 0); context.lineTo(width - slant, height); context.lineTo(0, height);
+    context.closePath();
+    context.fill();
+    context.fillStyle = HUD_COLORS.accent;
+    context.fillRect(slant, 0, width - slant, height * 0.05);
+    const pad = slant + height * 0.08, size = height * 0.3, split = width * 0.68;
+    drawText(context, view.nextName ? "NEXT STOP" : "", pad, height * 0.32, split - pad, height * 0.16, HUD_COLORS.dim);
+    drawText(context, view.nextName ? nameChoices(view.nextName) : (view.next || view.state), pad, height * 0.76, split - pad, size, HUD_COLORS.text, "left", 700);
+    const right = width - slant - height * 0.08;
+    // Past the route window, the time is the part in the window.
+    drawText(context, view.time ? (view.over ? "ETA, OVER" : "ETA") : "", right, height * 0.32, width - split - slant, height * 0.16, HUD_COLORS.dim, "right");
+    drawText(context, view.time, right, height * 0.76, width - split - slant, size, HUD_COLORS.accent, "right", 800);
+  }
+
+  // attachTexture loads the image at url as a tiling texture and gives it
+  // to each material when it loads. Until then, and for good when it does
+  // not load, the materials keep their flat colors.
+  function attachTexture(B, scene, url, materials) {
+    // Babylon can call onLoad before the constructor returns, so the
+    // materials get the texture when both have happened.
+    let texture = null, loaded = false;
+    const attach = () => {
+      if (!texture || !loaded) return;
+      for (const material of materials) material.diffuseTexture = texture;
+    };
+    texture = new B.Texture(url, scene, false, true, B.Texture.TRILINEAR_SAMPLINGMODE, () => { loaded = true; attach(); }, (message) => {
+      console.warn(`The texture ${url} did not load, so the surfaces keep their flat colors.`, message);
+      loaded = false;
+      if (texture) texture.dispose();
+    });
+    texture.wrapU = texture.wrapV = B.Texture.WRAP_ADDRESSMODE;
+    texture.anisotropicFilteringLevel = TEXTURE_ANISOTROPY;
+    attach();
+    return texture;
   }
 
   // bounded fails the stream when it has more than limit bytes.
@@ -859,6 +1231,8 @@
     const data = new B.VertexData();
     const { positions, normals } = stretchPart(part, scale);
     data.positions = positions; data.normals = normals; data.indices = part.indices;
+    // The texture stretches with the part.
+    if (part.uvs) data.uvs = part.uvs;
     data.applyToMesh(mesh);
     return mesh;
   }
@@ -911,28 +1285,95 @@
     mesh.isPickable = false;
     // The instances move every frame and cover the whole network.
     mesh.alwaysSelectAsActiveMesh = true;
-    return mesh;
+    return { mesh, shellMaterial };
   }
 
   // buildModelCabin makes the inside of a pod of a class from the pod
-  // model. The seat view places it at the ridden pod.
+  // model: the cabin and the seats, merged into one mesh with one submesh
+  // for each material. The seat view places it at the ridden pod. It
+  // returns the mesh and the materials by part name.
   function buildModelCabin(B, scene, cls, model) {
-    const mesh = modelMesh(B, scene, `cabin-${cls.name}`, model.parts.cabin, cls.lengthMeters / model.length);
-    const material = new B.StandardMaterial(`cabin-${cls.name}`, scene);
-    material.diffuseColor = color(B, model.parts.cabin.color);
-    // The windows light the cabin. The emissive color stands in for that
-    // light, because the sun does not light the cabin.
-    material.emissiveColor = color(B, model.parts.cabin.color.map((value) => value * 0.8));
-    material.specularColor = new B.Color3(0.1, 0.1, 0.1);
-    mesh.material = material;
+    const names = ["cabin", "seat"].filter((name) => model.parts[name]), materials = {};
+    const meshes = names.map((name) => {
+      const mesh = modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls.lengthMeters / model.length);
+      const material = new B.StandardMaterial(`${name}-${cls.name}`, scene);
+      material.diffuseColor = color(B, model.parts[name].color);
+      // The windows light the cabin. The emissive color stands in for that
+      // light, because the sun does not light the cabin.
+      material.emissiveColor = color(B, model.parts[name].color.map((value) => value * 0.8));
+      material.specularColor = new B.Color3(0.1, 0.1, 0.1);
+      mesh.material = material;
+      materials[name] = material;
+      return mesh;
+    });
+    const mesh = meshes.length > 1 ? B.Mesh.MergeMeshes(meshes, true, true, undefined, false, true) : meshes[0];
+    mesh.name = `cabin-${cls.name}`;
     mesh.isPickable = false;
     mesh.setEnabled(false);
-    return mesh;
+    return { mesh, materials };
+  }
+
+  // createCabinScreens makes a mesh with a canvas texture for each screen of
+  // the pod model. The screens are emissive and unlit, so they stay
+  // readable in shade and at night. The banner texture has alpha, so the
+  // view shows through it.
+  function createCabinScreens(B, scene, model) {
+    const screens = new Map();
+    for (const [name, node] of Object.entries(model.screens)) {
+      const width = Math.max(64, Math.round(node.scale[0] * SCREEN_PIXELS_PER_METER));
+      const height = Math.max(64, Math.round(node.scale[1] * SCREEN_PIXELS_PER_METER));
+      const texture = new B.DynamicTexture(`screen-${name}`, { width, height }, scene, true);
+      const material = new B.StandardMaterial(`screen-${name}`, scene);
+      texture.hasAlpha = name === "banner";
+      material.diffuseTexture = texture;
+      material.useAlphaFromDiffuseTexture = texture.hasAlpha;
+      // With lighting off, the output is the emissive color times the
+      // texture.
+      material.disableLighting = true;
+      material.emissiveColor = new B.Color3(1, 1, 1);
+      material.specularColor = new B.Color3(0, 0, 0);
+      material.fogEnabled = false;
+      const mesh = new B.Mesh(`screen-${name}`, scene);
+      mesh.material = material;
+      mesh.isPickable = false;
+      mesh.setEnabled(false);
+      screens.set(name, { node, mesh, texture, width, height, stretch: NaN });
+    }
+    // place shows the screens in cabin, a cabin mesh with z scaled by
+    // stretch. The screens are not children of the cabin, so a rebuild
+    // disposes each mesh once.
+    function place(cabin, stretch) {
+      for (const screen of screens.values()) {
+        if (screen.stretch !== stretch) {
+          const data = new B.VertexData();
+          Object.assign(data, screenQuad(screen.node, stretch));
+          data.applyToMesh(screen.mesh);
+          screen.stretch = stretch;
+        }
+        screen.mesh.position.copyFrom(cabin.position);
+        screen.mesh.rotation.y = cabin.rotation.y;
+        screen.mesh.setEnabled(true);
+      }
+    }
+    function hide() {
+      for (const screen of screens.values()) screen.mesh.setEnabled(false);
+    }
+    // draw calls paint(context, width, height) on the canvas of the screen
+    // name and shows the result.
+    function draw(name, paint) {
+      const screen = screens.get(name);
+      if (!screen) return;
+      paint(screen.texture.getContext(), screen.width, screen.height);
+      screen.texture.update();
+    }
+    return { place, hide, draw, meshes: [...screens.values()].map((screen) => screen.mesh) };
   }
 
   // buildWorld makes the static meshes of a topology and the pod meshes.
   // casters cast shadows, and receivers show them. With a pod model, each
-  // class also gets a cabin.
+  // class also gets a cabin, and the world gets the cabin screens. The
+  // textures load in the background, and the surfaces keep their flat
+  // colors until then.
   function buildWorld(B, scene, topology, model) {
     const meshes = [], casters = [], receivers = [];
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
@@ -950,7 +1391,7 @@
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(`beams${start}`, scene);
       const data = new B.VertexData();
-      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.indices = geometry.indices;
+      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.uvs = geometry.uvs; data.indices = geometry.indices;
       data.applyToMesh(mesh);
       mesh.material = beamMaterial;
       mesh.isPickable = false;
@@ -962,7 +1403,7 @@
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(`hub${index}`, scene);
       const data = new B.VertexData();
-      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.indices = geometry.indices;
+      data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.uvs = geometry.uvs; data.indices = geometry.indices;
       data.applyToMesh(mesh);
       mesh.material = beamMaterial;
       mesh.isPickable = false;
@@ -974,6 +1415,12 @@
     concrete.diffuseColor = new B.Color3(0.72, 0.72, 0.7);
     concrete.specularColor = new B.Color3(0.05, 0.05, 0.05);
     const pillar = B.MeshBuilder.CreateCylinder("pillar", { height: BEAM_TOP - BEAM_DEPTH, diameterTop: 0.55, diameterBottom: 0.75, tessellation: 12 }, scene);
+    // The cylinder texture goes once around a pillar, so it has no seam.
+    // The height gets the same scale as the mean circumference, so the
+    // concrete is not stretched, at about 2 m for each repeat.
+    const pillarUVs = pillar.getVerticesData(B.VertexBuffer.UVKind);
+    for (let i = 1; i < pillarUVs.length; i += 2) pillarUVs[i] *= (BEAM_TOP - BEAM_DEPTH) / (Math.PI * 0.65);
+    pillar.setVerticesData(B.VertexBuffer.UVKind, pillarUVs);
     pillar.material = concrete;
     pillar.isPickable = false;
     // A pillar holds each corner of a hub deck.
@@ -995,6 +1442,7 @@
     for (const slab of slabs) {
       const mesh = B.MeshBuilder.CreateBox(`station-${slab.id}`, { width: slab.width, depth: slab.depth, height: 0.4 }, scene);
       mesh.position.set(slab.x, slab.height - BEAM_DEPTH - 0.25, slab.z);
+      setConcreteUVs(B, mesh);
       mesh.material = slabMaterial;
       mesh.isPickable = false;
       mesh.freezeWorldMatrix();
@@ -1022,14 +1470,36 @@
     ground.freezeWorldMatrix();
     meshes.push(ground); receivers.push(ground);
 
+    const look = { shell: [], cabin: [], seat: [] };
     const pods = topology.classes.map((cls, index) => {
-      const mesh = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model);
+      const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model);
       meshes.push(mesh); casters.push(mesh);
       const cabin = model ? buildModelCabin(B, scene, cls, model) : null;
-      if (cabin) meshes.push(cabin);
-      return { mesh, cabin, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
+      if (cabin) {
+        meshes.push(cabin.mesh);
+        look.shell.push(shellMaterial);
+        for (const [name, material] of Object.entries(cabin.materials)) look[name].push(material);
+      }
+      return { mesh, cabin: cabin ? cabin.mesh : null, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
     });
-    return { meshes, casters, receivers, pods, slabs };
+    const screens = model && Object.keys(model.screens).length > 0 ? createCabinScreens(B, scene, model) : null;
+    if (screens) meshes.push(...screens.meshes);
+    // The procedural pods have no texture coordinates of the pod model, so
+    // only the model gets the pod textures.
+    const textures = [
+      attachTexture(B, scene, "textures/concrete.png", [beamMaterial, concrete, slabMaterial]),
+      attachTexture(B, scene, "textures/panel.png", look.shell),
+      attachTexture(B, scene, "textures/dash.png", look.cabin),
+      attachTexture(B, scene, "textures/fabric.png", look.seat),
+    ];
+    return { meshes, casters, receivers, pods, slabs, screens, textures };
+  }
+
+  // setConcreteUVs gives mesh texture coordinates in meters for the
+  // concrete texture, by a box projection of its local positions.
+  function setConcreteUVs(B, mesh) {
+    const positions = mesh.getVerticesData(B.VertexBuffer.PositionKind), normals = mesh.getVerticesData(B.VertexBuffer.NormalKind);
+    mesh.setVerticesData(B.VertexBuffer.UVKind, boxUVs(positions, normals, CONCRETE_TILE));
   }
 
   // buildCabin makes the window frame and the dashboard of the seat when
@@ -1168,8 +1638,9 @@
   }
 
   // createMiniMap draws the lanes, the stations, and the pods around the
-  // ridden pod on canvas.
-  function createMiniMap(canvas, topology) {
+  // ridden pod on a canvas: the round map of the overlay or the map screen
+  // of the cabin.
+  function createMiniMap(topology) {
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const index = segmentIndex(topology.lanes, nodes, MINIMAP_CELL);
     const stations = stopPoints(topology.stations).map((station) => ({ ...station, label: shortLabel(station.name, MINIMAP_LABEL_LENGTH) }));
@@ -1177,15 +1648,14 @@
     const widths = new Map();
     let fontRatio = 0;
     const classColors = CLASS_COLORS.map((rgb) => `rgb(${rgb.map((value) => Math.round(value * 255)).join(",")})`);
-    const context = canvas.getContext("2d");
 
-    // draw shows the map around world (x, y), with north up. With a finite
-    // heading, an arrow at the center shows the ridden pod, and the pose
-    // index ridden draws no dot. The pose index marked draws as a large
-    // white dot. An index of -1 is no pod.
-    function draw(x, y, heading, poses, count, ridden, marked) {
-      const ratio = root.devicePixelRatio || 1, size = Math.round(MINIMAP_SIZE * ratio);
-      if (canvas.width !== size) canvas.width = canvas.height = size;
+    // draw shows the map around world (x, y), with north up, on context, in
+    // a square of size pixels. ratio scales the lines, the dots, and the
+    // text: 1 is the size of the overlay map of MINIMAP_SIZE CSS pixels.
+    // With a finite heading, an arrow at the center shows the ridden pod,
+    // and the pose index ridden draws no dot. The pose index marked draws
+    // as a large white dot. An index of -1 is no pod.
+    function draw(context, size, ratio, x, y, heading, poses, count, ridden, marked) {
       const half = size / 2, scale = half / MINIMAP_RADIUS;
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.clearRect(0, 0, size, size);
@@ -1342,7 +1812,10 @@
     const seatTurn = newTurn(), chaseTurn = newTurn(), mapTurn = newTurn();
     const resetTurns = () => { for (const turn of [seatTurn, chaseTurn, mapTurn]) turn.angle = NaN; };
     const autoBox = document.getElementById("auto"), fade = document.getElementById("fade");
-    const miniMapCanvas = document.getElementById("minimap");
+    const miniMapCanvas = document.getElementById("minimap"), miniMapContext = miniMapCanvas.getContext("2d");
+    // mode is where the readouts show, from hudMode. screenKey is the data
+    // of the last draw of the readouts, so a draw happens only on a change.
+    let mode = "overlay", screenKey = "";
     // focus is the world point that the view shows: the ridden pod, or the
     // station of the platform camera.
     let miniMap = null, lastMap = 0, stops = [], focus = { x: 0, y: 0, known: false };
@@ -1355,7 +1828,7 @@
     const tripButton = document.getElementById("tripButton"), tripMenu = document.getElementById("tripMenu");
     const tripElements = Object.fromEntries(["tripOrigin", "tripDestination", "tripParty", "tripShared", "tripMessage", "hudPassenger"].map((id) => [id, document.getElementById(id)]));
     let trip = null, tripPhase = "", arrivedAt = 0, platform = null, stationNames = new Map(), stationBerths = new Map(), partyLimit = 8;
-    const hudElements = Object.fromEntries(["hudSpeed", "hudState", "hudWait", "hudTrip", "hudNext", "hudRoute", "hudProgress", "hudProgressBar", "hudNear", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
+    const hudElements = Object.fromEntries(["hudSpeed", "hudLimit", "hudState", "hudWait", "hudTrip", "hudNext", "hudEta", "hudRoute", "hudStops", "hudProgress", "hudProgressBar", "hudNear", "gauge", "stripSession", "stripMessage", "rideAt1x"].map((id) => [id, document.getElementById(id)]));
 
     // Mouse look: drag to turn the view. On release, the view returns to forward.
     canvas.addEventListener("pointerdown", (event) => { looking = true; canvas.setPointerCapture(event.pointerId); });
@@ -1498,7 +1971,10 @@
       const text = ride.topology();
       if (!text) return false;
       const topology = JSON.parse(text);
-      if (world) for (const mesh of world.meshes) mesh.dispose(false, true);
+      if (world) {
+        for (const mesh of world.meshes) mesh.dispose(false, true);
+        for (const texture of world.textures) texture.dispose();
+      }
       if (tileLayer) tileLayer.dispose();
       world = buildWorld(B, scene, topology, podModel);
       // The sun does not light a cabin, because no roof shadows the floor.
@@ -1506,7 +1982,8 @@
       shadows.getShadowMap().renderList = world.casters;
       for (const mesh of world.receivers) mesh.receiveShadows = true;
       tileLayer = createTileLayer(B, scene, topology, credit);
-      miniMap = createMiniMap(miniMapCanvas, topology);
+      miniMap = createMiniMap(topology);
+      screenKey = "";
       stops = stopPoints(topology.stations);
       stationNames = new Map(topology.stations.map((station) => [station.id, station.name || station.id]));
       stationBerths = new Map(topology.stations.filter((station) => station.berths.length > 0).map((station) => [station.id, station]));
@@ -1556,9 +2033,11 @@
     }
 
     function moveCamera(index, seconds) {
-      // The seat view draws the cabin of the ridden pod.
+      // The seat view draws the cabin of the ridden pod, and in the cabin
+      // mode, its screens.
       const seatClass = !platform && !chase && index >= 0 ? poses[index * POSE_FIELDS + 4] | 0 : -1;
       world.pods.forEach((pod, i) => { if (pod.cabin) pod.cabin.setEnabled(i === seatClass); });
+      if (world.screens && mode !== "cabin") world.screens.hide();
       if (!looking) {
         lookYaw = springBack(lookYaw, seconds, LOOK_RETURN_SECONDS);
         lookPitch = springBack(lookPitch, seconds, LOOK_RETURN_SECONDS);
@@ -1588,6 +2067,7 @@
         const [x, z] = toScene(poses[at], poses[at + 1]);
         pod.cabin.position.set(x, poses[at + 5] + POD_HEIGHT / 2, z);
         pod.cabin.rotation.y = yaw;
+        if (mode === "cabin") world.screens.place(pod.cabin, pod.length / podModel.length);
         camera.position.fromArray(seatEye(x, poses[at + 5], z, yaw, podModel.eye, pod.length / podModel.length));
         return;
       }
@@ -1611,20 +2091,62 @@
       if (riders >= 0) { armed = false; lastRiders = riders; }
       const view = hudView(hud);
       if (!hud.found && trip) view.state = "No pod is assigned yet";
-      hudElements.hudSpeed.textContent = view.speed;
-      hudElements.hudState.textContent = view.state;
-      hudElements.hudWait.textContent = view.wait;
-      hudElements.hudTrip.replaceChildren(...view.trip.map((line) => Object.assign(document.createElement("div"), { textContent: line })));
-      hudElements.hudNext.textContent = view.next;
-      hudElements.hudRoute.textContent = view.route;
-      hudElements.hudProgress.hidden = view.progress < 0;
-      hudElements.hudProgressBar.style.width = `${(Math.max(0, view.progress) * 100).toFixed(1)}%`;
-      hudElements.hudProgress.setAttribute("aria-valuenow", String(Math.round(Math.max(0, view.progress) * 100)));
-      const near = focus.known ? nearestStop(stops, focus.x, focus.y) : null;
-      hudElements.hudNear.textContent = near ? `Near ${near.name}, ${formatDistance(near.distance)}` : "";
+      const ladder = stopLadder(hud, view.progress);
+      const nearest = focus.known ? nearestStop(stops, focus.x, focus.y) : null;
+      const near = nearest ? { name: nearest.name, distance: formatDistance(nearest.distance) } : null;
       hudElements.stripSession.textContent = view.session;
       hudElements.stripMessage.textContent = view.message;
       hudElements.rideAt1x.disabled = !view.rideAt1x;
+      // The readouts draw only when their data or the mode changes.
+      const key = JSON.stringify([mode, view, ladder, near]);
+      if (key === screenKey) return;
+      screenKey = key;
+      if (mode === "cabin") {
+        world.screens.draw("speedScreen", (context, width, height) => drawSpeedScreen(context, width, height, view));
+        world.screens.draw("routeScreen", (context, width, height) => drawRouteScreen(context, width, height, view, ladder, near));
+        world.screens.draw("banner", (context, width, height) => drawBanner(context, width, height, view));
+        return;
+      }
+      showOverlay(view, ladder, near);
+    }
+
+    // showOverlay shows the readouts on the screen overlay of the chase and
+    // the platform views.
+    function showOverlay(view, ladder, near) {
+      hudElements.hudSpeed.textContent = view.speed ? String(view.speedKmh) : "";
+      hudElements.hudLimit.textContent = view.limitKmh > 0 ? `Limit ${view.limitKmh} km/h` : "";
+      hudElements.hudState.textContent = view.state;
+      hudElements.hudWait.textContent = view.wait;
+      hudElements.hudTrip.replaceChildren(...view.trip.map((line) => Object.assign(document.createElement("div"), { textContent: line })));
+      hudElements.hudNext.textContent = view.nextName || view.next;
+      hudElements.hudNext.classList.toggle("noStop", !view.nextName);
+      hudElements.hudEta.textContent = view.eta;
+      hudElements.hudRoute.textContent = view.distance;
+      // The progress bar of the route stands between the stops behind the
+      // pod and the next stop. With no stops, the ladder is empty and hides.
+      hudElements.hudStops.replaceChildren(...(ladder.stops.length === 0 ? [] : ladderItems(ladder)).map((item) => {
+        if (item.bar) return hudElements.hudProgress;
+        return Object.assign(document.createElement("span"), { textContent: withoutBrackets(item.name), title: item.name, className: item.state });
+      }));
+      hudElements.hudStops.classList.toggle("oneLeg", ladder.oneLeg);
+      hudElements.hudProgress.hidden = ladder.stops.length === 0;
+      hudElements.hudProgressBar.style.width = `${(Math.max(0, view.progress) * 100).toFixed(1)}%`;
+      hudElements.hudProgress.setAttribute("aria-valuenow", String(Math.round(Math.max(0, view.progress) * 100)));
+      hudElements.hudNear.textContent = near ? `Near ${near.name}, ${near.distance}` : "";
+      const ratio = root.devicePixelRatio || 1, canvas = hudElements.gauge, size = Math.round(canvas.clientWidth * ratio) || 1;
+      if (canvas.width !== size) canvas.width = canvas.height = size;
+      const context = canvas.getContext("2d");
+      context.clearRect(0, 0, size, size);
+      if (view.speed) drawGauge(context, size / 2, size / 2, size * 0.42, gaugeView(view.speedKmh / 3.6, view.limitKmh / 3.6));
+    }
+
+    // setMode moves the readouts between the cabin screens and the screen
+    // overlay. The overlay and its mini-map hide in the cabin mode.
+    function setMode(next) {
+      if (next === mode) return;
+      mode = next;
+      document.body.classList.toggle("cabin", mode === "cabin");
+      screenKey = "";
     }
 
     engine.runRenderLoop(() => {
@@ -1651,6 +2173,7 @@
         refreshPods();
       }
       const ridden = updatePods(info.count, seconds);
+      setMode(hudMode(chase, Boolean(platform), Boolean(world.screens), ridden >= 0));
       moveCamera(ridden, seconds);
       if (platform) {
         focus = { x: platform.center.x, y: platform.center.y, known: true };
@@ -1663,7 +2186,21 @@
       if (focus.known && now - lastMap >= MINIMAP_INTERVAL_MS) {
         lastMap = now;
         // The platform view marks the pod of the trip.
-        miniMap.draw(focus.x, focus.y, mapHeading, poses, info.count, platform ? -1 : ridden, platform && trip && trip.podID ? ridden : -1);
+        const draw = (context, size, ratio) => miniMap.draw(context, size, ratio, focus.x, focus.y, mapHeading, poses, info.count, platform ? -1 : ridden, platform && trip && trip.podID ? ridden : -1);
+        if (mode === "cabin") {
+          world.screens.draw("mapScreen", (context, width, height) => {
+            draw(context, Math.min(width, height), Math.min(width, height) / MINIMAP_SIZE);
+            // The panel fills the corners around the round map.
+            context.globalCompositeOperation = "destination-over";
+            context.fillStyle = HUD_COLORS.panel;
+            context.fillRect(0, 0, width, height);
+            context.globalCompositeOperation = "source-over";
+          });
+        } else {
+          const ratio = root.devicePixelRatio || 1, size = Math.round(MINIMAP_SIZE * ratio);
+          if (miniMapCanvas.width !== size) miniMapCanvas.width = miniMapCanvas.height = size;
+          draw(miniMapContext, size, ratio);
+        }
       }
       // The light sits back along the sun direction from a point ahead of
       // the camera, so the shadow map covers the ground that the camera sees.
@@ -1686,7 +2223,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
