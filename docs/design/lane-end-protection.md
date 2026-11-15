@@ -197,10 +197,16 @@ C1 refuses each pair of an adjoining lane C and a partner B that is closer than 
 C2 runs the bank audit on all pairs in every network.
 C2 removes the early return at `bank_geometry.go:85` and the skip at `:146`.
 `Network.ValidateBankGeometry` (`:35`) gets the same change.
+It also builds the retention index for every network, because today it builds it only under a condition (`bank_geometry.go:38`).
+The editor draft checks and geometry edits keep their own feature gates (`internal/editormodel/checks.go:233`, `edit_geometry.go:102`), so they must also run the audit on a plain network.
+Without that change, the editor accepts a draft that project validation then refuses.
 
 - Code: C2 is about 20 lines (estimate).
   `prepareNetworkTails` already builds the retention index for every network (`prepared.go:155`).
-  To keep the first refusal of a network with two faults, the new pairs go after the lane length checks.
+  The existing audit keeps its place and its pair order.
+  The pairs that C2 adds run in a separate pass, so a pair that fails today stays the first audit refusal.
+  A new pass can still come before a later refusal of the same network, such as a lane length, a placement, or a project check.
+  Decision L6 asks how to treat that order.
   C1 needs the junction extents in validation, and only `newPreparedNetwork` builds them today.
 - Determinism and restore: a valid network runs as before.
   A saved state whose project now fails validation moves aside, as the restore rules require.
@@ -210,8 +216,8 @@ C2 removes the early return at `bank_geometry.go:85` and the skip at `:146`.
   The lateral merge design is approved, so that change needs maintainer approval.
 - Capacity: no change on a valid network.
 - `MaxJunctionPairs`: no change.
-- Lateral merges: in a network without groups, a lateral pair whose 12 m range reaches the far end makes C2 refuse the next lane.
-  Thus such a network gets lateral merges only where the lanes are 12 m apart at their far ends.
+- Lateral merges: in a network without groups, C2 refuses the next lane C only when C and B are closer than the clearance that applies to them, and no exemption applies.
+  A range that reaches the far end only by the 0.5 m sample pad does not cause a refusal, because the audit uses the segment distance with no pad.
 - Scope: C2 also refuses same-plane lanes with no shared node that cross or come within 12 m away from a lane end.
   `Check` already fails such pods today, so the refusal moves an existing failure to load time.
 - Fixtures: C1 and C2 both refuse `mergeCorridor` and `laneEndNetwork` without groups (measured).
@@ -246,10 +252,16 @@ With C2, one of these is true of C and B (inferred from the code):
 3. They are in different nonempty groups and share no node.
    The model declares them on different levels (`docs/london.md`: "Different groups declare that unrelated paths can cross at different physical levels").
    This is an assumption, and decision L1 asks the maintainer to keep it.
+   The exemption is for small pods.
+   A pair with a large pod needs 20 m and the reach rule of `plane_reach.go` (`bank_geometry.go:150`, `:221`).
 4. Otherwise, the bank audit passed for the pair.
    Each part of their polylines is at least the clearance of `audit.pieces` apart: 12 m, the depot lateral clearance, or the retention clearance.
    The audit gives each part the clearance that `Check` certifies for it (`bank_geometry.go:66`, `safety.go:261`), and pod positions are on the polylines.
    So p and q keep that clearance at each position, with no time term, at each tick rate.
+   The audit and `Check` use the same separation tolerance.
+   This case does not extend the audit beyond its reach model.
+   The known limit of the observer envelope two lanes ahead (`docs/contracts/express-standees-contract-proposal.md:294`) stays.
+   Lane and berth pairs that a certified maneuver exempts (`maneuver_certify.go:49`) are outside these four cases.
 
 These four cases apply to any two lanes.
 So they also cover the lane after C and the lane after B, with no recursion.
@@ -273,7 +285,7 @@ Option B leaves the converging half open and lets a pod hold N while it waits.
 | `TestMergeCorridorHeadway`, `TestMergeCorridorPlatoonHeadway`, and other users of `mergeCorridor` | The fixture needs a new destination layout. The pins can stay (inferred). |
 | `TestLateralMergeExcludesLaneEndPairs` | Its fixture needs the separation groups of `TestLateralMergeLaneEndTwoStreams`. |
 | Other unit-test fixtures | Not measured. Step 1 of section 9 counts them. |
-| Validation refusals | New for a network without banks or maneuver groups. The text is that of `planeGapText` (`bank_geometry.go:196`). The new pairs come after the lane length checks, so no current first refusal changes. A test with two faults pins this order. |
+| Validation refusals | New for a network without banks or maneuver groups. The text is that of `planeGapText` (`bank_geometry.go:196`). The existing audit keeps its order. A network with a new close pair and another fault can get a different first refusal, as decision L6 says. Tests with competing faults pin the order. |
 | Start time | The audit runs on every network. Not measured. |
 | Junction pair count against `MaxJunctionPairs` | Same |
 | Contracts | No clause changes. |
@@ -289,6 +301,7 @@ Option B leaves the converging half open and lets a pod hold N while it waits.
 | L3 | If A: bound for `MaxJunctionPairs` | Count the adjoining lanes of each side in the limit, or allow one step and refuse a longer carry | Count them. On LondonFull chords, the count is 58,686, and the total with the 49,440 sides is 108,126, inside the limit. |
 | L4 | Clause 5 | Keep it, or replace it with a body carry of option A | Keep it. A replacement needs option A, and on LondonFull ramps the body reach of the excluded sides is up to 171.5 m. |
 | L5 | Record | Correct the "Lane ends" paragraph and step 4 of section 3 of the lateral merge design | Correct both when C2 lands. |
+| L6 | Refusal order for a network with a new close pair and another fault | Run the new pass after every other check of network, fleet, and project validation, or run it right after the existing audit and accept a new first refusal for such a network | Run it right after the existing audit. Any new refusal changes the first refusal of some network with several faults. Before v1, the order is pinned by new tests and not kept for old projects. This changes a part of the format, so it needs maintainer approval. |
 
 ## 8. Test plan
 
@@ -301,7 +314,10 @@ Unit tests:
 - A depot lane pair at the depot lateral clearance: preparation passes.
 - C at 12.01 m from B: preparation passes.
   At 11.99 m, preparation refuses it.
-- A network with a short lane and a close pair: the length refusal comes first.
+- Competing faults: a new close pair with an old audit pair, with a short lane, with a placement failure, and with a project check failure.
+  Each test pins the first refusal that L6 chooses.
+- A plain network in the editor: the draft check and a geometry edit refuse the close pair, as project validation does.
+- `Network.ValidateBankGeometry` on a fixture with reduced retention gives the same result as preparation.
 - `Network.ValidateBankGeometry` gives the same result as preparation for each fixture.
 - Every ring preset, the London presets, Express, and each network of `scenario_networks.json.gz` prepare.
 - A run of the example geometry with groups, with both lanes busy for 15 simulated minutes and `Check` at each tick.
@@ -316,7 +332,7 @@ Mutations, with the table of the `verify-by-mutation` skill:
 | Treat blank groups as separated | Example refusal |
 | Apply C2 only in `prepareNetworkTails` | `ValidateBankGeometry` parity |
 | Add the 0.5 m sample pad to the audit clearance | 12.01 m case |
-| Run the new pairs before the length checks | Refusal order |
+| Move the new pass to the other place of L6 | Competing faults |
 
 Each mutation runs on a fixture without groups, so `Check` and the audit can fail on it.
 
@@ -328,3 +344,21 @@ Each mutation runs on a fixture without groups, so `Check` and the audit can fai
 3. Run the scratch measurement of section 3 again on the tip, to confirm the counts.
 4. Run the merge corridor pins with the new destination layout, to confirm that they stay.
 5. No study is necessary, because no valid network changes behavior.
+
+## 10. Review
+
+An Astra review on 2026-11-15 checked this proposal against the code at `959912c7`.
+It found the direction sound, and it found four problems, which this text now addresses:
+
+1. Major: the claim that no first refusal changes was not established.
+   A new refusal can come before a later refusal of the same network.
+   Section 4 C and decision L6 now state this, and the test plan pins the order.
+2. Minor: the editor draft checks and geometry edits have their own feature gates, and `ValidateBankGeometry` builds the retention index only under a condition.
+   Section 4 C and the test plan now include both.
+3. Minor: the safety cases did not name the large-pod rule, the known observer envelope limit, or the maneuver exemptions.
+   Section 5 now names them.
+4. Minor: a range that reaches the far end does not by itself cause a refusal.
+   Section 4 C now says that C2 refuses only a pair that is closer than its clearance.
+
+The review confirmed the static lane-pair argument, the audit coverage of all lanes and berths, the option A bound as a conservative bound, the open converging half of option B, and the restore behavior.
+It could not verify the scratch counts, because it did not run code.
