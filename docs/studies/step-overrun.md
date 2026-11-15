@@ -139,3 +139,22 @@ The table gives the median of the 5 runs.
 
 Tick 18235 with both off takes 80.7 ms before and 49.2 ms after.
 The work of `pickupPodForRequest` and the station bounds stays, so each arm still has steps over the budget.
+
+## Pass reset after a refused board
+
+`boardOrWait` resets the dispatch pass before `board`, also when `board` then refuses the trip.
+A study of a flood with faults found about 44 such resets in each tick of a slow window, and proposed to reset only after a board that succeeds.
+`board` refuses before it changes a pod, a trip, or the queue, so a refusal needs no reset.
+
+A probe on November 15, 2026, at `06af2151`, measured this change on the LondonFull flood with faults, seed 3.
+The project is `scenario -preset london-full -fault-rate 10 -emergency-rate 10 -fault-duration fixed:600 -debris-share 0.25 -debris-meters 2`.
+The run is `compare -pattern destination -focus 940GZZLUKSX -loads 3s -arrivals-for 60m -duration 60m -platoon-policies virtual -format json -workers 1`.
+
+- The compare reports of seeds 1 to 3 are byte-equal with and without the change.
+- The resets from `boardOrWait` fall from 29,501 to 623 in the hour, and the board refusals stay at 28,878.
+- The `pickupPodForRequest` calls stay at 3,704,839, so trips with the same key share no more pickup results.
+- The refusals fall in minutes 8 to 18, where the pickup work is small, and minutes 54 to 60 have none.
+- The median wall time of three interleaved runs is 83.9 s without the change and 83.1 s with it, inside the spread of each build.
+
+The change gives no measurable gain, and it breaks the rule of `readyTrips` that the pass resets before each change.
+So it does not land.
