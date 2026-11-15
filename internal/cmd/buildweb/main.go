@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js", "ride.html", "ride.js", "pod.glb"}
+var staticFiles = []string{"index.html", "state-check.js", "shell.js", "game.html", "tiles.js", "simulation-map.js", "loader.js", "stream.js", "editor.html", "editor.css", "editor-model.js", "place-search.js", "editor.js", "offline.html", "offline.js", "ride.html", "ride.js", "pod.glb", "textures/concrete.png", "textures/panel.png", "textures/fabric.png", "textures/dash.png"}
 
 func main() {
 	if err := run(context.Background()); err != nil {
@@ -44,7 +44,11 @@ func run(ctx context.Context) error {
 		return err
 	}
 	for _, name := range staticFiles {
-		if err := copyFile(filepath.Join("web", name), filepath.Join("dist", name)); err != nil {
+		destination := filepath.Join("dist", name)
+		if err := os.MkdirAll(filepath.Dir(destination), 0o750); err != nil {
+			return fmt.Errorf("create %s: %w", filepath.Dir(destination), err)
+		}
+		if err := copyFile(filepath.Join("web", name), destination); err != nil {
 			return err
 		}
 	}

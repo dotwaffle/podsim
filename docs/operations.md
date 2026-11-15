@@ -935,6 +935,7 @@ See [server restarts](protocol.md#server-restarts).
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
 | `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
 | `internal/cmd/podmodel` | The pod model of the ride page, `web/pod.glb`. |
+| `internal/cmd/texgen` | The textures of the ride page, `web/textures`. |
 | `cmd/podsim` | Desktop and WASM entry point. |
 | `cmd/editormodel` | Separate WASM entry point for the editor worker. |
 | `cmd/ride` | Separate WASM entry point for the first-person ride page. |
