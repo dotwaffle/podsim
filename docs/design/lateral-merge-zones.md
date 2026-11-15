@@ -13,10 +13,14 @@ For example, lane A is 24 m long, and lane B leaves the same node at 3 degrees: 
 A converging lane whose body range reaches its start had the same problem on the lane before it.
 On 2026-11-15, the maintainer chose to exclude these pairs, as clause 5 of section 2 now says, and the simulator does so.
 In LondonFull with lateral merges, 9,362 of 9,944 pair sides with ramps and 22,966 of 23,972 with chords stay lateral.
+The far-end test sweeps the body over the last part of the lane, at most 0.5 m long and ending at the far end, and over each join turn there, as a continuous enclosure.
+So the pose at which a pod releases the junction is clear of the partner lane, and each contact before that pose is inside the extent.
+A second review asked for a test of each pose in the last 0.5 m, which clause 5 does not need, because the extent holds those poses.
 
 The isotropic rule has the same gap, and the exclusion does not remove it.
 The isotropic extent of a lane also ends at the lane end, so on the next lane a body can meet a body on the partner lane, with the field set or not.
-A test run of this geometry gives the same overlap with the field set and unset.
+A scratch run of this geometry on 2026-11-15 gave the same overlap with the field set and unset.
+The committed tests do not repeat this run.
 In LondonFull, each such pair of lanes has two different separation groups and no shared node, so the model treats them as separate levels, as step 4 of section 3 says.
 
 This design shortens the junction conflict zones of shallow merges and splits.
