@@ -18,6 +18,10 @@ In LondonFull with lateral merges, 9,362 of 9,944 pair sides with ramps and 22,9
 The far-end test sweeps the body over the last part of the lane, at most 0.5 m long and ending at the far end, and over each join turn there, as a continuous enclosure.
 So the pose at which a pod releases the junction is clear of the partner lane, and each contact before that pose is inside the extent.
 A second review asked for a test of each pose in the last 0.5 m, which clause 5 does not need, because the extent holds those poses.
+The test encloses each join turn at the far end in one rectangle on the axes of the middle heading of the turn.
+This rectangle holds more than the body over the turn, so the test can exclude a pair that a test of each angle of the turn keeps lateral.
+On LondonFull, 23 pairs are excluded only because of the rectangle, and a test of each angle would keep about 20 of them lateral.
+On 2026-11-15, the maintainer chose to keep the rectangle, and the body reference of the tests uses the same rectangle.
 
 The isotropic rule has the same gap, and the exclusion does not remove it.
 The isotropic extent of a lane also ends at the lane end, so on the next lane a body can meet a body on the partner lane, with the field set or not.
