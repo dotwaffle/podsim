@@ -53,6 +53,10 @@ type depotLateral struct {
 	// each lane that has a neighbor.
 	neighbors map[int][]int
 	points    map[int][]Point
+	// extents holds the junction extent of lane a against lane b of each
+	// lateral merge pair, by the indexes of a and b. A depot index has
+	// none.
+	extents map[[2]int][2]float64
 	// visits and unresolved count the sweep work and the pairs whose
 	// sweep ran out of work.
 	visits, unresolved int

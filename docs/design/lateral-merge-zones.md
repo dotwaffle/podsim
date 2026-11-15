@@ -6,14 +6,18 @@ D3 and D6 follow the recommendations.
 The rule is built behind the `lateralMerges` network field, and the presets do not set it.
 The [junction study](../studies/london-junctions.md#lateral-merge-zones) has the results with the field set.
 
-Known issue, found by a review on 2026-11-15: the safety argument of section 3 fails where the body range of a lane reaches the far end of the lane.
-The extent of a diverging lane stops at the lane end, and the pod releases the junction there (`internal/sim/lateral_merges.go:169`, `internal/sim/traffic.go:950`).
-On the next lane, which has no resource of the node, the body of the pod can still meet the body of a pod on the partner lane.
+Lane ends, found by a review on 2026-11-15: the safety argument of section 3 failed where the body range of a lane reached the far end of the lane.
+The extent of a diverging lane stopped at the lane end, and the pod released the junction there (`internal/sim/traffic.go:950`).
+On the next lane, which has no resource of the node, the body of the pod could still meet the body of a pod on the partner lane.
 For example, lane A is 24 m long, and lane B leaves the same node at 3 degrees: at the end of A, the two lanes are 1.26 m apart.
-A converging lane whose body range reaches its start has the same problem on the lane before it.
-In LondonFull with ramps, 685 of the 9,944 sides of lateral merge pairs have an extent that covers the whole lane.
-On 2026-11-15, the maintainer chose to exclude these pairs, as clause 5 of section 2 now says.
-The study runs with the field set again after the fix, and the adoption decision follows them.
+A converging lane whose body range reaches its start had the same problem on the lane before it.
+On 2026-11-15, the maintainer chose to exclude these pairs, as clause 5 of section 2 now says, and the simulator does so.
+In LondonFull with lateral merges, 9,362 of 9,944 pair sides with ramps and 22,966 of 23,972 with chords stay lateral.
+
+The isotropic rule has the same gap, and the exclusion does not remove it.
+The isotropic extent of a lane also ends at the lane end, so on the next lane a body can meet a body on the partner lane, with the field set or not.
+A test run of this geometry gives the same overlap with the field set and unset.
+In LondonFull, each such pair of lanes has two different separation groups and no shared node, so the model treats them as separate levels, as step 4 of section 3 says.
 
 This design shortens the junction conflict zones of shallow merges and splits.
 It follows the [London junction study](../studies/london-junctions.md#where-pods-wait), which found that pods on ramps wait 1,535 s before join nodes on seed 1, against 68 s with chords.

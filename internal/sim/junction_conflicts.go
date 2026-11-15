@@ -27,9 +27,9 @@ const (
 // buildJunctionConflicts uses the movement polylines to bound conflicts between
 // incident lanes. Unconnected crossings remain outside junction control.
 // merges holds the lateral merge pairs of the network (see
-// newMergeLateral). A lateral merge pair gets the extent of
-// lateralMergeExtent, and each other pair the isotropic extent of its
-// clearance. With nil merges, each pair gets the isotropic extent.
+// newMergeLateral). A lateral merge pair gets the extent that merges holds,
+// and each other pair the isotropic extent of its clearance. With nil
+// merges, each pair gets the isotropic extent.
 func buildJunctionConflicts(network Network, merges *depotLateral) map[string][]laneConflict {
 	positions := indexNodePositions(network.Nodes)
 	conflicts := make(map[string][]laneConflict)
@@ -37,13 +37,19 @@ func buildJunctionConflicts(network Network, merges *depotLateral) map[string][]
 	for _, lane := range network.Lanes {
 		polylines[lane.ID] = newConflictPolyline(lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65)))
 	}
-	lateral := newMergeExtents(network, merges)
+	var lanes map[string]int
+	if merges.any() {
+		lanes = make(map[string]int, len(network.Lanes))
+		for index, lane := range network.Lanes {
+			if _, ok := lanes[lane.ID]; !ok {
+				lanes[lane.ID] = index
+			}
+		}
+	}
 	extents := make(map[conflictExtentKey][2]float64)
 	forEachJunctionPair(network, func(node string, lane, other Lane) {
-		var start, end float64
-		if a, b, ok := lateral.pair(lane, other); ok {
-			start, end = lateral.extent(a, b, node)
-		} else {
+		start, end, ok := merges.mergeExtent(lanes[lane.ID], lanes[other.ID])
+		if !ok {
 			key := conflictExtentKey{lane: polylines[lane.ID], other: polylines[other.ID], clearance: classSetPairClearance(lane.VehicleClasses, other.VehicleClasses)}
 			start, end = key.measure(extents, sharedEndpoints(lane, other))
 		}
@@ -52,57 +58,6 @@ func buildJunctionConflicts(network Network, merges *depotLateral) map[string][]
 		}
 	})
 	return conflicts
-}
-
-// mergeExtents holds the steps of the lanes of the lateral merge pairs, so
-// that each lane builds its steps once. A nil value has no pair.
-type mergeExtents struct {
-	merges  *depotLateral
-	builder lateralBuilder
-	steps   map[int][]mergeStep
-	lengths map[int]float64
-}
-
-func newMergeExtents(network Network, merges *depotLateral) *mergeExtents {
-	if !merges.any() {
-		return nil
-	}
-	return &mergeExtents{merges: merges, builder: newLateralBuilder(network), steps: make(map[int][]mergeStep), lengths: make(map[int]float64)}
-}
-
-// pair returns the indexes of two lanes that form a lateral merge pair.
-func (m *mergeExtents) pair(lane, other Lane) (int, int, bool) {
-	if m == nil {
-		return 0, 0, false
-	}
-	a, b := m.builder.lanes[lane.ID], m.builder.lanes[other.ID]
-	return a, b, m.merges.mergePartner(a, b)
-}
-
-// extent returns the extent of lane a against lane b of a lateral merge
-// pair at node.
-func (m *mergeExtents) extent(a, b int, node string) (float64, float64) {
-	others := make([]sweepStep, 0, len(m.laneSteps(b)))
-	for _, step := range m.laneSteps(b) {
-		others = append(others, step.step)
-	}
-	return lateralMergeExtent(m.laneSteps(a), others, m.lengths[a], m.builder.network.Lanes[a].To == node)
-}
-
-// laneSteps returns the steps of a lane, and keeps its length.
-func (m *mergeExtents) laneSteps(index int) []mergeStep {
-	if steps, ok := m.steps[index]; ok {
-		return steps
-	}
-	lane := m.builder.network.Lanes[index]
-	points := m.merges.points[index]
-	steps := mergeSteps(m.builder, lane, points)
-	length := 0.0
-	for i := 1; i < len(points); i++ {
-		length += pointDistance(points[i-1], points[i])
-	}
-	m.steps[index], m.lengths[index] = steps, length
-	return steps
 }
 
 // conflictExtentKey holds the arguments of conflictExtentWithClearance, in

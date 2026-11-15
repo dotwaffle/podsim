@@ -44,16 +44,16 @@ func lateralPairNetwork(degrees, length float64, converging bool) Network {
 	return network
 }
 
-// conflictWith returns the extent at an index of the extents of a lane in
-// a table. A lane has one extent for each other lane at each node, in
-// forEachJunctionPair order, so the test networks name the lanes such that
-// the first extent is the one against the wanted lane.
-func conflictWith(t *testing.T, conflicts map[string][]laneConflict, lane string, index int) laneConflict {
+// conflictWith returns the first extent of a lane in a table. A lane has
+// one extent for each other lane at each node, in forEachJunctionPair
+// order, so the test networks name the lanes such that the first extent is
+// the one against the wanted lane.
+func conflictWith(t *testing.T, conflicts map[string][]laneConflict, lane string) laneConflict {
 	t.Helper()
-	if index >= len(conflicts[lane]) {
-		t.Fatalf("lane %s has %d extents, want more than %d", lane, len(conflicts[lane]), index)
+	if len(conflicts[lane]) == 0 {
+		t.Fatalf("lane %s has no extent", lane)
 	}
-	return conflicts[lane][index]
+	return conflicts[lane][0]
 }
 
 // TestLateralMergeStraightExtents checks the extent of two straight lanes
@@ -86,7 +86,7 @@ func TestLateralMergeStraightExtents(t *testing.T) {
 				// the same length on both lanes.
 				zone := max(reach, Clearance) + conflictSampleStep
 				for index, lane := range []string{"a", "b"} {
-					got, isotropic := conflictWith(t, on, lane, 0), conflictWith(t, off, lane, 0)
+					got, isotropic := conflictWith(t, on, lane), conflictWith(t, off, lane)
 					laneLength := network.Length(network.Lanes[index])
 					if got.junction != "n" {
 						t.Fatalf("lane %s extent at %s, want n", lane, got.junction)
@@ -354,7 +354,7 @@ func TestLateralMergeRampsMatchBodyReference(t *testing.T) {
 						start, end = 0, max(end, Clearance)
 					}
 					start, end = max(0, start-conflictSampleStep), min(length, end+conflictSampleStep)
-					got := conflictWith(t, conflicts, pair[0], 0)
+					got := conflictWith(t, conflicts, pair[0])
 					if got.start > start || got.end < end {
 						t.Errorf("lane %s extent [%.4f, %.4f] does not hold the reference [%.4f, %.4f]", pair[0], got.start, got.end, start, end)
 					}
@@ -599,11 +599,50 @@ func TestLateralMergeRestoresInPlace(t *testing.T) {
 	}
 }
 
+// farEndPoses returns the reference poses of a lane at its far end from a
+// node: the start when the lane ends at the node, or the end otherwise. The
+// poses have the heading of the lane, and the headings of the turn in
+// eight parts to each lane joined at that end.
+func farEndPoses(network Network, lane Lane, node string) []referencePose {
+	points := network.Polyline(lane)
+	first, last, ok := lateralBuilder{}.headings(points)
+	if !ok {
+		return nil
+	}
+	at, heading, distance := points[len(points)-1], last, network.Length(lane)
+	if lane.To == node {
+		at, heading, distance = points[0], first, 0
+	}
+	poses := []referencePose{{position: at, distance: distance, heading: heading}}
+	for _, joined := range network.Lanes {
+		var other float64
+		switch {
+		case lane.To == node && joined.To == lane.From:
+			_, other, ok = lateralBuilder{}.headings(network.Polyline(joined))
+		case lane.To != node && joined.From == lane.To:
+			other, _, ok = lateralBuilder{}.headings(network.Polyline(joined))
+		default:
+			continue
+		}
+		if !ok {
+			continue
+		}
+		turn := math.Remainder(other-heading, 2*math.Pi)
+		for part := range 9 {
+			poses = append(poses, referencePose{position: at, distance: distance, heading: heading + turn*float64(part)/8})
+		}
+	}
+	return poses
+}
+
 // TestScenarioLateralMergesShortenExtents sets LateralMerges on each
 // network of testdata/scenario_networks.json.gz. Each extent lies inside
 // the isotropic extent of the same pair, up to the rounding of the
 // samples of the isotropic extent, and each extent at a node where both
-// lanes end or both start holds the node range.
+// lanes end or both start holds the node range. For each lateral merge
+// pair, the grown body at the far end of each lane, and in the turn to each
+// lane joined there, clears the grown body at each reference pose of the
+// other lane (clause 5).
 func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
@@ -639,7 +678,341 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 					}
 				}
 			}
-			t.Logf("%d shorter extents", shorter)
+			positions := indexNodePositions(network.Nodes)
+			maneuvers, _ := newManeuverIndex(network, positions)
+			depots, _ := newDepotIndex(network, positions)
+			merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+			lanes := make(map[string]int, len(network.Lanes))
+			for index, lane := range network.Lanes {
+				lanes[lane.ID] = index
+			}
+			poses := make(map[string][]referencePose)
+			sides := 0
+			forEachJunctionPair(network, func(node string, lane, other Lane) {
+				if !merges.mergePartner(lanes[lane.ID], lanes[other.ID]) {
+					return
+				}
+				sides++
+				if poses[other.ID] == nil {
+					poses[other.ID] = referencePoses(network.Polyline(other), 0.25)
+				}
+				if start, end := referenceBodyRange(farEndPoses(network, lane, node), poses[other.ID]); start <= end {
+					t.Errorf("lane %s at %s: the body at its far end meets the body on lane %s", lane.ID, node, other.ID)
+				}
+			})
+			t.Logf("%d shorter extents, %d lateral merge pair sides", shorter, sides)
 		})
+	}
+}
+
+// laneEndNetwork returns a candidate pair at node "n" whose lane "a" is
+// short meters long on the X axis, against lane "b", 300 m long at the
+// given angle in degrees. With converging, lane "p" runs into the start of
+// a, a and b end at n, and lane "exit" leaves n. Otherwise lane "feed" runs
+// into n, a and b start at n, lane "d" continues a to node "m", and lane
+// "b2" joins b to m. A destination station is far after the pair, and a
+// small origin station, not connected, gives the requests an origin.
+func laneEndNetwork(converging bool, degrees, short float64) Network {
+	radians := degrees * math.Pi / 180
+	far := Point{X: 300 * math.Cos(radians), Y: 300 * math.Sin(radians)}
+	const approach = 10000.0
+	end := 1200.0
+	network := Network{
+		Nodes: []Node{
+			{ID: "n"},
+			{ID: "origin-entry", Position: Point{X: -3000, Y: 1000}},
+			{ID: "origin-berth", Position: Point{X: -2900, Y: 1060}},
+			{ID: "origin-exit", Position: Point{X: -2800, Y: 1000}},
+		},
+		Lanes: []Lane{
+			{ID: "origin-through", From: "origin-entry", To: "origin-exit", SpeedLimit: 14},
+			{ID: "origin-in", From: "origin-entry", To: "origin-berth", SpeedLimit: 14},
+			{ID: "origin-out", From: "origin-berth", To: "origin-exit", SpeedLimit: 14},
+		},
+		LateralMerges: true,
+	}
+	if converging {
+		network.Nodes = append(network.Nodes,
+			Node{ID: "p-start", Position: Point{X: -3000}}, Node{ID: "a-start", Position: Point{X: -short}},
+			Node{ID: "b-start", Position: Point{X: -far.X, Y: -far.Y}}, Node{ID: "m", Position: Point{X: end}})
+		network.Lanes = append(network.Lanes,
+			Lane{ID: "a", From: "a-start", To: "n", SpeedLimit: 14}, Lane{ID: "b", From: "b-start", To: "n", SpeedLimit: 14},
+			Lane{ID: "p", From: "p-start", To: "a-start", SpeedLimit: 14}, Lane{ID: "exit", From: "n", To: "m", SpeedLimit: 14})
+	} else {
+		network.Nodes = append(network.Nodes,
+			Node{ID: "feed-start", Position: Point{X: -3000}}, Node{ID: "a-end", Position: Point{X: short}},
+			Node{ID: "b-end", Position: far}, Node{ID: "m", Position: Point{X: end}})
+		network.Lanes = append(network.Lanes,
+			Lane{ID: "a", From: "n", To: "a-end", SpeedLimit: 14}, Lane{ID: "b", From: "n", To: "b-end", SpeedLimit: 14},
+			Lane{ID: "feed", From: "feed-start", To: "n", SpeedLimit: 14}, Lane{ID: "d", From: "a-end", To: "m", SpeedLimit: 14},
+			Lane{ID: "b2", From: "b-end", To: "m", SpeedLimit: 14})
+	}
+	network.Nodes = append(network.Nodes,
+		Node{ID: "dest-entry", Position: Point{X: end + approach}}, Node{ID: "dest-exit", Position: Point{X: end + approach + 200}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "approach", From: "m", To: "dest-entry", SpeedLimit: 14}, Lane{ID: "dest-through", From: "dest-entry", To: "dest-exit", SpeedLimit: 14})
+	network.Stations = []Station{
+		{ID: "origin", Name: "Origin", Entry: "origin-entry", Exit: "origin-exit", Berths: []Berth{{ID: "origin-1", Node: "origin-berth"}}},
+		{ID: "dest", Name: "Destination", Entry: "dest-entry", Exit: "dest-exit"},
+	}
+	for index := range 8 {
+		node := fmt.Sprintf("dest-berth-%02d", index+1)
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: end + approach + 100, Y: 40 + 25*float64(index)}})
+		network.Lanes = append(network.Lanes,
+			Lane{ID: node + "-in", From: "dest-entry", To: node, SpeedLimit: 14},
+			Lane{ID: node + "-out", From: node, To: "dest-exit", SpeedLimit: 14})
+		network.Stations[1].Berths = append(network.Stations[1].Berths, Berth{ID: fmt.Sprintf("dest-%02d", index+1), Node: node})
+	}
+	return network
+}
+
+// mergePairOf reports whether lanes a and b of a network form a lateral
+// merge pair.
+func mergePairOf(network Network) bool {
+	positions := indexNodePositions(network.Nodes)
+	maneuvers, _ := newManeuverIndex(network, positions)
+	depots, _ := newDepotIndex(network, positions)
+	merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+	lanes := make(map[string]int, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		lanes[lane.ID] = index
+	}
+	return merges.mergePartner(lanes["a"], lanes["b"])
+}
+
+// TestLateralMergeExcludesLaneEndPairs checks clause 5 on a 24 m lane a
+// that meets lane b at 3 degrees: at the far end of a, the lanes are 1.26
+// m apart, so the body range of a reaches that end. The pair is not a
+// lateral merge pair. Its extents are the isotropic extents, two pods on a
+// and b about 6 m apart fail Check, and debris on a does not block the
+// cells of b.
+func TestLateralMergeExcludesLaneEndPairs(t *testing.T) {
+	t.Parallel()
+	for _, converging := range []bool{true, false} {
+		t.Run(fmt.Sprintf("converging %v", converging), func(t *testing.T) {
+			t.Parallel()
+			network := laneEndNetwork(converging, 3, 24)
+			if mergePairOf(network) {
+				t.Error("lanes a and b form a lateral merge pair")
+			}
+			checkSameExtents(t, network, func(lane Lane) bool { return lane.ID == "a" || lane.ID == "b" })
+			s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}, {ID: "p2", StationID: "dest", BerthID: "dest-02"}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			radians := 3 * math.Pi / 180
+			first, second := Point{X: 4}, Point{X: 10 * math.Cos(radians), Y: 10 * math.Sin(radians)}
+			if converging {
+				first, second = Point{X: -first.X}, Point{X: -second.X, Y: -second.Y}
+			}
+			if gap := pointDistance(first, second); gap <= lateralClearance(0) || gap >= Clearance {
+				t.Fatalf("the pods are %v m apart, want between %v and %v m", gap, lateralClearance(0), Clearance)
+			}
+			for index, place := range []struct {
+				lane     string
+				position Point
+			}{{"a", first}, {"b", second}} {
+				pod := &s.vehicles[index].Pod
+				pod.Activity, pod.BerthID, pod.StationID, pod.LaneID, pod.Position = Traveling, "", "", place.lane, place.position
+			}
+			if _, err := s.SafetyObservation().Check(); err == nil {
+				t.Error("Check passes two pods on a and b nearer than Clearance")
+			}
+			a, b := s.graph.lanes["a"], s.graph.lanes["b"]
+			footprint := s.debrisFootprint(a, 10, 12)
+			for cell := range s.laneCells["b"].count() {
+				for _, r := range s.laneCells["b"].cell(cell) {
+					if r.kind == trackResource && slices.Contains(footprint, r) {
+						t.Errorf("debris on a blocks cell %d of b", cell)
+					}
+				}
+			}
+			if len(s.merges.neighborLanes(a)) != 0 || len(s.merges.neighborLanes(b)) != 0 {
+				t.Errorf("lateral merge partners %v and %v, want none", s.merges.neighborLanes(a), s.merges.neighborLanes(b))
+			}
+		})
+	}
+}
+
+// TestLateralMergeShortLaneStaysLateral checks that clause 5 tests the body
+// range and not the node range. Lane a is 10 m long and meets lane b at 60
+// degrees. The node range covers a, but the body range, about 7 m, does
+// not reach the far end of a, so the pair is a lateral merge pair, and b
+// gets an extent shorter than its isotropic extent.
+func TestLateralMergeShortLaneStaysLateral(t *testing.T) {
+	t.Parallel()
+	for _, converging := range []bool{true, false} {
+		t.Run(fmt.Sprintf("converging %v", converging), func(t *testing.T) {
+			t.Parallel()
+			network := laneEndNetwork(converging, 60, 10)
+			if !mergePairOf(network) {
+				t.Fatal("lanes a and b do not form a lateral merge pair")
+			}
+			on := junctionConflictsOf(network)
+			network.LateralMerges = false
+			off := junctionConflictsOf(network)
+			index := slices.IndexFunc(network.Lanes, func(lane Lane) bool { return lane.ID == "a" })
+			length := network.Length(network.Lanes[index])
+			if got := conflictWith(t, on, "a"); got.start != 0 || got.end != length {
+				t.Errorf("lane a extent %+v, want the node range [0, %v]", got, length)
+			}
+			if got, isotropic := conflictWith(t, on, "b"), conflictWith(t, off, "b"); got.end-got.start >= isotropic.end-isotropic.start {
+				t.Errorf("lane b extent %+v, want shorter than the isotropic extent %+v", got, isotropic)
+			}
+		})
+	}
+}
+
+// TestLateralMergeLaneEndJoin checks that a join step at the far end of a
+// lane counts as part of the lane. Lane a is 40 m long and meets lane b at
+// 7.8 degrees, so the lanes are 5.5 m apart at the far end of a, and the
+// body range of a stops before that end. A lane d that turns 90 degrees
+// toward b at the end of a turns the body at that end into b, so with d,
+// the pair is not a lateral merge pair.
+func TestLateralMergeLaneEndJoin(t *testing.T) {
+	t.Parallel()
+	radians := 7.8 * math.Pi / 180
+	network := Network{
+		Nodes: []Node{{ID: "n"}, {ID: "a-end", Position: Point{X: 40}}, {ID: "b-end", Position: Point{X: 200 * math.Cos(radians), Y: 200 * math.Sin(radians)}}, {ID: "d-end", Position: Point{X: 40, Y: 2}}},
+		Lanes: []Lane{
+			{ID: "a", From: "n", To: "a-end", SpeedLimit: 14},
+			{ID: "b", From: "n", To: "b-end", SpeedLimit: 14},
+		},
+		LateralMerges: true,
+	}
+	if !mergePairOf(network) {
+		t.Fatal("without d, lanes a and b do not form a lateral merge pair")
+	}
+	network.Lanes = append(network.Lanes, Lane{ID: "d", From: "a-end", To: "d-end", SpeedLimit: 14})
+	if mergePairOf(network) {
+		t.Error("with d, lanes a and b form a lateral merge pair")
+	}
+}
+
+// laneEndBodies returns an error when the grown body of a pod on one of
+// the lanes in first overlaps the grown body of a pod on one of the lanes
+// in second. It also returns the smallest distance between two such pods,
+// or +Inf.
+func laneEndBodies(s *Simulation, first, second []string) (float64, error) {
+	smallest := math.Inf(1)
+	body := func(pod Pod) [4]Point {
+		return mergeBody(pod.Position, laneHeading(s.network.Polyline(s.network.Lanes[s.graph.lanes[pod.LaneID]]), pod.LaneDistance))
+	}
+	for i := range s.vehicles {
+		p := s.vehicles[i].Pod
+		if !slices.Contains(first, p.LaneID) {
+			continue
+		}
+		for j := range s.vehicles {
+			q := s.vehicles[j].Pod
+			if !slices.Contains(second, q.LaneID) {
+				continue
+			}
+			smallest = min(smallest, pointDistance(p.Position, q.Position))
+			if !mergeBodiesDisjoint(body(p), body(q)) {
+				return smallest, fmt.Errorf("tick %d: the bodies of pods %s on %s at %.3f m and %s on %s at %.3f m overlap", s.tick, p.ID, p.LaneID, p.LaneDistance, q.ID, q.LaneID, q.LaneDistance)
+			}
+		}
+	}
+	return smallest, nil
+}
+
+// runLaneEndStreams restores a queue of six stopped pods on lane feed of a
+// network of laneEndNetwork, in two streams: the pods take lane b and lane
+// a in turn, from the head of the queue. It runs 300 s. At each tick, it
+// runs Check and the body oracle of the pods on a or d against the pods on
+// b. It returns the smallest distance between a pod on a or d and a pod on
+// b, the number of pods that entered d, and the first error.
+func runLaneEndStreams(t *testing.T, network Network) (float64, int, error) {
+	t.Helper()
+	laneIndex := make(map[string]int, len(network.Lanes))
+	for index, lane := range network.Lanes {
+		laneIndex[lane.ID] = index
+	}
+	var fleet []Placement
+	state := SavedState{SharedRidePartyLimit: 1}
+	for index := range laneEndPods {
+		id := fmt.Sprintf("p%d", index+1)
+		fleet = append(fleet, Placement{ID: id, StationID: "dest", BerthID: fmt.Sprintf("dest-%02d", index+1)})
+		state.RequestID++
+		state.Boarded++
+		route := []int{laneIndex["feed"], laneIndex["b"], laneIndex["b2"], laneIndex["approach"]}
+		if index%2 == 1 {
+			route = []int{laneIndex["feed"], laneIndex["a"], laneIndex["d"], laneIndex["approach"]}
+		}
+		distance := 2900 - corridorQueueGap*float64(index)
+		state.Pods = append(state.Pods, SavedPod{
+			ID: id, Activity: "traveling", Occupied: true, Origin: "origin-1", DestinationStation: "dest",
+			Riders:    []SavedRequest{{SharingConsent: SharedConsent, Service: OnDemandService, ID: state.RequestID, From: "origin", To: "dest", PartySize: 1, PodID: id}},
+			Boardings: []RiderBoarding{{BerthID: "origin-1"}},
+			Stops:     []string{"dest"},
+			Route:     route, LaneID: "feed", LaneDistance: distance, Distance: distance,
+		})
+	}
+	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+		t.Fatalf("the queue did not restore in place: %+v", result)
+	}
+	smallest := math.Inf(1)
+	onD := make(map[string]bool)
+	for range 300 * TicksPerSecond {
+		s.Step()
+		if _, err := s.SafetyObservation().Check(); err != nil {
+			return smallest, len(onD), fmt.Errorf("tick %d: %w", s.tick, err)
+		}
+		checkMergeBodies(t, s)
+		gap, err := laneEndBodies(s, []string{"a", "d"}, []string{"b"})
+		smallest = min(smallest, gap)
+		if err != nil {
+			return smallest, len(onD), err
+		}
+		for _, v := range s.vehicles {
+			if v.Pod.LaneID == "d" {
+				onD[v.Pod.ID] = true
+			}
+		}
+	}
+	return smallest, len(onD), nil
+}
+
+// laneEndPods is the number of pods of runLaneEndStreams.
+const laneEndPods = 6
+
+// TestLateralMergeLaneEndTwoStreams runs the two streams of
+// runLaneEndStreams through the split of
+// TestLateralMergeExcludesLaneEndPairs, with LateralMerges set. Lane b has
+// a speed limit of 1 m/s, so that each pod on d passes a pod on b. Lanes a
+// and d are in one separation group and lanes b and b2 in another, so
+// Check does not compare a pod on d with a pod on b, and only the body
+// oracle checks them. The run checks that the isotropic rule of the pair
+// holds in a live run. The pair as a lateral merge pair gives the same run
+// here, because the extents of b under both rules end in the same cell.
+func TestLateralMergeLaneEndTwoStreams(t *testing.T) {
+	t.Parallel()
+	network := laneEndNetwork(false, 3, 24)
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		switch lane.ID {
+		case "a", "d":
+			lane.SeparationGroup = "main"
+		case "b":
+			lane.SeparationGroup, lane.SpeedLimit = "ramp", 1
+		case "b2":
+			lane.SeparationGroup = "ramp"
+		}
+	}
+	if mergePairOf(network) {
+		t.Fatal("lanes a and b form a lateral merge pair")
+	}
+	smallest, onD, err := runLaneEndStreams(t, network)
+	t.Logf("smallest distance between a pod on a or d and a pod on b: %.3f m", smallest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if onD != laneEndPods/2 || !(smallest < Clearance) {
+		t.Errorf("%d pods entered d, and the smallest distance is %.3f m: want %d pods, and less than %v m, so that the run tests the rule", onD, smallest, laneEndPods/2, Clearance)
 	}
 }

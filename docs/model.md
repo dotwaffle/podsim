@@ -215,8 +215,12 @@ It acquires each continuous conflict section together, including the downstream 
 A network that sets `lateralMerges` has [lateral merge pairs](design/lateral-merge-zones.md).
 Such a pair is two lanes that both end at a node or both start at it, with no loop and not the same two nodes.
 Both lanes must be small, with no large class and no large-class tail, and neither lane can be in a Compact station or a depot.
-The section of such a pair holds each position where the body of a pod can meet the body of a pod on the other lane, and the 12 meters next to the node.
+The body range of a lane is each position where the body of a pod can meet the body of a pod on the other lane.
 The body is 2.5 meters behind the route position, 3.7 meters ahead, and 1.05 meters to each side, and each side grows by 0.5 meters.
+On neither lane can the body range reach the far end of the lane: the start for two lanes that end at the node, or the end for two lanes that start at it.
+A join to the next lane at that end counts as part of the lane.
+The section stops at the lane end, where a pod releases the junction, so a pair whose body range reaches that end keeps the 12-meter sections.
+The section of such a pair holds the body range and the 12 meters next to the node.
 A shallow merge thus gets a shorter section than the 12-meter clearance gives.
 The two pods of such a pair keep 3.1 meters, and the junction orders them.
 The rule assumes that a pod stays within 0.25 meters of its lane, also at line speed.
