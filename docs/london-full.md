@@ -275,6 +275,19 @@ The network SHA-256 of the variant is `d17ae5c5a2c7743e07a572b8402190c8caab33ed2
 | 1,000 | 10 | 0.147 | 0.126 | 0.202 | 0.286 | 129 |
 | 1,000 | 120 | 0.931 | 0.747 | 1.248 | 5.928 | 809 |
 
+The variant starts from the preset options, so it has `lateralMerges` set since November 15, 2026.
+One run of all six cases on Go 1.27.4, on November 15, 2026, at 60 Hz, passed without restore demotions.
+The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c730cf59557a86afe7763e68`.
+
+| Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 327 | 10 | 0.066 | 0.058 | 0.073 | 0.162 | 111 |
+| 327 | 120 | 0.259 | 0.228 | 0.332 | 0.708 | 327 |
+| 600 | 10 | 0.086 | 0.079 | 0.094 | 0.202 | 110 |
+| 600 | 120 | 0.462 | 0.337 | 1.520 | 2.927 | 573 |
+| 1,000 | 10 | 0.130 | 0.120 | 0.140 | 0.265 | 130 |
+| 1,000 | 120 | 0.809 | 0.566 | 2.965 | 5.212 | 825 |
+
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
 At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.
 Then dispatch checks again many trips that wait for a busy pod, and each check estimated the finish of each pod of the fleet.
