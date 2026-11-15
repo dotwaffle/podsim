@@ -158,3 +158,46 @@ The run is `compare -pattern destination -focus 940GZZLUKSX -loads 3s -arrivals-
 
 The change gives no measurable gain, and it breaks the rule of `readyTrips` that the pass resets before each change.
 So it does not land.
+
+## Step time on November 15, 2026
+
+A probe on November 15, 2026, at `f761c98e` with Go 1.27.4, ran the six arms of the method again, one run per arm, at a host load of 2.5 to 4.2, except for one run that ended at 7.8.
+Since the [result of option 1](#result-of-option-1), the station pickup bounds are built with the prepared network, and the London stations are at scale 0.5.
+
+| Both | Seed | Largest step | Tick | Steps over 33.3 ms | p99.9 |
+|---|---|---|---|---|---|
+| Off | 20260929 | 28.1 ms | 13127 | 0 | 5.83 ms |
+| On | 20260929 | 31.7 ms | 13127 | 0 | 6.61 ms |
+| Off | 1 | 14.7 ms | 12814 | 0 | 3.86 ms |
+| On | 1 | 21.2 ms | 12814 | 0 | 5.34 ms |
+| Off | 2 | 23.1 ms | 13487 | 0 | 4.88 ms |
+| On | 2 | 31.3 ms | 13487 | 0 | 5.16 ms |
+
+No arm has a step over the budget.
+Tick 18235 takes 0.2 to 0.5 ms.
+
+### Route tree memo
+
+The memo of station route trees keeps 512 trees and replaces the oldest tree first.
+With both policies off, no tree is replaced in 40 minutes.
+With both on, each run builds about 5,100 trees, of which about 2,900 were replaced before, and the swap pass asks for about 25,000 of the about 33,000 trees.
+At tick 13127 with both on, 22 of the 30 trees that the step builds were replaced before, which is about 8 to 11 ms of the step.
+
+A replay of the logged tree requests of each arm compared other policies at 512 slots.
+The replay of the current policy gave the same hits and misses as the runs.
+
+- A second-chance bit or a protected segment changes the builds in the largest steps by 0 to 3 trees, because the swap pass asks for more than 512 other trees before a slow step asks again.
+- A tree only on the second request, with a targeted search on the first, adds work with both policies off, where no tree is replaced.
+- A limit of 128 slots for the trees of the swap pass saves 3 to 11 builds in the largest steps, about 1 to 4 ms, which is inside the run-to-run spread, and adds 17 to 21% more builds in each run.
+- With no limit, the largest steps build 12 to 19 trees in a run, against 65 to 121.
+
+No policy at 512 slots gives a gain worth its cost, so none was built.
+
+### Reverse reachability set
+
+A check of the route from a berth onward could use a static set of the nodes that reach the berth, in place of a route search.
+A scratch build found the set exact on the London, Express, and compact station networks when the set models each bank in stages, and the search stays in use while a lane is blocked and for a trip within one station.
+In a 40-minute run, the set gave the same answers as the search for 269,858 requests.
+At a host load of 13 to 25, tick 13127 took 10 to 21 ms with the set, against 25 to 35 ms without it, in three runs of each build.
+The set changes the meaning of the pickup bounds and caches that the incident suspension contract names, so it needs a contract change.
+No step is over the budget, so the maintainer parked this option on November 15, 2026.
