@@ -132,7 +132,7 @@ With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 1 soft conf
 The candidates are LondonFull projects from the scenario command.
 The network SHA-256 is the `network_sha256` value of its summary line.
 The runs were before the Both arm became the default.
-The flags in the table give the same networks with the current defaults.
+The defaults changed after these runs, so the flags in the table do not give these networks now.
 
 | Arm | Flags | Network SHA-256 |
 | --- | --- | --- |

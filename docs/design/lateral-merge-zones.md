@@ -150,7 +150,7 @@ But the qualification evidence (the soak row, the checkpoints, the oracle runs) 
 | Option | Express behavior | Pros | Cons |
 | --- | --- | --- | --- |
 | A. Small pairs only, no gate | Changes | One rule. No format change. | Express needs requalification, and the qualification evidence goes stale. |
-| B. Gate by a network field, `lateralMerges`, with `omitzero` and `digest:"ext=16"` | Same | Express, the presets, digests, and goldens stay. Gate off and gate on run in one build, so the study needs no scratch build. | Two rules in the simulator. A format change: `docs/reference.md`, project validation, the editor round trip, and the digest registry. |
+| B. Gate by a network field, `lateralMerges`, with `omitzero` and `digest:"ext=16"` | Same | Express, digests, and goldens stay. Gate off and gate on run in one build, so the study needs no scratch build. | Two rules in the simulator. A format change: `docs/reference.md`, project validation, the editor round trip, and the digest registry. |
 | C. Amend the Express contract and requalify | Changes | One rule. | Cost of the soak and the checkpoint rows again, before the rule has study evidence. |
 
 Numbers 1, 2, and 10 are retired, and 16 is the next free extension number (`internal/session/digest_extension_test.go:438`).
@@ -159,7 +159,7 @@ The stream frames refer to the network by index (`internal/session/stream_frame.
 The HTTP state and the saved state carry the field only when it is set.
 
 Decision: option B for the study.
-At adoption, either set the field in the LondonFull presets and keep Express off, or remove the field and take option C.
+On 2026-11-15, the maintainer adopted the rule: LondonCentral and LondonFull set the field, and Express does not.
 No migration is needed before v1.
 
 ## 5. Effects
