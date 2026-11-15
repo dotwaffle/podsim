@@ -12,7 +12,10 @@ import (
 
 // referenceRouteBlocks is routeBlocks before the berth resource index. For
 // each block, it scans each berth of each station. It keeps one copy of
-// each junction resource of a block, as routeBlocks does.
+// each junction resource of a block, as routeBlocks does. Each block first
+// holds the resources of each cell of its lane, from the maneuver and the
+// depot indexes, and the retention of its lane, as it reads the junction
+// conflicts from the simulation.
 //
 // The reference compares the conflicts of a lane with the cell offsets
 // from the lane start, as newLaneCells does. Before the routes shared the
@@ -32,20 +35,27 @@ func (s *Simulation) referenceRouteBlocks(route []Lane) ([]block, []float64) {
 		lengths = append(lengths, length)
 		geometry := s.geometry[lane.ID]
 		count := laneBlockCount(length)
+		every := append(s.maneuvers.everyCell(lane.ID), s.depots.everyCell(lane, s.retention.of(lane.ID), length)...)
+		add := func(b *block, r resource) {
+			if !slices.Contains(b.resources, r) {
+				b.resources = append(b.resources, r)
+			}
+		}
 		for cell := range count {
-			b := block{lane: lane, geometry: geometry, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1}
+			b := block{lane: lane, geometry: geometry, cell: cell, start: distance + float64(cell)*length/float64(count), end: distance + float64(cell+1)*length/float64(count), laneStart: distance, last: cell == count-1, retention: s.retention.of(lane.ID)}
+			b.resources = slices.Clone(every)
 			for _, station := range s.network.Stations {
 				for _, berth := range station.Berths {
 					if b.last && lane.To == berth.Node {
-						b.resources = append(b.resources, resource{kind: berthResource, id: berth.ID})
+						add(&b, resource{kind: berthResource, id: berth.ID})
 					}
 				}
 			}
 			if cell == 0 {
-				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.From})
+				add(&b, resource{kind: nodeResource, id: lane.From})
 			}
 			if b.last {
-				b.resources = append(b.resources, resource{kind: nodeResource, id: lane.To})
+				add(&b, resource{kind: nodeResource, id: lane.To})
 			}
 			for _, conflict := range s.junctionConflicts[lane.ID] {
 				laneStart := float64(cell) * length / float64(count)
