@@ -214,24 +214,24 @@ type mergeExpected struct {
 
 // mergeCounts are the numbers of the candidate pairs of a network, which
 // meet clauses 1 to 4 of a lateral merge pair: the pairs that clause 5
-// certainly excludes, the pairs that it certainly keeps, the pairs where
-// the reference cannot tell, and the pairs of these that the table keeps.
+// excludes and the pairs that it keeps. undecided names the pairs where
+// the reference cannot tell.
 type mergeCounts struct {
-	excluded, lateral, undecided, kept int
+	excluded, lateral int
+	undecided         []string
 }
 
 // referenceMergeConflicts returns the junction conflict table of a network
 // that sets LateralMerges. It decides clauses 1 to 4 from the lanes, the
 // geometry tails, the maneuver groups, and the depots. It decides clause 5
-// and the body range by brute force (mergeSide), with the sample step
-// mergeReferenceStep.
+// and the body range against the other lane sampled every
+// mergeReferenceStep meters (mergeSide).
 //
-// A candidate pair is lateral when the grown body at the far end of
-// neither lane meets the other lane, and it keeps the isotropic extent when
-// the exact body at the far end of either lane meets the other lane. For a
-// pair between these cases, the sweep can decide either way, so the
-// reference takes the decision of the table of the network, and checks the
-// extent of that decision.
+// A candidate pair keeps the isotropic extent when a rectangle that the
+// sweep tests at the far end of either lane meets the other lane, and it
+// is lateral when no such rectangle, grown by the sample step and the
+// resolution of the sweep, meets it (mergeSide.reachesFar). A pair between
+// these cases is undecided, and the reference gives no extent for it.
 //
 // The extent of a lateral pair is the body range and the node range, with
 // the sample pad. The sweep counts a meeting at a part of at most
@@ -263,15 +263,6 @@ func referenceMergeConflicts(network Network, step float64) (map[string][]mergeE
 		}
 		return (lane.To == node && other.To == node || lane.From == node && other.From == node) && eligible(lane) && eligible(other)
 	}
-	// The table of the network decides only the pairs that the reference
-	// cannot decide.
-	var table *depotLateral
-	laneIndex := make(map[string]int, len(network.Lanes))
-	for index, lane := range network.Lanes {
-		if _, ok := laneIndex[lane.ID]; !ok {
-			laneIndex[lane.ID] = index
-		}
-	}
 	joins := newMergeJoins(network)
 	points := make(map[string][]Point, len(network.Lanes))
 	incident := make(map[string][]Lane)
@@ -296,26 +287,18 @@ func referenceMergeConflicts(network Network, step float64) (map[string][]mergeE
 					sides := [2]*mergeSide{newMergeSide(network, joins, lane, other, node.ID, step), newMergeSide(network, joins, other, lane, node.ID, step)}
 					certain, possible := false, false
 					for _, side := range sides {
-						c, p := side.reachesFar(joins)
+						c, p := side.reachesFar()
 						certain, possible = certain || c, possible || p
 					}
-					keep := !possible
 					switch {
 					case certain:
 						counts.excluded++
 					case possible:
-						counts.undecided++
-						if table == nil {
-							table = newMergeLateral(network, tails, maneuvers, depots)
-						}
-						keep = table.mergePartner(laneIndex[lane.ID], laneIndex[other.ID])
-						if keep {
-							counts.kept++
-						}
+						counts.undecided = append(counts.undecided, fmt.Sprintf("%s and %s at %s", lane.ID, other.ID, node.ID))
 					default:
 						counts.lateral++
 					}
-					if keep {
+					if !possible {
 						lateral[[2]string{lane.ID, other.ID}] = sides[0].expected(node.ID)
 						lateral[[2]string{other.ID, lane.ID}] = sides[1].expected(node.ID)
 					}
@@ -359,7 +342,10 @@ func checkMergeConflictsMatchReference(t *testing.T, network Network) mergeCount
 	t.Helper()
 	got := junctionConflictsOf(network)
 	want, counts := referenceMergeConflicts(network, mergeReferenceStep)
-	t.Logf("candidate pairs: %d excluded by clause 5, %d lateral, %d undecided, of which the table keeps %d", counts.excluded, counts.lateral, counts.undecided, counts.kept)
+	t.Logf("candidate pairs: %d excluded by clause 5, %d lateral", counts.excluded, counts.lateral)
+	if len(counts.undecided) != 0 {
+		t.Fatalf("the reference cannot decide clause 5 for %d pairs: %s", len(counts.undecided), strings.Join(counts.undecided, ", "))
+	}
 	const slack = 1e-9
 	within := func(value float64, bounds [2]float64) bool {
 		return value >= bounds[0]-slack && value <= bounds[1]+slack
