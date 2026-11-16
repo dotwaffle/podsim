@@ -7,6 +7,8 @@ Proposed on 2026-11-15, and revised on 2026-11-16 after an adversarial review (s
 Build record: on 2026-11-16, the rule of parts 1 to 5 was built behind the `shapeClearance` network field.
 The commits are `2c918f46` (the field and digest extension 17, with no effect), `4b09997e` and `f6fd4091` (the envelope reach index by position, built on demand), `29af1248` (shape certification, the shape pair table, the all-pairs audit, the oracle, and debris), `33607784` (the independent body oracle for merge pairs), `4805ba4a` (merge and split pairs admit large and tailed lanes with the union body), `e515829b` (the editor runs the server lane check under the field), and `3d71de3d` (the independent body oracle for shape pairs).
 Not built: the section 7 row "routes of section 2.1 with residual geometry fixed", which needs the D11 shared-track geometry, and the applications of section 4 (the D8 Express Parking comb, the D9 demand hubs, and the D11 preset).
+Note of 2026-11-16: the D11 preset, with the D8 comb beside Waterloo, is built as `london-full-shared-express` (see the [shared-track](shared-track-preset.md) design, slices 1 to 3).
+The D9 demand hubs and the section 7 row stay open.
 The body oracle is stricter than the D6 text.
 It fails on any body overlap on a merge pair, because a pod outside its extent clears the other lane.
 So the accepted case of the D6 text, where one pod holds the junction and the other is outside its extent, cannot overlap when the extent table is right.

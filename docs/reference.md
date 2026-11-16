@@ -62,7 +62,7 @@ The `london-central` and `london-full` presets set it, and the other presets do 
 
 The network member `shapeClearance` is a Boolean that turns on the [shape clearance](design/shape-clearance.md) rule for all vehicle classes.
 Absent or false keeps the rules above.
-No preset sets it.
+Only the `london-full-shared-express` preset sets it.
 When it is true, `lateralMerges` has no further effect.
 
 A bank audit sweeps the union body of each lane over the lane and its join turns, and it certifies two lanes that share no node when the swept bodies never meet.
@@ -73,6 +73,19 @@ The audit checks every pair of lanes, small pairs included, and it takes the pla
 On the London networks, validation with the field took up to 1.25 times as long as without it.
 The editor does not use its own lane gap check for a draft that sets the field.
 It runs the same lane check as the server after each change.
+
+With the field and a large pod in the fleet, the envelope of a pod comes from a compiled envelope reach, and not from the largest front bound of the network.
+Each lane has an anchor front, the larger of 6 meters and its own front bound.
+A curved lane with no geometry tail gets a front of at most 16.2 meters.
+The anchor front does not take the front of another lane, so one long front widens the reach of its own lane only.
+The reach also holds the positions within 1 millimeter of the published lane position, across nodes, along the paths through that lane.
+A lane of a maneuver group in the envelope brings each lane at a node of its cluster.
+The server compiles the reach once, when it prepares the network.
+The separation oracle reads the compiled span at the published lane position of a pod, and keeps the lanes of its route, the origin berth before the origin release, and the berth of a pod at a berth.
+The bank audit builds the same index, so each plane that the oracle can test is a plane that the audit tested.
+The envelope holds each lane under the body of a pod, under rule A1 of the [shape clearance](design/shape-clearance.md) design: paths in different separation groups can cross on different levels.
+The network keeps no levels, and validation does not check the groups against the geometry.
+A network without the field keeps the earlier envelope, so the other presets do not change.
 
 ### Generated order consent
 
@@ -460,6 +473,7 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `london-central` | The [LondonCentral qualification network](london.md): 96 passenger stations, three depots, and 242 berths. | 114 Compact |
 | `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
 | `london-full-express` | LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. The capacity flags do not apply. | 327 Compact, 16 Express |
+| `london-full-shared-express` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, `shapeClearance` set, and Express parking beside Waterloo. The capacity flags do not apply. | 327 Compact, 16 Express |
 | `independent-banks` | A planar station with two independent gates and a separate parking station. | 3 |
 | `compact-station` | A station with four Compact bays, in a loop with an ordinary station of three berths. | 6 Compact |
 
@@ -495,6 +509,26 @@ Dispatch chooses by the estimated pickup time (see [dispatch order](model.md#dis
 In a study of three seeds of 12 simulated hours each at the preset demand, with generated demand alone, the Express pods stayed at `express-parking` for the whole run.
 The preset is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
 
+The `london-full-shared-express` preset is decision D11 of the [shape clearance](design/shape-clearance.md) design, and its build is in the [shared-track design](design/shared-track-preset.md).
+It keeps D and adds a second Express project under the `express-v1` order contract.
+Its Express pods run on the lanes of link 100 between Waterloo and Bank, on the four hub roads of that route, and on the access, berth, and junction lanes of the two hubs, all shared with Legacy and Compact pods.
+There are no Express trunks.
+The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`.
+The Waterloo throat is 90 meters from its junction, Bank is turned by 5 degrees, `road-in-05` at Waterloo is curved, and the junction lanes `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06` are removed.
+Together, these changes leave the [bank audit](station-banks.md) with no refusal, with `shapeClearance` set.
+There are two Express services, one in each direction between the two stations, with a party limit of 20.
+The 16 Express pods start at `express-parking`, a comb of 16 berths beside Waterloo, between its berth rows and link 100.
+Two roads join the comb to the link 100 portals at Waterloo, so an Express pod at the comb is about 650 to 700 meters of route from the first berth of Waterloo.
+The layout audit treats the comb as a Parking facility of Waterloo, for this preset only.
+The preset sets no capacity flag, and a capacity flag with it gives an error.
+The network has 5,790 nodes and 9,089 lanes.
+The project has 343 pods.
+The [shared-track qualification](contracts/express-shared-track-qualification-proposal.md) gives the rows, and no simulation evidence exists yet.
+
+```sh
+mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
+```
+
 The `compact-station` preset shows the bays at work.
 Its bays are at 25 degrees with a 6 m pitch.
 Pods wait at a holding node and go through a shared aisle one at a time to park at rest in a bay.
@@ -509,7 +543,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, and the junctions of a preset, and `-lateral-merges` changes one network field.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
-They do not apply to `independent-banks`, `compact-station`, or `london-full-express`.
+They do not apply to `independent-banks`, `compact-station`, `london-full-express`, or `london-full-shared-express`.
 
 | Flag | Effect |
 | --- | --- |

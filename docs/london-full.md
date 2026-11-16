@@ -61,6 +61,7 @@ LondonCentral's headings and capacity remain unchanged.
 
 The preset sets [`lateralMerges`](reference.md#lateral-merges), as LondonCentral does, so two small lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
 `london-full-express` does not set it.
+`london-full-shared-express` sets it, and it has no further effect there, because that preset also sets [`shapeClearance`](reference.md#shape-clearance).
 
 The layout audit reports no hard conflicts and no soft conflicts.
 Soft conflicts describe overlap or proximity to source station positions.
@@ -95,6 +96,40 @@ A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide s
 The study network differs from the default only at the three Parking facilities, because a pitch of 50 meters changes their shape.
 `-station-scale` sets only the wide stations and the Compact stations.
 `london-full-express` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
+
+### Shared Express preset
+
+`london-full-shared-express` is decision D11 of the [shape clearance](design/shape-clearance.md) design.
+It runs Express on the link 100 track between Waterloo and Bank, shared with Compact pods, in place of the dedicated trunks of `london-full-express`.
+It is a builder over the default LondonFull: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
+The [shared-track design](design/shared-track-preset.md) gives the measurements and the build record.
+
+```sh
+mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
+```
+
+| | LondonFull | `london-full-express` | `london-full-shared-express` |
+| --- | --- | --- | --- |
+| Stations | Tight | Wide, scale 1, two banks at each hub | Tight, with parts of 41 m at Waterloo and Bank |
+| Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
+| Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo |
+| `shapeClearance` | Not set | Not set | Set |
+| `lateralMerges` | Set | Not set | Set, with no further effect |
+| Junction lanes | All chords | All chords | Two chords removed |
+| Network SHA-256 | `e194426a...` | `3aa0a2eb...` | `652d75eb...` |
+
+The hub geometry changes are a Waterloo throat at 90 m, Bank turned by 5 degrees, a curve on `940GZZLUWLO-road-in-05`, and the removal of `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06`.
+Without them, the bank audit with `shapeClearance` refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
+Express free-flow routes grow by about 45 m from Waterloo to Bank and 48 m back, and 1,249 station pairs get a longer route.
+The worst of them is 21.4 s longer, from Waterloo to St. Paul's.
+Wait and journey times are not measured.
+
+The preset has 5,790 nodes, 9,089 lanes, and 343 pods: the 327 Compact pods of LondonFull and 16 Express pods.
+The comb has 16 berths, parts of 41 m, and two roads to the link 100 portals at Waterloo.
+The layout audit of the preset treats the comb as a Parking facility of Waterloo, because its road crosses the curved `road-in-05`.
+The preset has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.5 m is longer than its length of 39.1 m, so it holds one pod.
+The capacity flags do not apply to it.
+Its network SHA-256 is `652d75eb86ce9badf1f310a7a3744c1bc26425abbe4c4d7dcc231864255d23d5`.
 
 ## Depots and Compact stations
 

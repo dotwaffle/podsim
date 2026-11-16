@@ -3,13 +3,15 @@
 Status: proposed on 2026-11-16, revised on 2026-11-16 after review (section 10).
 On 2026-11-16, the maintainer approved the contract amendment of this design as ST1 to ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md), and the SX rows as the [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md) contract, and the text was applied.
 On 2026-11-16, the maintainer approved ST16 to ST24 of the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md), for the shape of section 3.1, and the text was applied.
-The design itself still waits for its build.
+Build record of 2026-11-16: slices 0 to 5 of section 7 are built, and the commit ids are in that section.
+The preset is `london-full-shared-express`, with 5,790 nodes, 9,089 lanes, and 343 pods.
+Slices 6 and 7, the qualification evidence and the study batch, are open, and no simulation has run on the preset.
 
 This design is decision D11 of the approved [shape clearance](shape-clearance.md) design.
 D11 keeps project D (`london-full-express`) as it is, and it adds a new opt-in preset with Express on shared main-line track between Waterloo and Bank.
 This design gives the measurements on the current code, the changes that remove each refusal, the preset, the proposed qualification rows, and the decisions for the maintainer.
 It also proposes a front bound for each lane in the envelope reach index, in place of the bound of the whole network.
-No code changes until the maintainer approves this design.
+Slices 1 to 3 of section 7 changed the code after the approval.
 
 Summary:
 
@@ -852,11 +854,13 @@ Differences:
 Effect on existing presets: none expected.
 The sim change of section 3.1 is behind the field, and no current preset sets it.
 The gate-off reference test and the parity test of D in section 7 prove this.
+`TestLondonFullSharedExpressKeepsPresets` pins the network hashes of LondonFull and D, and `cmd/scenario` has a test that only this preset sets the field.
 
 ## 5. Qualification
 
 This section gives proposed text only.
 A contract proposal follows after approval.
+Note of 2026-11-16: the maintainer approved the rows as the [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md), which carries the applied text.
 The rows follow E1 to E8 of the [Express London qualification](../contracts/express-london-qualification-proposal.md#amendments) and section 5.1 of the shape clearance design.
 The limits and the requirements of each row do not change, but the evidence of D does not transfer.
 The prefix SX is a working name.
@@ -946,13 +950,16 @@ The study test `TestSharedTrackStudyContainment` is the model for these tests.
 
 | Test | Fixture | Requirement |
 | --- | --- | --- |
-| `TestEnvelopeSupportHairpin` | A straight lane into a large quadratic lane of at least 40 m whose two nodes are 5 m apart, and a lane out of its To node in another group | Positions on the straight lane near its end hold the hairpin lane. Positions on the hairpin lane whose support reaches its From node hold the straight lane, through the behind walk. |
+| `TestEnvelopeSupportTurnBack` | A straight lane into a large quadratic lane of at least 40 m whose two nodes are 5 m apart, and a lane out of its To node in another group | Positions on the straight lane near its end hold the hairpin lane. Positions on the hairpin lane whose support reaches its From node hold the straight lane, through the behind walk. |
 | `TestEnvelopeSupportReturn` | Straight lanes with join turns of 90 degrees that come back beside the first lane, 40 m behind its end, with a portal in a separate group | The support at the reference is the first lane only. Both oracles exempt a pod on the portal lane. The same pair with the portal lane in the group of the first lane is not exempt. |
-| `TestEnvelopeSupportCurvedJoin` | A quadratic large lane with c of about 0.5 into a straight lane | Each position whose support reaches the join holds the next lane, also more than 6 m before the join. |
+| `TestEnvelopeSupportCurves` | A quadratic large lane with c of about 0.5 into a straight lane | Each position whose support reaches the join holds the next lane, also more than 6 m before the join. |
 | `TestEnvelopeSupportOneNode` | Each large lane of the curves network, the Express fixture, the scenario networks, D, and the preset | No large lane is in a disk of radius 5.404 m: its smallest enclosing circle is larger. This guards F1 and F2. |
 | `TestEnvelopeSupportMixedSmall` | Small pods of a mixed fleet on the same networks, the hook fixture, and LondonFull with its Docklands Light Railway bays, traveling, before the origin release, and at a berth | The support of the grown small body is held in each case of section 3.1 with the small-pod rules. |
 | `TestEnvelopeSupportChain` | Each lane with a reduced retention on the scenario networks, D, the preset, and a depot chain fixture with joins that turn 45 degrees | No lane with a reduced retention is 4.7269 m long or less, and no such lane next to a route lane is wholly in the disk of the proof. This guards the chain row of section 3.1. |
 | `TestEnvelopeReachHoldsEnvelope` | The cases above | No change. |
+
+Note of 2026-11-16: the build names the first and third rows `TestEnvelopeSupportTurnBack`, which runs the four turn-back shapes with the hairpin among them, and `TestEnvelopeSupportCurves`, which runs the curves network.
+The rows keep their fixtures and requirements as the cases that these two tests cover.
 
 Mutations at the call sites, with the table of the `verify-by-mutation` skill.
 Each run is `go test -short ./internal/sim -run 'Envelope|SafetyLocation|GateOff|LondonExpressBehaviorParity'`, and the same run with no mutation passes:
@@ -986,14 +993,18 @@ The controls of the containment test cover the small-pod rules: the oracle witho
 Slices:
 
 0. An amendment proposal for the approved texts of section 3.1, for maintainer approval.
+   Applied on 2026-11-16 in `5d8afa00`, and the second proposal for the anchor front in `1296c1d7`.
 1. `sim`: the index for each lane, compiled at preparation, the oracle that reads it, and the small-pod rules, in the oracle and in the reference construction behind the field, with the tests and mutations above.
+   Built on 2026-11-16 in `73a8ae32`, with the anchor front of section 3.1.
 2. `scenarios`: the preset builder, the `cmd/scenario` preset, and tests that pin the audit result and the unchanged hashes of LondonFull and D.
-   Built on 2026-11-16, with the Express services and no Express pods until slice 3.
+   Built on 2026-11-16 in `c63a5741`, with the Express services and no Express pods until slice 3.
 3. `scenarios`: the Express parking of S4, with its site measured by the layout audit and the bank audit.
    The test that pins the network hash of the preset comes after this slice, and so does the qualification evidence.
-   Built on 2026-11-16, with the site P4 of section 3.7.
+   Built on 2026-11-16 in `07200f86`, with the site P4 of section 3.7.
 4. Done in this revision: the study tests of section 8.
 5. `docs`: `docs/reference.md`, `docs/london-full.md`, `docs/operations.md` for the soak presets, and the build record of this design.
+   Built on 2026-11-16, with the build record of this design.
+   `docs/operations.md` needs no change yet, because no soak preset names the new preset until slice 6.
 6. The contract proposal of section 5, after approval, and then the evidence of each row.
 7. Batch 2 of the study plan of the shape clearance design (section 8).
 
@@ -1032,9 +1043,11 @@ The tests on the tight input take about 80 s.
 
 - No simulation ran.
   The measurements are static: the audit, preparation, the layout audit, project validation, and the containment of poses.
-  `Check`, the D6 oracle, and the effect on wait and journey times need slices 2 and 6.
+  `Check`, the D6 oracle, and the effect on wait and journey times need slice 6.
   The small-pod rules add planes to the envelope of a small pod, so `Check` can test more pairs by distance, and that effect is not measured.
 - The Express parking of S4-A needs a Parking facility entry in the layout audit of the preset, because its road crosses the curved `road-in-05` (section 3.7).
+  Slice 3 built it as `sharedTrackLayoutInput`, for this preset only.
+  `TestLondonFullSharedExpressLayout` pins the one hard conflict without it.
 - A1 is a rule of the model, and no code checks it.
   A1 also assumes that the vertical gap between two levels is enough for each admitted body.
 - The proof covers a body inside the disk of radius 5.404 m for a large pod and 4.7269 m for a small pod.
@@ -1049,7 +1062,9 @@ The tests on the tight input take about 80 s.
   There, the test does not check the track past the end, because a route does not use a lane two times.
 - The slack of 1 mm covers the restore tolerance of two `restoreTolerance` steps, and the rounding of route sums within the coordinate and block limits of `internal/project/config.go`, about 4e-6 m.
   `internal/sim` does not enforce these limits itself, so a network that skips project validation is outside this bound.
-- `projectcheck` with the change of section 3.1 ran on the projects that the study writes, and not on the preset of slice 2.
+- `projectcheck` ran on the projects that the study writes, with the change of section 3.1, and on the preset of slice 3.
+  It reports the preset valid, with 343 pods and 9,089 lanes, and the tail warning of section 3.5.
+  It runs no simulation.
 
 ## 10. Review
 
