@@ -2,6 +2,8 @@ package sim
 
 import (
 	"fmt"
+	"maps"
+	"math"
 	"math/rand/v2"
 	"slices"
 	"strings"
@@ -229,14 +231,15 @@ func (p *envelopeReachProbe) spanLocations(span *reachSpan) []SafetyLocation {
 }
 
 // checkSeparation requires the plane test of pairs of spans to equal
-// envelopeLocationsSeparated on their planes. It checks count random pairs,
-// or each pair when there are fewer.
+// envelopeLocationsSeparated on their planes. It builds the spans of each
+// lane, and checks count random pairs, or each pair when there are fewer.
 func (p *envelopeReachProbe) checkSeparation(t *testing.T, count int, rng *rand.Rand) {
 	t.Helper()
 	var spans []*reachSpan
 	for lane := range p.reach.lanes {
-		for index := range p.reach.lanes[lane] {
-			spans = append(spans, &p.reach.lanes[lane][index])
+		lane := p.reach.laneSpans(lane)
+		for index := range lane {
+			spans = append(spans, &lane[index])
 		}
 	}
 	for index := range p.reach.berths {
@@ -455,5 +458,255 @@ func TestEnvelopeReachCurves(t *testing.T) {
 	middle := probe.reach.laneAt(far, probe.lengths[far]/2)
 	if want := []SafetyLocation{probe.reach.locations[far]}; !slices.Equal(probe.spanLocations(middle), want) {
 		t.Fatalf("the middle of lane far holds %+v", probe.spanLocations(middle))
+	}
+}
+
+// eagerReachSpan is a span of eagerReachSpans.
+type eagerReachSpan struct {
+	from, to  float64
+	locations []int
+	part      reachPart
+}
+
+// eagerReachSpans is reachSpans before the spans of a lane shared one
+// array (commit 29af1248), with the plane test of reachPart. It is the
+// reference of TestEnvelopeReachLazySpans.
+func eagerReachSpans(items []reachItem, length float64, locations []SafetyLocation, members *eagerReachMembers) []eagerReachSpan {
+	cuts := []float64{0}
+	for _, item := range items {
+		for _, bound := range []float64{item.from, item.to} {
+			if bound > 0 && bound < length {
+				cuts = append(cuts, bound)
+			}
+		}
+	}
+	slices.Sort(cuts)
+	cuts = slices.Compact(cuts)
+	spans := make([]eagerReachSpan, 0, len(cuts))
+	for index, from := range cuts {
+		to := length
+		if index+1 < len(cuts) {
+			to = cuts[index+1]
+		}
+		var numbers []int
+		for _, item := range items {
+			if item.from < to && item.to > from {
+				numbers = append(numbers, item.location)
+			}
+		}
+		slices.Sort(numbers)
+		numbers = slices.Clip(slices.Compact(numbers))
+		if last := len(spans) - 1; last >= 0 && slices.Equal(spans[last].locations, numbers) {
+			spans[last].to = to
+			continue
+		}
+		spans = append(spans, eagerReachSpan{from: from, to: to, locations: numbers, part: members.part(numbers, locations)})
+	}
+	return spans
+}
+
+// eagerReachMembers numbers the members of eagerReachSpans when they first
+// occur, as the reach of commit 29af1248 did.
+type eagerReachMembers struct {
+	numbers map[reachMember]int
+}
+
+func (m *eagerReachMembers) number(member reachMember) int {
+	value, found := m.numbers[member]
+	if !found {
+		value = len(m.numbers)
+		m.numbers[member] = value
+	}
+	return value
+}
+
+func (m *eagerReachMembers) part(numbers []int, locations []SafetyLocation) reachPart {
+	var part reachPart
+	for _, number := range numbers {
+		location := locations[number]
+		part.blank = part.blank || location.SeparationGroup == ""
+		part.members = append(part.members, m.number(reachMember{location.SeparationGroup, true}))
+		for _, node := range []string{location.From, location.To} {
+			// A location with no node shares no node with another.
+			if node != "" {
+				part.members = append(part.members, m.number(reachMember{node, false}))
+			}
+		}
+	}
+	return part
+}
+
+// eagerSeparated is reachSpan.separated of commit 29af1248.
+func (s *eagerReachSpan) separated(other *eagerReachSpan) bool {
+	return !s.part.blank && !other.part.blank && !s.part.overlaps(&other.part)
+}
+
+// setMembers returns the members of a set in order.
+func (s *reachSet) setMembers() []int {
+	if s.bits == nil {
+		return s.members
+	}
+	var members []int
+	for word, bits := range s.bits {
+		for bit := range 64 {
+			if bits&(1<<bit) != 0 {
+				members = append(members, word*64+bit)
+			}
+		}
+	}
+	return members
+}
+
+// TestEnvelopeReachLazySpans checks that the spans that laneSpans builds
+// for a lane, when the audit first asks for it, equal the spans of an
+// eager build of commit 29af1248, which built each lane in lane order. The
+// test asks for the lanes in a random order, so that the storage that the
+// builds share cannot carry one lane into the next. For each span, it
+// compares the bounds, the planes, the groups and the nodes of the planes,
+// and the plane test of random pairs of spans with the plane test of
+// reachPart. It checks each lane, except on the network with Express on
+// all lanes of Bank. There, the eager build of a lane takes milliseconds,
+// because the front bound of 3,491 m gives a lane up to hundreds of spans.
+// Of the lanes that admit a large class, the lanes with a geometry tail,
+// and each seventh lane, the test checks each fifth, or each 15th with
+// -short, and the lane with the largest front bound.
+func TestEnvelopeReachLazySpans(t *testing.T) {
+	t.Parallel()
+	express := readNetworkFixture(t, "testdata/express_network.json.gz")
+	networks := gateOffRefusedNetworks(t, express)
+	networks["london-full-express"] = express
+	networks["curves"] = envelopeReachCurves(t)
+	maps.Copy(networks, scenarioNetworks(t))
+	every := 5
+	if testing.Short() {
+		every = 15
+	}
+	for name, network := range networks {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			tails := indexGeometryTails(network)
+			var lanes []int
+			front := 0
+			for index, lane := range network.Lanes {
+				lanes = append(lanes, index)
+				if tails[lane.ID].front > tails[network.Lanes[front].ID].front {
+					front = index
+				}
+			}
+			if name == "london-full-express, Express on all lanes of Bank" {
+				// Keep the lanes that admit a large class or have a
+				// geometry tail, and each seventh lane. Of those, keep each
+				// every-th lane, and the lane with the largest front bound.
+				kept, candidates := []int{front}, 0
+				for _, lane := range lanes {
+					if !largeClassSet(network.Lanes[lane].VehicleClasses) && tails[network.Lanes[lane].ID] == (geometryTails{}) && lane%7 != 0 {
+						continue
+					}
+					if candidates%every == 0 && lane != front {
+						kept = append(kept, lane)
+					}
+					candidates++
+				}
+				lanes = kept
+			}
+			// The eager build of commit 29af1248, in lane order.
+			g := newReachGraph(network, tails)
+			var locations []SafetyLocation
+			for _, lane := range network.Lanes {
+				locations = append(locations, SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To})
+			}
+			for _, station := range network.Stations {
+				for _, berth := range station.Berths {
+					locations = append(locations, SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
+				}
+			}
+			members := &eagerReachMembers{numbers: make(map[reachMember]int)}
+			var walk reachWalk
+			var items []reachItem
+			want := make(map[int][]eagerReachSpan, len(lanes))
+			for _, lane := range lanes {
+				items = g.laneItems(&walk, lane, items[:0])
+				want[lane] = eagerReachSpans(items, g.lengths[lane], locations, members)
+			}
+			var wantBerths []eagerReachSpan
+			for _, node := range g.berthNode {
+				items = g.nodeItems(items[:0], node, math.Inf(1))
+				wantBerths = append(wantBerths, eagerReachSpans(items, 0, locations, members)...)
+			}
+			for _, spans := range want {
+				for index := range spans {
+					spans[index].part.seal(len(members.numbers))
+				}
+			}
+			for index := range wantBerths {
+				wantBerths[index].part.seal(len(members.numbers))
+			}
+
+			reach := newEnvelopeReach(network, tails)
+			if !slices.Equal(reach.locations, locations) {
+				t.Fatal("the locations differ")
+			}
+			rng := rand.New(rand.NewPCG(3, 29))
+			order := slices.Clone(lanes)
+			rng.Shuffle(len(order), func(i, j int) { order[i], order[j] = order[j], order[i] })
+			type pair struct {
+				got  *reachSpan
+				want *eagerReachSpan
+			}
+			var pairs []pair
+			large := 0
+			compare := func(what string, got []reachSpan, want []eagerReachSpan) {
+				t.Helper()
+				if len(got) != len(want) {
+					t.Fatalf("%s: %d spans, want %d", what, len(got), len(want))
+				}
+				for index := range got {
+					g, w := &got[index], &want[index]
+					locations := slices.Compact(slices.Sorted(slices.Values(g.locations)))
+					if g.from != w.from || g.to != w.to || !slices.Equal(locations, w.locations) || g.planes.blank != w.part.blank {
+						t.Fatalf("%s span %d: [%g, %g) locations %v blank %v, want [%g, %g) locations %v blank %v", what, index, g.from, g.to, locations, g.planes.blank, w.from, w.to, w.locations, w.part.blank)
+					}
+					var planes []int
+					for _, number := range locations {
+						planes = append(planes, reach.members.of[number]...)
+					}
+					slices.Sort(planes)
+					planes = slices.Compact(planes)
+					if members := g.planes.setMembers(); !slices.Equal(members, planes) || (g.planes.bits != nil) != (len(planes) > reachBitsMembers) {
+						t.Fatalf("%s span %d: members %v (bits %v), want %v", what, index, members, g.planes.bits != nil, planes)
+					}
+					if g.planes.bits != nil {
+						large++
+					}
+					pairs = append(pairs, pair{g, w})
+				}
+			}
+			for _, lane := range order {
+				spans := reach.laneSpans(lane)
+				compare(fmt.Sprintf("lane %q", network.Lanes[lane].ID), spans, want[lane])
+				if again := reach.laneSpans(lane); &again[0] != &spans[0] {
+					t.Fatalf("lane %q: laneSpans builds the lane again", network.Lanes[lane].ID)
+				}
+				if middle := g.lengths[lane] / 2; reach.laneAt(lane, middle) != &spans[slices.IndexFunc(want[lane], func(span eagerReachSpan) bool { return span.to > middle || span.to == g.lengths[lane] })] {
+					t.Fatalf("lane %q: laneAt returns another span", network.Lanes[lane].ID)
+				}
+			}
+			if reach.built != len(lanes) {
+				t.Fatalf("built %d lanes, asked for %d", reach.built, len(lanes))
+			}
+			compare("berths", reach.berths, wantBerths)
+			separated := 0
+			for range 20000 {
+				a, b := pairs[rng.IntN(len(pairs))], pairs[rng.IntN(len(pairs))]
+				got, want := a.got.separated(b.got), a.want.separated(b.want)
+				if got != want {
+					t.Fatalf("spans [%g, %g) and [%g, %g): separated %v, want %v", a.got.from, a.got.to, b.got.from, b.got.to, got, want)
+				}
+				if got {
+					separated++
+				}
+			}
+			t.Logf("%d of %d lanes, %d spans, %d with bits, %d of 20000 random pairs separated", len(lanes), len(network.Lanes), len(pairs), large, separated)
+		})
 	}
 }

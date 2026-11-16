@@ -354,7 +354,7 @@ func (r *envelopeReach) pathSpans(key separationKey) []reachSpan {
 	if key.kind == berthKeyKind {
 		return r.berths[key.index : key.index+1]
 	}
-	return r.lanes[key.index]
+	return r.laneSpans(key.index)
 }
 
 // lazyEnvelopeReach builds the envelope reach of a network that sets

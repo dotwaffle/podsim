@@ -35,35 +35,88 @@ const envelopeReachSlack = 1e-3
 // A berth has its own plane and the planes of the lanes at its node.
 //
 // Each walk along the network takes the shortest distance, so it holds a
-// plane for at least each position at which a route holds it. The index
-// does not change after newEnvelopeReach.
+// plane for at least each position at which a route holds it. The spans of
+// a lane depend only on the network, so the index builds them when the
+// audit first asks for the lane (see laneSpans). The cost then grows with
+// the lanes that the audit asks for, and not with each lane of the
+// network. The index is not safe for concurrent use.
 type envelopeReach struct {
-	// lanes holds the spans of each lane in lane order. The spans of a
-	// lane follow each other from 0 to the length of the lane.
+	graph reachGraph
+	// lanes holds the spans of each lane in lane order, or nil for a lane
+	// that laneSpans did not build yet. The spans of a lane follow each
+	// other from 0 to the length of the lane.
 	lanes [][]reachSpan
 	// berths holds the span of each berth in station and berth order.
 	berths []reachSpan
 	// locations holds the plane of each location number: the lanes in
-	// lane order, then the berths in station and berth order.
+	// lane order, then the berths in station and berth order. members
+	// holds their groups and nodes.
 	locations []SafetyLocation
+	members   reachMembers
+	// walk, items, sorted, and window are the storage of the lane builds.
+	// built counts the lanes that laneSpans built.
+	walk          reachWalk
+	items, sorted []reachItem
+	window        reachWindow
+	built         int
 }
 
 // reachSpan is a part of a lane, from from up to to, and the planes that
 // an envelope at a position in it can hold.
 type reachSpan struct {
 	from, to float64
-	// locations holds the sorted location numbers of the planes (see
-	// envelopeReach.locations).
+	// locations holds the location numbers of the planes (see
+	// envelopeReach.locations), in no order, and a number can occur more
+	// than one time. The spans of a lane share one array.
 	locations []int
-	// part holds the groups and the nodes of the planes, for the plane
+	// planes holds the groups and the nodes of the planes, for the plane
 	// test.
-	part reachPart
+	planes reachSet
 }
 
 // separated reports whether each plane of two spans is on a different
 // plane from each plane of the other (see safetyLocationsSeparated).
 func (s *reachSpan) separated(other *reachSpan) bool {
-	return !s.part.blank && !other.part.blank && !s.part.overlaps(&other.part)
+	return !s.planes.blank && !other.planes.blank && !s.planes.overlaps(&other.planes)
+}
+
+// reachSet holds the groups and the nodes of the planes of a span, as
+// member numbers (see reachMembers). A set with at most reachBitsMembers
+// members holds them in order. A larger set holds only bits, so that it
+// uses one bit for each member of the network, and not one number for
+// each member of each plane.
+type reachSet struct {
+	members []int
+	bits    []uint64
+	// blank is true when a plane has no group. Such a plane is not
+	// separated from any other.
+	blank bool
+}
+
+// overlaps reports whether two sets have a member in common.
+func (s *reachSet) overlaps(other *reachSet) bool {
+	if s.bits != nil && other.bits != nil {
+		for index, word := range s.bits {
+			if word&other.bits[index] != 0 {
+				return true
+			}
+		}
+		return false
+	}
+	// Look up the members of the smaller set in the other.
+	if s.bits != nil || other.bits == nil && len(s.members) > len(other.members) {
+		s, other = other, s
+	}
+	return slices.ContainsFunc(s.members, other.has)
+}
+
+// has reports whether a set holds a member.
+func (s *reachSet) has(member int) bool {
+	if s.bits != nil {
+		return s.bits[member/64]&(1<<(member%64)) != 0
+	}
+	_, found := slices.BinarySearch(s.members, member)
+	return found
 }
 
 // laneAt returns the span of a lane at a position. A position at the
@@ -71,7 +124,7 @@ func (s *reachSpan) separated(other *reachSpan) bool {
 // slack, so the second span holds each plane that the envelope can hold at
 // the boundary.
 func (r *envelopeReach) laneAt(lane int, position float64) *reachSpan {
-	spans := r.lanes[lane]
+	spans := r.laneSpans(lane)
 	index, _ := slices.BinarySearchFunc(spans, position, func(span reachSpan, position float64) int {
 		return cmp.Compare(span.from, position)
 	})
@@ -169,15 +222,16 @@ func reachFront(n Network, tails map[string]geometryTails) float64 {
 	return front
 }
 
-// newEnvelopeReach builds the envelope reach of a network. tails is the
-// tail index of the network (see indexGeometryTails). A bound that is not
-// finite makes each walk cover each node that it reaches, which is slow
-// and large on a big network. Preparation refuses such a network, but only
-// after the bank audit, so a caller in the audit must check the bounds
-// first.
+// newEnvelopeReach returns the envelope reach of a network. tails is the
+// tail index of the network (see indexGeometryTails). It builds the spans of
+// the berths, and the spans of a lane when laneSpans first asks for them. A
+// bound that is not finite makes each walk cover each node that it reaches,
+// which is slow and large on a big network. Preparation refuses such a
+// network, but only after the bank audit, so a caller in the audit must
+// check the bounds first.
 func newEnvelopeReach(n Network, tails map[string]geometryTails) *envelopeReach {
 	g := newReachGraph(n, tails)
-	reach := &envelopeReach{lanes: make([][]reachSpan, len(n.Lanes)), locations: make([]SafetyLocation, 0, len(n.Lanes)+len(g.berthNode))}
+	reach := &envelopeReach{graph: g, lanes: make([][]reachSpan, len(n.Lanes)), locations: make([]SafetyLocation, 0, len(n.Lanes)+len(g.berthNode))}
 	for _, lane := range n.Lanes {
 		reach.locations = append(reach.locations, SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To})
 	}
@@ -186,28 +240,26 @@ func newEnvelopeReach(n Network, tails map[string]geometryTails) *envelopeReach 
 			reach.locations = append(reach.locations, SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
 		}
 	}
-	members := newReachMembers()
-	var walk reachWalk
-	var items []reachItem
-	for index := range n.Lanes {
-		items = g.laneItems(&walk, index, items[:0])
-		reach.lanes[index] = reachSpans(items, g.lengths[index], reach.locations, members)
-	}
+	reach.members = newReachMembers(reach.locations)
+	reach.window.count = make([]int, len(reach.locations))
 	for _, node := range g.berthNode {
 		// The berths at the node include the berth.
-		items = g.nodeItems(items[:0], node, math.Inf(1))
-		reach.berths = append(reach.berths, reachSpans(items, 0, reach.locations, members)...)
-	}
-	count := members.count()
-	for index := range reach.lanes {
-		for span := range reach.lanes[index] {
-			reach.lanes[index][span].part.seal(count)
-		}
-	}
-	for index := range reach.berths {
-		reach.berths[index].part.seal(count)
+		reach.items = g.nodeItems(reach.items[:0], node, math.Inf(1))
+		reach.berths = append(reach.berths, reach.spans(reach.items, 0)...)
 	}
 	return reach
+}
+
+// laneSpans returns the spans of a lane. It builds them when it first gets
+// the lane, and keeps them.
+func (r *envelopeReach) laneSpans(lane int) []reachSpan {
+	if spans := r.lanes[lane]; spans != nil {
+		return spans
+	}
+	r.items = r.graph.laneItems(&r.walk, lane, r.items[:0])
+	r.lanes[lane] = r.spans(r.items, r.graph.lengths[lane])
+	r.built++
+	return r.lanes[lane]
 }
 
 // reachItem is a location and the positions of a lane at which an
@@ -261,10 +313,20 @@ func (g reachGraph) nodeItems(items []reachItem, node int, to float64) []reachIt
 	return items
 }
 
-// reachSpans divides [0, length] at the bounds of the items, and returns
-// the spans with the locations of the items that each span meets. Two
-// spans next to each other with the same locations become one.
-func reachSpans(items []reachItem, length float64, locations []SafetyLocation, members *reachMembers) []reachSpan {
+// spans divides [0, length] at the bounds of the items, and returns the
+// spans with the locations of the items that each span meets. Two spans
+// next to each other with the same locations become one.
+//
+// Each item starts at -Inf (the lane, a lane behind, or a plane of an
+// origin) or ends at +Inf (a lane ahead). So the items that a span meets
+// are the items that start at -Inf and end after the start of the span,
+// and the other items that start before its end. With the items that start
+// at -Inf in order of their ends, then the other items in order of their
+// starts, these items are one window of the order. From one span to the
+// next, both ends of the window move forward. Each span holds its window
+// of one array of location numbers, so the spans of a lane use storage in
+// proportion to the items, and not to the spans times the items.
+func (r *envelopeReach) spans(items []reachItem, length float64) []reachSpan {
 	cuts := []float64{0}
 	for _, item := range items {
 		for _, bound := range []float64{item.from, item.to} {
@@ -275,33 +337,97 @@ func reachSpans(items []reachItem, length float64, locations []SafetyLocation, m
 	}
 	slices.Sort(cuts)
 	cuts = slices.Compact(cuts)
+	sorted := r.sorted[:0]
+	for _, item := range items {
+		if math.IsInf(item.from, -1) {
+			sorted = append(sorted, item)
+		}
+	}
+	open := len(sorted)
+	for _, item := range items {
+		if !math.IsInf(item.from, -1) {
+			sorted = append(sorted, item)
+		}
+	}
+	slices.SortFunc(sorted[:open], func(a, b reachItem) int { return cmp.Compare(a.to, b.to) })
+	slices.SortFunc(sorted[open:], func(a, b reachItem) int { return cmp.Compare(a.from, b.from) })
+	r.sorted = sorted
+	numbers := make([]int, len(sorted))
+	for index, item := range sorted {
+		numbers[index] = item.location
+	}
 	spans := make([]reachSpan, 0, len(cuts))
+	lo, hi := 0, 0
 	for index, from := range cuts {
 		to := length
 		if index+1 < len(cuts) {
 			to = cuts[index+1]
 		}
-		var numbers []int
-		for _, item := range items {
-			if item.from < to && item.to > from {
-				numbers = append(numbers, item.location)
-			}
+		// An item joins the window when it starts before to. An item that
+		// starts at -Inf leaves it when it ends at or before from.
+		start, end := lo, hi
+		for end < len(sorted) && sorted[end].from < to {
+			end++
 		}
-		slices.Sort(numbers)
-		numbers = slices.Clip(slices.Compact(numbers))
-		if last := len(spans) - 1; last >= 0 && slices.Equal(spans[last].locations, numbers) {
+		for start < open && sorted[start].to <= from {
+			start++
+		}
+		changed := r.window.move(numbers, lo, hi, start, end)
+		lo, hi = start, end
+		if last := len(spans) - 1; last >= 0 && !changed {
 			spans[last].to = to
 			continue
 		}
-		spans = append(spans, reachSpan{from: from, to: to, locations: numbers, part: members.part(numbers, locations)})
+		window := numbers[lo:hi:hi]
+		spans = append(spans, reachSpan{from: from, to: to, locations: window, planes: r.members.set(window)})
 	}
+	r.window.clear(numbers[lo:hi])
 	return spans
 }
 
+// reachWindow counts the location numbers in a window of an array.
+type reachWindow struct {
+	// count holds the count of each location number in the window.
+	count []int
+}
+
+// move moves the window [lo, hi) of numbers to [start, end), where start is
+// at least lo, end at least hi, and start at most end. It reports whether
+// a location number joins or leaves the window.
+func (w *reachWindow) move(numbers []int, lo, hi, start, end int) bool {
+	changed := false
+	// Add first, so that a number that leaves at one place and joins at
+	// another stays in the window.
+	for _, number := range numbers[hi:end] {
+		changed = changed || w.count[number] == 0
+		w.count[number]++
+	}
+	for _, number := range numbers[lo:start] {
+		w.count[number]--
+		changed = changed || w.count[number] == 0
+	}
+	return changed
+}
+
+// clear empties the window.
+func (w *reachWindow) clear(numbers []int) {
+	for _, number := range numbers {
+		w.count[number] = 0
+	}
+}
+
 // reachMembers numbers the groups and the nodes of the planes of an
-// envelope reach, as newPlaneReach does.
+// envelope reach, as newPlaneReach does. It numbers them for each location
+// at the start, so that a set is complete when it is made.
 type reachMembers struct {
-	numbers map[reachMember]int
+	// of holds the member numbers of each location number, and blank
+	// whether the location has no group.
+	of    [][]int
+	blank []bool
+	count int
+	// seen and list are the storage of set.
+	seen []uint64
+	list []int
 }
 
 type reachMember struct {
@@ -309,39 +435,56 @@ type reachMember struct {
 	group bool
 }
 
-func newReachMembers() *reachMembers {
-	return &reachMembers{numbers: make(map[reachMember]int)}
-}
-
-func (m *reachMembers) count() int {
-	return len(m.numbers)
-}
-
-func (m *reachMembers) number(member reachMember) int {
-	value, found := m.numbers[member]
-	if !found {
-		value = len(m.numbers)
-		m.numbers[member] = value
+func newReachMembers(locations []SafetyLocation) reachMembers {
+	numbers := make(map[reachMember]int)
+	number := func(member reachMember) int {
+		value, found := numbers[member]
+		if !found {
+			value = len(numbers)
+			numbers[member] = value
+		}
+		return value
 	}
-	return value
-}
-
-// part returns the groups and the nodes of some locations. The caller
-// seals it when the numbers are complete.
-func (m *reachMembers) part(numbers []int, locations []SafetyLocation) reachPart {
-	var part reachPart
-	for _, number := range numbers {
-		location := locations[number]
-		part.blank = part.blank || location.SeparationGroup == ""
-		part.members = append(part.members, m.number(reachMember{location.SeparationGroup, true}))
+	m := reachMembers{of: make([][]int, len(locations)), blank: make([]bool, len(locations))}
+	for index, location := range locations {
+		m.blank[index] = location.SeparationGroup == ""
+		of := []int{number(reachMember{location.SeparationGroup, true})}
 		for _, node := range []string{location.From, location.To} {
 			// A location with no node shares no node with another.
 			if node != "" {
-				part.members = append(part.members, m.number(reachMember{node, false}))
+				of = append(of, number(reachMember{node, false}))
+			}
+		}
+		m.of[index] = of
+	}
+	m.count = len(numbers)
+	m.seen = make([]uint64, (m.count+63)/64)
+	return m
+}
+
+// set returns the groups and the nodes of some locations.
+func (m *reachMembers) set(numbers []int) reachSet {
+	var set reachSet
+	list := m.list[:0]
+	for _, number := range numbers {
+		set.blank = set.blank || m.blank[number]
+		for _, member := range m.of[number] {
+			if word, bit := member/64, uint64(1)<<(member%64); m.seen[word]&bit == 0 {
+				m.seen[word] |= bit
+				list = append(list, member)
 			}
 		}
 	}
-	return part
+	if len(list) > reachBitsMembers {
+		set.bits = slices.Clone(m.seen)
+	} else {
+		set.members = slices.Sorted(slices.Values(list))
+	}
+	for _, member := range list {
+		m.seen[member/64] = 0
+	}
+	m.list = list
+	return set
 }
 
 // reachWalk finds the shortest distance from a node to each node within a
