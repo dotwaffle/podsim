@@ -421,6 +421,9 @@ The optional network member `maneuverGroups` of the [compact bays](model.md#comp
 The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` follow the same rule.
 The network member `lateralMerges` of the [lateral merge pairs](model.md#junctions) is absent when it is false, so the save version stays the same.
 A physical restore of a network that sets it checks the separation of a lateral merge pair with 3.1 meters.
+The network member `shapeClearance` of the [shape clearance](reference.md#shape-clearance) rule follows the same rule, with the digest extension 17.
+A physical restore of a network that sets it checks the separation of a merge, split, or shape pair with the side-by-side distance of the classes of its two pods, 3.1, 3.55, or 4.0 meters, and `lateralMerges` has no further effect.
+The network audit of such a network checks every pair of lanes, and on the London networks validation took up to 1.25 times as long as without the field.
 A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane.
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.

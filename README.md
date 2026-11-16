@@ -195,7 +195,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | Journey | The ride of a party from boarding to alighting. |
 | Consent | Whether a party allows other parties in its pod: `private` or `shared`. |
 | Pod | One vehicle. Its class sets its seats, its standee places, and its body length. |
-| Large class | The `group` and `express` classes, which keep 20 m of clearance. |
+| Large class | The `group` and `express` classes, which keep 20 m of clearance, except on the merge, split, and shape pairs of a network that sets `shapeClearance`. |
 | Lane | A one-way path between two nodes. The editor controls call it a guideway. |
 | Track cell | An exclusive piece of a lane, up to 30 m long. A pod reserves cells before it moves. |
 | Junction | A named node where lanes meet. Crossing lines do not make one. |

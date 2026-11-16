@@ -70,6 +70,7 @@ A pair is a lateral pair when all of these are true:
 1. Both lanes end at the node (converging), or both start at it (diverging).
 2. Neither lane is a loop, and the two lanes do not share both endpoints (`sharedEndpoints`, `junction_conflicts.go:72`).
 3. Both lanes are small: no large class and no geometry tail, as for the depot `small` member (`internal/sim/depot_lateral.go:70`).
+   With `shapeClearance`, this clause does not apply (see the amendment of section 2).
 4. Neither lane is in a maneuver group or a depot.
 5. On neither lane does the body range reach the far end of the lane: the start for a converging pair, or the end for a diverging pair.
    A join step at the far end counts as part of the lane.
@@ -213,6 +214,7 @@ Unit tests:
 - Straight lateral pairs at 3, 6, 10, 15, 21, 30, 60, and 90 degrees, converging and diverging: the extent against a closed form, and never shorter than the node range.
 - Quadratic ramps from the ramps generator, against the brute-force body reference.
 - Through pairs, loops, shared endpoints, large pairs, lanes with tails, maneuver and depot lanes: the old extent.
+  With `shapeClearance`, large pairs and lanes with tails can form a pair (see clause 3 above).
 - Gate off: each table in `scenario_networks.json.gz` equals the current reference.
 - `Check`: a lateral pair at 3.1 m passes, at 3.09 m fails; a through pair at 3.1 m fails.
 - Two streams into a 6 degree merge for 15 simulated minutes, with `Check` and the oriented body oracle at each tick.

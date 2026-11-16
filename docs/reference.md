@@ -32,7 +32,7 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | --- | --- | --- |
 | `version` | The project version, now 1. | Required |
 | `name` | The scenario name. | Required |
-| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups`, `depots`, and `lateralMerges`. | Required |
+| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups`, `depots`, `lateralMerges`, and `shapeClearance`. | Required |
 | `fleet` | One placement for each pod: `id`, `stationID`, `berthID`, and an optional `class`. | Required |
 | `demand` | The demand settings: `enabled`, `perMinute`, `pattern`, `seed`, and the optional `destination`, `profile`, `band`, and `dailyStartMinute`. | Required |
 | `redistribution` | A Boolean that turns on [guarded positioning](model.md#redistribution). The presets and the example project set it to true. | Off |
@@ -57,6 +57,22 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 The network member `lateralMerges` is a Boolean that turns on the [lateral merge pairs](model.md#junctions) of shallow merges and splits.
 Absent or false keeps the junction zones of each pair of lanes at a node.
 The `london-central` and `london-full` presets set it, and the other presets do not.
+
+### Shape clearance
+
+The network member `shapeClearance` is a Boolean that turns on the [shape clearance](design/shape-clearance.md) rule for all vehicle classes.
+Absent or false keeps the rules above.
+No preset sets it.
+When it is true, `lateralMerges` has no further effect.
+
+A bank audit sweeps the union body of each lane over the lane and its join turns, and it certifies two lanes that share no node when the swept bodies never meet.
+Pods on such a shape pair keep the side-by-side distance of their classes, and not 12 or 20 meters.
+The distance is 3.1 meters for two small pods, 3.55 meters for a small and a large pod, and 4.0 meters for two large pods.
+Merge and split pairs admit each class, and they use the union body of the classes that each lane admits.
+The audit checks every pair of lanes, small pairs included, and it takes the planes of a large pod by position on the path.
+On the London networks, validation with the field took up to 1.25 times as long as without it.
+The editor does not use its own lane gap check for a draft that sets the field.
+It runs the same lane check as the server after each change.
 
 ### Generated order consent
 
