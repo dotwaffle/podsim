@@ -22,6 +22,15 @@ type londonExpressFixture struct {
 	client   *testClient
 	services map[string]string
 	steps    restoreSteps
+	// restored, when it is set, runs on each restore of checkpoint, with
+	// the name of the checkpoint, the live simulation, and the restored
+	// simulation. tick, when it is set, runs at each tick of the restored
+	// simulation after the safety oracle.
+	restored func(name string, live, restored *sim.Simulation)
+	tick     func(restored *sim.Simulation) error
+	// second, when it is set, runs at each second of driveShared with the
+	// vehicles of the session.
+	second func(tick int, vehicles []sim.Vehicle)
 }
 
 func newLondonExpressFixture(t *testing.T, options ...Option) *londonExpressFixture {
@@ -75,10 +84,18 @@ func (f *londonExpressFixture) checkpoint(name string) {
 	if !reflect.DeepEqual(pods, file.Simulation.Pods) {
 		t.Fatalf("%s: restore changed the pods", name)
 	}
+	if f.restored != nil {
+		f.restored(name, f.shared.simulation, loaded.simulation)
+	}
 	for range 10 * sim.TicksPerSecond {
 		loaded.simulation.Step()
 		if _, err := loaded.simulation.SafetyObservation().Check(); err != nil {
 			t.Fatalf("%s: restored copy: %v", name, err)
+		}
+		if f.tick != nil {
+			if err := f.tick(loaded.simulation); err != nil {
+				t.Fatalf("%s: restored copy: %v", name, err)
+			}
 		}
 	}
 }

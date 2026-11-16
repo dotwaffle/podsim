@@ -14,13 +14,23 @@ import (
 // design from its definition (see envelopeReference), and it does not read
 // the envelope reach, its spans, its items, or its bounds.
 func referenceVehicleSafetyLocations(s *Simulation, v *vehicle, distance float64) []SafetyLocation {
+	return referenceSafetyLocationsWith(s, nil, v, distance)
+}
+
+// referenceSafetyLocationsWith is referenceVehicleSafetyLocations with the
+// tables of the reference construction of s in r, so that a run builds
+// them one time. When r is nil, it builds them.
+func referenceSafetyLocationsWith(s *Simulation, r *envelopeReference, v *vehicle, distance float64) []SafetyLocation {
 	_, lane := s.graph.lanes[v.Pod.LaneID]
 	_, berth := s.berthNodes[v.Pod.BerthID]
 	if !s.network.ShapeClearance || s.envelopes == nil || v.Pod.Activity == Traveling && !lane || v.Pod.Activity != Traveling && !berth {
 		// A traveling pod always has a lane, and each other pod a berth.
 		return builtVehicleSafetyLocations(s, v, distance)
 	}
-	return newEnvelopeReference(s).envelope(v)
+	if r == nil {
+		r = newEnvelopeReference(s)
+	}
+	return r.envelope(v)
 }
 
 // envelopeReference builds the envelope of a network with ShapeClearance
@@ -44,6 +54,9 @@ type envelopeReference struct {
 	tail, front []float64
 	origin      map[string]float64
 	behind      float64
+	// clusters holds the lanes of rule 2 of each plane that an envelope
+	// met, so that the reference computes each cluster one time.
+	clusters map[SafetyLocation][]Lane
 }
 
 // referenceSlack is the slack u of the definition.
@@ -52,7 +65,8 @@ const referenceSlack = 1e-3
 func newEnvelopeReference(s *Simulation) *envelopeReference {
 	n := s.network
 	r := &envelopeReference{s: s, lanes: n.Lanes, lane: make(map[string]int), in: make(map[string][]int), out: make(map[string][]int),
-		berths: make(map[string][]string), number: make(map[string]int), origin: make(map[string]float64)}
+		berths: make(map[string][]string), number: make(map[string]int), origin: make(map[string]float64),
+		clusters: make(map[SafetyLocation][]Lane)}
 	positions := indexNodePositions(n.Nodes)
 	for index, lane := range n.Lanes {
 		r.lane[lane.ID] = index
@@ -326,7 +340,12 @@ func (r *envelopeReference) envelope(v *vehicle) []SafetyLocation {
 	if len(r.s.network.ManeuverGroups) > 0 {
 		byID := referenceLanesByID(r.s.network)
 		for _, location := range slices.Clone(locations) {
-			for _, lane := range referenceClusterLanes(r.s.network, byID, location) {
+			lanes, ok := r.clusters[location]
+			if !ok {
+				lanes = referenceClusterLanes(r.s.network, byID, location)
+				r.clusters[location] = lanes
+			}
+			for _, lane := range lanes {
 				add(r.s.laneSafety[lane.ID])
 			}
 		}
@@ -468,13 +487,21 @@ func builtVehicleSafetyLocations(s *Simulation, v *vehicle, distance float64) []
 // its index.
 func checkSafetyLocationParity(t *testing.T, s *Simulation) {
 	t.Helper()
+	checkSafetyLocationParityWith(t, s, nil)
+}
+
+// checkSafetyLocationParityWith is checkSafetyLocationParity with the
+// tables of the reference construction of s in r (see
+// referenceSafetyLocationsWith).
+func checkSafetyLocationParityWith(t *testing.T, s *Simulation, r *envelopeReference) {
+	t.Helper()
 	o := s.SafetyObservation()
 	if len(o.Locations) != len(s.vehicles) || len(o.bound) != len(s.vehicles) {
 		t.Fatalf("tick %d: %d locations and %d bound pods for %d pods", s.tick, len(o.Locations), len(o.bound), len(s.vehicles))
 	}
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		got, want := s.appendVehicleSafetyLocations(nil, v, v.distance), referenceVehicleSafetyLocations(s, v, v.distance)
+		got, want := s.appendVehicleSafetyLocations(nil, v, v.distance), referenceSafetyLocationsWith(s, r, v, v.distance)
 		if !slices.Equal(got, want) {
 			t.Fatalf("tick %d pod %s safety locations %v, reference %v", s.tick, v.Pod.ID, got, want)
 		}

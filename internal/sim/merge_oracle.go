@@ -31,6 +31,13 @@ const (
 	oracleGap = 1e-7
 )
 
+// LateralBodyCheckForTest runs lateralBodyCheck. It is a test entry: the
+// session tests run the D6 oracle on the restored copies of their saves.
+// No production code calls it.
+func (s *Simulation) LateralBodyCheckForTest() error {
+	return s.lateralBodyCheck()
+}
+
 // lateralBodyCheck is the oriented body oracle of the lateral pairs of
 // docs/design/shape-clearance.md. It is independent of Check: it does not
 // use pair or the clearance of a pair. It reads the merge table only for

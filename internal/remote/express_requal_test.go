@@ -9,6 +9,7 @@ import (
 	jsonv2 "encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -82,10 +83,21 @@ func TestExpressRequalRemoteRecovery(t *testing.T) {
 // frames of an Express session of config.
 func checkExpressRemoteRecovery(t *testing.T, config project.Config) {
 	t.Helper()
+	checkExpressRemoteRecoveryTo(t, config, nil)
+}
+
+// checkExpressRemoteRecoveryTo is checkExpressRemoteRecovery. With a nil
+// next, the recovery frame is the first frame with a new epoch. Otherwise
+// it is the frame of an Express session of next, with its topology.
+func checkExpressRemoteRecoveryTo(t *testing.T, config project.Config, next *project.Config) {
+	t.Helper()
 	topology, frame := expressRequalFrame(t, config)
-	recovered := frame
+	recovered, recoveredTopology := frame, topology
+	if next != nil {
+		recoveredTopology, recovered = expressRequalFrame(t, *next)
+		recovered.State.ServerStart, recoveredTopology.ServerStart = frame.State.ServerStart, frame.State.ServerStart
+	}
 	recovered.State.Epoch, recovered.State.Revision = "requal-recovered", 1
-	recoveredTopology := topology
 	recoveredTopology.Epoch = recovered.State.Epoch
 	full := session.StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "full", Stream: "first", Sequence: 1, Source: sourceOfFrame(frame), Build: frame.State.Build, Full: &frame}
 	gap := session.StreamEnvelope{OrderContract: sim.ExpressOrderContract, Kind: "delta", Stream: "first", Sequence: 4, Base: 3, Source: sourceOfFrame(frame), Build: frame.State.Build, Delta: &session.StreamDelta{}}
@@ -174,6 +186,59 @@ func checkExpressRemoteRecovery(t *testing.T, config project.Config) {
 	if state.Epoch != recovered.State.Epoch || state.Simulation.OrderContract != sim.ExpressOrderContract || len(state.Network.Stations) != len(recoveredTopology.Network.Stations) {
 		t.Fatalf("the recovery did not replace the state: epoch %q, marker %q", state.Epoch, state.Simulation.OrderContract)
 	}
+	if next != nil {
+		checkReplacedTopology(t, state, topology, recoveredTopology, recovered)
+	}
+}
+
+// checkReplacedTopology checks a state after a recovery to a different
+// topology. The network of the state is the new network, each pod is the
+// pod of the recovery frame and is on a lane, at a berth, or at a station
+// of the new network, and the old network does not have some lane of the
+// new network.
+func checkReplacedTopology(t *testing.T, state session.State, old, next session.TopologySnapshot, recovered session.StreamFrame) {
+	t.Helper()
+	if !reflect.DeepEqual(state.Network, next.Network) {
+		t.Fatalf("the client kept a network of %d lanes, want the new network of %d lanes", len(state.Network.Lanes), len(next.Network.Lanes))
+	}
+	places := func(n sim.Network) map[string]bool {
+		ids := map[string]bool{}
+		for _, lane := range n.Lanes {
+			ids[lane.ID] = true
+		}
+		for _, station := range n.Stations {
+			ids[station.ID] = true
+			for _, berth := range station.Berths {
+				ids[berth.ID] = true
+			}
+		}
+		return ids
+	}
+	oldPlaces, nextPlaces := places(old.Network), places(next.Network)
+	added := 0
+	for _, lane := range next.Network.Lanes {
+		if !oldPlaces[lane.ID] {
+			added++
+		}
+	}
+	if added == 0 {
+		t.Fatal("the old network has each lane of the new network")
+	}
+	want, got := recovered.State.Simulation.Vehicles, state.Simulation.Vehicles
+	if len(got) != len(want) {
+		t.Fatalf("the client has %d pods, want the %d pods of the recovery frame", len(got), len(want))
+	}
+	for index, v := range got {
+		if !reflect.DeepEqual(v.Pod, want[index].Pod) {
+			t.Fatalf("pod %d is %+v, want the pod of the recovery frame %+v", index, v.Pod, want[index].Pod)
+		}
+		for _, place := range []string{v.Pod.LaneID, v.Pod.BerthID, v.Pod.StationID} {
+			if place != "" && !nextPlaces[place] {
+				t.Fatalf("pod %s is at %q, which the new network does not have", v.Pod.ID, place)
+			}
+		}
+	}
+	t.Logf("replaced %d lanes with %d lanes, %d of them new, with %d pods", len(old.Network.Lanes), len(next.Network.Lanes), added, len(got))
 }
 
 func sourceOfFrame(f session.StreamFrame) session.StreamSource {

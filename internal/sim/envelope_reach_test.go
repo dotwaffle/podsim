@@ -431,6 +431,8 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 		c.network = withShapeClearance(c.network, true)
 		cases[name+", shapeClearance"] = c
 	}
+	// The shared-track preset sets ShapeClearance (row SX3).
+	cases["london-full-shared-express"] = envelopeReachCase{network: sharedExpressNetwork(t), lanes: sampled, routes: 12}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

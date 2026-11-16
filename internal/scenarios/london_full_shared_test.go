@@ -283,3 +283,74 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 		}
 	}
 }
+
+// TestLondonFullSharedExpressRoutes is the route evidence of row SX2: each
+// hub berth admits Express, and an Express route goes from the node of each
+// berth of each hub to the node of each berth of the other hub,
+// in both directions, over the lanes of link 100, and an Express route from
+// each berth of the Express parking to each hub berth and back.
+func TestLondonFullSharedExpressRoutes(t *testing.T) {
+	t.Parallel()
+	config, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	n := config.Network
+	waterloo, _ := n.Station(expressWaterloo)
+	bank, _ := n.Station(expressBank)
+	parking, _ := n.Station(expressParking)
+	// longest is the Express route with the most lanes, for the route caps.
+	var longest []string
+	route := func(from, to sim.Berth) []string {
+		t.Helper()
+		lanes, err := n.RouteForClass(from.Node, to.Node, sim.ExpressClass)
+		if err != nil {
+			t.Fatalf("no Express route from %s to %s: %v", from.ID, to.ID, err)
+		}
+		ids := make([]string, 0, len(lanes))
+		for _, lane := range lanes {
+			ids = append(ids, lane.ID)
+		}
+		if len(ids) > len(longest) {
+			longest = ids
+		}
+		return ids
+	}
+	hubs := 0
+	for _, pair := range [][2]sim.Station{{waterloo, bank}, {bank, waterloo}} {
+		// The link 100 lanes of the direction, from the shared route.
+		link := sharedTrackRoute[2:4]
+		if pair[0].ID == expressBank {
+			link = sharedTrackRoute[8:10]
+		}
+		for _, from := range pair[0].Berths {
+			if !from.VehicleClasses.Allows(string(sim.ExpressClass)) {
+				t.Fatalf("hub berth %s does not admit Express", from.ID)
+			}
+			for _, to := range pair[1].Berths {
+				if ids := route(from, to); !slices.Contains(ids, link[0]) || !slices.Contains(ids, link[1]) {
+					t.Fatalf("the Express route from %s to %s does not take %v: %v", from.ID, to.ID, link, ids)
+				}
+				hubs++
+			}
+		}
+	}
+	parked := 0
+	for _, berth := range parking.Berths {
+		for _, hub := range []sim.Station{waterloo, bank} {
+			for _, other := range hub.Berths {
+				route(berth, other)
+				route(other, berth)
+				parked += 2
+			}
+		}
+	}
+	t.Logf("%d Waterloo berths, %d Bank berths, %d routes between the hubs, %d routes to and from the %d parking berths", len(waterloo.Berths), len(bank.Berths), hubs, parked, len(parking.Berths))
+	if len(waterloo.Berths) == 0 || len(bank.Berths) == 0 || len(parking.Berths) != expressPods {
+		t.Fatal("the hubs have no berths, or the parking is not the comb")
+	}
+	t.Logf("the longest Express route has %d lanes, from %s to %s", len(longest), longest[0], longest[len(longest)-1])
+	if len(longest) > min(sim.MaxSavedRouteLanes, sim.MotionRouteLimit) {
+		t.Fatalf("the longest Express route has %d lanes, more than the route caps", len(longest))
+	}
+}

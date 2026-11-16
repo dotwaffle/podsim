@@ -210,6 +210,25 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 			"stationary support with more than one node, small grown":                                  1,
 		})
 	})
+	// The shared lanes of london-full-shared-express, where Compact pods
+	// and Express pods meet. The preset loads a network of 9,089 lanes, so
+	// this case runs only in the long run, without -race.
+	t.Run("london-full-shared-express", func(t *testing.T) {
+		t.Parallel()
+		if testing.Short() || raceEnabled {
+			t.Skip("the preset network is large")
+		}
+		n := sharedExpressNetwork(t)
+		c := newSharedContainment(t, "london-full-shared-express", n)
+		c.reference = true
+		for lane, l := range n.Lanes {
+			if sharedExpressLinkLanes[l.ID] {
+				c.lane(lane, diskSmall, c.behind+1, c.bounds[lane]+60, 2)
+			}
+		}
+		supportRun(t, c, map[string]int{"poses small": 1})
+		t.Logf("%v", c.counts)
+	})
 }
 
 // TestEnvelopeSupportOneNode guards facts F1 and F2 of section 3.1: no lane
@@ -227,7 +246,7 @@ func TestEnvelopeSupportOneNode(t *testing.T) {
 		}
 	}
 	express := expressNetworkFixture(t)
-	networks := map[string]Network{"curves": envelopeReachCurves(t), "london-full-express": express}
+	networks := map[string]Network{"curves": envelopeReachCurves(t), "london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t)}
 	maps.Copy(networks, gateOffRefusedNetworks(t, express))
 	maps.Copy(networks, scenarioNetworks(t))
 	for shape := range diskShapes {
@@ -266,7 +285,7 @@ func TestEnvelopeSupportOneNode(t *testing.T) {
 func TestEnvelopeSupportChain(t *testing.T) {
 	t.Parallel()
 	express := expressNetworkFixture(t)
-	networks := map[string]Network{"london-full-express": express, "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4)}
+	networks := map[string]Network{"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4)}
 	maps.Copy(networks, scenarioNetworks(t))
 	arc := (2 + math.Sqrt2) * sharedSmallRadius
 	checked := 0
@@ -684,7 +703,7 @@ func envelopeParityNetworks(t *testing.T) map[string]Network {
 	express := expressNetworkFixture(t)
 	networks := map[string]Network{
 		"curves": envelopeReachCurves(t), "hook": sharedHookNetwork(), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4),
-		"london-full-express": express,
+		"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t),
 	}
 	maps.Copy(networks, gateOffRefusedNetworks(t, express))
 	maps.Copy(networks, scenarioNetworks(t))

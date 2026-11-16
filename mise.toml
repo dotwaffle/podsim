@@ -100,6 +100,20 @@ go test -race -timeout=30m -run "$PODSIM_RACE_LONG_TESTS" ./cmd/compare
 description = "Run the long tests of PODSIM_LONG_PACKAGES in full without the race detector"
 run = 'go test -timeout=30m $PODSIM_LONG_PACKAGES'
 
+# The qualification tests of the london-full-shared-express preset (rows
+# SX2 to SX9) run one simulation of 9,089 lanes each. They skip under -race
+# and with -short, so only this task runs them. Each pattern names each
+# test, because a pattern that matches no test passes. Add a new test of
+# these rows here.
+[tasks."test:shared-express"]
+description = "Run the shared-track Express qualification tests without the race detector"
+run = '''
+go test ./internal/sim -count=1 -timeout=20m -run '^(TestSharedExpressEnvelopeRun|TestSharedExpressShapePairSweep|TestSharedExpressDwell|TestSharedExpressOccupiedPickupPolicy)$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full-shared-express$' || exit 1
+go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonSharedExpressPhysicalCheckpoints|TestLondonSharedExpressIncidentFixtures|TestLondonSharedExpressByteBounds|TestLondonSharedExpressRecoveryChain)$' || exit 1
+go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonSharedExpressRemoteLoads|TestLondonSharedExpressRemoteRecovery)$'
+'''
+
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"
 run = """
@@ -152,6 +166,7 @@ run = [
   { task = "test:race:session" },
   { task = "test:race:other" },
   { task = "test:long" },
+  { task = "test:shared-express" },
 ]
 
 [tasks."check:static"]
