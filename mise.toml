@@ -101,7 +101,7 @@ description = "Run the long tests of PODSIM_LONG_PACKAGES in full without the ra
 run = 'go test -timeout=30m $PODSIM_LONG_PACKAGES'
 
 # The qualification tests of the london-full-shared-express preset (rows
-# SX2 to SX9) run one simulation of 9,089 lanes each. They skip under -race
+# SX2 to SX9, and the soak driver of SX10 and SX11) run one simulation of 9,089 lanes each. They skip under -race
 # and with -short, so only this task runs them. Each pattern names each
 # test, because a pattern that matches no test passes. Add a new test of
 # these rows here.
@@ -110,7 +110,7 @@ description = "Run the shared-track Express qualification tests without the race
 run = '''
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestSharedExpressEnvelopeRun|TestSharedExpressShapePairSweep|TestSharedExpressDwell|TestSharedExpressOccupiedPickupPolicy)$' || exit 1
 go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full-shared-express$' || exit 1
-go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonSharedExpressPhysicalCheckpoints|TestLondonSharedExpressIncidentFixtures|TestLondonSharedExpressByteBounds|TestLondonSharedExpressRecoveryChain)$' || exit 1
+go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonSharedExpressPhysicalCheckpoints|TestLondonSharedExpressIncidentFixtures|TestLondonSharedExpressByteBounds|TestLondonSharedExpressRecoveryChain|TestSoakLondonSharedExpressDriver)$' || exit 1
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonSharedExpressRemoteLoads|TestLondonSharedExpressRemoteRecovery)$'
 '''
 
@@ -229,12 +229,13 @@ description = "Run the soak of amendment A6 with the full check at each tick, wh
 # of the soak task stays at 2 hours, so this run can end cut. Amendment A6 counts
 # only the completed seeds, and the file lists them. Each run has its own file,
 # so a run that does not get the lock leaves the record of the run that holds it.
-# Amendment A16 adds the London Express preset to the default presets.
+# Amendment A16 adds the London Express preset to the default presets, and
+# row SX11 of the shared-track qualification adds the shared-track preset.
 run = '''
 finished="${PODSIM_SOAK_FINISHED:-$(mktemp /tmp/podsim-soak-finished.XXXXXX)}"
 status=0
 PODSIM_SOAK_FINISHED="$finished" PODSIM_SOAK_SHAPE=seeds PODSIM_SOAK_EVERY_TICK=1 \
-  PODSIM_SOAK_PRESETS="${PODSIM_SOAK_PRESETS:-rail-hub,london-central,london-full-express}" mise run soak || status=$?
+  PODSIM_SOAK_PRESETS="${PODSIM_SOAK_PRESETS:-rail-hub,london-central,london-full-express,london-full-shared-express}" mise run soak || status=$?
 echo "seeds that finished, the only seeds that count, from $finished (exit status $status):"
 cat "$finished"
 exit "$status"

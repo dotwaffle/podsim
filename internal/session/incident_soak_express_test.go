@@ -4,6 +4,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -25,6 +26,23 @@ const soakExpressPartiesPreset = "rail-hub-express-parties"
 // of the Express qualification proposal. Only an explicit PODSIM_SOAK_PRESETS
 // selects it.
 const soakLondonExpressPreset = "london-full-express"
+
+// soakLondonSharedExpressPreset is the opt-in LondonFull Shared Express
+// preset of decision D11 of the shape clearance design. Rows SX10 and SX11
+// of the shared-track qualification run it as D runs, and the checks of the
+// soak also run the D6 oracle at each tick. Only an explicit
+// PODSIM_SOAK_PRESETS selects it.
+const soakLondonSharedExpressPreset = "london-full-shared-express"
+
+// soakLondonHubPreset reports whether preset is a London Express preset
+// with the hub party orders and the soak shape of the London soak row.
+func soakLondonHubPreset(preset string) bool {
+	return preset == soakLondonExpressPreset || preset == soakLondonSharedExpressPreset
+}
+
+// soakSharedExpress generates the shared-track preset one time for each
+// test process. soakPreset returns a copy for each run.
+var soakSharedExpress = sync.OnceValues(scenarios.GenerateLondonFullSharedExpress)
 
 // soakLondonExpressArms lists the arms of the London Express row of the
 // qualification proposal, with the low-demand group. LondonFull sets the
@@ -131,12 +149,12 @@ type soakParties struct {
 // the first service, and the low-demand arms send one order a minute, half in
 // each direction.
 func newSoakParties(input soakInput, config project.Config, tick int64) *soakParties {
-	if input.preset != soakExpressPartiesPreset && input.preset != soakLondonExpressPreset {
+	if input.preset != soakExpressPartiesPreset && !soakLondonHubPreset(input.preset) {
 		return nil
 	}
 	p := &soakParties{rng: rand.New(rand.NewPCG(input.seed, 0x50415254+input.branch)), services: config.ExpressServices, faults: map[string]bool{}, emergencies: map[string]bool{},
 		mean: soakPartyInterval}
-	if input.preset == soakLondonExpressPreset {
+	if soakLondonHubPreset(input.preset) {
 		p.hub, p.mean, p.outbound = true, soakHubPartyInterval, 0.75
 		if input.arm.perMinute != 0 {
 			p.mean, p.outbound = soakPartyInterval, 0.5
@@ -259,7 +277,7 @@ func TestSoakExpressProject(t *testing.T) {
 			t.Errorf("rail-hub has the Express pod %s", pod.ID)
 		}
 	}
-	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset, soakLondonExpressPreset} {
+	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset, soakLondonExpressPreset, soakLondonSharedExpressPreset} {
 		if slices.Contains(strings.Split(soakDefaultPresets, ","), name) {
 			t.Errorf("the default presets %q hold the Express project %s", soakDefaultPresets, name)
 		}
@@ -407,5 +425,32 @@ func TestSoakLondonExpressDriver(t *testing.T) {
 	d.clearAndSettle()
 	if r := d.result; d.parties.accepted == 0 || r.refused != 0 || r.saves != 1 || r.demoted != 0 || len(r.misses) != 0 {
 		t.Fatalf("the driver result is %+v, parties %+v", r, d.parties)
+	}
+}
+
+// TestSoakLondonSharedExpressDriver runs a short soak of the LondonFull
+// Shared Express preset with the checks, as TestSoakLondonExpressDriver does
+// for D. The driver must run the D6 oracle at each tick, which it runs only
+// on a project that sets ShapeClearance. The test:shared-express task runs
+// this test.
+func TestSoakLondonSharedExpressDriver(t *testing.T) {
+	t.Parallel()
+	if testing.Short() || raceEnabled {
+		t.Skip("a LondonFull session, and one simulation on one goroutine")
+	}
+	input := soakInput{preset: soakLondonSharedExpressPreset, arm: soakArms["reference"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
+	d := newSoakDriver(t, input)
+	if !d.config.Network.ShapeClearance || !d.lateral {
+		t.Fatalf("the preset sets ShapeClearance %t, and the driver runs the D6 oracle %t", d.config.Network.ShapeClearance, d.lateral)
+	}
+	d.nextSave = 40 * sim.TicksPerSecond
+	d.parties.next = 1
+	d.runHours()
+	d.clearAndSettle()
+	if r := d.result; d.parties.accepted == 0 || r.refused != 0 || r.saves != 1 || r.demoted != 0 || len(r.misses) != 0 {
+		t.Fatalf("the driver result is %+v, parties %+v", r, d.parties)
+	}
+	if ticks := d.s.simulation.Tick(); int64(d.lateralChecks) < ticks {
+		t.Fatalf("%d ticks have %d runs of the D6 oracle", ticks, d.lateralChecks)
 	}
 }

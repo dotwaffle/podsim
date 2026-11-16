@@ -82,6 +82,12 @@ func soakPreset(t *testing.T, name string) project.Config {
 		config = soakExpressParties(t)
 	case soakLondonExpressPreset:
 		config = scenarios.LondonFullExpress()
+	case soakLondonSharedExpressPreset:
+		shared, err := soakSharedExpress()
+		if err != nil {
+			t.Fatal(err)
+		}
+		config = project.Clone(shared)
 	case "fleet-300", "fleet-1000":
 		// No preset has the fleet of the worst-case rows of section 5.1.9.
 		pods, err := strconv.Atoi(strings.TrimPrefix(name, "fleet-"))
@@ -189,8 +195,9 @@ type soakResult struct {
 	emergencyInPlatoon, emergencyLong int
 	emergencyLongest                  int64
 	settleTicks                       int64
-	// fullChecks counts the full checks of the run.
-	fullChecks int
+	// fullChecks counts the full checks of the run, and lateralChecks the
+	// runs of the D6 oracle.
+	fullChecks, lateralChecks int
 	// paths counts the readings of each path of the classifier of rule A, and
 	// blockedRecords holds the records that ended. Only the log reads them.
 	paths          soakPathCounts
@@ -224,6 +231,11 @@ type soakDriver struct {
 	events     sim.IncidentEvents
 	fullChecks int
 	lastFull   int64
+	// lateral runs the D6 oracle of the shape clearance design with the
+	// Safety observation, on a project that sets ShapeClearance.
+	// lateralChecks counts its runs.
+	lateral       bool
+	lateralChecks int
 	// fail reports a failed gate. It stops the test, and only a test of the
 	// driver replaces it. breakExport, when set, changes the state that the
 	// full check reads, so such a test can make a violation.
@@ -280,7 +292,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 		client = fmt.Sprintf("soak-branch-%d", input.branch)
 	}
 	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{}, lastWatch: -1,
-		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
+		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64, lateral: config.Network.ShapeClearance}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
 	d.result.refusals = map[string]int{}
 	input.warm.resume(d)
@@ -449,6 +461,12 @@ func (d *soakDriver) check(command bool) {
 	}
 	if _, err := simulation.SafetyObservation().Check(); err != nil {
 		d.failf("the safety observation: %v", err)
+	}
+	if d.lateral {
+		d.lateralChecks++
+		if err := simulation.LateralBodyCheckForTest(); err != nil {
+			d.failf("the D6 oracle: %v", err)
+		}
 	}
 	events := simulation.IncidentEventsForTest()
 	if command || events != d.events || d.input.everyTick || simulation.Tick()%soakViewTicks == 0 {
@@ -1103,13 +1121,13 @@ func runSoak(t *testing.T, input soakInput) soakResult {
 	d.clearAndSettle()
 	d.result.wall, d.result.threadCPU, d.result.processCPU = time.Since(start), soakThreadCPUSeconds()-startThread, soakProcessCPUSeconds()-startProcess
 	d.checkRail()
-	d.result.fullChecks = d.fullChecks
+	d.result.fullChecks, d.result.lateralChecks = d.fullChecks, d.lateralChecks
 	d.result.state = d.s.simulation.Snapshot()
 	state := d.result.state
-	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d podsDemoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d rates=%v",
+	t.Logf("preset=%s arm=%s seed=%d branch=%d hours=%g checks=%t ticks=%d wall=%.1fs threadCPU=%.1fs processCPU=%.1fs ticks/s=%.0f commands=%d refused=%d saves=%d demoted=%d podsDemoted=%d rewinds=%d rail=%d completed=%d interrupted=%d queue=%d..%d settle=%ds waitAvg=%.1fs waitMax=%.1fs faults=%+v emergencies=%+v seen=%d late=%d inPlatoon=%d long=%d longestUnblocked=%.1fs fullChecks=%d lateralChecks=%d rates=%v",
 		input.preset, input.arm.name, input.seed, input.branch, input.hours, input.checks, d.result.ticks, d.result.wall.Seconds(), d.result.threadCPU, d.result.processCPU, float64(d.result.ticks)/d.result.wall.Seconds(),
 		d.result.commands, d.result.refused, d.result.saves, d.result.demoted, d.result.podsDemoted, d.result.rewinds, d.result.railRecords, state.Completed, state.Interrupted, d.result.queue.low, d.result.queue.high,
-		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.result.rates)
+		d.result.settleTicks/sim.TicksPerSecond, state.Wait.AverageSeconds, state.Wait.MaxSeconds, state.Faults.Counters, state.Emergencies.Counters, d.result.emergencies, d.result.emergencyLate, d.result.emergencyInPlatoon, d.result.emergencyLong, float64(d.result.emergencyLongest)/sim.TicksPerSecond, d.fullChecks, d.lateralChecks, d.result.rates)
 	t.Logf("rule A preset=%s arm=%s seed=%d branch=%d readings %s failedBerths=%d failedBerthRetries=%d longest blocked: %s", input.preset, input.arm.name, input.seed, input.branch, d.result.paths, d.result.failedBerths, d.result.failedBerthRetries, soakLongestBlocked(d.result.blockedRecords, d.open))
 	d.parties.log(t, input)
 	if len(d.result.refusals) > 0 {
@@ -1212,7 +1230,7 @@ var soakGroups = []struct {
 }{
 	{"reference", []string{"incidents", "emergencies"}, nil},
 	{"reference-platoons", []string{"platoons"}, nil},
-	{"reference-low-demand", []string{"incidents-low-demand"}, []string{"rail-hub", soakLondonExpressPreset}},
+	{"reference-low-demand", []string{"incidents-low-demand"}, []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset}},
 }
 
 // soakDefaultPresets lists the presets of a soak that selects none.
@@ -1253,7 +1271,7 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		if preset == soakExpressPreset || preset == soakExpressPartiesPreset {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: soakExpressArms}, nil
 		}
-		if preset == soakLondonExpressPreset {
+		if soakLondonHubPreset(preset) {
 			return soakShape{seeds: 1, warmTicks: warm, branches: 3, hours: 1, rewindEvery: rewind, arms: soakLondonExpressArms}, nil
 		}
 		arms := soakAllArms
@@ -1263,7 +1281,7 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		return soakShape{seeds: 1, warmTicks: warm, branches: 10, hours: 1.5, rewindEvery: rewind, arms: arms}, nil
 	case "seeds":
 		arms := soakAllArms
-		if preset == "london-central" || preset == soakLondonExpressPreset {
+		if preset == "london-central" || soakLondonHubPreset(preset) {
 			arms = soakPlatoonPresetArms
 		}
 		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: arms}, nil
@@ -1429,7 +1447,8 @@ func runSoakGroup(t *testing.T, input soakInput, shape soakShape, reference stri
 // TestIncidentSoakCI is the CI soak of section 5.1.9: 1 seed for 1 simulated
 // hour, with the sampler only, and with the full check at each tick. It runs
 // on the rail-hub preset, and amendment A16 adds the London Express preset,
-// with its hub party orders. The row names no preset, and a london-central
+// with its hub party orders. Row SX11 of the shared-track qualification adds
+// the LondonFull Shared Express preset, with the D6 oracle at each tick. The row names no preset, and a london-central
 // run takes an estimated 20 to 30 CPU minutes
 // (docs/studies/incident-soak.md), too long for one job of the qualify task.
 // mise run qualify runs this test.
@@ -1441,13 +1460,16 @@ func TestIncidentSoakCI(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("one simulation on one goroutine, so the race detector finds nothing, and a long test")
 	}
-	for _, preset := range []string{"rail-hub", soakLondonExpressPreset} {
+	for _, preset := range []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset} {
 		t.Run(preset, func(t *testing.T) {
 			t.Parallel()
 			reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: 1, hours: 1})
 			run := runSoak(t, soakInput{preset: preset, arm: soakArms["ci"], seed: 1, hours: 1, checks: true, everyTick: true, queue: &reference.queue})
 			if ticks := int(run.ticks); run.fullChecks < ticks {
 				t.Errorf("%d ticks have %d full checks", ticks, run.fullChecks)
+			}
+			if ticks := int(run.ticks); preset == soakLondonSharedExpressPreset && run.lateralChecks < ticks {
+				t.Errorf("%d ticks have %d runs of the D6 oracle", ticks, run.lateralChecks)
 			}
 			if counters := run.state.Faults.Counters; counters.Sampled == 0 || run.state.Emergencies.Counters.Sampled == 0 {
 				t.Errorf("the soak samples no event: %+v, %+v", counters, run.state.Emergencies.Counters)
@@ -2255,6 +2277,8 @@ func TestSoakShape(t *testing.T) {
 		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
 		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"seeds", soakLondonExpressPreset, soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"branches", soakLondonSharedExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
+		{"seeds", soakLondonSharedExpressPreset, soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 	}
 	for _, test := range tests {
 		got, err := soakShapeOf(test.name, test.preset)
@@ -2266,7 +2290,7 @@ func TestSoakShape(t *testing.T) {
 		t.Error("an unknown shape gives no error")
 	}
 	// The shapes drop the platoon arms only where they repeat other arms.
-	for _, preset := range []string{"london-central", soakLondonExpressPreset} {
+	for _, preset := range []string{"london-central", soakLondonExpressPreset, soakLondonSharedExpressPreset} {
 		if limit := soakPreset(t, preset).PlatoonLimit; limit != soakPlatoonLimit {
 			t.Errorf("%s: platoon limit %d, the platoon arms set %d", preset, limit, soakPlatoonLimit)
 		}
