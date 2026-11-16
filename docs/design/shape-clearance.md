@@ -1,7 +1,7 @@
 # Shape clearance
 
-Status: proposed on 2026-11-15, for the maintainer's approval.
-Revised on 2026-11-16 after an adversarial review (section 9).
+Status: approved on 2026-11-16.
+Proposed on 2026-11-15, and revised on 2026-11-16 after an adversarial review (section 9).
 Nothing in this design is built.
 Code references are for `5fe3cc0b`.
 The code that they name is the same at `623b19ec`.
@@ -753,6 +753,13 @@ Option A of D12 runs the all-pairs audit only in a network that sets `shapeClear
 A network without the field does not change, so option A does not reverse decision D.
 A plain project that sets the field and has a close pair that shares no node is refused.
 Under option B, the design records the same gap that decision D records, and part 4 makes no claim for unaudited networks.
+
+On 2026-11-16, the maintainer chose the recommended option of each decision.
+The rule is the recommended combination: D1-B, D3-A, D5 included, D6-B, and D12-A.
+D2 covers all classes, D4 keeps 20 m along the path, and D7 is the network field `shapeClearance`.
+D8 is a parking comb beside each origin hub, D9 orders the pairs by demand and residuals, and D11 keeps D and adds a shared-track preset.
+For D10, the maintainer asked for both a generator study of the rows at 25 m and the short access lanes, and a design of berths in series.
+The contract amendments of section 5 still need the maintainer's approval before the build.
 
 ### 6.1 Dependencies
 
