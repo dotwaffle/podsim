@@ -639,7 +639,8 @@ B1 does not apply, because the preset has no banks.
 | S5 | Preset name and flags | A: the preset `london-full-shared-express`, with no capacity flags, as D. B: a flag on `london-full` that adds the shared route. | A. The qualification then has one geometry, and the network hash pins it. B lets a user combine the route with other capacity flags, but each combination is a new geometry with no evidence. |
 | S6 | Qualification | A: the SX rows of section 5, in a new contract proposal. B: E1 to E8 extended to name both presets. | A. The evidence of D does not transfer, and new rows keep the approved E rows of D unchanged. B gives fewer rows, but it changes approved contract text for D. |
 
-S1 is decided, and S2 to S6 are open.
+S1 is decided.
+On 2026-11-16, the maintainer chose option A for S2 to S6.
 S4-A needs its own measurement before the preset is final.
 
 ## 7. Test plan and slices
