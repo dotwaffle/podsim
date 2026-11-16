@@ -274,14 +274,24 @@ func addExpressParking(n *sim.Network, classes sim.ClassSet) {
 	depot, _ := n.Station("parking-north")
 	anchor, _ := n.Node(depot.Entry)
 	x, y := anchor.Position.X+300, anchor.Position.Y
+	at := func(along, outward float64) sim.Point { return sim.Point{X: x + along, Y: y - outward} }
+	addExpressComb(n, classes, at, 100, 60)
+}
+
+// addExpressComb adds the Express parking station with 16 berths in a
+// comb. at gives the position of a point from the entry of the station: a
+// distance along the through lane, and a distance outward to the rows. The
+// through lane is two berth lanes long, each berth lane is length meters
+// long, and the rows are pitch meters apart.
+func addExpressComb(n *sim.Network, classes sim.ClassSet, at func(along, outward float64) sim.Point, length, pitch float64) {
 	station := sim.Station{ID: expressParking, Name: "Express Parking", Entry: "xp-entry", Exit: "xp-exit", ParkingOnly: true, VehicleClasses: classes}
-	n.Nodes = append(n.Nodes, sim.Node{ID: station.Entry, Position: sim.Point{X: x, Y: y}}, sim.Node{ID: station.Exit, Position: sim.Point{X: x + 200, Y: y}})
+	n.Nodes = append(n.Nodes, sim.Node{ID: station.Entry, Position: at(0, 0)}, sim.Node{ID: station.Exit, Position: at(2*length, 0)})
 	addExpressLane(n, "xp-through", station.Entry, station.Exit, expressParking, sim.StationThroughRole, "xp-parking", classes)
 	arrival, departure := station.Entry, station.Exit
 	for i := range expressPods {
 		id := fmt.Sprintf("xp-%02d", i+1)
 		for j, suffix := range []string{"-arrival", "-node", "-departure"} {
-			n.Nodes = append(n.Nodes, sim.Node{ID: id + suffix, Position: sim.Point{X: x + float64(j)*100, Y: y - float64(i+1)*60}})
+			n.Nodes = append(n.Nodes, sim.Node{ID: id + suffix, Position: at(float64(j)*length, float64(i+1)*pitch)})
 		}
 		station.Berths = append(station.Berths, sim.Berth{ID: id, Node: id + "-node", SeparationGroup: "xp-parking", VehicleClasses: classes})
 		addExpressLane(n, id+"-arrival-link", arrival, id+"-arrival", expressParking, sim.StationBerthAccessRole, "xp-parking", classes)

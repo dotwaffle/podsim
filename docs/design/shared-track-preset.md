@@ -729,6 +729,99 @@ The bound of the whole network grows with each curved lane near a large lane any
 The small-pod rules show this: with them, the bound of the whole network is 16.20 m, and the audit refuses 4 pairs, 2 under 4.0 m.
 So the fallback cannot close the small-pod gaps of section 3.1 without new refusals.
 
+### 3.7 Express parking site
+
+This section measures the site of S4-A for slice 3 of section 7.
+The measurements are at `c63a5741`, on the preset of slice 2 (network SHA-256 `4e8503da...`), with a comb and 16 Express pods added.
+They come from a scratch probe that is not in the repository.
+On 2026-11-16, the maintainer accepted parts of 41 m in place of the 40 m of D8-A, asked for the two wedges W1 and W2, and chose P4 when no wedge passed.
+
+The comb is the parking of D (`addExpressParking`), with each part at 41 m: 16 rows, a through lane of 82 m, and berth lanes and row links of 41 m.
+Its footprint is 82 m by 656 m.
+With parts of 40 m, project validation refuses the project: `lane "xp-01-out" must be at least 40 meters long`.
+The station is `express-parking`, parking only, Express only, in the separation group `xp-parking`, with the 16 Express pods at `xp-01` to `xp-16`.
+Two lanes connect it, `express-parking-road-in-01` to its entry and `express-parking-road-out-01` from its exit.
+Each road has its own separation group and the roles approach and exit, and the two roads do not cross.
+
+The heading is the direction in which the rows follow each other from the through lane.
+Waterloo has its junction center at (901, 456), and its berth rows go from y = 325 to y = 120 at a heading of -90 degrees.
+Link 100 leaves Waterloo at a heading of -32.6 degrees.
+
+The connections:
+
+- Chain: from the arrival node of the last Waterloo berth, `940GZZLUWLO-05`, and to its departure node.
+- Portal, as a London Parking facility: from the arrival portal of link 100 at Waterloo, and to its departure portal.
+- Reversed portal: from the departure portal of link 100 at Waterloo, and to its arrival portal.
+
+| Candidate | Entry | Exit | Heading | Connection | Validation | Refusals | Shape pairs | Layout audit, hard | Tail warnings | Parking gaps |
+| --- | --- | --- | ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| P1 | (942.0, 79.0) | (860.0, 79.0) | -90 | Chain | Valid | 0 | 38 | 137 | 1 | 0 |
+| P2 | (1023.5, 73.6) | (976.5, 6.4) | -35 | Chain | Valid | 0 | 38 | 0 | 1 | 0 |
+| P3 | (976.5, 6.4) | (1023.5, 73.6) | -35 | Portal | Valid | 0 | 41 | 1 | 1 | 0 |
+| P4 | (1023.5, 73.6) | (976.5, 6.4) | -35 | Reversed portal | Valid | 0 | 47 | 1 | 1 | 0 |
+| W1 | (805.9, 168.0) | (732.1, 204.0) | -116 | Reversed portal | Refused | 4 | 50 | 17 | 1 | 0 |
+| W2 | (1307.7, 344.3) | (1278.3, 267.7) | -21 | Reversed portal | Valid | 0 | 45 | 102 | 1 | 0 |
+
+Express route lengths in meters, from the node of `xp-01` and to it, with the node of the first berth of each hub:
+
+| Candidate | To Waterloo | From Waterloo | To Bank | From Bank |
+| --- | ---: | ---: | ---: | ---: |
+| P1 | 4,858.5 | 4,858.5 | 2,626.0 | 2,560.6 |
+| P2 | 4,980.2 | 4,911.2 | 2,747.6 | 2,613.3 |
+| P3 | 4,824.6 | 4,929.8 | 2,592.1 | 2,631.8 |
+| P4 | 654.0 | 693.0 | 2,951.9 | 2,925.6 |
+| W1 | 543.4 | 634.8 | 2,841.4 | 2,867.3 |
+| W2 | 615.0 | 681.5 | 2,912.9 | 2,914.0 |
+
+Details:
+
+- Validation is `projectcheck` with the 16 Express pods.
+  Each candidate has 343 pods and 9,089 lanes.
+  W1 is refused with its first refusal, `nonincident paths "express-parking-road-out-01" and "express-parking-road-in-01" are less than 20 meters apart`.
+- The refusals and the shape pairs are from the audit copy of section 8 with the index of the code.
+  `ValidateBankGeometry` refuses no pair of P1 to P4 and W2.
+- The tail warning of each candidate is the warning of section 3.5 for `940GZZLUBNK-move-08-02`.
+- P1 continues the axis of the Waterloo rows.
+  From row 10, the comb crosses link 182 and Temple: the first hard conflict is `lane "xp-10-out" crosses guideway "london-link-182-ab-2"`, and the audit gives 137 hard conflicts and 1 soft conflict.
+- P3 and P4 have one hard conflict each: `940GZZLUWLO-road-in-05`, with the curve of section 3.3, crosses the road of the comb that starts or ends at the arrival portal.
+  The London layout audit exempts a crossing of two roads only for a Parking facility of `londonParkingFacilities` and its gateway station.
+- With a chain, a pod at a Waterloo berth reaches the comb only through Bank, and a pod in the comb reaches a Waterloo berth only through Bank.
+  The arrival row of Waterloo is the way into the comb, and the departure row is the way out.
+- With the portal of P3, a pod reaches Waterloo through Bank.
+  With the reversed portal of P4, a pod reaches Bank through the through lane of Waterloo.
+- P2, P3, and P4 use one site at a heading of -35 degrees, between the Waterloo rows and link 100.
+- W1 is in the wedge between link 183 and the Waterloo rows, on the middle of the wedge, 300 m from the junction center.
+  From row 9, the comb crosses link 182, and the audit gives 17 hard conflicts.
+  Its 4 refusals are its two roads, 1.70 m apart, its road out with `road-in-03` and `road-in-04`, 4.50 m and 4.82 m, and its road in with `london-link-100-ab-2`, 0.00 m.
+  With the entry and the exit the other way round, validation refuses `express-parking-road-in-01` and `940GZZLUWLO-move-01-05`, and the layout audit gives 16 hard conflicts.
+- W2 is in the wedge between link 100 and link 350, on the middle of the wedge, 420 m from the junction center.
+  The comb reaches Southwark: the first hard conflict is `lane "940GZZLUSWK-access-in" is nearer than 36 meters to Express Parking lane "xp-06-arrival-link"`, and the audit gives 102 hard conflicts.
+  At 250 m from the junction center, the comb crosses link 100 and link 350, with 102 hard conflicts.
+  At both distances, with the entry and the exit the other way round, the two roads cross.
+- Other headings in the three wedges are not measured.
+
+No candidate passes with no refusal, no hard layout conflict, and no rule that the designs leave open:
+
+- The designs do not give the connection of the comb to the hub.
+  D8-A gives the comb, and section 2.8 of the shape clearance design measured it in place of the parking of D, with its trunks.
+- P2 passes each audit, but it uses the berth rows of Waterloo as the way to another station.
+  Then a pod on the arrival row can leave Waterloo through the comb with no stop at a Waterloo berth, against the comment of `entersBerth` (`internal/sim/parking.go`) that each way out of a station from its berth access lanes goes through a berth.
+  An Express pod in the comb also needs about 5.0 km to start at Waterloo.
+- P4 is the only candidate with a short route to Waterloo.
+  It needs the comb as a Parking facility of Waterloo in the layout audit, or a change to the curve of `road-in-05`, and it gives each link 100 portal at Waterloo a second lane.
+- The comb needs parts of 41 m, not the 40 m of D8-A.
+
+The choice, by the maintainer on 2026-11-16: P4, with the comb as a Parking facility of Waterloo in the layout audit of the preset only (`sharedTrackLayoutInput`), and with no change to the curve of `road-in-05`.
+The exemption is that of the London Parking facilities: two roads of the facility and of its gateway station can cross.
+The audit input of each other London preset does not change.
+The preset of slice 3 (`addSharedTrackParking`) gives these results:
+
+- Network SHA-256 `652d75eb86ce9badf1f310a7a3744c1bc26425abbe4c4d7dcc231864255d23d5`, with 5,790 nodes, 9,089 lanes, and 343 pods.
+- The construction before the parking keeps the network SHA-256 `4e8503da...` of section 3.5.
+- No refusal and 47 shape pairs, the tail warning of section 3.5, and no parking gap.
+- The layout audit of the preset finds no conflict.
+  Without the Parking facility entry, it finds the one hard conflict of P4.
+
 ## 4. The preset
 
 | Item | Value |
@@ -738,7 +831,7 @@ So the fallback cannot close the small-pod gaps of section 3.1 without new refus
 | Network | `shapeClearance` set. The classes Legacy, Compact, and Express on the route lanes, on each lane of the two hubs except the roads off the route, and on the hubs and their berths. The changes of section 3.5. |
 | Order contract | `express-v1` |
 | Services | `xs-WLO-BNK` and `xs-BNK-WLO`, party limit 20, as in D |
-| Express fleet | 16 Express pods, as in D, in the parking of decision S4 |
+| Express fleet | 16 Express pods, as in D, in the parking of decision S4 (section 3.7) |
 | Flags | None. The capacity flags do not apply, as for D, so the geometry of the qualification does not change. |
 
 The builder is a function in `internal/scenarios` that changes a LondonFull project, as `londonFullExpress` changes the base of D.
@@ -751,7 +844,7 @@ Differences:
 | --- | --- | --- | --- |
 | Stations | Tight | Wide, scale 1, two banks at each hub | Tight, the two hubs at 41 m parts |
 | Express track | None | Dedicated trunks, gate stubs, a bend at Bank | Link 100, shared with Compact pods |
-| Express parking | None | `express-parking`, 6.8 km from Waterloo | Decision S4 |
+| Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo (section 3.7) |
 | `shapeClearance` | Not set | Not set | Set |
 | `lateralMerges` | Set | Not set | Set, with no further effect |
 | Junction lanes | All chords | All chords | Two chords removed |
@@ -800,6 +893,7 @@ B1 does not apply, because the preset has no banks.
 S1 is decided.
 On 2026-11-16, the maintainer chose option A for S2 to S6.
 S4-A needs its own measurement before the preset is final.
+Section 3.7 gives it, and on 2026-11-16 the maintainer chose the site P4.
 
 ## 7. Test plan and slices
 
@@ -897,6 +991,7 @@ Slices:
    Built on 2026-11-16, with the Express services and no Express pods until slice 3.
 3. `scenarios`: the Express parking of S4, with its site measured by the layout audit and the bank audit.
    The test that pins the network hash of the preset comes after this slice, and so does the qualification evidence.
+   Built on 2026-11-16, with the site P4 of section 3.7.
 4. Done in this revision: the study tests of section 8.
 5. `docs`: `docs/reference.md`, `docs/london-full.md`, `docs/operations.md` for the soak presets, and the build record of this design.
 6. The contract proposal of section 5, after approval, and then the evidence of each row.
@@ -939,7 +1034,7 @@ The tests on the tight input take about 80 s.
   The measurements are static: the audit, preparation, the layout audit, project validation, and the containment of poses.
   `Check`, the D6 oracle, and the effect on wait and journey times need slices 2 and 6.
   The small-pod rules add planes to the envelope of a small pod, so `Check` can test more pairs by distance, and that effect is not measured.
-- The site of the Express parking of S4-A is not measured, and its large lanes can add refusals.
+- The Express parking of S4-A needs a Parking facility entry in the layout audit of the preset, because its road crosses the curved `road-in-05` (section 3.7).
 - A1 is a rule of the model, and no code checks it.
   A1 also assumes that the vertical gap between two levels is enough for each admitted body.
 - The proof covers a body inside the disk of radius 5.404 m for a large pod and 4.7269 m for a small pod.

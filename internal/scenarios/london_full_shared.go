@@ -58,19 +58,110 @@ var sharedTrackRoute = []string{
 // Express preset without a cache. It is decision D11 of the shape
 // clearance design: LondonFull with Express on the main-line track of link
 // 100 between Waterloo and Bank, shared with Compact pods, and with the
-// network field ShapeClearance set. The fleet has no Express pods until
-// the Express parking of decision S4 of the shared-track design.
+// network field ShapeClearance set. Its 16 Express pods start in the
+// Express parking of decision S4 beside Waterloo.
 func GenerateLondonFullSharedExpress() (project.Config, error) {
 	config, err := GenerateLondonFull()
 	if err != nil {
 		return project.Config{}, err
 	}
-	return londonFullSharedExpress(config, sharedTrackPresetGeometry())
+	return londonFullSharedExpressPreset(config)
+}
+
+// londonFullSharedExpressPreset returns the preset from c, which is a
+// LondonFull project that the caller owns. It adds the shared route and
+// the Express parking, and it runs the layout audit of the preset.
+func londonFullSharedExpressPreset(c project.Config) (project.Config, error) {
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		return project.Config{}, err
+	}
+	c, err = londonFullSharedExpress(c, sharedTrackPresetGeometry())
+	if err == nil {
+		err = addSharedTrackParking(&c, sharedTrackPresetParking())
+	}
+	if err == nil {
+		err = layoutError(c.Network, auditLondonLayout(c.Network, sharedTrackLayoutInput(source)))
+	}
+	if err != nil {
+		return project.Config{}, err
+	}
+	return c, nil
+}
+
+// sharedTrackLayoutInput returns the input of the London layout audit for
+// the preset. The Express parking is a Parking facility of Waterloo, so
+// that its road from the comb to the arrival portal of link 100 can cross
+// the curved Waterloo road-in-05 (section 3.7 of the design).
+func sharedTrackLayoutInput(source londonSource) londonAuditInput {
+	input := newLondonAuditInput(source)
+	input.gateways[expressParking] = expressWaterloo
+	return input
+}
+
+// The portals of link 100 at Waterloo.
+const (
+	sharedTrackArrivalPortal   = "london-link-100-b-arrival"
+	sharedTrackDeparturePortal = "london-link-100-b-departure"
+)
+
+// sharedTrackParking holds the site of the Express parking comb.
+type sharedTrackParking struct {
+	// center is the middle of the entry and the exit of the comb.
+	center sim.Point
+	// heading is the direction, in degrees, in which the rows follow each
+	// other from the through lane.
+	heading float64
+	// part is the length of each berth lane and row link, and the pitch
+	// of the rows.
+	part float64
+}
+
+// sharedTrackPresetParking returns the site P4 of section 3.7 of the
+// design: between the Waterloo rows and link 100, with the rows at a
+// heading of -35 degrees. A part of 40 m gives lanes that project
+// validation refuses by rounding, so 41 m is the value.
+func sharedTrackPresetParking() sharedTrackParking {
+	return sharedTrackParking{center: sim.Point{X: 1000, Y: 40}, heading: -35, part: 41}
+}
+
+// addSharedTrackParking adds the Express parking comb, its two roads, and
+// the Express pods to c. A pod from Waterloo reaches the comb from the
+// departure portal of link 100, and a pod from the comb reaches Waterloo
+// from the arrival portal.
+func addSharedTrackParking(c *project.Config, parking sharedTrackParking) error {
+	express, err := sim.NewClassSet("express")
+	if err != nil {
+		return err
+	}
+	n := &c.Network
+	for _, id := range []string{sharedTrackArrivalPortal, sharedTrackDeparturePortal} {
+		if _, ok := n.Node(id); !ok {
+			return fmt.Errorf("unknown node %q", id)
+		}
+	}
+	heading := parking.heading * math.Pi / 180
+	outward := sim.Point{X: math.Cos(heading), Y: math.Sin(heading)}
+	along := sim.Point{X: outward.Y, Y: -outward.X}
+	entry := sim.Point{X: parking.center.X - parking.part*along.X, Y: parking.center.Y - parking.part*along.Y}
+	at := func(a, o float64) sim.Point {
+		return sim.Point{X: entry.X + a*along.X + o*outward.X, Y: entry.Y + a*along.Y + o*outward.Y}
+	}
+	addExpressComb(n, express, at, parking.part, parking.part)
+	station, _ := n.Station(expressParking)
+	in, out := expressParking+"-road-in-01", expressParking+"-road-out-01"
+	addExpressLane(n, in, sharedTrackDeparturePortal, station.Entry, expressParking, sim.StationApproachRole, in, express)
+	addExpressLane(n, out, station.Exit, sharedTrackArrivalPortal, expressParking, sim.StationExitRole, out, express)
+	for i := range expressPods {
+		c.Fleet = append(c.Fleet, sim.Placement{ID: fmt.Sprintf("express-%02d", i+1), Class: sim.ExpressClass, StationID: expressParking, BerthID: fmt.Sprintf("xp-%02d", i+1)})
+	}
+	return nil
 }
 
 // londonFullSharedExpress adds the shared route, the geometry changes, and
 // the Express services to c, which is a LondonFull project that the caller
-// owns.
+// owns. It adds no Express pod: its network is that of variant 3.5 of the
+// shared-track study.
 func londonFullSharedExpress(c project.Config, geometry sharedTrackGeometry) (project.Config, error) {
 	mixed, err := sim.NewClassSet("legacy", "compact", "express")
 	if err != nil {
