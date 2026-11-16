@@ -55,10 +55,11 @@ func callers(t *testing.T, directory, name string) []string {
 // walks each curved lane. Prepare builds one index for each network. The
 // fallback of routeBlocks serves a simulation with no prepared indexes, each
 // of the other entries serves a caller with no prepared network, and
-// LaneTailsForTest is the entry of the tail gates.
+// LaneTailsForTest is the entry of the tail gates. newBankAudit serves
+// ValidateBankGeometry and BankGeometryShapePairs.
 func TestOneTailIndex(t *testing.T) {
 	t.Parallel()
-	want := []string{"LaneTailOverruns", "LaneTailsForTest", "NewLaneClearance", "ValidateBankGeometry", "prepareNetworkTails", "routeBlocks"}
+	want := []string{"LaneTailOverruns", "LaneTailsForTest", "NewLaneClearance", "newBankAudit", "prepareNetworkTails", "routeBlocks"}
 	if got := callers(t, ".", "indexGeometryTails"); !slices.Equal(got, want) {
 		t.Fatalf("indexGeometryTails callers = %v, want %v", got, want)
 	}

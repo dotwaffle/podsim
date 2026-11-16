@@ -47,6 +47,31 @@ type bankAudit struct {
 // classes, maneuver groups or depots. Shared endpoints remain subject to
 // ordinary junction resource control.
 func (n Network) ValidateBankGeometry() error {
+	audit, err := n.newBankAudit()
+	if err != nil {
+		return err
+	}
+	return n.validateBankGeometry(audit)
+}
+
+// BankGeometryShapePairs is ValidateBankGeometry that also returns the
+// number of shape pairs of a network that sets ShapeClearance (see
+// shapePairs). The count is zero when the audit returns an error.
+func (n Network) BankGeometryShapePairs() (int, error) {
+	audit, err := n.newBankAudit()
+	if err != nil {
+		return 0, err
+	}
+	shapes, err := n.auditBankGeometry(audit)
+	if err != nil || shapes == nil {
+		return 0, err
+	}
+	return len(shapes.pairs), nil
+}
+
+// newBankAudit returns the indexes of the network that the bank audit
+// reads.
+func (n Network) newBankAudit() (bankAudit, error) {
 	var audit bankAudit
 	var tails map[string]geometryTails
 	if n.ShapeClearance || n.hasStationBanks() || len(n.ManeuverGroups) > 0 || len(n.Depots) > 0 {
@@ -57,26 +82,26 @@ func (n Network) ValidateBankGeometry() error {
 	if len(n.Depots) > 0 {
 		nodes, err := n.validateNodes()
 		if err != nil {
-			return err
+			return bankAudit{}, err
 		}
 		if audit.depots, err = newDepotIndex(n, nodes); err != nil {
-			return err
+			return bankAudit{}, err
 		}
 		audit.lateral = newDepotLateral(n, audit.depots, tails, indexBerthKeys(n))
 	}
 	if len(n.ManeuverGroups) > 0 {
 		nodes, err := n.validateNodes()
 		if err != nil {
-			return err
+			return bankAudit{}, err
 		}
 		if audit.maneuvers, err = newManeuverIndex(n, nodes); err != nil {
-			return err
+			return bankAudit{}, err
 		}
 		if audit.certified, err = certifyManeuvers(n, audit.maneuvers, indexBerthKeys(n)); err != nil {
-			return err
+			return bankAudit{}, err
 		}
 	}
-	return n.validateBankGeometry(audit)
+	return audit, nil
 }
 
 // validateBankGeometry is auditBankGeometry with no shape pairs in the

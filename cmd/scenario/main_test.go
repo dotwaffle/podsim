@@ -158,7 +158,8 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 // Without -parking-berths, -parking-lanes 0 gives the ordinary facilities
 // their own berth count.
 // TestRunPresetsTurnOnPolicies pins redistribution and pickup reassignment in
-// the output of each preset name, also the fixtures of this command.
+// the output of each preset name, also the fixtures of this command. It
+// also checks that only london-full-shared-express sets ShapeClearance.
 func TestRunPresetsTurnOnPolicies(t *testing.T) {
 	t.Parallel()
 	for _, preset := range presets {
@@ -167,6 +168,9 @@ func TestRunPresetsTurnOnPolicies(t *testing.T) {
 			config, _ := generate(t, "-preset", preset)
 			if !config.Redistribution || !bool(config.PickupReassignment) {
 				t.Fatalf("redistribution %t, pickup reassignment %t, want on", config.Redistribution, config.PickupReassignment)
+			}
+			if want := preset == "london-full-shared-express"; config.Network.ShapeClearance != want {
+				t.Fatalf("ShapeClearance %t, want %t", config.Network.ShapeClearance, want)
 			}
 		})
 	}
@@ -503,6 +507,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "station scale for a ring", arguments: []string{"-preset", "busy", "-station-scale", "0.5"}, err: "-station-scale applies only to the London presets"},
 		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
+		{name: "station scale for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-wide-stations", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 		{name: "junctions for a ring", arguments: []string{"-preset", "busy", "-junctions", "ramps"}, err: "-junctions applies only to the London presets"},

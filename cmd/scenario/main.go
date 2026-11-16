@@ -22,7 +22,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "london-full-express", "independent-banks", "compact-station"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "london-full-express", "london-full-shared-express", "independent-banks", "compact-station"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -162,7 +162,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
-	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset"}
+	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset", "london-full-shared-express": "LondonFull Shared Express preset"}
 	if fixture, ok := fixtures[name]; ok {
 		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "lateral-merges", "wide-stations"} {
 			if options.set[key] {
@@ -175,6 +175,9 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	if name == "london-full-express" {
 		return scenarios.GenerateLondonFullExpress()
+	}
+	if name == "london-full-shared-express" {
+		return scenarios.GenerateLondonFullSharedExpress()
 	}
 	if name == "independent-banks" {
 		config := project.Default()
@@ -434,7 +437,7 @@ func writeSummary(stderr io.Writer, preset string, config project.Config, size i
 	switch preset {
 	case "london-central":
 		soft, err = scenarios.LondonCentralSoftConflicts(config.Network)
-	case "london-full", "london-full-express":
+	case "london-full", "london-full-express", "london-full-shared-express":
 		soft, err = scenarios.LondonFullSoftConflicts(config.Network)
 	}
 	if err != nil {

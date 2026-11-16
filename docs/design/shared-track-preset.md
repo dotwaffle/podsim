@@ -894,6 +894,7 @@ Slices:
 0. An amendment proposal for the approved texts of section 3.1, for maintainer approval.
 1. `sim`: the index for each lane, compiled at preparation, the oracle that reads it, and the small-pod rules, in the oracle and in the reference construction behind the field, with the tests and mutations above.
 2. `scenarios`: the preset builder, the `cmd/scenario` preset, and tests that pin the audit result and the unchanged hashes of LondonFull and D.
+   Built on 2026-11-16, with the Express services and no Express pods until slice 3.
 3. `scenarios`: the Express parking of S4, with its site measured by the layout audit and the bank audit.
    The test that pins the network hash of the preset comes after this slice, and so does the qualification evidence.
 4. Done in this revision: the study tests of section 8.
