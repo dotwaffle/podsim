@@ -209,8 +209,11 @@ The changed oracle holds a lane M ahead when the route distance from x to the st
 #### Axiom A1
 
 The maintainer accepted A1 as a stated rule of the model on 2026-11-16.
+A1 applies only when the network sets `shapeClearance`.
+A network without the field, project D included, keeps its envelope and the requirements of that envelope.
 
-A1: when every lane under one body is in a different separation group from every lane under the other body, and no lane under one shares a node with a lane under the other, the bodies do not overlap.
+A1: two bodies do not overlap when each lane under each body has a nonempty separation group, each lane under one body is in a different group from each lane under the other body, and no lane under one shares a node with a lane under the other.
+This is the test of `safetyLocationsSeparated` (`internal/sim/safety.go:347`), applied to each cross pair of the lanes under the two bodies.
 
 The network stores no level.
 "Different groups declare that unrelated paths can cross at different physical levels" ([London](../london.md), lines 135 to 137).
@@ -229,7 +232,7 @@ If it is on a plane that is not separated from the support, the oracle tests the
 The counterexample of the review (section 10, item 1) is not a plane under the body.
 There, a straight lane L ends 40 m ahead of the reference, the next lane turns back, and its To node Q is next to the pod in plan.
 The support is in L, because it ends r ahead of x on a straight lane.
-A lane out of Q in another group is on another level under A1, and a small pod on L is exempt against it today at any plan distance.
+When L and a lane out of Q have nonempty groups that differ, the lane out of Q is on another level under A1, and a small pod on L is exempt against it today at any plan distance.
 The built oracle holds that plane only when a lane of the route has a front of 40 m or more.
 So the bound of the whole network holds it only by over-approximation.
 
