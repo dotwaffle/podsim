@@ -147,6 +147,7 @@ The envelope of the oracle also holds the small pod of a mixed pair, so the prob
 The probe takes the front bound of a lane from that lane only, while the envelope takes the largest front bound of the route.
 It also adds the lanes of one node back only.
 On the measured routes, no lane is curved and each tail is 20 m, which is shorter than each lane, so these limits do not change a count (inferred).
+The built envelope reach index takes the largest front bound of the network for each lane, and that changes the counts (section 2.2, "Counts of the built audit").
 
 | Pair | Route, each way | Stations passed | Whole reach, 20 m (today) | Whole reach, 12 m | Envelope reach, 20 m | Envelope reach, 12 m | Body reach, 20 m | Body reach, 12 m | Lane plane, 20 m or 12 m |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -213,6 +214,20 @@ On Waterloo and Bank, the 13 envelope residuals under 9.31 m are these:
   `940GZZLUWLO-move-05-05` is 2.24 m from `london-link-100-ba-1`.
   `london-link-098-ab-1` is 2.50 m from `940GZZLUBNK-road-in-08` and 3.47 m from `940GZZLUBNK-access-in`.
 - From 4.0 m to 9.31 m: 6 more pairs at Waterloo and 2 at Bank, from 4.55 m to 9.27 m.
+
+Counts of the built audit: the built audit gives higher counts than this section on Waterloo and Bank.
+On the tight LondonFull network, the variant of section 2.11 with `shapeClearance` gives 40 shape pairs and 14 refusals.
+10 of the refusals are under 4.0 m.
+The wide network gives the same counts.
+Each refusal is a reach refusal whose body sweep finds a collision.
+No refusal includes a berth or a berth link.
+The difference comes from the front reach.
+The study probe takes the front bound of each lane, which is 6 m on this route.
+The envelope reach index takes the largest front bound of the network, which is 66.42 m on LondonFull, from the curved lane `940GZZLUWLO-move-05-01`.
+With a front reach of 6 m, the audit gives 7 refusals: the 5 pairs under 4.0 m of this section, and 2 pairs at 4.55 m and 6.26 m.
+The longer front reach adds 7 refusals at the two portals of link 100, and 5 of them are under 4.0 m.
+On project D, the Waterloo b bank takes the road to link 100, so the route runs 3,547 m through 5 stations.
+There, the study probe gives 18 pairs under 4.0 m, and the audit gives 28 refusals, 24 of them under 4.0 m.
 
 ### 2.3 Each hub alone
 
