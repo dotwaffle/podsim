@@ -1,9 +1,10 @@
 # Draft: evidence of the Express shared-track qualification
 
-Status: draft of slice 6a, for maintainer review.
+Status: draft of slices 6a and 6b, for maintainer review.
 The maintainer moves this text into the "Evidence" section of the [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md).
 The evidence was built on commit base `38b1d03e`, with the changes of slice 6a not yet committed.
 This slice covers SX1, SX2, SX3, SX4, SX5, SX6 except the browser checks, SX8, SX9 except the browser check, and SX13.
+Slice 6b covers SX7, SX10, SX11, and SX12, on commit base `2c20743a` with the changes of slice 6b not yet committed.
 
 | Row | Status |
 | --- | --- |
@@ -11,7 +12,10 @@ This slice covers SX1, SX2, SX3, SX4, SX5, SX6 except the browser checks, SX8, S
 | SX6 | Go client evidence complete. Open: the WASM client and the desktop Chrome check, which the maintainer does. |
 | SX8 | Evidence complete, except history rollover, which the preset geometry cannot reach (see SX8). |
 | SX9 | Fault, Dwell, and Restore and stream evidence on the preset. Open: the browser game page, which the maintainer checks. |
-| SX7, SX10, SX11, SX12 | Open. SX7 includes a browser check by the maintainer. |
+| SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
+| SX10 | Evidence complete on the preset. |
+| SX11 | CI case complete. Open: the release soak, until a release tag. |
+| SX12 | Performance timed runs recorded beside D. Open: sampled-tick and choice-tick latency, and the worst-case Performance measurements, because their fixtures hold neither D nor the preset. |
 
 ## Fixture
 
@@ -211,6 +215,111 @@ The route caps of the proofs, `MaxSavedRouteLanes` and `MotionRouteLimit`, are 1
   It requires the pod with its activity in the frame that each of the two gives, and it requires full frame and delta coverage of each activity apart.
   An Express pod has no Continuing activity on the preset, because it has no intermediate stop.
 - Open: the browser game page, which the maintainer checks.
+
+### SX7, Resource and consumer cost
+
+The server measurement uses the method of the E7 record of D.
+Each run started `serve` from a project file with background demand on (10 orders/min, seed 20260929), with GOMAXPROCS 4.
+One Go client (`internal/remote`) read the stream through a proxy that counted the bytes from the server.
+The client set speed 60, and the run measured 60 s of wall time from 2 s after that command.
+Server CPU is the user and system time of the server process in the 60 s, and GC cycles are the `gctrace` lines in the 60 s.
+Peak RSS is `VmHWM` at the end of the run, so it includes the project load.
+Each case ran twice, the second time in the reverse order, on 2026-11-16, with no `nice`, at a host load average of 2.7 to 8.3 from other work.
+The scratch harness is not in the repository.
+The fourth case is the preset with its 16 Express pods removed from the fleet, and `projectcheck` reports it valid with 327 pods.
+
+| Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ordinary LondonFull | 60.0, 60.0 | 15.2 s, 14.9 s | 14, 14 | 280 MiB, 279 MiB | 125 kB/s |
+| D | 60.0, 59.9 | 16.0 s, 18.5 s | 16, 16 | 263 MiB, 264 MiB | 136 kB/s |
+| The preset | 60.1, 60.0 | 18.3 s, 17.3 s | 13, 13 | 314 MiB, 311 MiB | 126 kB/s |
+| The preset without Express pods | 60.1, 60.0 | 18.3 s, 18.2 s | 13, 13 | 309 MiB, 309 MiB | 127 kB/s |
+
+Each case kept speed 60.
+The preset costs about 18 percent more server CPU than ordinary LondonFull, and about the same as D, within the spread of the runs.
+Its 16 Express pods add no measurable CPU, GC, or stream rate.
+The peak RSS of the preset is about 33 MiB above LondonFull and about 49 MiB above D.
+The readings of LondonFull and D do not match the record of D of November 8, 2026: the CPU is about 35 percent lower, the GC count of LondonFull is 14 and not 57, and the peak RSS of LondonFull is about 55 MiB higher.
+The code changed after that record, and the harness is a new copy of the method, so compare these rows with each other and not with the record of D.
+The runs had no hub parties.
+Retained frames, decoded client memory, and browser responsiveness are the maintainer's Chrome check, and they stay open.
+
+### SX10, the London soak row
+
+- `london-full-shared-express` is a named project of the soak (`PODSIM_SOAK_PRESETS`), with the shape of D: the arms `incidents`, `emergencies`, and `incidents-low-demand` with 3 branches each, and the references `reference` and `reference-low-demand`.
+  Each arm has a warm save at 30 simulated minutes, and each branch runs one simulated hour, the clear, and 30 more minutes, with a rewind every 10 simulated minutes.
+  The driver sends the hub parties of D between Waterloo and Bank, three in four outbound, and one a minute in the low-demand arms.
+- The checks are the A10 checks at the stride of A10, with rule A and A13.
+  The D6 oracle ran at each tick of each checked branch, 165,691 to 165,896 times in a branch.
+- The row ran on 2026-11-16 by itself, as `mise run soak` runs it, with 3 runs at a time, under `nice`, at a host load average of 4.7 at the start and up to 14 from other work.
+  It passed in 786 s of wall time.
+- No branch had a check failure, a demoted save, a late record, or a refused hub party.
+  Each branch saved one time and restored at the physical tier, and made 6 rewinds.
+- The peak load was 20 riders in each branch and each reference.
+  Faults on pods with standees were in 2 branches of `incidents`, and emergencies on pods with standees in 6 of the 9 branches.
+- The refused incident command was one emergency on a pod that already had one, in branch 3 of `incidents-low-demand`.
+  The soak of D had the same refusal.
+- The longest record not blocked by a fault was 530.4 s, in branch 1 of `incidents-low-demand`.
+  One record, in branch 1 of `incidents`, ended longer than the limit in total time, and rule A did not count it late.
+- The reference queue was 31 to 95 at preset demand and 0 to 7 at low demand, under the cap of 200, so the queue check after the clear can fail.
+  The longest settle time after the clear was 526 s, in branch 2 of `incidents`.
+
+| Arm | Wall time of a branch | Faults | Emergencies | Accepted hub parties |
+| --- | ---: | ---: | ---: | ---: |
+| `incidents` | 325 to 360 s | 27 to 35 | 18 to 21 | 230 to 256 |
+| `emergencies` | 208 to 218 s | 0 | 15 to 22 | 230 to 256 |
+| `incidents-low-demand` | 97 to 100 s | 27 to 36 | 13 to 15 | 51 to 62 |
+
+### SX11, the CI soak and the release soak
+
+- `TestIncidentSoakCI` has a subtest for the preset, `london-full-shared-express`, beside `rail-hub` and D, so `mise run qualify` runs it in CI.
+  It runs a reference hour and a checked hour, each with the clear of 30 minutes.
+  Only the checked hour and its clear run the full check and the D6 oracle at each tick.
+  The reference hour runs neither.
+- On a project that sets `shapeClearance`, each check of the soak driver now also runs the D6 oracle (`LateralBodyCheckForTest`).
+  The checks run at each tick, so the D6 oracle runs at each tick.
+  The CI case requires at least one run of the D6 oracle for each tick.
+- `TestSoakLondonSharedExpressDriver` runs a short soak of the preset with the checks, and requires the same count.
+  The task `test:shared-express` runs it.
+- The subtest ran once by itself on 2026-11-16, under `nice`, at a host load average of 3.8 to 5.6, and passed in 268 s of wall time.
+  The reference run took 32 s for 162,000 ticks.
+  The checked run took 228 s, 710 ticks a second, with 162,848 full checks and 162,848 runs of the D6 oracle.
+  It had 6 faults, 2 emergencies, 1 save with no demotion, 1 rewind, and no late record.
+  The driver accepted 245 hub parties and refused none, the peak load was 20, and one emergency was on a pod with standees.
+- The D case took 435 s in its pilot of November 8, 2026, so the qualify job grows by about 270 s at most, because the subtests run in parallel.
+- The release soak is `mise run soak:full`, and its default presets now include the preset.
+  On the preset, a seed runs `incidents` and `emergencies` with the full check at each tick, and `reference` with no check, each for 6 simulated hours and the clear of 30 minutes.
+  This is a per-seed extrapolation from the wall time of the CI case.
+  At those rates, a checked arm takes about 990 s and the reference about 140 s, so the arms of one seed take about 35 minutes one after another.
+  The task shares 3 run slots across 5 seeds and its other presets, so the wall time of a whole release run is not verified, and it can reach the 2-hour limit of the task with seeds not complete.
+  This slice did not run the release soak, because the host load average rose to about 14 from other work after the soak row.
+  The release soak of the preset stays open until a release tag.
+
+### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
+
+- The record of D has no measurement of A17.
+  So `TestIncidentSoakTimed` ran D and the preset in the same session, with `PODSIM_SOAK_GATE=1`, at 3 seeds of 0.1 simulated hours and the clear.
+  The runs had no `nice`, and the host load average was 0.9 to 1.5.
+
+| Preset and seed | Median | Reference median | Slowest | Reference slowest | Gate |
+| --- | ---: | ---: | ---: | ---: | --- |
+| D, seed 1 | 97.9 µs | 96.5 µs | 8.75 ms | 8.40 ms | Passes |
+| D, seed 2 | 102.6 µs | 90.4 µs | 9.87 ms | 6.38 ms | Misses the median rule, 13.5 percent |
+| D, seed 3 | 106.8 µs | 99.1 µs | 11.44 ms | 6.39 ms | Passes |
+| The preset, seed 1 | 76.6 µs | 74.1 µs | 6.29 ms | 6.25 ms | Passes |
+| The preset, seed 2 | 77.8 µs | 75.3 µs | 5.60 ms | 4.41 ms | Passes |
+| The preset, seed 3 | 82.4 µs | 80.2 µs | 7.57 ms | 5.41 ms | Passes |
+
+- Each median of the preset is at most 3.4 percent above its reference, and each slowest tick is at most 1.40 times its reference.
+- D seed 2 missed the median rule of 10 percent in each of 3 runs, at 10.8 to 13.5 percent, and the other D seeds passed each time.
+  The changes of this slice do not change the path of D.
+  The same run at commit `5d8afa00`, before the D11 build, also fails seed 2, by 11.8 and 10.8 percent, so the miss predates the build.
+  The reproducer is `PODSIM_SOAK_TIMED=0.1 PODSIM_SOAK_GATE=1 PODSIM_SOAK_PRESETS=london-full-express go test ./internal/session -count=1 -v -timeout=0 -run '^TestIncidentSoakTimed$'`.
+- The worst-case rows of `TestIncidentWorstCaseStepTime` name their presets in the code, and none is D or the preset.
+  So the worst-case Performance measurements stay open for D and for the preset.
+- `TestSampledTickLatency` and `TestEmergencyChoiceLatency` use the LondonCentral and rail-hub networks of `testdata/scenario_networks.json.gz`, and neither D nor the preset.
+  This slice adds no fixture, so these rows stay open for D and for the preset.
+- Web: `mise run test:web` passed in the worktree.
 
 ## Wall times
 
