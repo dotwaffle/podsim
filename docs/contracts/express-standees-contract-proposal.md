@@ -265,7 +265,7 @@ Both pods are inside their polylines, so the distance is at least 20 m.
 The audit first gave each lane only its own plane.
 That was a fault in the code of today, and section 4.10 gives its numbers.
 A separate patch lands the location sets before patch 2, and it has no dependency on the tail.
-It reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
+When the network does not set `shapeClearance`, it reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
 A berth is a zero-length path in this audit, so it is in this case too.
 This case holds for a leader 2 or more lanes ahead on the route, and for a pod on an unrelated lane, at each path gap.
 The independent check found 0 such samples under 20 m, and 0 route pairs under 20 m past the next lane.
@@ -384,9 +384,9 @@ The review found the same-lane bound sound in exact arithmetic, and it found no 
 
 These stay:
 
-- The 20 m clearance, the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
+- The 20 m clearance, except for the merge, split, and shape pairs of a network that sets `shapeClearance` (sections 2.3 and 4.2), the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
 - The refusal of a folded path, a zero chord, and a nonfinite bound, with its text.
-- The audit of nonincident paths and the junction clearance.
+- The audit of nonincident paths and the junction clearance, with the branches of sections 4.4 and 4.5 when the network sets `shapeClearance`.
 - The small-class 12 m clearance, the qualifying chains, the bays, and the depots.
 - The exclusion of large classes from virtual links, coast, and maneuver groups.
 - The Express fleet of 600 pods, the 17,000 orders, and the 20 stored riders.

@@ -32,7 +32,7 @@ The approved batch covers implementation and qualification of the following cont
 | --- | --- |
 | Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 12 and stream hello version 10 |
 | Express profile under that contract | 12 seats, 8 standee places, new whole-party size 1 through 20, centered 6 m body, maximum width 2.5 m |
-| Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
+| Large interaction candidate | Existing 6 m envelope radius, 20 m separation (the side-by-side distance for merge, split, and shape pairs when the network sets `shapeClearance`), and 20 m retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
 | Express service pooling | At most 20 active parties, subject to the authored service limit and total of 20 passengers |
 | On-demand pooling | Existing maximum of eight active parties and eight stops, also for an Express pod |

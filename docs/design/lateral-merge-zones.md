@@ -94,6 +94,7 @@ The extent of lane A against lane B in a lateral pair is the union of two ranges
 
 The range gets the same 0.5 m sample pad as today.
 The center distance that two disjoint grown bodies keep is `2 × 1.05 + 1 = 3.1 m`, which is `lateralClearance(0)` (`depot_lateral.go:34`).
+When the network sets `shapeClearance`, the union body and the side-by-side distance of the two classes replace this body and this distance, as the amended clause 3 states.
 
 The depot formula `W(v) = 3.1 + v²/2` does not carry over.
 It is 15.6 m at 5 m/s and 101 m at 14 m/s, so a merge zone would become longer than today.
@@ -150,7 +151,7 @@ These places assume the isotropic 12 m between pods of a junction pair:
 | Debris footprint (`docs/contracts/incident-suspension-contract-proposal.md:505`) and "Debris clearance stays 12 meters" (`service-contract-proposals.md:48`) | Breaks. A lateral neighbor is only a depot lane, so a pod on B can pass debris on A at 3.1 m (decision D5). |
 | Tick-rate contract, sections 1.2 and 1.5 | Holds. Section 1.2 is a path-gap argument. Section 1.5 lists the depot lateral pairs. A later amendment, with maintainer approval, can add a line for lateral merge pairs. The smallest gap of 6.000 m in section 1.7 is evidence, not a rule. |
 | Tick-rate contract, section 1.4 | Holds. Link clearance is along one route. |
-| Express contract, 20 m and actual paths (`express-physical-encoding-contract-proposal.md:206`, `:217`) | Holds, because clause 3 excludes large pairs. |
+| Express contract, 20 m and actual paths (`express-physical-encoding-contract-proposal.md:206`, `:217`) | Holds without `shapeClearance`, because clause 3 excludes large pairs. With the field, amendment SC4 of the [shape clearance amendments](../contracts/shape-clearance-amendment-proposal.md) changes the 20 m rule. |
 | Bank audit (`internal/sim/bank_geometry.go:31`) | Holds. It leaves shared endpoints to junction control, which still orders them. |
 | Physical restore (`internal/sim/state_physical.go:1061`, `:1372`) | Follows `Check`. Without the lateral table, a gate-on save with a lateral pair nearer than 12 m demotes a pod or fails `verifyRestore`. |
 | Layout audits (`internal/scenarios/layout_audit.go:203`, `:372`) | Not affected. They check lanes that share no node. |

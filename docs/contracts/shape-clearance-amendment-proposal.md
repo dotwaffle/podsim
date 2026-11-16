@@ -555,6 +555,88 @@ The certified pairs and the skip rules of the maneuver groups, the depot lateral
 The order of the refusals and their text do not change.
 ```
 
+### SC16: Conditions on the earlier rule text
+
+After SC1 to SC15 were applied, a check found earlier sentences that state the rule without the field and have no condition.
+The field branches follow them, but each one read as unconditional.
+SC16 adds the condition only, and changes no rule.
+The maintainer approved it on 2026-11-16, subject to a review that finds no rule change.
+The review found that the first text of the Express row also changed the 20 m retention, so the row now keeps it, and the maintainer approved the fixed text.
+Line references are for `d9232d88`.
+
+Current text, `docs/contracts/express-standees-contract-proposal.md:268`:
+
+```markdown
+It reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
+```
+
+Replace with:
+
+```markdown
+When the network does not set `shapeClearance`, it reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
+```
+
+Current text, `docs/contracts/express-standees-contract-proposal.md:387`:
+
+```markdown
+- The 20 m clearance, the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
+```
+
+Replace with:
+
+```markdown
+- The 20 m clearance, except for the merge, split, and shape pairs of a network that sets `shapeClearance` (sections 2.3 and 4.2), the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
+```
+
+Current text, `docs/contracts/express-standees-contract-proposal.md:389`:
+
+```markdown
+- The audit of nonincident paths and the junction clearance.
+```
+
+Replace with:
+
+```markdown
+- The audit of nonincident paths and the junction clearance, with the branches of sections 4.4 and 4.5 when the network sets `shapeClearance`.
+```
+
+Current text, `docs/contracts/express-physical-encoding-contract-proposal.md:35`:
+
+```markdown
+| Large interaction candidate | Existing 6 m envelope radius, 20 m separation and retention, lanes at least 40 m, actual cells at least 20 m |
+```
+
+Replace with:
+
+```markdown
+| Large interaction candidate | Existing 6 m envelope radius, 20 m separation (the side-by-side distance for merge, split, and shape pairs when the network sets `shapeClearance`), and 20 m retention, lanes at least 40 m, actual cells at least 20 m |
+```
+
+Current text, `docs/design/lateral-merge-zones.md:96`:
+
+```markdown
+The center distance that two disjoint grown bodies keep is `2 × 1.05 + 1 = 3.1 m`, which is `lateralClearance(0)` (`depot_lateral.go:34`).
+```
+
+Replace with:
+
+```markdown
+The center distance that two disjoint grown bodies keep is `2 × 1.05 + 1 = 3.1 m`, which is `lateralClearance(0)` (`depot_lateral.go:34`).
+When the network sets `shapeClearance`, the union body and the side-by-side distance of the two classes replace this body and this distance, as the amended clause 3 states.
+```
+
+Current text, `docs/design/lateral-merge-zones.md:153`:
+
+```markdown
+| Express contract, 20 m and actual paths (`express-physical-encoding-contract-proposal.md:206`, `:217`) | Holds, because clause 3 excludes large pairs. |
+```
+
+Replace with:
+
+```markdown
+| Express contract, 20 m and actual paths (`express-physical-encoding-contract-proposal.md:206`, `:217`) | Holds without `shapeClearance`, because clause 3 excludes large pairs. With the field, amendment SC4 of the [shape clearance amendments](../contracts/shape-clearance-amendment-proposal.md) changes the 20 m rule. |
+```
+
 ## Rows with no change
 
 These rows of section 5 need no amendment under D1-B:
@@ -694,6 +776,7 @@ The first version asked seven questions, and the design answers each of them:
 | SC13 | Express standees contract | The proof without the field stays, and cases B and C get branches for the field. |
 | SC14 | Lateral merge zones design | Clause 3 does not apply when the field is set, and the node range stays 12 m. |
 | SC15 | Station banks document | The audit text for the field. |
+| SC16 | Standee contract, Express physical contract, lateral merge zones design | The condition `shapeClearance` on earlier sentences that state the rule without the field. |
 
 Dependencies:
 
