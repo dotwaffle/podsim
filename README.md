@@ -166,6 +166,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
 | [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. Stopped with D adoption. |
 | [Individual limits amendment](docs/contracts/individual-limits-amendment-proposal.md) | One physical move of one pod puts hundreds of requests over the individual limits in a saturated fleet. D keeps the current limits. Closed with no amendment; the shapes stay as a reference. |
+| [Shape clearance amendment](docs/contracts/shape-clearance-amendment-proposal.md) | The contract text of the approved shape clearance design, behind the `shapeClearance` network field. Following pairs keep 12 m or 20 m, and merge, split, and shape pairs keep the side-by-side distance of their classes. Proposed for the maintainer's approval. |
 
 ### Designs
 
