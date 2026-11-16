@@ -327,14 +327,25 @@ func (b lateralBuilder) steps(lane Lane, points []Point) []sweepStep {
 // against the same body on the second steps. Only sweepClear certifies the
 // pair. The steps of the pair share the work allowance.
 func sweepPair(first, second []sweepStep, body sweepBody, options sweepOptions, visits *int) sweepStatus {
+	return sweepBodies(first, second, sweepPairBodies{first: body, second: body}, options, visits)
+}
+
+// sweepPairBodies holds the body on the first steps and the body on the
+// second steps of a sweep.
+type sweepPairBodies struct {
+	first, second sweepBody
+}
+
+// sweepBodies is sweepPair with a different body on each list of steps.
+func sweepBodies(first, second []sweepStep, bodies sweepPairBodies, options sweepOptions, visits *int) sweepStatus {
 	status := sweepClear
 	for _, step := range second {
 		for _, fraction := range [2]float64{0, 1} {
-			if result := sweepEnclosed(first, step, body, fraction, fraction, 0, options, visits); result != sweepClear {
+			if result := sweepEnclosed(first, step, bodies, fraction, fraction, 0, options, visits); result != sweepClear {
 				return result
 			}
 		}
-		status = max(status, sweepEnclosed(first, step, body, 0, 1, 0, options, visits))
+		status = max(status, sweepEnclosed(first, step, bodies, 0, 1, 0, options, visits))
 		if status >= sweepUnresolved {
 			return status
 		}
@@ -342,26 +353,27 @@ func sweepPair(first, second []sweepStep, body sweepBody, options sweepOptions, 
 	return status
 }
 
-// sweepEnclosed sweeps the first steps against a rectangle that holds the
-// body over the part [lo, hi] of a second step. For one pose the rectangle
-// is the body, so a collision is a collision of the two bodies. For a part
-// of a step, it halves the part while the rectangle is not clear, until a
-// pose collides, the part reaches the tolerance or the depth limit, or the
-// work allowance ends. Each half sweeps only the steps that were not clear.
-func sweepEnclosed(first []sweepStep, step sweepStep, body sweepBody, lo, hi float64, depth int, options sweepOptions, visits *int) sweepStatus {
+// sweepEnclosed sweeps the first body on the first steps against a
+// rectangle that holds the second body over the part [lo, hi] of a second
+// step. For one pose the rectangle is the body, so a collision is a
+// collision of the two bodies. For a part of a step, it halves the part
+// while the rectangle is not clear, until a pose collides, the part
+// reaches the tolerance or the depth limit, or the work allowance ends.
+// Each half sweeps only the steps that were not clear.
+func sweepEnclosed(first []sweepStep, step sweepStep, bodies sweepPairBodies, lo, hi float64, depth int, options sweepOptions, visits *int) sweepStatus {
 	if *visits >= options.visits {
 		return sweepUnresolved
 	}
 	*visits++
-	obstacle := sweepEnclosure(step, body, lo, hi)
+	obstacle := sweepEnclosure(step, bodies.second, lo, hi)
 	shape := newSweepObstacle(obstacle)
 	status := sweepClear
 	var open []sweepStep
 	for _, other := range first {
-		if sweepFar(other, body, obstacle, shape.axes) {
+		if sweepFar(other, bodies.first, obstacle, shape.axes) {
 			continue
 		}
-		if result := sweepOne(other, body, &shape, options, visits); result != sweepClear {
+		if result := sweepOne(other, bodies.first, &shape, options, visits); result != sweepClear {
 			status = max(status, result)
 			open = append(open, other)
 		}
@@ -370,18 +382,18 @@ func sweepEnclosed(first []sweepStep, step sweepStep, body sweepBody, lo, hi flo
 	if status == sweepClear || pose || status == sweepUnresolved {
 		return status
 	}
-	if step.travel(body)*(hi-lo) <= options.tolerance || depth >= sweepDepth {
+	if step.travel(bodies.second)*(hi-lo) <= options.tolerance || depth >= sweepDepth {
 		return sweepPotential
 	}
 	mid := (lo + hi) / 2
-	if result := sweepEnclosed(open, step, body, mid, mid, depth+1, options, visits); result != sweepClear {
+	if result := sweepEnclosed(open, step, bodies, mid, mid, depth+1, options, visits); result != sweepClear {
 		return result
 	}
-	status = sweepEnclosed(open, step, body, lo, mid, depth+1, options, visits)
+	status = sweepEnclosed(open, step, bodies, lo, mid, depth+1, options, visits)
 	if status >= sweepUnresolved {
 		return status
 	}
-	return max(status, sweepEnclosed(open, step, body, mid, hi, depth+1, options, visits))
+	return max(status, sweepEnclosed(open, step, bodies, mid, hi, depth+1, options, visits))
 }
 
 // sweepFar reports whether a body over a whole step stays clear of a

@@ -120,13 +120,14 @@ type separationIndex struct {
 	// is nil when the observation has no positions.
 	chains []safetyChain
 	// keys holds the separation key of each pod that is equal to its bound
-	// pod, certified the certified pairs, lateral the lateral pairs, and
-	// merges the lateral merge pairs. keys is nil when the observation has
-	// no keys.
+	// pod, certified the certified pairs, lateral the lateral pairs,
+	// merges the lateral merge pairs, and shapes the shape pairs. keys is
+	// nil when the observation has no keys.
 	keys      []separationKey
 	certified certifiedPairs
 	lateral   *depotLateral
 	merges    *depotLateral
+	shapes    *depotLateral
 	// reach is the largest squared separation threshold of any pair.
 	reach float64
 }
@@ -143,7 +144,7 @@ func (o SafetyObservation) separationIndex() separationIndex {
 		index.chains = make([]safetyChain, len(o.Pods))
 	}
 	if len(o.keys) > 0 {
-		index.keys, index.certified, index.lateral, index.merges = make([]separationKey, len(o.Pods)), o.certified, o.lateral, o.merges
+		index.keys, index.certified, index.lateral, index.merges, index.shapes = make([]separationKey, len(o.Pods)), o.certified, o.lateral, o.merges, o.shapes
 	}
 	slots := podSlots{bound: o.bound}
 	for i, pod := range o.Pods {
@@ -256,14 +257,17 @@ func (index *separationIndex) skip(squared, ceiling, smallestSquared float64) bo
 // certification is skipped. A small pair that a window certifies needs
 // compactClearance at the speed of the follower (see certifiedClearance). A
 // small pair whose bound keys form a lateral pair or a lateral merge pair
-// needs the clearance of that pair (see lateralClearance). Every other
-// small pair needs Clearance.
+// needs the clearance of that pair (see lateralClearance). A pair of any
+// classes whose bound keys form a shape pair needs the side-by-side
+// distance of its classes (see shapeClassClearance). Every other small
+// pair needs Clearance, and every other large pair largeClearance.
 func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (counted, violates bool) {
 	if len(index.keys) > 0 && index.certified.certified(index.keys[i], index.keys[j]) {
 		return false, false
 	}
 	first, second := pods[i], pods[j]
 	minimum := classPairClearance(first.Class, second.Class)
+	isotropic := minimum
 	var separated bool
 	if minimum > Clearance {
 		separated = len(index.envelopes) > 0 && envelopeLocationsSeparated(index.envelopes[i], index.envelopes[j])
@@ -286,6 +290,11 @@ func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (co
 	if minimum == Clearance && len(index.keys) > 0 {
 		if clearance, ok := index.merges.clearance(index.keys[i], index.keys[j]); ok {
 			minimum = clearance
+		}
+	}
+	if minimum == isotropic && len(index.keys) > 0 {
+		if _, ok := index.shapes.clearance(index.keys[i], index.keys[j]); ok {
+			minimum = shapeClassClearance(first.Class, second.Class)
 		}
 	}
 	return true, gapSquared < separationThresholdSquared(minimum)

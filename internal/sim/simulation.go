@@ -254,11 +254,13 @@ type SafetyObservation struct {
 	// of keys that the maneuver certification clears. An observation
 	// without them skips no pair. lateral holds the lateral pairs of the
 	// depot lanes. An observation without it reduces no minimum. merges
-	// holds the lateral merge pairs, with the same rule.
+	// holds the lateral merge pairs and shapes the shape pairs, with the
+	// same rule.
 	keys      []separationKey
 	certified certifiedPairs
 	lateral   *depotLateral
 	merges    *depotLateral
+	shapes    *depotLateral
 }
 
 // SafetyLocation identifies the physical plane and endpoints occupied by a pod.

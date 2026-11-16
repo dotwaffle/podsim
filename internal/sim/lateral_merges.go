@@ -27,13 +27,15 @@ var mergeOptions = sweepOptions{tolerance: 1e-3, visits: 1 << 12}
 
 // newMergeLateral returns the lateral merge pairs of a network, with
 // lateralClearance(0) for each pair and the extent of each lane of a pair,
-// or nil when the network does not set LateralMerges or has no pair.
+// or nil when the network sets neither LateralMerges nor ShapeClearance, or
+// has no pair. ShapeClearance keeps the rule of LateralMerges for small
+// lanes.
 // tails, maneuvers and depots are the indexes of the network. Only lane
 // keys are in the result, and each lane with a partner has its polyline in
 // points. The junction conflicts, the safety observation, the restore, and
 // the debris footprint all read this one table.
 func newMergeLateral(network Network, tails map[string]geometryTails, maneuvers *maneuverIndex, depots *depotIndex) *depotLateral {
-	if !network.LateralMerges {
+	if !network.LateralMerges && !network.ShapeClearance {
 		return nil
 	}
 	lanes := newMergeLanes(network)

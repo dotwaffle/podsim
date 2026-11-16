@@ -67,9 +67,14 @@ type networkIndexes struct {
 	// the safety observation, and the debris footprint read it.
 	lateral *depotLateral
 	// merges holds the lateral merge pairs (see newMergeLateral), or nil
-	// when the network does not set LateralMerges. The junction conflicts,
-	// the safety observation, and the debris footprint read it.
+	// when the network sets neither LateralMerges nor ShapeClearance. The
+	// junction conflicts, the safety observation, and the debris footprint
+	// read it.
 	merges *depotLateral
+	// shapes holds the shape pairs (see shapePairs), or nil when the
+	// network does not set ShapeClearance. The safety observation and the
+	// debris footprint read it.
+	shapes *depotLateral
 	// platoonData holds the network data that links read.
 	platoonData platoonIndexData
 	// pickupBounds holds the free-flow bounds of each station, by station
@@ -115,6 +120,7 @@ type networkPreparation struct {
 	depots    *depotIndex
 	berthKeys map[string]int
 	lateral   *depotLateral
+	shapes    *depotLateral
 	// reach is the refusal of the bank audit that the checks of the network
 	// held until the last of them passed.
 	reach *PlaneReachError
@@ -166,7 +172,8 @@ func prepareNetworkTails(network Network, tails map[string]geometryTails) (netwo
 	depots, _ := newDepotIndex(owned, indexNodePositions(owned.Nodes))
 	lateral := newDepotLateral(owned, depots, tails, berthKeys)
 	var reach *PlaneReachError
-	if err := network.validateBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, lateral: lateral}); err != nil && !errors.As(err, &reach) {
+	shapes, err := network.auditBankGeometry(bankAudit{retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, lateral: lateral, tails: tails})
+	if err != nil && !errors.As(err, &reach) {
 		return networkPreparation{}, err
 	}
 	for index, lane := range owned.Lanes {
@@ -188,7 +195,7 @@ func prepareNetworkTails(network Network, tails map[string]geometryTails) (netwo
 			}
 		}
 	}
-	return networkPreparation{network: owned, graph: graph, tails: tails, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral, reach: reach}, nil
+	return networkPreparation{network: owned, graph: graph, tails: tails, retention: retention, maneuvers: maneuvers, certified: certified, depots: depots, berthKeys: berthKeys, lateral: lateral, shapes: shapes, reach: reach}, nil
 }
 
 func validateLargeLaneCells(id string, length float64, count int) error {
@@ -206,7 +213,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	merges := newMergeLateral(owned, prepared.tails, prepared.maneuvers, prepared.depots)
 	p := &PreparedNetwork{
 		network: owned, graph: prepared.graph, tails: prepared.tails, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
-		berthKeys: prepared.berthKeys, lateral: prepared.lateral, merges: merges,
+		berthKeys: prepared.berthKeys, lateral: prepared.lateral, merges: merges, shapes: prepared.shapes,
 		stationIndexes: indexStations(owned), stationForbidden: owned.stationForbidden(),
 		geometry: buildLaneGeometry(owned), junctionConflicts: buildJunctionConflicts(owned, merges),
 		berthResources: indexBerthResources(owned),

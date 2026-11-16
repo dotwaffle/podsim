@@ -95,8 +95,8 @@ func (s *Simulation) debrisSegment(lane int, from, to float64) ([]resource, erro
 // suspension contract): each resource of each cell of the lane that meets
 // [from - Clearance, to + Clearance], and then each resource of each cell
 // of a lateral neighbor of the lane that comes closer than Clearance to
-// the segment. A lateral neighbor is a depot lane of a lateral pair, or the
-// partner of a lateral merge pair. A cell meets the interval when the
+// the segment. A lateral neighbor is a depot lane of a lateral pair, the
+// partner of a lateral merge pair, or the partner of a shape pair. A cell meets the interval when the
 // closed ranges share a point. A cell at a lane end holds the node and the
 // junction resources, so debris near a junction also blocks the lanes that
 // share it. The footprint is a function of the network and the segment.
@@ -122,7 +122,7 @@ func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 		}
 		add(cells.cell(cell))
 	}
-	neighbors := lateralNeighbors(s.lateral.neighborLanes(lane), s.merges.neighborLanes(lane))
+	neighbors := lateralNeighbors(s.lateral.neighborLanes(lane), s.merges.neighborLanes(lane), s.shapes.neighborLanes(lane))
 	if len(neighbors) == 0 {
 		return footprint
 	}
@@ -143,14 +143,14 @@ func (s *Simulation) debrisFootprint(lane int, from, to float64) []resource {
 }
 
 // lateralNeighbors returns the lateral neighbors of a lane: its depot
-// neighbors and its lateral merge partners, in network lane order, each
-// one time. A lane is not in both, because a lateral merge pair has no
-// depot lane.
-func lateralNeighbors(depot, merges []int) []int {
-	if len(merges) == 0 {
+// neighbors, its lateral merge partners, and its shape partners, in
+// network lane order, each one time. A lane can be a lateral merge partner
+// and a shape partner of different lanes, but no depot lane is either.
+func lateralNeighbors(depot, merges, shapes []int) []int {
+	if len(merges) == 0 && len(shapes) == 0 {
 		return depot
 	}
-	neighbors := slices.Concat(depot, merges)
+	neighbors := slices.Concat(depot, merges, shapes)
 	slices.Sort(neighbors)
 	return slices.Compact(neighbors)
 }
@@ -158,10 +158,12 @@ func lateralNeighbors(depot, merges []int) []int {
 // lateralPoints returns the polyline of a lane that has a lateral
 // neighbor.
 func (s *Simulation) lateralPoints(lane int) []Point {
-	if points, ok := s.lateral.lanePoints(lane); ok {
-		return points
+	for _, table := range []*depotLateral{s.lateral, s.merges} {
+		if points, ok := table.lanePoints(lane); ok {
+			return points
+		}
 	}
-	points, _ := s.merges.lanePoints(lane)
+	points, _ := s.shapes.lanePoints(lane)
 	return points
 }
 

@@ -131,8 +131,7 @@ type Network struct {
 	// contract for pods of each class: merge, split, and shape pairs keep
 	// the side-by-side distance of their classes, and the network audit
 	// checks each pair. When it is set, LateralMerges has no further
-	// effect. The zero value keeps the current rules. The rule is not built
-	// yet, so the field has no effect.
+	// effect. The zero value keeps the current rules.
 	ShapeClearance bool `json:"shapeClearance,omitzero" digest:"ext=17"`
 }
 
