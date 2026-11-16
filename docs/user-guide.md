@@ -206,7 +206,9 @@ The controls beside the order button set who travels.
 **−** and **+** set the size of the party, from 1 to 8, or from 1 to 20 with the Express contract.
 **Private party** changes to **Share allowed** when you select it, and the party can then ride with other parties that also allow sharing.
 A pod takes a party only when the party fits its [class](model.md#vehicle-classes).
-When no pod of the fleet can take the party, the order waits in the queue with the status **Waiting for a certified vehicle that fits this party and route**.
+When no pod of the fleet can take the party between the two stations, the server refuses the order, and the message line shows the reason.
+For example: **party of 8 does not fit a pod that serves Harbor and Garden (largest 4): party admission refused**.
+An order waits in the queue with the status **Waiting for a certified vehicle that fits this party and route** when the pods that fit the party cannot reach its stations, for example while an incident blocks the route.
 
 An idle pod at the origin serves the order, and otherwise the nearest available empty pod comes to collect the party.
 Orders wait when no pod is available.

@@ -105,7 +105,8 @@ The proxy did not apply clauses 3 and 4, so it overstates the changed zones.
 | Chords | 4.6 m | 1,756 | 13.2 m | 35.1 m | 27.9 m | 43.2 m |
 
 A point proxy ignores the body length, so the body range is between the 3.1 m and the 4.6 m rows on a shallow merge.
-The 8.7 m row is the disk bound, `2 × hypot(3.7, 1.05) + 1`.
+The 8.7 m row is the disk bound of the body without the growth, `2 × hypot(3.7, 1.05) + 1`.
+The grown bounds of the [shape clearance design](shape-clearance.md) are larger: 8.96 m for two small pods and 9.31 m for the union body.
 The held length at p50 stays 25 m in every row, because the last cell holds the junction in both rules.
 Thus the gain is in the cells upstream of the last cell.
 
