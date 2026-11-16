@@ -43,7 +43,7 @@ func referenceJunctionConflicts(network Network) map[string][]laneConflict {
 				if lane.ID == other.ID {
 					continue
 				}
-				start, end := referenceConflictExtent(points[lane.ID], points[other.ID])
+				start, end := referenceConflictExtent(points[lane.ID], points[other.ID], Clearance)
 				if !math.IsInf(start, 1) {
 					conflicts[lane.ID] = append(conflicts[lane.ID], laneConflict{junction: node.ID, start: start, end: end})
 				}
@@ -53,7 +53,9 @@ func referenceJunctionConflicts(network Network) map[string][]laneConflict {
 	return conflicts
 }
 
-func referenceConflictExtent(points, other []Point) (float64, float64) {
+// referenceConflictExtent returns the isotropic extent of a lane against
+// the other lane at a clearance.
+func referenceConflictExtent(points, other []Point, clearance float64) (float64, float64) {
 	start, end, distance := math.Inf(1), math.Inf(-1), 0.0
 	for i := 1; i < len(points); i++ {
 		a, b := points[i-1], points[i]
@@ -65,14 +67,14 @@ func referenceConflictExtent(points, other []Point) (float64, float64) {
 			}
 			point := Point{X: a.X + fraction*(b.X-a.X), Y: a.Y + fraction*(b.Y-a.Y)}
 			separation := referencePointToPolylineDistance(point, other)
-			if separation <= Clearance+conflictSampleStep {
+			if separation <= clearance+conflictSampleStep {
 				at := distance + offset
 				start, end = min(start, at), max(end, at)
 			}
 			if offset == length {
 				break
 			}
-			step := max(conflictSampleStep, separation-Clearance-conflictSampleStep)
+			step := max(conflictSampleStep, separation-clearance-conflictSampleStep)
 			offset = min(length, offset+step)
 		}
 		distance += length
@@ -222,9 +224,11 @@ type mergeCounts struct {
 }
 
 // referenceMergeConflicts returns the junction conflict table of a network
-// that sets LateralMerges. It decides clauses 1 to 4 from the lanes, the
-// geometry tails, the maneuver groups, and the depots. It decides clause 5
-// and the body range against the other lane sampled every
+// that sets LateralMerges or ShapeClearance. It decides clauses 1 to 4 from
+// the lanes, the geometry tails, the maneuver groups, and the depots. With
+// ShapeClearance, clause 3 does not apply, and each lane has the union of
+// the bodies of the classes that it admits (mergeLaneShape). It decides
+// clause 5 and the body range against the other lane sampled every
 // mergeReferenceStep meters (mergeSide).
 //
 // A candidate pair keeps the isotropic extent when a rectangle that the
@@ -232,6 +236,8 @@ type mergeCounts struct {
 // is lateral when no such rectangle, grown by the sample step and the
 // resolution of the sweep, meets it (mergeSide.reachesFar). A pair between
 // these cases is undecided, and the reference gives no extent for it.
+// The isotropic extent of a pair that is not lateral has the clearance of
+// its lane classes: 12 m, or 20 m when a lane admits a large class.
 //
 // The extent of a lateral pair is the body range and the node range, with
 // the sample pad. The sweep counts a meeting at a part of at most
@@ -253,8 +259,8 @@ func referenceMergeConflicts(network Network, step float64) (map[string][]mergeE
 	tails := indexGeometryTails(network)
 	group, express := string(GroupClass), string(ExpressClass)
 	eligible := func(lane Lane) bool {
-		return !lane.VehicleClasses.Allows(group) && !lane.VehicleClasses.Allows(express) && tails[lane.ID] == (geometryTails{}) &&
-			!maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
+		small := !lane.VehicleClasses.Allows(group) && !lane.VehicleClasses.Allows(express) && tails[lane.ID] == (geometryTails{})
+		return (network.ShapeClearance || small) && !maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
 	}
 	candidate := func(node string, lane, other Lane) bool {
 		if lane.From == lane.To || other.From == other.To ||
@@ -307,7 +313,11 @@ func referenceMergeConflicts(network Network, step float64) (map[string][]mergeE
 					conflicts[lane.ID] = append(conflicts[lane.ID], expected)
 					continue
 				}
-				start, end := referenceConflictExtent(points[lane.ID], points[other.ID])
+				clearance := Clearance
+				if lane.VehicleClasses.Allows(group) || lane.VehicleClasses.Allows(express) || other.VehicleClasses.Allows(group) || other.VehicleClasses.Allows(express) {
+					clearance = largeClearance
+				}
+				start, end := referenceConflictExtent(points[lane.ID], points[other.ID], clearance)
 				if !math.IsInf(start, 1) {
 					conflicts[lane.ID] = append(conflicts[lane.ID], mergeExpected{junction: node.ID, start: [2]float64{start, start}, end: [2]float64{end, end}, exact: true})
 				}

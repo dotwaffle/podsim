@@ -400,9 +400,10 @@ func TestShapePairsKeepWindows(t *testing.T) {
 }
 
 // TestShapeClearanceKeepsMerges checks that the field keeps the lateral
-// merge pairs of LateralMerges, for small lanes only: a 6 degree merge has
-// the same pairs and extents with either field, and the side lane forms no
-// pair when it admits Express.
+// merge pairs of LateralMerges for small lanes: a 6 degree merge has the
+// same pairs and extents with either field. When the side lane admits
+// Express, it forms a merge pair with the field (decision D5), and no pair
+// with LateralMerges alone.
 func TestShapeClearanceKeepsMerges(t *testing.T) {
 	t.Parallel()
 	merges := func(network Network) *depotLateral {
@@ -421,9 +422,12 @@ func TestShapeClearanceKeepsMerges(t *testing.T) {
 	if !got.mergePartner(main, side) {
 		t.Fatal("the main lane and the side lane are not a merge pair")
 	}
-	shape.Lanes[side].VehicleClasses = shapeUnionClasses
-	if merges(shape).mergePartner(main, side) {
-		t.Error("an Express side lane forms a merge pair")
+	shape.Lanes[side].VehicleClasses, lateral.Lanes[side].VehicleClasses = shapeUnionClasses, shapeUnionClasses
+	if !merges(shape).mergePartner(main, side) {
+		t.Error("with the field, an Express side lane forms no merge pair")
+	}
+	if merges(lateral).mergePartner(main, side) {
+		t.Error("with LateralMerges alone, an Express side lane forms a merge pair")
 	}
 }
 
@@ -626,8 +630,8 @@ func TestShapeOracle(t *testing.T) {
 
 // shapeDebrisNetwork returns a station with one berth and two lanes 5 m
 // apart, far from the station. With the field, each lane admits Compact
-// and Express, so the network has no lateral merge pair, and the two lanes
-// form a shape pair at 4.0 m. Without it, the lanes are small lanes, which
+// and Express, and the two lanes form a shape pair at 4.0 m. Only lanes of
+// the station form merge pairs. Without it, the lanes are small lanes, which
 // the audit of a plain network does not check.
 func shapeDebrisNetwork(field bool) Network {
 	classes := shapeSmallClasses
@@ -674,7 +678,7 @@ func TestShapeDebrisBlocksPartner(t *testing.T) {
 		if side, ok := s.shapes.clearance(laneKey(upper), laneKey(lower)); ok != field || field && side != 4 {
 			t.Fatalf("field %v: shape pair %v at %g", field, ok, side)
 		}
-		if observation := s.SafetyObservation(); observation.shapes != s.shapes || field && (len(observation.keys) == 0 || s.merges.any()) {
+		if observation := s.SafetyObservation(); observation.shapes != s.shapes || field && (len(observation.keys) == 0 || len(s.merges.neighborLanes(upper)) > 0 || len(s.merges.neighborLanes(lower)) > 0) {
 			t.Fatalf("field %v: the safety observation does not hold the shape pairs", field)
 		}
 		const from, to = 300, 303

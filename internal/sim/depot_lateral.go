@@ -57,6 +57,10 @@ type depotLateral struct {
 	// lateral merge pair, by the indexes of a and b. A depot index has
 	// none.
 	extents map[[2]int][2]float64
+	// classes is true for the lateral merge pairs of a network that sets
+	// ShapeClearance: the pods of a pair keep the side-by-side distance of
+	// their classes, and not the clearance of the pair.
+	classes bool
 	// visits and unresolved count the sweep work and the pairs whose
 	// sweep ran out of work.
 	visits, unresolved int
@@ -169,6 +173,12 @@ func (l *depotLateral) clearance(a, b separationKey) (float64, bool) {
 	}
 	clearance, ok := l.pairs[keyPair(a, b)]
 	return clearance, ok
+}
+
+// classClearance reports whether the pods of a pair of the index keep the
+// side-by-side distance of their classes (see shapeClassClearance).
+func (l *depotLateral) classClearance() bool {
+	return l != nil && l.classes
 }
 
 // any reports whether the index has a lateral pair.

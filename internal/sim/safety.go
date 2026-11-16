@@ -256,11 +256,13 @@ func (index *separationIndex) skip(squared, ceiling, smallestSquared float64) bo
 // too close. A pair whose bound keys form a certified pair of the maneuver
 // certification is skipped. A small pair that a window certifies needs
 // compactClearance at the speed of the follower (see certifiedClearance). A
-// small pair whose bound keys form a lateral pair or a lateral merge pair
-// needs the clearance of that pair (see lateralClearance). A pair of any
-// classes whose bound keys form a shape pair needs the side-by-side
-// distance of its classes (see shapeClassClearance). Every other small
-// pair needs Clearance, and every other large pair largeClearance.
+// small pair whose bound keys form a lateral pair, or a lateral merge pair
+// of a network without ShapeClearance, needs the clearance of that pair
+// (see lateralClearance). A pair of any classes whose bound keys form a
+// shape pair, or a lateral merge pair of a network with ShapeClearance,
+// needs the side-by-side distance of its classes (see
+// shapeClassClearance). Every other small pair needs Clearance, and every
+// other large pair largeClearance.
 func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (counted, violates bool) {
 	if len(index.keys) > 0 && index.certified.certified(index.keys[i], index.keys[j]) {
 		return false, false
@@ -287,13 +289,17 @@ func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (co
 			minimum = clearance
 		}
 	}
-	if minimum == Clearance && len(index.keys) > 0 {
+	if minimum == Clearance && len(index.keys) > 0 && !index.merges.classClearance() {
 		if clearance, ok := index.merges.clearance(index.keys[i], index.keys[j]); ok {
 			minimum = clearance
 		}
 	}
 	if minimum == isotropic && len(index.keys) > 0 {
-		if _, ok := index.shapes.clearance(index.keys[i], index.keys[j]); ok {
+		_, byClass := index.shapes.clearance(index.keys[i], index.keys[j])
+		if !byClass && index.merges.classClearance() {
+			_, byClass = index.merges.clearance(index.keys[i], index.keys[j])
+		}
+		if byClass {
 			minimum = shapeClassClearance(first.Class, second.Class)
 		}
 	}

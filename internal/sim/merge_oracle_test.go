@@ -32,15 +32,53 @@ const oracleLaneLength = 300.0
 const oracleFaultSeconds = int64(20)
 
 // oracleClassOrders holds the class of the first pod and of the pods on
-// the other lane, in both orders. Merge and split pairs admit small lanes
-// only, so the orders use the two small classes.
-//
-// Slice 3b lets merge and split pairs admit Express and Group lanes, with
-// the union body. It then adds here Express and Group, each with a small
-// class and with each other, in both orders, on lanes that admit them.
+// the other lane, in both orders: the two small classes, and Express and
+// Group, each with a small class and with each other. An order with a
+// large class runs only on largeOracleNetwork, where the lanes of the
+// merge and split pairs admit each class and have the union body.
 var oracleClassOrders = [][2]VehicleClass{
 	{LegacyClass, CompactClass},
 	{CompactClass, LegacyClass},
+	{ExpressClass, CompactClass},
+	{CompactClass, ExpressClass},
+	{GroupClass, LegacyClass},
+	{LegacyClass, GroupClass},
+	{ExpressClass, GroupClass},
+	{GroupClass, ExpressClass},
+}
+
+// largeOrder reports whether an order of oracleClassOrders has a large
+// class.
+func largeOrder(classes [2]VehicleClass) bool {
+	return largeVehicleClass(classes[0]) || largeVehicleClass(classes[1])
+}
+
+// oracleVariant is a network of the oracle tests: oracleNetwork with
+// LateralMerges or with ShapeClearance, or largeOracleNetwork.
+type oracleVariant struct {
+	name         string
+	shape, large bool
+}
+
+// oracleVariants are the networks of the oracle tests.
+var oracleVariants = []oracleVariant{
+	{name: "lateral merges"},
+	{name: "shape", shape: true},
+	{name: "shape large lanes", shape: true, large: true},
+}
+
+// network returns the network of the variant.
+func (v oracleVariant) network(t *testing.T, converging bool) Network {
+	t.Helper()
+	if v.large {
+		return largeOracleNetwork(t, converging)
+	}
+	return oracleNetwork(t, converging, v.shape)
+}
+
+// orders returns the class orders that run on the network of the variant.
+func (v oracleVariant) orders() [][2]VehicleClass {
+	return slices.DeleteFunc(slices.Clone(oracleClassOrders), func(classes [2]VehicleClass) bool { return largeOrder(classes) && !v.large })
 }
 
 // oracleNetwork returns the network of laneEndNetwork with lanes a and b
@@ -92,6 +130,56 @@ func oracleNetwork(t *testing.T, converging, shape bool) Network {
 // station of oracleNetwork, from the line from the entry to the exit.
 var oracleBerthDegrees = []float64{10, -10, 25, -25, 40, -40}
 
+// oracleLargeClasses is the class set of each lane, station, and berth of
+// largeOracleNetwork.
+var oracleLargeClasses = mustClassSet("legacy", "compact", "group", "express")
+
+// largeOracleNetwork returns the network of oracleNetwork with
+// ShapeClearance, where each lane, station, and berth admits each class,
+// so the merge and split pair of lanes a and b has the union body. The
+// berths of the destination station are 200 m from the entry, 12 degrees
+// apart, and the exit is 1200 m beyond the entry, so that the audit
+// accepts the station at 20 m. A lane from the origin station to the start
+// of the network gives the Express riders a path.
+func largeOracleNetwork(t *testing.T, converging bool) Network {
+	t.Helper()
+	network := oracleNetwork(t, converging, true)
+	entry, _ := network.Node("dest-entry")
+	for index := range network.Nodes {
+		node := &network.Nodes[index]
+		var berth int
+		if _, err := fmt.Sscanf(node.ID, "dest-berth-%02d", &berth); err == nil {
+			radians := float64(12*((berth+1)/2)) * math.Pi / 180
+			if berth%2 == 0 {
+				radians = -radians
+			}
+			node.Position = Point{X: entry.Position.X + 200*math.Cos(radians), Y: entry.Position.Y + 200*math.Sin(radians)}
+		}
+		if node.ID == "dest-exit" {
+			node.Position.X = entry.Position.X + 1200
+		}
+	}
+	start := "p-start"
+	if !converging {
+		start = "feed-start"
+	}
+	network.Lanes = append(network.Lanes, Lane{ID: "origin-link", From: "origin-exit", To: start, SpeedLimit: 14})
+	for index := range network.Lanes {
+		network.Lanes[index].VehicleClasses = oracleLargeClasses
+	}
+	for index := range network.Stations {
+		station := &network.Stations[index]
+		station.VehicleClasses = oracleLargeClasses
+		for berth := range station.Berths {
+			station.Berths[berth].VehicleClasses = oracleLargeClasses
+		}
+	}
+	if !mergePairOf(network) {
+		t.Fatal("lanes a and b do not form a merge pair")
+	}
+	return network
+}
+
 // oracleBerths is the number of berths of the destination station of
 // oracleNetwork, and the largest number of pods of an oracle case.
 var oracleBerths = len(oracleBerthDegrees)
@@ -104,9 +192,10 @@ type oraclePod struct {
 	distance float64
 }
 
-// oracleLayout places pods on a network of oracleNetwork.
+// oracleLayout places pods on a network of oracleNetwork, or of
+// largeOracleNetwork when large is set.
 type oracleLayout struct {
-	converging bool
+	converging, large bool
 }
 
 // before returns a pod gap meters before the node on its way to lane: on
@@ -180,7 +269,11 @@ func restoreMergeOracle(t *testing.T, network Network, pods []oraclePod) *Simula
 			Route:     route, LaneID: pod.route[0], LaneDistance: pod.distance, Distance: pod.distance,
 		})
 	}
-	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state, FaultsOn: true, EmergenciesOn: true})
+	// An Express pod needs the Express order contract.
+	if slices.ContainsFunc(pods, func(pod oraclePod) bool { return pod.class == ExpressClass }) {
+		state.OrderContract = ExpressOrderContract
+	}
+	s, result, err := RestoreState(RestoreStateInput{OrderContract: state.OrderContract, Network: network, Fleet: fleet, State: state, FaultsOn: true, EmergenciesOn: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -273,11 +366,18 @@ var oracleCases = []oracleCase{
 		// on a merge, the pods stop on the lane after the node and at the
 		// start of their junction cells, outside their extents, and the
 		// stream on the other lane stops beside them. On a split, p2 stops
-		// at the end of its junction cells, just past its extent.
+		// at the end of its junction cells, just past its extent. On a
+		// merge of largeOracleNetwork, p1 is 60 m past the node, because
+		// its retained tail of 20 m reaches the first cell of the exit
+		// lane, which holds the node, from 45 m.
 		name: "stopped pod",
 		pods: func(l oracleLayout, first, other string, classes [2]VehicleClass) []oraclePod {
 			if l.converging {
-				pods := append([]oraclePod{{class: LegacyClass, route: []string{"exit", "approach"}, distance: 45}}, l.stream(first, 30, corridorQueueGap, classes[0])[:2]...)
+				exit := 45.0
+				if l.large {
+					exit = 60
+				}
+				pods := append([]oraclePod{{class: LegacyClass, route: []string{"exit", "approach"}, distance: exit}}, l.stream(first, 30, corridorQueueGap, classes[0])[:2]...)
 				return append(pods, l.other(other, classes[1])...)
 			}
 			return append([]oraclePod{l.at(first, 80, LegacyClass), l.at(first, 20, classes[0])}, l.other(other, classes[1])...)
@@ -331,22 +431,22 @@ var oracleCases = []oracleCase{
 }
 
 // TestMergeOracleCases runs the oracle and Check at each tick of each
-// oracle case, on a merge pair and on a split pair, with LateralMerges and
-// with ShapeClearance, with the pod of the case on lane a and on lane b,
-// and in both class orders. Each run lasts 60 s, so the traffic flows
-// again after each fault ends.
+// oracle case, on a merge pair and on a split pair, on each network of
+// oracleVariants, with the pod of the case on lane a and on lane b, and in
+// each class order that the network admits. Each run lasts 60 s, so the
+// traffic flows again after each fault ends.
 func TestMergeOracleCases(t *testing.T) {
 	t.Parallel()
 	for _, converging := range []bool{true, false} {
-		for _, shape := range []bool{false, true} {
+		for _, variant := range oracleVariants {
 			for _, test := range oracleCases {
 				for _, lanes := range [][2]string{{"a", "b"}, {"b", "a"}} {
-					for _, classes := range oracleClassOrders {
-						name := fmt.Sprintf("converging %v shape %v %s on %s %s then %s", converging, shape, test.name, lanes[0], classes[0], classes[1])
+					for _, classes := range variant.orders() {
+						name := fmt.Sprintf("converging %v %s %s on %s %s then %s", converging, variant.name, test.name, lanes[0], classes[0], classes[1])
 						t.Run(name, func(t *testing.T) {
 							t.Parallel()
-							network := oracleNetwork(t, converging, shape)
-							s := restoreMergeOracle(t, network, test.pods(oracleLayout{converging: converging}, lanes[0], lanes[1], classes))
+							network := variant.network(t, converging)
+							s := restoreMergeOracle(t, network, test.pods(oracleLayout{converging: converging, large: variant.large}, lanes[0], lanes[1], classes))
 							if test.start != nil {
 								if err := test.start(s); err != nil {
 									t.Fatal(err)
@@ -375,21 +475,31 @@ func TestMergeOracleCases(t *testing.T) {
 // 3 s, restores the saved state, and runs the oracle and
 // Check at each tick of 60 s more. The faulted pod of the split case is in
 // its extent, where only the junction orders it, when the state is saved.
+// The cases run with LateralMerges and small pods, and on
+// largeOracleNetwork with Express and Group pods.
 // The cases do not fail before the save.
 func TestMergeOracleRestoredContinuation(t *testing.T) {
 	t.Parallel()
+	faulted := slices.IndexFunc(oracleCases, func(c oracleCase) bool { return c.name == "faulted pod" })
+	streams := slices.IndexFunc(oracleCases, func(c oracleCase) bool { return c.name == "two streams" })
 	for _, test := range []struct {
 		converging bool
 		index      int
+		variant    oracleVariant
+		classes    [2]VehicleClass
 	}{
-		{converging: false, index: slices.IndexFunc(oracleCases, func(c oracleCase) bool { return c.name == "faulted pod" })},
-		{converging: true, index: slices.IndexFunc(oracleCases, func(c oracleCase) bool { return c.name == "two streams" })},
+		{converging: false, index: faulted, variant: oracleVariants[0], classes: oracleClassOrders[0]},
+		{converging: true, index: streams, variant: oracleVariants[0], classes: oracleClassOrders[0]},
+		{converging: false, index: faulted, variant: oracleVariants[2], classes: [2]VehicleClass{ExpressClass, CompactClass}},
+		{converging: true, index: streams, variant: oracleVariants[2], classes: [2]VehicleClass{ExpressClass, CompactClass}},
+		{converging: false, index: faulted, variant: oracleVariants[2], classes: [2]VehicleClass{GroupClass, ExpressClass}},
+		{converging: true, index: streams, variant: oracleVariants[2], classes: [2]VehicleClass{CompactClass, GroupClass}},
 	} {
 		oracle := oracleCases[test.index]
-		t.Run(fmt.Sprintf("converging %v %s", test.converging, oracle.name), func(t *testing.T) {
+		t.Run(fmt.Sprintf("converging %v %s %s %s then %s", test.converging, test.variant.name, oracle.name, test.classes[0], test.classes[1]), func(t *testing.T) {
 			t.Parallel()
-			network := oracleNetwork(t, test.converging, false)
-			s := restoreMergeOracle(t, network, oracle.pods(oracleLayout{converging: test.converging}, "a", "b", oracleClassOrders[0]))
+			network := test.variant.network(t, test.converging)
+			s := restoreMergeOracle(t, network, oracle.pods(oracleLayout{converging: test.converging, large: test.variant.large}, "a", "b", test.classes))
 			if oracle.start != nil {
 				if err := oracle.start(s); err != nil {
 					t.Fatal(err)
@@ -401,7 +511,7 @@ func TestMergeOracleRestoredContinuation(t *testing.T) {
 			// The JSON form of a saved state leaves out the members that the
 			// session codec writes, such as the end of a fault, so the
 			// restore takes the state as ExportState gives it.
-			restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: s.ExportState(), FaultsOn: true, EmergenciesOn: true})
+			restored, result, err := RestoreState(RestoreStateInput{OrderContract: s.orderContract, Network: network, Fleet: s.initial, State: s.ExportState(), FaultsOn: true, EmergenciesOn: true})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -460,18 +570,37 @@ type oracleControl struct {
 	shortExtent    float64
 }
 
-// TestMergeOracleControls places two pods by hand, in both class orders,
+// TestMergeOracleControls places two pods by hand, in each class order,
 // and checks the result of the oracle and of Check. On the split of
 // oracleNetwork, p1 is on lane a at oracleBand, and p2 is on lane b 7.1 m
-// nearer to the node. The bodies overlap, but the pods are more than 3.1 m
-// apart, so Check passes. Each overlap fails the oracle, also when p1 holds
+// nearer to the node, or 6.5 m on largeOracleNetwork, so that a small body
+// on lane a also meets the large body on lane b. The bodies overlap, but
+// the pods are more than 4.0 m apart, so Check passes. Each overlap fails the oracle, also when p1 holds
 // the junction and a short extent puts p2 outside it. On a merge with an exit lane that turns 90
 // degrees left, p1 is at the end of lane a, and p2 is 6.5 m before the
 // node on lane b, which comes in from the right. Only the join turn of p1
-// into the exit lane brings its body over the body of p2.
+// into the exit lane brings its body over the body of p2. The small orders
+// run on oracleNetwork with LateralMerges, and each order runs on
+// largeOracleNetwork.
 func TestMergeOracleControls(t *testing.T) {
 	t.Parallel()
-	turn := oracleNetwork(t, true, false)
+	for _, variant := range []oracleVariant{oracleVariants[0], oracleVariants[2]} {
+		for _, classes := range variant.orders() {
+			for _, test := range oracleControls(t, variant) {
+				t.Run(fmt.Sprintf("%s %s %s then %s", variant.name, test.name, classes[0], classes[1]), func(t *testing.T) {
+					t.Parallel()
+					checkOracleControl(t, test, classes)
+				})
+			}
+		}
+	}
+}
+
+// oracleControls returns the cases of TestMergeOracleControls on the
+// networks of a variant.
+func oracleControls(t *testing.T, variant oracleVariant) []oracleControl {
+	t.Helper()
+	turn := variant.network(t, true)
 	for index := range turn.Nodes {
 		switch node := &turn.Nodes[index]; node.ID {
 		case "b-start":
@@ -480,26 +609,33 @@ func TestMergeOracleControls(t *testing.T) {
 			node.Position = Point{Y: 1200}
 		}
 	}
-	split := oracleNetwork(t, false, false)
-	for _, test := range []oracleControl{
-		{name: "overlap without an owner", network: split, first: oracleBand, second: oracleBand - 7.1, fail: true},
-		{name: "overlap with the other pod in its extent", network: split, first: oracleBand, second: oracleBand - 7.1, owner: "p1", fail: true},
+	split := variant.network(t, false)
+	near := 7.1
+	if variant.large {
+		near = 6.5
+	}
+	return []oracleControl{
+		{name: "overlap without an owner", network: split, first: oracleBand, second: oracleBand - near, fail: true},
+		{name: "overlap with the other pod in its extent", network: split, first: oracleBand, second: oracleBand - near, owner: "p1", fail: true},
 		{name: "disjoint bodies without an owner", network: split, first: oracleBand, second: oracleBand + 9},
 		// The owner holds the junction and p2 is outside its extent, so the
 		// accept rule of the design passes the pair, and hides the short
 		// extent. The strict oracle fails it.
-		{name: "overlap with a short extent", network: split, first: oracleBand, second: oracleBand - 7.1, owner: "p1", fail: true, shortExtent: 20},
+		{name: "overlap with a short extent", network: split, first: oracleBand, second: oracleBand - near, owner: "p1", fail: true, shortExtent: 20},
 		{name: "join turn without an owner", network: turn, first: oracleLaneLength, second: oracleLaneLength - 6.5, fail: true, joinOnly: true},
 		{name: "join turn with the other pod in its extent", network: turn, first: oracleLaneLength, second: oracleLaneLength - 6.5, owner: "p1", fail: true, joinOnly: true},
 		{name: "join turn with disjoint bodies", network: turn, first: oracleLaneLength, second: oracleLaneLength - 20, owner: "p1"},
-	} {
-		for _, classes := range oracleClassOrders {
-			t.Run(fmt.Sprintf("%s %s then %s", test.name, classes[0], classes[1]), func(t *testing.T) {
-				t.Parallel()
-				checkOracleControl(t, test, classes)
-			})
-		}
 	}
+}
+
+// oracleBodyText is the size of the grown body of each class in the text
+// of the oracle: 7.2 m by 3.1 m for a small class, and 8.0 m by 4.0 m for a
+// large class.
+func oracleBodyText(class VehicleClass) string {
+	if largeVehicleClass(class) {
+		return "8.000 by 4.000 m"
+	}
+	return "7.200 by 3.100 m"
 }
 
 // checkOracleControl runs a case of TestMergeOracleControls with p1 of the
@@ -509,7 +645,11 @@ func checkOracleControl(t *testing.T, test oracleControl, classes [2]VehicleClas
 	if !mergePairOf(test.network) {
 		t.Fatal("lanes a and b do not form a merge pair")
 	}
-	s, err := NewFleet(test.network, []Placement{{ID: "p1", Class: classes[0], StationID: "dest", BerthID: "dest-01"}, {ID: "p2", Class: classes[1], StationID: "dest", BerthID: "dest-02"}})
+	var contract OrderContract
+	if slices.Contains(classes[:], ExpressClass) {
+		contract = ExpressOrderContract
+	}
+	s, err := NewFleetWithOrderContract(test.network, []Placement{{ID: "p1", Class: classes[0], StationID: "dest", BerthID: "dest-01"}, {ID: "p2", Class: classes[1], StationID: "dest", BerthID: "dest-02"}}, contract)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -560,7 +700,7 @@ func checkOracleControl(t *testing.T, test oracleControl, classes [2]VehicleClas
 	for _, want := range []string{
 		"tick 0:", "node n", fmt.Sprintf("junction owner %q", test.owner),
 		fmt.Sprintf("pod p1 (%s) on lane a", classes[0]), fmt.Sprintf("pod p2 (%s) on lane b", classes[1]),
-		"center (", "heading ", "7.200 by 3.100 m",
+		"center (", "heading ", oracleBodyText(classes[0]), oracleBodyText(classes[1]),
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("oracle error %q does not name %q", err, want)

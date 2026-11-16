@@ -16,6 +16,14 @@ import (
 // pods, so a pod in its extent owns the junction, and a pod outside its
 // extent has a body that clears each body position of the other lane.
 //
+// When a network sets ShapeClearance, the rule applies to each class
+// (part 3 of docs/design/shape-clearance.md). A lane that admits a large
+// class or has a geometry tail can form a pair. The body of each lane is
+// the union of the grown bodies of the classes that the lane admits
+// (laneShapeBody), so it changes only the body range. The node range stays
+// Clearance. The pods of a pair keep the side-by-side distance of their
+// classes (shapeClassClearance).
+//
 // A pod releases the junction at the end of its extent, and the extent
 // stops at the lane end. Where the body range reaches the far end of a
 // lane, the body of a pod that left the lane can still meet the other
@@ -25,11 +33,13 @@ import (
 // one other step against one enclosure.
 var mergeOptions = sweepOptions{tolerance: 1e-3, visits: 1 << 12}
 
-// newMergeLateral returns the lateral merge pairs of a network, with
-// lateralClearance(0) for each pair and the extent of each lane of a pair,
-// or nil when the network sets neither LateralMerges nor ShapeClearance, or
-// has no pair. ShapeClearance keeps the rule of LateralMerges for small
-// lanes.
+// newMergeLateral returns the lateral merge pairs of a network, with the
+// clearance of each pair and the extent of each lane of a pair, or nil
+// when the network sets neither LateralMerges nor ShapeClearance, or has
+// no pair. With LateralMerges, the clearance is lateralClearance(0). With
+// ShapeClearance, it is the side-by-side distance of the bodies of the two
+// lanes, and the pods of a pair keep the side-by-side distance of their
+// classes (see classClearance).
 // tails, maneuvers and depots are the indexes of the network. Only lane
 // keys are in the result, and each lane with a partner has its polyline in
 // points. The junction conflicts, the safety observation, the restore, and
@@ -39,11 +49,14 @@ func newMergeLateral(network Network, tails map[string]geometryTails, maneuvers 
 		return nil
 	}
 	lanes := newMergeLanes(network)
-	// eligible checks clauses 3 and 4: a small lane with no geometry tail,
-	// outside the maneuver groups and the depots.
+	// eligible checks clause 4: a lane outside the maneuver groups and the
+	// depots. Without ShapeClearance, it also checks clause 3: a small lane
+	// with no geometry tail.
 	eligible := func(lane Lane) bool {
-		return !largeClassSet(lane.VehicleClasses) && tails[lane.ID] == (geometryTails{}) &&
-			!maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
+		if maneuvers.groupLane(lane.ID) || depots.depotLane(lane.ID) {
+			return false
+		}
+		return network.ShapeClearance || !largeClassSet(lane.VehicleClasses) && tails[lane.ID] == (geometryTails{})
 	}
 	// Each candidate pair gives both of its sides at its node, in
 	// forEachJunctionPair order. reaches holds the candidate pairs that fail
@@ -65,13 +78,13 @@ func newMergeLateral(network Network, tails map[string]geometryTails, maneuvers 
 		}
 		sides = append(sides, mergeSide{a: a, b: b, start: start, end: end})
 	})
-	l := &depotLateral{pairs: make(map[[2]separationKey]float64), neighbors: make(map[int][]int), points: make(map[int][]Point), extents: make(map[[2]int][2]float64)}
+	l := &depotLateral{pairs: make(map[[2]separationKey]float64), neighbors: make(map[int][]int), points: make(map[int][]Point), extents: make(map[[2]int][2]float64), classes: network.ShapeClearance}
 	for _, side := range sides {
 		key := keyPair(laneKey(side.a), laneKey(side.b))
 		if reaches[key] {
 			continue
 		}
-		l.pairs[key] = lateralClearance(0)
+		l.pairs[key] = lanes.clearance(side.a, side.b)
 		l.neighbors[side.a] = append(l.neighbors[side.a], side.b)
 		l.points[side.a] = lanes.points[side.a]
 		l.extents[[2]int{side.a, side.b}] = [2]float64{side.start, side.end}
@@ -111,13 +124,36 @@ func newMergeLanes(network Network) *mergeLanes {
 
 // extent returns the extent of lane a against lane b of a candidate pair
 // at node, and whether the body range of a reaches the far end of a (see
-// lateralMergeExtent).
+// lateralMergeExtent). The body of a is on the steps of a, and the body of
+// b on the steps of b.
 func (m *mergeLanes) extent(a, b int, node string) (float64, float64, bool) {
 	others := make([]sweepStep, 0, len(m.laneSteps(b)))
 	for _, step := range m.laneSteps(b) {
 		others = append(others, step.step)
 	}
-	return lateralMergeExtent(m.laneSteps(a), others, m.lengths[a], m.builder.network.Lanes[a].To == node)
+	bodies := sweepPairBodies{first: m.body(a), second: m.body(b)}
+	return lateralMergeExtent(m.laneSteps(a), others, bodies, m.lengths[a], m.builder.network.Lanes[a].To == node)
+}
+
+// body returns the grown body of a lane of a candidate pair: with
+// ShapeClearance, the union of the bodies of the classes that the lane
+// admits, and otherwise the small body lateralBody(0).
+func (m *mergeLanes) body(index int) sweepBody {
+	if !m.builder.network.ShapeClearance {
+		return lateralBody(0)
+	}
+	return laneShapeBody(m.builder.network.Lanes[index].VehicleClasses).sweep()
+}
+
+// clearance returns the clearance of a pair of lanes in the table: with
+// ShapeClearance, the side-by-side distance of the bodies of the two
+// lanes, and otherwise lateralClearance(0).
+func (m *mergeLanes) clearance(a, b int) float64 {
+	if !m.builder.network.ShapeClearance {
+		return lateralClearance(0)
+	}
+	lanes := m.builder.network.Lanes
+	return laneShapeBody(lanes[a].VehicleClasses).halfWidth + laneShapeBody(lanes[b].VehicleClasses).halfWidth
 }
 
 // laneSteps returns the steps of a lane, and keeps its polyline and its
@@ -209,9 +245,10 @@ func mergeSteps(b lateralBuilder, lane Lane, points []Point) []mergeStep {
 }
 
 // mergeSweep finds the end of the body range of a lane, against the other
-// lane of a lateral merge pair, that is far from the node.
+// lane of a lateral merge pair, that is far from the node. bodies holds
+// the body on the lane and the body on the other lane.
 type mergeSweep struct {
-	body   sweepBody
+	bodies sweepPairBodies
 	others []sweepStep
 	// bound is the far end of the range so far: the least start of a
 	// part before the node, or the greatest end of a part after it.
@@ -222,15 +259,16 @@ type mergeSweep struct {
 // a lateral merge pair: the body range, and the last Clearance meters of the
 // lane when both lanes end at the node, or the first Clearance meters when
 // both start at it. The range gets the sample pad of
-// conflictExtentWithClearance. length is the length of the lane. far
-// reports whether the body range reaches the far end of the lane (see
-// reachesFar), which clause 5 does not allow.
+// conflictExtentWithClearance. bodies holds the body on the steps of the
+// lane and the body on the steps of the other lane. length is the length
+// of the lane. far reports whether the body range reaches the far end of
+// the lane (see reachesFar), which clause 5 does not allow.
 //
 // The node range holds the end of the lane at the node, so only the far end
 // of the body range can make the extent longer. The sweep starts with the
 // far end of the node range, and it skips each part that cannot pass it.
-func lateralMergeExtent(steps []mergeStep, others []sweepStep, length float64, converging bool) (start, end float64, far bool) {
-	sweep := mergeSweep{body: lateralBody(0), others: others}
+func lateralMergeExtent(steps []mergeStep, others []sweepStep, bodies sweepPairBodies, length float64, converging bool) (start, end float64, far bool) {
+	sweep := mergeSweep{bodies: bodies, others: others}
 	far = sweep.reachesFar(steps, length, converging)
 	if converging {
 		sweep.bound = length - Clearance
@@ -310,17 +348,18 @@ func (m *mergeSweep) after(step mergeStep, lo, hi float64) {
 	m.after(step, lo, mid)
 }
 
-// clear reports whether the enclosure of the body over the part [lo, hi]
-// of a step is clear of the body on each step of the other lane.
+// clear reports whether the enclosure of the body of the lane over the
+// part [lo, hi] of a step is clear of the body of the other lane on each
+// step of the other lane.
 func (m *mergeSweep) clear(step sweepStep, lo, hi float64) bool {
-	enclosure := sweepEnclosure(step, m.body, lo, hi)
+	enclosure := sweepEnclosure(step, m.bodies.first, lo, hi)
 	shape := newSweepObstacle(enclosure)
 	for _, other := range m.others {
-		if sweepFar(other, m.body, enclosure, shape.axes) {
+		if sweepFar(other, m.bodies.second, enclosure, shape.axes) {
 			continue
 		}
 		visits := 0
-		if sweepOne(other, m.body, &shape, mergeOptions, &visits) != sweepClear {
+		if sweepOne(other, m.bodies.second, &shape, mergeOptions, &visits) != sweepClear {
 			return false
 		}
 	}
