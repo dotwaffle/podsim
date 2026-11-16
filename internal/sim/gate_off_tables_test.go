@@ -132,6 +132,13 @@ func gateOffTablesOf(network Network) gateOffTables {
 	}
 }
 
+// expressNetworkFixture reads the network with Express on all lanes of
+// London Full.
+func expressNetworkFixture(t *testing.T) Network {
+	t.Helper()
+	return readNetworkFixture(t, "testdata/express_network.json.gz")
+}
+
 // readNetworkFixture reads one gzip network from testdata.
 func readNetworkFixture(t *testing.T, path string) Network {
 	t.Helper()
@@ -221,7 +228,7 @@ func gateOffAuditProbes() map[string]gateOffTables {
 func TestGateOffTables(t *testing.T) {
 	t.Parallel()
 	networks := scenarioNetworks(t)
-	express := readNetworkFixture(t, "testdata/express_network.json.gz")
+	express := expressNetworkFixture(t)
 	networks["london-full-express"] = express
 	got := make(map[string]gateOffTables, 2*len(networks)+2)
 	var mu sync.Mutex

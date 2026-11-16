@@ -137,10 +137,24 @@ func oldLargePathBound(points []Point) float64 {
 	if len(points) < 2 {
 		return math.Inf(1)
 	}
+	minimum := chordProjection(points)
+	if minimum <= 0 {
+		return math.Inf(1)
+	}
+	if minimum == 1 {
+		return largeClearance
+	}
+	return largeClearance / (minimum * (1 - conflictSlack))
+}
+
+// chordProjection returns the least projection of a segment of a polyline
+// on its chord, as a ratio of the length of the segment. It returns 0 when
+// the chord has no length or a segment does not advance on the chord.
+func chordProjection(points []Point) float64 {
 	first, last := points[0], points[len(points)-1]
 	chord := pointDistance(first, last)
 	if chord <= 0 || !finite(chord) {
-		return math.Inf(1)
+		return 0
 	}
 	ux, uy := (last.X-first.X)/chord, (last.Y-first.Y)/chord
 	minimum := 1.0
@@ -152,12 +166,35 @@ func oldLargePathBound(points []Point) float64 {
 		}
 		projection := (b.X-a.X)/length*ux + (b.Y-a.Y)/length*uy
 		if projection <= 0 || !finite(projection) {
-			return math.Inf(1)
+			return 0
 		}
 		minimum = min(minimum, projection)
 	}
-	if minimum == 1 {
-		return largeClearance
+	return minimum
+}
+
+// smallFrontCap is the largest front bound of rule 1 (see envelopeFront):
+// (2 + sqrt 2) times the radius of the disk that holds the grown small body
+// with the guideway tolerance of 0.25 m, rounded up to 0.1 m. The radius is
+// the corner radius 4.4769 m of classShapeBody(CompactClass) plus 0.25 m.
+// An arc of one lane from the reference to an end of the lane in that disk
+// is at most this long (B2 of section 3.1 of the shared-track design).
+const smallFrontCap = 16.2
+
+// envelopeFront returns the front bound of a lane for the envelope of a
+// pod: the front of the tail index. When the network sets ShapeClearance,
+// rule 1 gives a curved lane with no geometry tail the front
+// min(6 / (c (1 - conflictSlack)), smallFrontCap), where c is the chord
+// projection of the lane, and smallFrontCap when c is 0. The front then
+// holds the next lane of the route while the body of a small pod can reach
+// it. points returns the polyline of the lane. Only rule 1 calls it.
+func envelopeFront(lane Lane, bounds geometryTails, shapeClearance bool, points func() []Point) float64 {
+	if !shapeClearance || bounds != (geometryTails{}) || lane.Control == nil {
+		return bounds.front
 	}
-	return largeClearance / (minimum * (1 - conflictSlack))
+	c := chordProjection(points())
+	if c <= 0 {
+		return smallFrontCap
+	}
+	return min(largeEnvelopeRadius/(c*(1-conflictSlack)), smallFrontCap)
 }

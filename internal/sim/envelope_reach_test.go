@@ -68,7 +68,7 @@ func newEnvelopeReachProbe(t *testing.T, name string, n Network) *envelopeReachP
 		probe.outgoing[lane.From] = append(probe.outgoing[lane.From], index)
 		bounds := p.tails[lane.ID]
 		probe.behind = max(probe.behind, bounds.tail, bounds.fromTail)
-		probe.ahead = max(probe.ahead, bounds.front)
+		probe.ahead = max(probe.ahead, bounds.front, p.laneCells[lane.ID].front)
 	}
 	for _, station := range p.network.Stations {
 		for _, berth := range station.Berths {
@@ -153,13 +153,20 @@ func (p *envelopeReachProbe) positions(v *vehicle, at int) []float64 {
 		positions = append(positions, step, length-step)
 	}
 	front := largeEnvelopeRadius
+	fronts := []float64{largeEnvelopeRadius}
 	for _, entry := range blocks {
 		if entry.cells != nil {
 			front = max(front, entry.cells.front)
+			fronts = append(fronts, entry.cells.front)
 		}
 	}
 	for index := range v.Route {
 		positions = append(positions, blocks[index+1].start+max(largeClearance, blocks[index].cells.tail)-start, blocks[index].start-front-start)
+		// The local front of a network with ShapeClearance is one of the
+		// front bounds of the route.
+		for _, local := range fronts {
+			positions = append(positions, blocks[index].start-local-start)
+		}
 	}
 	positions = append(positions, v.originTail()-start)
 	kept := positions[:0]
@@ -173,7 +180,11 @@ func (p *envelopeReachProbe) positions(v *vehicle, at int) []float64 {
 }
 
 // check drives a large pod on a route, at each position of the lane at a
-// route index, and requires each plane of its envelope in the reach.
+// route index, and requires each plane of its envelope in the reach. After
+// a restore, the route distance and the published position can each
+// differ by up to two restoreTolerance steps, so it checks each shift of
+// both. Without ShapeClearance, the envelope reads the route distance, and
+// with it, the published position.
 func (p *envelopeReachProbe) check(t *testing.T, route []int, at int) {
 	t.Helper()
 	lanes := make([]Lane, len(route))
@@ -183,23 +194,25 @@ func (p *envelopeReachProbe) check(t *testing.T, route []int, at int) {
 	v := &vehicle{Pod: Pod{ID: "probe", Class: GroupClass, Activity: Traveling, LaneID: lanes[at].ID}}
 	p.s.setVehicleRoute(v, lanes)
 	v.origin = p.berths[lanes[0].From]
+	shifts := []float64{0, -2 * restoreTolerance, 2 * restoreTolerance}
 	for _, position := range p.positions(v, at) {
 		v.distance = v.blocks.lanes[at].start + position
 		v.originReleased = v.origin.ID == "" || v.distance >= v.originTail()
-		got := p.s.appendVehicleSafetyLocations(nil, v, v.distance)
-		// After a restore, the published lane position can differ from the
-		// route distance by up to two restoreTolerance steps.
-		for _, shift := range []float64{0, -2 * restoreTolerance, 2 * restoreTolerance} {
-			span := p.reach.laneAt(route[at], position+shift)
-			held := p.spanLocations(span)
-			for _, location := range got {
-				if !slices.Contains(held, location) {
-					p.fail(t, fmt.Sprintf("lane %q at %g m (published %g m), origin released %v, route %s: plane %+v is not in the reach %s", lanes[at].ID, position, position+shift, v.originReleased, strings.Join(routeIDs(lanes), " "), location, planesText(held)))
-					return
+		for _, moved := range shifts {
+			for _, shift := range shifts {
+				published := min(p.lengths[route[at]], max(0, position+shift))
+				v.Pod.LaneDistance = published
+				got := p.s.appendVehicleSafetyLocations(nil, v, v.distance+moved)
+				held := p.spanLocations(p.reach.laneAt(route[at], published))
+				for _, location := range got {
+					if !slices.Contains(held, location) {
+						p.fail(t, fmt.Sprintf("lane %q at %g m (route distance moved %g m, published %g m), origin released %v, route %s: plane %+v is not in the reach %s", lanes[at].ID, position, moved, published, v.originReleased, strings.Join(routeIDs(lanes), " "), location, planesText(held)))
+						return
+					}
 				}
-			}
-			if shift == 0 {
-				p.count(len(held) - len(got))
+				if shift == 0 && moved == 0 {
+					p.count(len(held) - len(got))
+				}
 			}
 		}
 	}
@@ -219,10 +232,10 @@ func (p *envelopeReachProbe) count(extra int) {
 	p.stats.largest = max(p.stats.largest, extra)
 }
 
-// spanLocations returns the planes of a span.
+// spanLocations returns the planes of a span, with the planes of rule 2.
 func (p *envelopeReachProbe) spanLocations(span *reachSpan) []SafetyLocation {
 	held := make([]SafetyLocation, 0, len(span.locations))
-	for _, number := range span.locations {
+	for _, number := range p.reach.closure(span.locations) {
 		if location := p.reach.locations[number]; !slices.Contains(held, location) {
 			held = append(held, location)
 		}
@@ -389,7 +402,7 @@ func envelopeReachCurves(t *testing.T) Network {
 // berth has its envelope in the reach of the berth.
 func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 	t.Parallel()
-	express := readNetworkFixture(t, "testdata/express_network.json.gz")
+	express := expressNetworkFixture(t)
 	refused := gateOffRefusedNetworks(t, express)
 	// A large network checks the lanes with a geometry tail and each
 	// seventh lane, or each 29th lane with -short.
@@ -411,6 +424,12 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 			c.lanes = sampled
 		}
 		cases[name] = c
+	}
+	// With ShapeClearance, the oracle takes the local front and the
+	// small-pod rules, and the index the reach bound of each lane.
+	for name, c := range maps.Clone(cases) {
+		c.network = withShapeClearance(c.network, true)
+		cases[name+", shapeClearance"] = c
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -572,7 +591,7 @@ func (s *reachSet) setMembers() []int {
 // -short, and the lane with the largest front bound.
 func TestEnvelopeReachLazySpans(t *testing.T) {
 	t.Parallel()
-	express := readNetworkFixture(t, "testdata/express_network.json.gz")
+	express := expressNetworkFixture(t)
 	networks := gateOffRefusedNetworks(t, express)
 	networks["london-full-express"] = express
 	networks["curves"] = envelopeReachCurves(t)

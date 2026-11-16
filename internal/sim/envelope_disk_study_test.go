@@ -1120,9 +1120,10 @@ func diskStudyVariants(t *testing.T, base Network) map[string]Network {
 }
 
 // TestEnvelopeDiskStudy classifies the lanes that the body or the disk of
-// a pod touches on each network of the study, with ShapeClearance off and
-// on. The field does not change the tails, the cells, or the envelope, so
-// the two results must be equal.
+// a pod touches on each network of the study. The study measures the
+// envelope of a network without ShapeClearance. The field gives the local
+// front and the small-pod rules of section 3.1 of the shared-track design,
+// which the shared-track study measures, so this study runs without it.
 func TestEnvelopeDiskStudy(t *testing.T) {
 	base := diskStudyNetwork(t)
 	variants := diskStudyVariants(t, base)
@@ -1132,43 +1133,33 @@ func TestEnvelopeDiskStudy(t *testing.T) {
 	}
 	slices.Sort(names)
 	for _, name := range names {
-		var results [2]diskStudyResult
-		for index, field := range []bool{false, true} {
-			n := variants[name].clone()
-			n.ShapeClearance = field
-			d := newDiskStudy(t, n)
-			results[index] = d.run()
-			if index > 0 {
-				continue
-			}
-			result := results[0]
-			t.Logf("%s: %d lanes, %d large lanes, poses small %d, large %d, lane pairs with truncated paths %d",
-				name, len(d.lanes), countLargeLanes(d.lanes), result.counts.poses[diskSmall], result.counts.poses[diskLarge], result.truncated)
-			keys := make([]string, 0, len(result.counts.classes))
-			for key := range result.counts.classes {
-				keys = append(keys, key)
-			}
-			slices.Sort(keys)
-			for _, key := range keys {
-				t.Logf("%s %s: %d", name, key, result.counts.classes[key])
-			}
-			t.Logf("%s: front bound of the network %.2f m, large lanes under 40 m %d", name, reachFront(d.s.network, d.tails), len(shortStudyLanes(n)))
-			tests := make([]string, 0, len(result.nearest))
-			for test := range result.nearest {
-				tests = append(tests, test)
-			}
-			slices.Sort(tests)
-			for _, test := range tests {
-				t.Logf("%s c %s: smallest route distance to a missed lane over each pose %.1f m", name, test, result.nearest[test])
-			}
-			slices.SortFunc(result.witnesses, func(a, b diskStudyWitness) int {
-				return cmp.Or(cmp.Compare(a.kind, b.kind), cmp.Compare(boolInt(a.raw), boolInt(b.raw)), cmp.Compare(d.lanes[a.pose.lane].ID, d.lanes[b.pose.lane].ID), cmp.Compare(d.lanes[a.touched].ID, d.lanes[b.touched].ID))
-			})
-			d.logWitnesses(t, name, result.witnesses)
+		n := variants[name].clone()
+		n.ShapeClearance = false
+		d := newDiskStudy(t, n)
+		result := d.run()
+		t.Logf("%s: %d lanes, %d large lanes, poses small %d, large %d, lane pairs with truncated paths %d",
+			name, len(d.lanes), countLargeLanes(d.lanes), result.counts.poses[diskSmall], result.counts.poses[diskLarge], result.truncated)
+		keys := make([]string, 0, len(result.counts.classes))
+		for key := range result.counts.classes {
+			keys = append(keys, key)
 		}
-		if fmt.Sprint(results[0].counts) != fmt.Sprint(results[1].counts) || len(results[0].witnesses) != len(results[1].witnesses) {
-			t.Errorf("%s: ShapeClearance changes the result: %v and %v", name, results[0].counts, results[1].counts)
+		slices.Sort(keys)
+		for _, key := range keys {
+			t.Logf("%s %s: %d", name, key, result.counts.classes[key])
 		}
+		t.Logf("%s: front bound of the network %.2f m, large lanes under 40 m %d", name, reachFront(sharedTrackFronts(d.s.network, d.tails, false)), len(shortStudyLanes(n)))
+		tests := make([]string, 0, len(result.nearest))
+		for test := range result.nearest {
+			tests = append(tests, test)
+		}
+		slices.Sort(tests)
+		for _, test := range tests {
+			t.Logf("%s c %s: smallest route distance to a missed lane over each pose %.1f m", name, test, result.nearest[test])
+		}
+		slices.SortFunc(result.witnesses, func(a, b diskStudyWitness) int {
+			return cmp.Or(cmp.Compare(a.kind, b.kind), cmp.Compare(boolInt(a.raw), boolInt(b.raw)), cmp.Compare(d.lanes[a.pose.lane].ID, d.lanes[b.pose.lane].ID), cmp.Compare(d.lanes[a.touched].ID, d.lanes[b.touched].ID))
+		})
+		d.logWitnesses(t, name, result.witnesses)
 	}
 }
 

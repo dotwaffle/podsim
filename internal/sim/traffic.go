@@ -88,8 +88,8 @@ func indexBerthResources(network Network) map[string][]resource {
 // each network lane, and no code writes to them.
 type laneCells struct {
 	tail, fromTail float64
-	// front is the front bound of the lane for the observer (see
-	// geometryTails).
+	// front is the front bound of the lane for the envelope of the
+	// observer (see envelopeFront).
 	front float64
 	// retention is the reduced retention of a qualifying lane (see
 	// newLaneRetention), or 0 for Clearance.
@@ -208,8 +208,11 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 			continue
 		}
 		retention, length := input.retention.of(lane.ID), indexedLaneLength(lane, positions[lane.From], positions[lane.To])
+		front := envelopeFront(lane, tails[lane.ID], network.ShapeClearance, func() []Point {
+			return lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
+		})
 		cells[lane.ID] = newLaneCells(laneCellsInput{
-			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, front: tails[lane.ID].front, retention: retention,
+			tail: tails[lane.ID].tail, fromTail: tails[lane.ID].fromTail, front: front, retention: retention,
 			lane: lane, length: length, geometry: input.geometry[lane.ID],
 			berths: input.berths[lane.To], conflicts: input.conflicts[lane.ID],
 			every: append(input.maneuvers.everyCell(lane.ID), input.depots.everyCell(lane, retention, length)...),
@@ -482,6 +485,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 	lengths = make([]float64, 0, len(route))
 	distance := 0.0
 	fallbackTails := s.tails
+	var positions map[string]Point
 	for index, lane := range route {
 		length := s.laneLength(lane)
 		lengths = append(lengths, length)
@@ -490,8 +494,14 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 			if fallbackTails == nil {
 				fallbackTails = indexGeometryTails(s.network)
 			}
+			front := envelopeFront(lane, fallbackTails[lane.ID], s.network.ShapeClearance, func() []Point {
+				if positions == nil {
+					positions = indexNodePositions(s.network.Nodes)
+				}
+				return lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
+			})
 			cells = newLaneCells(laneCellsInput{
-				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail, front: fallbackTails[lane.ID].front, retention: s.retention.of(lane.ID),
+				tail: fallbackTails[lane.ID].tail, fromTail: fallbackTails[lane.ID].fromTail, front: front, retention: s.retention.of(lane.ID),
 				lane: lane, length: length, geometry: s.geometry[lane.ID],
 				berths: s.berthResources[lane.To], conflicts: s.junctionConflicts[lane.ID],
 			})

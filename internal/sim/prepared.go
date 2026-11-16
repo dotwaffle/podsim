@@ -44,8 +44,18 @@ type networkIndexes struct {
 	nodeSafety map[string][]SafetyLocation
 	// berthEnvelopes holds the safety envelope of a pod that is at each
 	// station berth and does not travel: the location of the berth, then
-	// the locations of its node that differ. No code changes an entry.
+	// the locations of its node that differ. No code changes an entry. It
+	// is not used when the network sets ShapeClearance.
 	berthEnvelopes map[string][]SafetyLocation
+	// clusterSafety holds the planes of rule 2 by the plane of each
+	// maneuver group lane: the planes of the lanes at the nodes of its
+	// cluster (see maneuverClusters), each plane one time, in lane order.
+	// It is nil when the network does not set ShapeClearance.
+	clusterSafety map[SafetyLocation][]SafetyLocation
+	// envelopes holds the envelope reach of the network with the spans of
+	// each lane, which the safety envelopes read (see appendSpanEnvelope).
+	// It is nil when the network does not set ShapeClearance.
+	envelopes *envelopeReach
 	// tails holds the one tail index of the network. The lane cells and the
 	// retention index read it.
 	tails map[string]geometryTails
@@ -219,6 +229,9 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 		berthResources: indexBerthResources(owned),
 	}
 	p.indexSafety()
+	if owned.ShapeClearance {
+		p.envelopes = compileEnvelopeReach(owned, prepared.tails)
+	}
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
@@ -245,6 +258,30 @@ func (n *networkIndexes) indexSafety() {
 		for _, berth := range station.Berths {
 			n.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 			n.berthNodes[berth.ID] = berth.Node
+		}
+	}
+	n.clusterSafety = nil
+	if n.network.ShapeClearance {
+		// The group lanes of one cluster share one slice of planes.
+		shared := make(map[*int][]SafetyLocation)
+		for index, cluster := range maneuverClusters(n.network) {
+			if cluster == nil {
+				continue
+			}
+			planes, done := shared[&cluster[0]]
+			if !done {
+				planes = make([]SafetyLocation, 0, len(cluster))
+				for _, lane := range cluster {
+					if location := n.laneSafety[n.network.Lanes[lane].ID]; !slices.Contains(planes, location) {
+						planes = append(planes, location)
+					}
+				}
+				shared[&cluster[0]] = planes
+			}
+			if n.clusterSafety == nil {
+				n.clusterSafety = make(map[SafetyLocation][]SafetyLocation)
+			}
+			n.clusterSafety[n.laneSafety[n.network.Lanes[index].ID]] = planes
 		}
 	}
 	n.berthEnvelopes = make(map[string][]SafetyLocation, len(n.berthNodes))

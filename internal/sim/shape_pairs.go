@@ -381,12 +381,9 @@ func (l *lazyEnvelopeReach) get() *envelopeReach {
 		return nil
 	}
 	l.once.Do(func() {
-		for _, lane := range l.network.Lanes {
-			if bounds := l.tails[lane.ID]; !finite(bounds.tail) || !finite(bounds.fromTail) || !finite(bounds.front) {
-				return
-			}
+		if finiteReachTails(l.network, l.tails) {
+			l.index = newEnvelopeReach(l.network, l.tails)
 		}
-		l.index = newEnvelopeReach(l.network, l.tails)
 	})
 	return l.index
 }

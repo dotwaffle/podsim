@@ -2,6 +2,7 @@
 
 Status: proposed on 2026-11-16, revised on 2026-11-16 after review (section 10).
 On 2026-11-16, the maintainer approved the contract amendment of this design as ST1 to ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md), and the SX rows as the [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md) contract, and the text was applied.
+On 2026-11-16, the maintainer approved ST16 to ST24 of the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md), for the shape of section 3.1, and the text was applied.
 The design itself still waits for its build.
 
 This design is decision D11 of the approved [shape clearance](shape-clearance.md) design.
@@ -13,14 +14,15 @@ No code changes until the maintainer approves this design.
 Summary:
 
 - On the default LondonFull network with Express on the route, the built audit refuses 14 pairs, and 10 of them are closer than 4.0 m.
-  With a front bound for each lane, it refuses 7 pairs, and 5 of them are closer than 4.0 m.
+  With the index for each lane of section 3.1, it refuses the same 7 pairs, and 5 of them are closer than 4.0 m (section 2.2).
 - The tight hubs have 32 Express lanes of 25.0 m or 25.5 m, under the 40 m of a large lane.
   This blocker is larger than the one of the shape clearance design, which measured the wide stations.
 - A set of geometry changes removes each refusal and each short lane in a copy of the network.
   With the front bound for each lane, the audit then refuses no pair.
   With the bound of the whole network, it refuses 7 pairs, unless two more junction lanes go.
-- The maintainer approved S1-A: the front bound for each lane in the index, with the seed, and a local front in the oracle, behind the `shapeClearance` field.
-  Section 3.1 proves that the local oracle holds each plane under the body of a large pod, with axiom A1, which the maintainer accepted as a rule of the model.
+- The maintainer approved S1-A: a front bound for each lane in the index, behind the `shapeClearance` field.
+  On 2026-11-16, after a code review of slice 1, the maintainer chose the anchor front of section 3.1, which does not recurse, and an oracle that reads the compiled index.
+  Section 3.1 proves that the oracle holds each plane under the body of a large pod, with axiom A1, which the maintainer accepted as a rule of the model.
 - Section 3.1 also closes the gaps of the small pod of a mixed pair under the field, with two rules that it proves for the grown small body and measures.
 - The committed study tests of section 8 reproduce each number of sections 2 and 3, and they pin the input and network hashes.
 
@@ -67,7 +69,7 @@ A change to one of these pinned values fails the study.
 The other numbers of sections 2 and 3 are in the log of the study, and the containment test fails on each failure of the proposal.
 Two checks tie the copy to the code: its first refusal is the error of `ValidateBankGeometry`, and its spans with the built bound are the spans of the built index.
 The copy gives the counts of "Counts of the built audit" in section 2.2 of the shape clearance design: 40 shape pairs and 14 refusals with the built bound.
-With the front bound of each lane, it gives the 7 refusals that the shape clearance design gives for a front reach of 6 m.
+With the index for each lane, it gives the 7 refusals that the shape clearance design gives for a front reach of 6 m (section 2.2).
 The wide network gives the same refusals.
 For each refusal, the study runs the shape sweep, and each sweep finds a collision.
 The free-flow routes are 2,171.5 m from Waterloo to Bank and 2,102.8 m back, from the station exit to the station entry.
@@ -97,8 +99,23 @@ The distance is the smallest distance of the parts that the reach does not separ
 | `940GZZLUBNK-road-in-08` | `940GZZLUBNK-move-02-08` | 5.17 m | Bank | Whole network | As above. |
 
 With the front bound of the whole network, the audit refuses 14 pairs, 10 under 4.0 m, and it has 40 shape pairs.
-With the front bound of each lane, it refuses the first 7 pairs, 5 under 4.0 m, and it has 39 shape pairs.
-The seed and the small-pod rules of section 3.1 give the same 7 refusals.
+With the index for each lane of section 3.1, it refuses the first 7 pairs, 5 under 4.0 m, and it has 39 shape pairs.
+The small-pod rules give the same 7 refusals.
+
+Note of 2026-11-16: before the paths through the published lane of section 3.1, the index for each lane refused 11 more pairs, 18 pairs, 6 under 4.0 m, with 76 shape pairs.
+Each of the 11 more pairs had a part of 1 mm or less at an end of a lane.
+There, the anchors within the slack of the published position cross a node, and the envelope of an anchor on the other side held a sibling lane of the diverge or the merge:
+
+- `road-in-08` and each of `940GZZLUBNK-move-06-01` to `move-06-08`, 4.54 m and 4.55 m: the first 1 mm of each `move-06-0X` holds `road-in-06`, which the end of `london-link-098-ba-2` holds.
+  This is the pose of the pair `london-link-098-ba-2` and `road-in-08` above.
+- `road-out-01` and each of `940GZZLUWLO-move-05-03` and `move-05-04`, 6.26 m: the first 1 mm of each holds `move-05-01`, which the end of `london-link-350-ab-2` holds.
+  This is the pose of the pair `road-out-01` and `london-link-350-ab-2` above.
+- `road-out-01` and `940GZZLUWLO-move-05-05`, 2.24 m: the last 1 mm of `road-out-01` holds `move-05-01`, which the start of `london-link-100-ba-1` holds.
+  This is the pose of the pair `move-05-05` and `london-link-100-ba-1` above.
+
+So each of these refusals was the pose of a refusal of the first 7 pairs, at a node, with the name of a lane next to it.
+With the union of the anchors removed, the study gave the first 7 pairs and 39 shape pairs again, so the union was the only cause.
+The paths through the published lane remove these 11 refusals.
 No refusal includes a berth or a berth link.
 
 ### 2.3 Front bounds
@@ -115,10 +132,10 @@ The other three are junction lanes:
 | `940GZZLUBNK-move-08-02` | 23.81 m | 39.5 m | 39.1 m | Link 100 in to link 094 out | 10 |
 
 `move-08-06` has no large front, and 8 station pairs use it.
-The built index takes 66.42 m for each lane (`reachFront`, `internal/sim/envelope_reach.go:217`).
-The bound `F(L)` of section 3.1, without the seed, is 6.01 m or more on 6 lanes: 66.42 m on `move-05-01` and `london-link-350-ab-2`, 33.62 m on `move-06-08` and `london-link-098-ba-2`, and 23.81 m on `move-08-02` and `london-link-100-ba-2`.
-A lane before a curved junction lane gets its bound, because a pod at the end of the lane can enter the curve.
-The bound `F'(L)`, with the seed, is 6.01 m or more on 31 lanes, because each lane out of the To node of such a lane also takes its bound.
+The built index takes 66.42 m for each lane (`reachFront`, `internal/sim/envelope_reach.go:263`).
+The anchor front `B(L)` of section 3.1, without the small-pod rules, is 6.01 m or more on the 3 junction lanes of the table only.
+A lane before a curved junction lane keeps 6 m.
+A pod within the slack of its end also has the anchors at the start of the curve, so the index holds the planes of the curve there.
 The route counts are over the 97,032 pairs of station exit and station entry, with the free-flow cost of `laneSeconds`.
 
 ### 2.4 Lane length
@@ -138,8 +155,9 @@ The short road is short on both networks, so it does not depend on the station s
 ### 2.5 Ramp junctions
 
 The study also runs on `-junctions ramps`.
-There, the audit refuses 14 pairs, 11 under 4.0 m, with either front bound.
-It has 17 shape pairs with the bound of the whole network and 14 with the bound of each lane.
+There, the audit refuses 14 pairs, 11 under 4.0 m, with the bound of the whole network, and 17 shape pairs.
+With the index for each lane, it refuses 14 pairs, 11 under 4.0 m, and it has 14 shape pairs.
+Before the paths through the published lane of section 3.1, it refused one more pair, `road-in-08` and `940GZZLUBNK-ramp-06-07` at 4.54 m, with a part of 1 mm at the start of the ramp, as in section 2.2, and it had 15 shape pairs.
 The ramps split link 100 into lanes of 40.0 m, and 46 lanes are short.
 Preparation refuses `london-link-100-ba-1` at 40.0 m by rounding.
 The ramp junctions are not a better base for this preset.
@@ -150,63 +168,159 @@ The ramp junctions are not a better base for this preset.
 
 #### Definition
 
-Let `front(M)` be the front bound of lane M from the tail index, and 0 when it has none.
-Under the field, `front(M)` also includes the small-pod front of a curved lane with no geometry tail ("Small pods of a mixed pair" below).
-For each lane L, the bound `F(L)` is the least value that is at least `max(6 m, front(L))`, and at least `front(M)` for each lane M that starts at a node within `F(L)` of the To node of L.
-The distance is the shortest walk along lanes, with `envelopeReachSlack`.
-A walk in order of distance from the To node computes it: start with `max(6 m, front(L))`, raise the bound with the front of each lane out of each settled node, and stop at the first node whose distance is the bound plus the slack or more.
-The bound is at most the bound of the whole network, so the walk is finite.
+Note of 2026-11-16: the first build of slice 1 used a recursive front bound `F(L)` with a seed of lanes behind, and a local front in the oracle.
+A code review found two blockers.
+First, a group lane shorter than the slack let a lane two lanes back reach the local front, and the seed missed it.
+Second, the wider seed of the fix fails at an exact slack bound, for example a chain P, L, Q, M, N where the walk distance to N equals the bound plus the slack as a float64.
+Each fix of the closure added a case that the next review broke.
+On 2026-11-16, the maintainer chose the shape of this section: a front that does not recurse, an index compiled once, and an oracle that reads the index.
+The recursive bound, the seed, and the local front are removed.
 
-The index takes `F'(L)`: the largest of `F(L)` and `F(P)` for each lane P into the From node of L.
-This seed covers a pod that a restore or the slack puts at the end of P while the index reads the start of L.
-The ahead walk of `laneItems` (`envelope_reach.go:294`) then uses `F'(L)` in place of the bound of the whole network.
-The behind walk does not change, because it already tests each lane against its own retained tail (`:282`) and each origin against the origin tail of its node (`:287`).
+Let `front(L)` be the front bound of lane L from the tail index, and 0 when it has none.
+Under the field, `front(L)` also includes rule 1 of "Small pods of a mixed pair" below: a curved lane with no geometry tail gets `min(6 / (c (1 - conflictSlack)), 16.2 m)`.
+The anchor front of L is `B(L) = max(6 m, front(L))` (`anchorFront`, `internal/sim/envelope_reach.go:276`).
+It does not take the front of another lane.
 
-#### The oracle must change too
+An anchor is a lane and a position on it.
+The envelope of an anchor on L at position p has these items, each a closed range of p:
 
-The oracle takes the largest front bound of all lanes of the route of the pod, behind the pod and far ahead of it (`appendVehicleSafetyLocations`, `internal/sim/envelope_safety.go:51` to `:56`).
-`TestEnvelopeReachCurves` pins this with its case "two lanes ahead from the front bound of a lane behind" (`internal/sim/envelope_reach_test.go:446`).
-So a front bound for each lane alone does not hold the envelope.
-An index that holds the built oracle must take, for each lane, the largest front of any lane that can share a route with it.
-In a strongly connected network, that is the bound of the whole network, as the comment of `reachFront` says.
-The containment test of this design measures this.
-The built oracle has planes that the index for each lane does not hold at 1,083 poses on the network of section 2.1.
-The counts are 1,500 poses on the network of section 3.5 and 752 poses on the curves network.
-For example, a small pod on `london-link-100-ab-2` at 921.96 m, on a route from `move-06-08`, has `940GZZLUWLO-move-01-06` in its envelope 33.62 m before the end of the lane.
+- L itself, over the whole lane.
+- Behind: each lane P whose To node is at walk distance d back from the From node of L, while `p <= (tail(P) - d) + u`, with the tail at least 20 m.
+- Origin: each berth at a node N at walk distance d back, and each lane at N, while `p <= (originAt(N) - d) + u`.
+  These items carry N as their origin unit.
+- Ahead: each lane M out of a node at walk distance d from the To node of L, while `p >= ((length(L) + d) - B(L)) - u`.
 
-So, when the network sets `shapeClearance`, the oracle takes a local front.
-At a route distance x, the front is the least value that is at least 6 m and at least the front bound of each route lane that ends at x minus the slack or later and starts at x plus the front or earlier.
-One pass over the route lanes in order computes it, because a lane starts after each lane before it.
-Under the field, the oracle also applies the small-pod rules of "Small pods of a mixed pair" below.
-They apply to the envelope of a traveling pod, of a pod before its origin release, and of a pod at a berth.
-Without the field, the oracle and its reference construction (`envelope_safety_reference_test.go:25`) do not change, so D and each other project keep their envelopes.
+u is `envelopeReachSlack`, 1 mm.
+The walk distance is the least sum along lanes, added left to right in float64 (`reachWalk`).
+A walk takes each node with `d <= fl(budget + u)`.
+The operands are added in the order of the formulas above, so a test can compute each bound to the bit.
 
-#### Why the index holds the changed envelope
+A published position (L, p) is the pod position that the protocol and the saved state carry: `Pod.LaneID` and `Pod.LaneDistance`.
+A restore puts the route distance within two `restoreTolerance` steps, 2e-6 m, of the published position, so the pod can be on another lane across a node.
+The anchors of (L, p) are each anchor within walk distance u of it, also across one or more nodes and short lanes.
+The envelope reach of (L, p) is the union of the envelopes of these anchors, each with its own B and its own distance origin:
 
-Take a pod on a route through L, at position p on L, at route distance x.
-The changed oracle holds a lane M ahead when the route distance from x to the start of M is at most the local front f(x).
+- The anchor on L at p.
+- While `p <= u - d`, for each lane A into a node at walk distance d back from the From node of L, the items of the anchor on A along the paths through L that hold a position in `[max(0, length(A) - u), length(A)]`.
+- While `p >= (length(L) + d) - u`, for each lane A out of a node at walk distance d from the To node of L, the items of the anchor on A along the paths through L that hold a position in `[0, min(u, length(A))]`.
 
-1. f(x) is at most `F'(L)`.
-   The lanes in its pass are the lane before L when x is within the slack of the start of L, L itself, and route lanes ahead of L.
-   The lane before L adds at most `F(P)`, which the seed holds.
-   For a lane ahead, the route distance from the To node of L to its start is at least the shortest walk distance.
-   So each such lane is within the walk of `F(L)`, and its front is at most `F(L)`, by induction over the pass.
-   When the pass includes P, the same argument from the To node of P gives `F(P)`.
-2. The index holds M at p.
-   The item of M starts at `length(L) + d - F'(L) - slack`, where d is the shortest walk distance (`envelope_reach.go:296`).
-   The oracle holds M only when `length(L) - p + r <= f(x) <= F'(L)`, where r is the route distance and `r >= d`.
-   So p is at or after the start of the item.
-3. Restore slack: a restored route distance differs from the published lane position by at most two `restoreTolerance` steps of 1e-6 m (`envelope_reach.go:15`).
-   The slack of 1e-3 m covers this, as today.
-   At a node, the published lane can be L while the route distance is at the end of P.
-   The seed covers this case.
-4. Retained tails and the origin: the behind walk and its items do not change.
-5. Join turns: `F'(L)` is at least 6 m, as the bound of the whole network is.
-   So the lanes out of the To node stay in the last 6 m or more of L, and the sweep keeps the join turn in each range that holds the end of the lane (`clipShapeSteps`, `internal/sim/shape_pairs.go:162`).
-6. Classes: the walk takes each lane out of each node, whatever its classes, so it covers the envelope of the small pod of a mixed pair.
-7. Clusters: where the index holds a maneuver group lane over a range of positions, it also holds each lane of its cluster over that range.
-   The berth items of the index get the same lanes.
-   So the index holds the planes that the cluster rule adds to the oracle.
+Each neighbor term uses the items of the anchor on A only, and not the union at A, so the union does not recurse (`localItems`, `:628`).
+
+Rule 2 of "Small pods of a mixed pair" applies to each span: when a span holds a maneuver group lane, it also holds each lane at a node of its cluster (`closure`, `:407`).
+
+`compileEnvelopeReach` (`:327`) builds the spans of each lane and each berth one time, in `newPreparedNetwork`, when the network sets `shapeClearance`.
+The spans are immutable after that.
+The audit builds its own index with the same code.
+A berth span holds the berth and each lane at its node, with the node as origin unit, and rule 2.
+
+#### Paths through the published lane
+
+Let near be the nodes within walk distance u of L on the side of A: back from the From node of L when A is before L, and ahead from the To node of L when A is after L.
+The items of the anchor on A along the paths through L are these (`throughItems`):
+
+- A, L, and each lane from a node of near to a node of near.
+- When A is before L: the behind and origin items of A, from the From node of A, as in the envelope of an anchor.
+  The ahead items of A come from the walk ahead from the To node of L, with the walk distance `(d + length(L)) + w`, where w is the least sum from the To node of L.
+- When A is after L: the ahead items of A, from the To node of A, as in the envelope of an anchor.
+  The berths and the lanes at each node of near with a berth, with that node as their origin unit, over the whole lane.
+  The behind and origin items of A come from the walk back from the From node of L, with the walk distance `(d + length(L)) + w`.
+
+So the walk of A on the side of L starts at the far end of L, and does not branch at a node of near.
+A lane of a diverge or a merge at a node of near, other than L and the lanes between near nodes, is not an item.
+
+Soundness.
+The premise is that the published position (L, p) is a position on the route, and that the anchor, the route distance, is on the route at most u from it.
+`publishVehicleTravel` and `publishDeparture` (`internal/sim/traffic.go:846` and `:838`) set `Pod.LaneID` and `Pod.LaneDistance` from the route lane of the block of the route distance, so after them the two positions are the same.
+A restore takes the lane of the saved route index, refuses a saved lane ID that differs, and derives the route distance from the saved lane distance, with the saved distance only within `restoreTolerance` (`placeTravelingPod` and `restoredDistance`, `internal/sim/state_physical.go`).
+So after a restore the gap is at most two `restoreTolerance` steps, 2e-6 m.
+
+One case does not publish.
+A pod with no destination that reaches the end of its route returns at `traffic.go:864`, after it sets the route distance and before it publishes.
+`blockIndex` can then pass one or more short last lanes, and the published position stays where the last publication put it, on L or on a lane before the last lane.
+The gap is at most the last step of the pod:
+
+- A step reaches its limit only by the endpoint snap: the step is `min(available, command dt)`, the command is at most `safe(available)`, and `safe(a) dt < a` for each a > 0 (`moveStep`, `internal/sim/move_step.go:16`).
+  The snap sets the limit when less than 1e-5 m is left (`move_step.go:28`).
+- So the last step a satisfies `a - safe(a) dt < 1e-5 m`, with `safe(a) = sqrt(b^2 dt^2 + 2 b a) - b dt`, `dt = 1/30 s` (`TicksPerSecond`, `internal/sim/simulation.go:11`), and b the maximum braking: 2 m/s^2, or 1.15 m/s^2 for Express (`motionEnvelopeFor`, `internal/sim/motion_envelope.go:23`).
+  `a - safe(a) dt` grows with a, so a is less than 2.21e-4 m for b = 2 and 1.70e-4 m for b = 1.15.
+- The pod stops at the route end with speed 0, so the gap does not grow after that step.
+  A restore of the pod derives its route distance from the published lane distance, so the gap after a restore is at most 2e-6 m.
+
+So the gap is at most 2.21e-4 m, less than u, also when the step passes several short lanes.
+The anchor is on the route, ahead of the published position, and the lanes between them are on the route, so the argument below holds with this gap.
+So when the anchor is on A before L, the route goes from A to L through lanes whose nodes are at most u from the From node of L, which are nodes of near, and then on through L.
+The lanes of the route ahead of the anchor are A, the lanes between near nodes, L, and the lanes after the To node of L.
+The route distance from the anchor to a node after L is at least `d + length(L) + w`, so the ahead item of each such lane starts no later than the item of the route.
+When the anchor is on A after L, the same holds for the lanes behind.
+An origin unit at a node of near is held over the whole lane, which is more than the definition needs.
+So each lane that the envelope of the anchor holds on the route of the pod is an item along the paths through L.
+A lane that is not on these paths is not on the route of a pod published on L, and the route selection of the oracle drops it in each case.
+This argument uses only the published lane, and not the route, so the audit index, which has no route, uses it too.
+Two pods published on lanes L1 and L2 have their routes through L1 and L2, so the audit pairs only items of paths that the two pods can have.
+
+The review proposed a path ID on each item, a check at selection that the path is a contiguous part of the route, and an audit that pairs only items with compatible paths.
+That rule keeps each item in the index.
+The rule of this section evaluates the provenance one time, at compile time, for the published lane, so the index needs no path IDs, and the audit needs no pairing rule of its own.
+The index is then not a superset of the index without the rule.
+The oracle selects from a smaller span, so it can lose a lane that only the removed walks reached, also a lane of the route.
+For example, with a route that comes back to a diverge in a loop and takes the sibling later, the span at the start of L no longer holds the sibling (`TestEnvelopeAnchorDiverge`).
+That lane is not within the tail or the front of the anchor along the route, so the envelope does not need it.
+On the network of section 2.1, the oracle holds 146,221 planes for large pods, as before the rule, and 3,835,568 for small pods, 2.196 for each pose as before.
+This is a measurement.
+`TestEnvelopeAnchorRouteCoverage` checks the soundness argument with a construction that does not use the walks: it measures the tails and fronts along the route only.
+
+Cost.
+The rule adds no storage to an item and no work in the oracle.
+At preparation, each anchor A next to L walks one time on its own side and one time from the far end of L, in place of two walks from A.
+The set near comes from the walk of the slack, which the union already runs, and the lanes between its nodes take one pass over near with a mark for each node.
+On the network of section 2.1, the compile takes 39 ms for 27,815 spans with 136,303 locations, against 45 ms for 37,694 spans with 200,303 locations without the rule.
+On a chain of 150 lanes of 0.01 mm, each lane has at most 150 near nodes and 150 anchors, so a lane takes at most 150 walks and a pass of 150 nodes with their lanes.
+`TestEnvelopeAnchorShortChain` builds that chain in 0.37 s with the race detector off.
+The walks and the order of the items are those of the envelope of an anchor, with the same float64 additions, so the index is deterministic.
+
+#### Endpoint rounding
+
+Each bound rounds outward, and each end of a range has one owner:
+
+- An item is closed at both ends.
+  The code stores the end as `math.Nextafter(to, +Inf)`, exclusive.
+- The cuts of the spans are the item bounds in `(0, length]`.
+  So a bound at the length of the lane makes a last span `[length, length]` when an item starts there.
+- The walk limit is `math.Nextafter(budget + u, +Inf)`, exclusive (`inclusiveLimit`, `:488`), so a node at exactly `fl(budget + u)` is in the walk.
+- The neighbor terms use the same closed form: `p <= u - d` and `p >= (length(L) + d) - u`.
+- A walk from the far end of L adds the base `d + length(L)` to each least sum w, as `(d + length(L)) + w`.
+
+#### The oracle
+
+Without the field, the oracle and its reference construction do not change, so D and each other project keep their envelopes.
+
+With the field, `appendVehicleSafetyLocations` (`internal/sim/envelope_safety.go:33`) reads the compiled span at the published position and selects from it (`appendSpanEnvelope`, `:152`):
+
+- A traveling pod reads the span of `Pod.LaneID` at `Pod.LaneDistance`.
+  The route distance and the route prefix do not change the result.
+- A pod at a berth reads the span of its berth.
+- A lane is selected when it is a lane of the route of the pod, by lane identity.
+- A lane or a berth with an origin unit is selected when that unit is the origin node of a traveling pod before its origin release, or the node of the berth of a pod at a berth.
+  The berth must also be the origin berth or the berth of the pod.
+- Rule 2 then applies to the selected planes (`appendClusters`).
+
+The planes come in the order of their location numbers, each plane one time, then the clusters.
+
+#### Why containment is structural
+
+The oracle takes its planes from the span of the index at the published position.
+Selection keeps a subset of the span, and rule 2 of a subset is a subset of rule 2 of the span, which the span holds.
+So each plane of the oracle is in the index, by construction, at each position and with no proof about walks or seeds.
+The audit index runs the same code on the same network, so it holds the same spans.
+
+Two checks guard the code that this argument does not cover:
+
+- The reference construction of SX3 (`newEnvelopeReference`, `internal/sim/envelope_safety_reference_test.go:52`) computes the envelope again from the definition above.
+  It reads no span, item, or bound of the production index.
+  It walks by node ID with its own shortest sums, and takes the lane lengths from `lanePointsBetween`.
+  It must give the same locations in the same order as the oracle.
+- The support tests of the next sections put oriented bodies at poses and require each lane under the body in the oracle.
+  They do not use the index.
 
 #### Axiom A1
 
@@ -226,7 +340,10 @@ For a body that straddles a node, A1 is the reason that D1-B adds the lanes ahea
 The lanes under a body are its support.
 Let D(x) be a disk of radius r around the lane point at route distance x.
 The support C(x) is the connected part of the route that is in D(x) and holds x.
-The proof obligation is that, for each route lane M that meets C(x), the envelope at x holds M.
+The proof obligation is that, for each route lane M that meets C(x), the envelope holds M.
+The proof uses the anchor of the pod only, on L at the position of x.
+The other anchors of the uncertainty can only add planes.
+The route distance x is within 2e-6 m of the published position, and each item bound has the slack u of 1e-3 m, so the anchor at the published position holds each item that the anchor at x holds.
 A part of the route that leaves D(x) and comes back is not in the support.
 If such a part is on a plane that is separated from each support lane, A1 puts it on another level.
 If it is on a plane that is not separated from the support, the oracle tests the two pods through the support.
@@ -241,7 +358,7 @@ So the bound of the whole network holds it only by over-approximation.
 Without A1, a body touches each plane whose track comes into D(x) in plan, also after the route leaves D(x).
 A route can come back after any path distance, so no front of path distance holds such a plane, and the route maximum does not either.
 
-#### Why the local oracle holds the body
+#### Why the oracle holds the body
 
 Facts about lanes:
 
@@ -273,16 +390,16 @@ So the support is L, and at most one of these:
 
 - The next route lane M, when the support passes the To node of L.
   The arc from x to that node is at most ρ / c long (B3), which is less than `6 / c`, which is at most `front(L)` (F4).
-  f(x) is at least `front(L)`, because L holds x.
-  So M starts at most f(x) ahead of x, and the oracle holds M.
+  So `length(L) - p <= B(L)`, and the ahead item of M, with d = 0, holds p.
+  M is on the route, so the oracle selects it.
 - The previous route lane P, when the support passes the From node of L.
-  The behind walk does not change, and it holds P while x is within max(20 m, tail(P)) of the From node.
-  The arc is at most 18.45 m long (B2), which is less than 20 m, so the oracle holds P.
+  The behind item of P holds p while p is within max(20 m, tail(P)) of the From node.
+  The arc is at most 18.45 m long (B2), which is less than 20 m, so the item holds p, and the oracle selects P.
 
 A join turn does not change the lemma, because B1 does not depend on the angle at a node.
 A cycle or a returning path does not change it, because the support meets one node at most.
-The origin tail is at least 20 m, so it holds the origin berth over the whole behind support.
-The proof does not use the bound of the whole network.
+The origin tail is at least 20 m, so it holds the origin berth over the whole behind support before the origin release.
+The proof does not use the bound of the whole network, or the front of another lane.
 
 Scope: the proof covers a body inside the disk of radius 5.404 m.
 For a body that fills the whole 6 m envelope disk, B2 gives 20.49 m behind, which is above the 20 m floor of the behind walk.
@@ -325,7 +442,7 @@ This design proposes two rules, which the oracle and the index apply under the f
 
 1. A curved lane with no geometry tail gets the front `min(6 / (c (1 - conflictSlack)), 16.2 m)`, and 16.2 m when c is 0 or less.
    The arc from x to the To node is in D(x), so it is at most r / c long (B3) and at most 16.14 m long (B2).
-   That is at most the front, so the local front holds the next route lane.
+   That is at most `B(L)`, so the ahead item of the next route lane holds the position.
 2. When the envelope holds a maneuver group lane, it also holds each lane at a node of its cluster.
    A cluster is a maneuver group with each group that shares a node with it, and so on.
    If the support meets two nodes, each lane between them is in D(x), so it is a group lane or a lane with a reduced retention.
@@ -341,11 +458,11 @@ So the support of a body at a berth holds a second node only through a maneuver 
 
 Rule 2 applies to each location of each kind of envelope:
 
-- A traveling pod: the lanes of the route that the local front and the tails hold.
+- A traveling pod: the lanes of the route that the span holds.
 - A pod before its origin release: the origin berth and the lanes at its node, as today, and the cluster of each group lane among them.
 - A pod at a berth: the berth and the lanes at its node, and the cluster of each group lane among them.
 
-The index applies rule 2 to each item of a lane span and to each berth span (item 7 above).
+The index applies rule 2 to each lane span and to each berth span.
 
 The first draft proposed another rule for maneuver group lanes: hold the next route lane while each node up to it is within 6 m of the reference.
 It is not measured, and its test of plan distance has no form in an index of path distances (inferred), so this design does not use it.
@@ -355,8 +472,9 @@ There, the window of the second lane need not hold x, and the cluster of the fir
 On the network of section 2.1, rule 1 applies to 288 curved lanes with no geometry tail, and 60 of them get the cap of 16.2 m.
 Rule 2 applies to 312 maneuver group lanes, with 328 lanes at a node of a cluster.
 The network has 48 lanes with a reduced retention, and the shortest is 6.00 m.
-With the two rules, `F'(L)` is 6.01 m or more on 821 lanes of the network of section 2.1, on 819 lanes of section 3.5, and on 798 lanes of section 3.6.
-The audit with the bound for each lane gives the same refusals with and without the rules (section 2.2 and the effect table below).
+With the two rules, `B(L)` is 6.01 m or more on 243 lanes of the network of section 2.1, on 243 lanes of section 3.5, and on 241 lanes of section 3.6.
+Without the rules, it is 6.01 m or more on 3 lanes of the networks of sections 2.1 and 3.5, and on 1 lane of section 3.6.
+The audit with the index for each lane gives the same refusals with and without the rules (section 2.2 and the effect table below).
 
 #### Measured containment
 
@@ -366,16 +484,16 @@ It does not replace the proof, and its poses are samples.
 The test puts oriented bodies at poses along each lane and across each join turn.
 The poses are each 0.5 m of the first and last 16 m of a lane, the middle, and each position at which the oracle or the index adds or drops a plane.
 Each body is also moved by the guideway tolerance, 0.25 m, to each side.
-At each pose, the test computes the local oracle and the built oracle at the route distance and at the route distance shifted by two `restoreTolerance` steps each way.
-It reads the index at the published position with the same shifts.
+At each pose, the test reads the oracle at each published position within two `restoreTolerance` steps each way, also on the lane next to the pose across a node.
 The bodies are the gate body and the grown large body for a large pod, and the small body of the sweep and the grown small body for a small pod.
 
 For each pose, the test computes the support of each body: the connected part of the route polyline in the body footprint that holds the reference.
-It requires each support lane in the local oracle with the small-pod rules at each shift, and each plane of that oracle in the index with the seed and the rules.
+It requires each support lane in the oracle at each published position.
+It also requires each plane of the oracle in the span of the index at that position, and on the small networks it requires the oracle to equal the reference construction.
 It also classifies each route lane off the support that enters the body.
 Either the oracle tests the lane through a plane of the envelope that is not separated from it, or A1 declares the lane separated from each plane of the envelope.
 
-Each route window is long: at least the retained tail behind and the front bound plus 60 m ahead, and up to 256 lanes.
+Each route window is long: at least the retained tail behind and the anchor front plus 60 m ahead, and up to 256 lanes.
 A route does not use a lane two times, so a route cannot go on at a node whose lanes that admit the class are all on the route.
 A support that reaches the end of a window where the route can go on is a failure.
 A support that reaches the held origin node of a pod before its origin release is counted, and not checked further, because the envelope holds each lane at that node.
@@ -390,50 +508,79 @@ The test runs on these networks:
 - The curves network of `TestEnvelopeReachCurves`.
 - The networks of sections 2.1 and 3.5.
 
-On the London networks, each large lane gets windows of at least 1,100 m behind and ahead, so that the route maximum of the built oracle can come from far lanes.
+On the London networks, each large lane gets windows of at least 1,100 m behind and ahead, so that the route maximum of the earlier oracle can come from far lanes.
 The test fails on a failure of the proposal, on a control under its minimum count, and on a coverage count under its minimum.
 
 Results:
 
 - Failures of the proposal: 0 on each network, for each of the four bodies.
-  No support lane is missing from the local oracle, no plane of the local oracle is missing from the index, and no support reaches the end of a window where the route can go on.
+  No support lane is missing from the oracle, no plane of the oracle is missing from the index, and no support reaches the end of a window where the route can go on.
 - The support of a large body never meets more than one node.
-  On the network of section 2.1, it meets one lane at 128,706 body poses and two lanes at 89,394 body poses of the gate body.
-- The support of the small body meets more than one node at 18,169 body poses with a maneuver group lane, and at 252 body poses with no maneuver group lane.
+  On the network of section 2.1, it meets one lane at 130,050 body poses and two lanes at 89,394 body poses of the gate body.
+- The support of the small body meets more than one node at 17,593 body poses with a maneuver group lane, and at 252 body poses with no maneuver group lane.
 - Off-support lanes in the gate body on the network of section 2.1: 624 body poses where A1 declares the lane separated, and 84 where the oracle tests it through the envelope.
   An example is a pod on the Bank road `road-in-08` whose route comes back on `road-out-08`.
   On the network of section 3.5, the counts are 384 and 264.
   The loop and bridged loop shapes give 72 and 69 such body poses under A1, and the hairpin gives 75 that the oracle tests.
-- Poses on the network of section 2.1: 72,700 large and 1,752,543 small.
-  Of these, 341 large and 44,157 small poses have the origin held.
+- Poses on the network of section 2.1: 73,148 large and 1,746,917 small.
+  Of these, 345 large and 44,161 small poses have the origin held.
   The test also checks 7 large berths and 770 small berths with a stationary pod.
   At 192 body poses at a berth, for example at `940GZZDLTWG-bay-1`, the support of a small body meets a second node through a maneuver group lane, and rule 2 holds it.
-  On the network of section 3.5, the poses are 81,852 large and 1,755,754 small.
+  On the network of section 3.5, the poses are 81,942 large and 1,749,752 small.
 
-Controls show that the test can fail, and the test requires each control to fail at least once:
+Controls show that the test can fail, and the test requires each control to fail at least once.
+Each control is an oracle that reads an index with one part of section 3.1 removed:
 
 | Control | Misses |
 | --- | --- |
-| Index without the seed, against the local oracle | 12 index misses on the curves network, at the start of lane `short` |
-| Index for each lane, against the built oracle with the route maximum | 1,083 on the network of section 2.1, 1,500 on section 3.5, and 752 on the curves network |
-| Local oracle without the small-pod rules, small body | 1,136 support misses on each London network, at the Docklands Light Railway bays of `940GZZDLTWG`, through maneuver group lanes, and 8 on the hook fixture, on the curved lane |
-| Local oracle without the small-pod rules, grown small body | 4,192 support misses on each London network, and 15 on the hook fixture |
-| Built oracle with the route maximum, both small bodies | The same misses as the line above for each body |
-| Berth envelope without rule 2, both small bodies, and the built berth envelope | 528 support misses on each London network, for example at `940GZZDLTWG-bay-1` |
+| Oracle without the small-pod rules, small body | 40 support misses on each London network, at the Docklands Light Railway bays of `940GZZDLTWG`, through maneuver group lanes, and 6 on the hook fixture, on the curved lane |
+| Oracle without the small-pod rules, grown small body | 384 support misses on each London network, and 12 on the hook fixture |
+| Oracle with the anchor front 6 m on each lane, both small bodies | 6 and 12 support misses on the hook fixture |
+| Berth envelope without rule 2, both small bodies | 528 support misses on each London network, for example at `940GZZDLTWG-bay-1` |
+
+The controls without the small-pod rules miss less than in the first build of slice 1, 1,136 and 4,192, because the anchors at the nodes hold more lanes of the bays.
+The test also counts the misses of the earlier oracles, without a minimum:
+
+| Earlier oracle | Misses |
+| --- | --- |
+| Oracle with the route maximum, the oracle without the field | 1,136 support misses of the small body and 3,736 of the grown small body on each London network, and 8 and 15 on the hook fixture |
+| Berth envelope without the field | 528 support misses of each small body on each London network |
 
 On the London networks, the small bodies miss no support lane on a curved lane with no tail, with or without the rules.
 The hook fixture has a lane of 35.1 m with c = 0.00, so it gets the cap of 16.2 m.
+
+The test also counts the planes of the oracle at each pose, which `Check` tests.
+The mean count for each pose:
+
+| Network | Pod | Route maximum | First build of slice 1 | Section 3.1 |
+| --- | --- | ---: | ---: | ---: |
+| Section 2.1 | Large | 1.997 | 1.989 | 1.999 |
+| Section 2.1 | Small | 1.913 | 2.193 | 2.196 |
+| Section 3.5 | Large | 1.712 | 1.705 | 1.712 |
+| Section 3.5 | Small | 1.905 | 2.184 | 2.187 |
+
+For a small pod, the small-pod rules add most of the planes.
+For a large pod on the network of section 2.1, the oracle holds 146,221 planes over 73,148 poses, and the route maximum 146,093.
+The oracle drops the planes of the route maximum past the anchor front, and the slack of 1 mm on each bound and the anchors at the nodes add route lanes that the route maximum holds only 1 mm later (inferred).
 
 #### Effect
 
 | Network | Front bound | Refusals | Under 4.0 m | Shape pairs |
 | --- | --- | ---: | ---: | ---: |
 | LondonFull, Express on the route | Whole network, 66.42 m | 14 | 10 | 40 |
-| LondonFull, Express on the route | Each lane, with or without the seed or the small-pod rules | 7 | 5 | 39 |
+| LondonFull, Express on the route | Each lane, first build of slice 1 | 7 | 5 | 39 |
+| LondonFull, Express on the route | Each lane, section 3.1, with or without the small-pod rules | 7 | 5 | 39 |
 | Section 3.5, all changes | Whole network, 33.62 m | 7 | 5 | 39 |
-| Section 3.5, all changes | Each lane, with or without the seed or the small-pod rules | 0 | 0 | 38 |
+| Section 3.5, all changes | Each lane, first build of slice 1 | 0 | 0 | 38 |
+| Section 3.5, all changes | Each lane, section 3.1, with or without the small-pod rules | 0 | 0 | 38 |
+| Section 3.6, the fallback | Each lane, section 3.1 | 0 | 0 | 23 |
 | Section 3.6, the fallback | Whole network, 7.96 m | 0 | 0 | 23 |
 | Section 3.6, the fallback | Whole network with the small-pod rules, 16.20 m | 4 | 2 | 21 |
+
+The wide network gives the counts of the network of section 2.1.
+The ramp network gives 14 refusals with the first build of slice 1 and with section 3.1, with 14 shape pairs (section 2.5).
+The index for each lane is not a subset of the index of the whole network any more: on 8,760 lanes of the network of section 2.1, a span holds a plane that the whole index does not hold at that position.
+These are the planes of the anchors at the nodes.
 
 #### Approved texts that change
 
@@ -466,11 +613,15 @@ These texts stay true:
 - Group physics design, line 94: the gap of the route window stays only in a network without the field.
 - [Express physical contract](../contracts/express-physical-encoding-contract-proposal.md), line 486, the Physical geometry gate, and line 541, SC6.
 - Shape clearance, line 62: "to the front bound ahead of it".
-  The local front is a front bound.
+  The anchor front is a front bound.
 - Shape clearance, line 136: "in its last 6 m, or the longer front bound of the lane".
 - Standees contract, lines 291 and 309 to 312, as records for a network without the field.
 
 The code comments of `envelopeReach` and `reachFront` (`internal/sim/envelope_reach.go:27` to `:30`, `:212` to `:216`) change in slice 1.
+
+The [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md) applied the text of these changes on 2026-11-16.
+That text defines the local front, `F(L)`, the seed, and the reach bound, which the change of 2026-11-16 to this section removes.
+The [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md) quotes each applied text that the change makes false, and gives its replacement.
 
 ### 3.2 Hub shape
 
@@ -542,13 +693,15 @@ The network of this section has these changes, on the network of section 2.1:
 Its network SHA-256 is `4e8503da2e9a4778b7f1310fcba0729dc8c160c2d4055525662042a00df97597`.
 Results:
 
-- The audit with the front bound for each lane refuses no pair, with or without the seed or the small-pod rules.
+- The audit with the index for each lane refuses no pair, with or without the small-pod rules.
+  It has 38 shape pairs, as before the change of 2026-11-16.
+  Before the paths through the published lane of section 3.1, it had 80, because the anchors at the nodes added the planes of sibling lanes.
 - No route or hub lane is under 40 m, and preparation passes.
 - The layout audit of the generator finds no conflict.
 - `projectcheck` at `7bebe01e`, with the order contract `express-v1`, both Express services, and 4 Express pods at free hub berths, stops at the plane reach refusal of `move-01-06` and `road-out-01`.
   Project validation reports this refusal after each other check (`internal/project/config.go:335`), so each other check passes.
   The refusal comes from the bound of the whole network, 33.62 m from `move-06-08`.
-  The audit copy with the bound for each lane refuses no pair, so the refusal goes with the change of section 3.1 (inferred, because `projectcheck` cannot run with that change before slice 1).
+  With the slice 1 code of 2026-11-16, `projectcheck` accepts the project, with one warning: `940GZZLUBNK-move-08-02` has a tail of 39.5 m on a length of 39.1 m, so it holds one pod.
 - The routes are 2,216.0 m from Waterloo to Bank and 2,150.6 m back, about 45 m and 48 m more.
 
 The cost to station routes, over the 97,032 pairs of station exit and station entry, in free-flow seconds:
@@ -619,7 +772,7 @@ The prefix SX is a working name.
 | --- | --- | --- |
 | SX1 | E1, Foundation parity | Qualification includes the opt-in preset `london-full-shared-express`. LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay. |
 | SX2 | E2, Route and station eligibility, and Physical geometry | Express runs on the lanes of link 100 and the four roads of section 1, shared with Compact pods, with no dedicated lane. The geometry is that of section 3.5. The audit refuses no pair. Qualification covers every hub berth and both directions. A merge, split, or shape pair certifies the 6 m by 2.5 m class body only (SC6). |
-| SX3 | E3, Motion and ownership, and Independent safety oracle | The oracle checks the mixed fleet at each tick, with fault stops and emergency journeys, the shape table, the envelope reach, and the D6 oracle. Under decision S1, the indexed and the reference envelope constructions take the local front and the small-pod rules, and they give the same locations in the same order. |
+| SX3 | E3, Motion and ownership, and Independent safety oracle | The oracle checks the mixed fleet at each tick, with fault stops and emergency journeys, the shape table, the envelope reach, and the D6 oracle. Under decision S1, the indexed construction reads the compiled envelope reach, and an independent reference construction computes the envelope from the definition of section 3.1, with the small-pod rules. They give the same locations in the same order (amendment ST22 of the second shared-track amendment proposal). |
 | SX4 | E4, Physical restore | Each planned checkpoint restores at the physical tier with no demotion, requeue, drop, or interruption, with the shape table, and the D6 oracle runs in restored continuation. |
 | SX5 | E5, Save bytes and shape | The byte proofs run on the new geometry, with mixed-fleet, incident, and emergency members. |
 | SX6 | E6, Stream and public consumers | The Go remote client, HTTP, WebSocket, WASM, and desktop Chrome, with loads of 12, 13, and 20 riders. The maintainer does the Chrome check. |
@@ -637,7 +790,7 @@ B1 does not apply, because the preset has no banks.
 
 | ID | Decision | Options | Recommendation |
 | --- | --- | --- | --- |
-| S1 | Front bound of the envelope reach | A: the bound for each lane of section 3.1, with the seed, and the local front in the oracle behind the field. This amends the approved texts of section 3.1. B: keep the bound of the whole network, and remove `move-06-08` and `move-08-02` too (section 3.6). | Decided on 2026-11-16: A, with the proof of section 3.1 and A1 as a rule of the model. |
+| S1 | Front bound of the envelope reach | A: the bound for each lane of section 3.1, with the seed, and the local front in the oracle behind the field. This amends the approved texts of section 3.1. B: keep the bound of the whole network, and remove `move-06-08` and `move-08-02` too (section 3.6). | Decided on 2026-11-16: A, with the proof of section 3.1 and A1 as a rule of the model. On 2026-11-16, after a code review of slice 1, the maintainer replaced the seed and the local front with the anchor front and the compiled index of section 3.1. |
 | S2 | Hub shape | A: tight, each part 41 m. B: wide at scale 0.5 with a hub pitch of 82. C: D4 at 14 m. | A, measured. B is not measured, and C does not remove the short lanes. |
 | S3 | Geometry at the portals | A: the Waterloo throat at 90 m, the curve of `road-in-05`, Bank turned +5 degrees, and `move-05-01` and `move-08-06` removed. B: a new ordering resource for two lanes that share no node. | A, measured. B needs a new rule and holds Compact pods on other lines. |
 | S4 | Express parking | A: a comb of 16 berths at 40 m by 40 m beside Waterloo, as D8-A says. B: Express pods start at hub berths, with no parking. C: the parking of D, which needs its trunks. | A, after a slice measures its site against the layout audit and the bank audit. The comb adds large lanes near Waterloo, with new tails, fronts, and reach overlaps, so the result of section 3.5 does not cover it. B is measured only with 4 pods at the 5 free hub berths, and it takes hub berths from Compact pods. C brings back the trunks that shared track removes. |
@@ -650,28 +803,47 @@ S4-A needs its own measurement before the preset is final.
 
 ## 7. Test plan and slices
 
-Tests of the front bound for each lane:
+Tests of the index for each lane, in `internal/sim/envelope_anchor_test.go` unless stated:
 
-- Bound: on each network of `testdata/scenario_networks.json.gz`, D, and the preset, `F'(L)` is at most the bound of the whole network.
-  Each span of the per-lane index is a subset of the span of an index with the bound of the whole network, when both indexes take the same small-pod fronts and the same cluster rule.
-- Equality: on each lane whose `F'(L)` equals the bound of the whole network, the two indexes of the bound test give the same spans.
-  The test runs on a network with a large front, such as the preset before `move-05-01` goes, so it covers the walk of the bound.
-  The study measures both tests, and no location is outside the whole index.
-  There is no difference on the lanes whose bound is the bound of the whole network: 9 lanes of the network of section 2.1, 11 of section 3.5, and 461 of section 3.6.
-- Change from the built index: a separate test compares the per-lane index with the small-pod rules against the built index, and lists the changes by lane.
-  The expected additions are the lanes of a cluster wherever a group lane is held, in lane spans and in berth spans.
-  The lanes ahead within a small-pod front are also additions where that front is more than the built bound.
-  The expected removals are the lanes ahead past `F'(L)`.
-  The study measures additions on 200 lanes and removals on 8,919 lanes of the network of section 2.1, 320 and 8,707 on section 3.5, and 789 and 8,233 on section 3.6.
-- Containment: `TestEnvelopeReachHoldsEnvelope` with the local oracle and the small-pod rules under the field, on the curves network, the Express fixture, the scenario networks, and the preset.
-  It checks route distances shifted by two `restoreTolerance` steps each way, and published positions shifted the same way.
-  The case "two lanes ahead from the front bound of a lane behind" stays, and it now checks the local oracle.
-- Field off: the oracle and the reference construction give the envelopes of today on D and on each scenario network, and `TestBerthEnvelopeMatchesReference` passes.
-- Parity of D: the saved-state and stream bytes of D at each checkpoint equal those of the build before the change.
+- Containment by construction: each test of this list also requires each plane of the oracle in the span of the index at the published position (`anchorEnvelope`).
+  `TestEnvelopeMatchesReference` and `TestBerthEnvelopeMatchesReference` require the oracle to equal the reference construction of SX3, with the same locations in the same order.
+- Anchor front: `TestEnvelopeAnchorFront` pins `B(L)` on the curves network, and shows that lane `short` does not take the front of lane `bend` behind it, except within the slack of its start.
+- The first blocker: `TestEnvelopeAnchorSubSlackChain` puts a group lane of 0.5 mm, and of 1.001 mm, between `bend` and `short`.
+  The envelope at the start of `short` holds `short2` while `p <= u - length(gap)` and not at the next float64.
+- The second blocker: `TestEnvelopeAnchorExactBounds` builds P, L, Q, M, N with the walk sum to N equal to `6 m + u` as a float64, and one float64 more.
+  It checks the behind item of P and the ahead item of N at each bound and at the float64 values next to it.
+  There, the anchors at the end of L also hold N in both cases, so this test does not isolate the walk limit.
+- Walk limit: `TestEnvelopeAnchorWalkLimit` puts the start of N at exactly `fl(16.2 m + u)` from the end of a rule 1 lane, where no anchor at the node holds N.
+- A long chain of short lanes: `TestEnvelopeAnchorShortChain`, with 50 and 150 lanes of 0.01 mm.
+- A repeated route lane: `TestEnvelopeAnchorRepeatedLane`.
+- Restore across a node: `TestEnvelopeAnchorRestoreNode` publishes the start of `short` with the route distance before it.
+  `TestEnvelopeAnchorDiverge` also publishes the start of L with the route distance before the node, and the envelope does not change.
+- Paths through the published lane: `TestEnvelopeAnchorDiverge` and `TestEnvelopeAnchorMerge` show that the span at a lane end next to a diverge or a merge does not hold the sibling lane, and that a pod whose route takes the sibling holds it.
+  The diverge test also has a loop route that comes back to the diverge and takes the sibling later.
+  `TestEnvelopeAnchorChainSiblings` puts a sibling at a node inside a chain of two short lanes and a sibling at the From node of L.
+  `TestEnvelopeAnchorRouteCoverage` measures the tails and fronts along the route only, on a diverge whose sibling branch is shorter than the path through L, on the chain, and on the loop.
+  It requires each route lane that this construction gives in the envelope.
+  `TestEnvelopeAnchorRouteEnd` drives a pod with no destination through `move` to the end of its route, across a curved last lane of 2e-5 m.
+  In some runs the published position stays on the lane before it, and the test requires a gap of at most u/2, parity with the reference, the route check, and the route lane that only the anchor on the last lane holds.
+  `TestEnvelopeAnchorAuditSibling` runs the bank audit on a diverge: a lane next to the start of an Express lane, whose span holds the plane of the sibling, is not refused, and with the plane of the lane behind it is refused.
+- Large route prefix: `TestEnvelopeAnchorRoutePrefix` moves each route start by 2^44 m, and the envelope does not change.
+- Selection: `TestEnvelopeAnchorSelection` checks the origin unit before and after the origin release, a lane off the route, and a pod at a berth.
+  `TestEnvelopeAnchorRuleTwoAfterSelection` checks that rule 2 adds a cluster lane off the route.
+- Change from the built index: `TestEnvelopeReachChangeFromBuilt` (`envelope_support_test.go`) compares the index for each lane with the built index, and lists the changes by lane.
+  The expected additions are the lanes of a cluster wherever a group lane is held, the lanes ahead within a rule 1 front that is more than the built bound, and the planes of the slack at a bound or a node.
+  The expected removals are the lanes ahead past `B(L)`.
+  The study measures additions on 8,904 lanes and removals on 8,927 lanes of the network of section 2.1, 9,014 and 8,717 on section 3.5, and 9,020 and 8,641 on section 3.6.
+- Field off: `TestEnvelopeFieldOffMatchesBuilt` shows that the oracle and the index do not change without the field.
+  `TestGateOffTables` and `TestLondonExpressBehaviorParity` show that the tables and the bytes of D do not change.
+  `newPreparedNetwork` compiles the index only when the network sets `shapeClearance`.
 - Audit: the preset refuses no pair, the LondonFull network with Express on the route gives the 7 refusals of section 2.2, and the order and text of a refusal do not change.
 
+The first draft of this section had a bound test and an equality test against the index of the whole network.
+These tests do not hold for section 3.1: the anchors at the nodes add planes that the index of the whole network does not hold at the same position.
+The study logs the count, 8,760 lanes of the network of section 2.1, and it checks only that `B(L)` is at most the bound of the whole network.
+
 Tests of the body proof, in place of the disk walk of the first draft.
-Each test puts the oriented body at the reference, computes the support, and requires each support lane in the local oracle and in the index span.
+Each test puts the oriented body at the reference, computes the support, and requires each support lane in the oracle and each plane of the oracle in the index span.
 It also lists the route lanes that enter the body outside the support, and requires that A1 declares each one separated or that the oracle tests it through the envelope.
 Each requirement also runs with the route distance and the published position shifted by two `restoreTolerance` steps each way, and with the body moved by the guideway tolerance to each side.
 A support that reaches the end of a route window where the route can go on fails the test.
@@ -688,27 +860,39 @@ The study test `TestSharedTrackStudyContainment` is the model for these tests.
 | `TestEnvelopeSupportChain` | Each lane with a reduced retention on the scenario networks, D, the preset, and a depot chain fixture with joins that turn 45 degrees | No lane with a reduced retention is 4.7269 m long or less, and no such lane next to a route lane is wholly in the disk of the proof. This guards the chain row of section 3.1. |
 | `TestEnvelopeReachHoldsEnvelope` | The cases above | No change. |
 
-Mutations, with the table of the `verify-by-mutation` skill:
+Mutations at the call sites, with the table of the `verify-by-mutation` skill.
+Each run is `go test -short ./internal/sim -run 'Envelope|SafetyLocation|GateOff|LondonExpressBehaviorParity'`, and the same run with no mutation passes:
 
-| Mutation | Test that fails |
+| Mutation | Tests that fail |
 | --- | --- |
-| No seed from the lanes into the From node | Containment on the curves network, at the start of `short` (measured: 12 misses) |
-| The bound is `max(6 m, front(L))`, with no walk | Containment on a route that ends a lane before a curved lane, such as `link-350-ab-2` before `move-05-01` (inferred) |
-| The oracle keeps the route maximum under the field, and the index takes the bound for each lane | Containment, on the network of section 2.1 (measured: 1,083 misses) and on the curves network (measured: 752 misses) |
-| The local front ignores the front of the lane that holds x, and takes 6 m | `TestEnvelopeSupportCurvedJoin` (inferred) |
-| No small-pod front on curved lanes with no tail | `TestEnvelopeSupportMixedSmall` on the hook fixture (measured: 15 misses of the grown small body) |
-| No cluster rule on maneuver group lanes | `TestEnvelopeSupportMixedSmall` at the bays of `940GZZDLTWG` (measured: 4,192 misses of the grown small body, and 528 at the berths) |
-| The turn limit of a retention window is 180 degrees in place of 90 degrees | `TestEnvelopeSupportChain` on the depot chain fixture (inferred, the fixture is not built) |
-| The large lane minimum is 20 m in place of 40 m | `TestEnvelopeSupportOneNode`, on a fixture with a large hairpin lane of 22 m after a join turn of 180 degrees (inferred, the fixture is not built) |
-| The tail floor of the behind walk is 15 m in place of 20 m | `TestEnvelopeSupportHairpin`, if its fixture has a behind support over 15 m (inferred, the fixture is not built) |
-| The test takes each route lane in the footprint, and not the support | `TestEnvelopeSupportReturn` fails with both oracles (inferred). This control shows that the test separates the two readings. |
-| The oracle takes the local front without the field | Field off and parity of D (inferred) |
-| The walk without the slack | Containment with shifted route distances (inferred) |
+| The anchor front is 6 m on each lane (`anchorFront`) | `TestEnvelopeAnchorFront`, `TestEnvelopeAnchorWalkLimit`, `TestEnvelopeAnchorSubSlackChain`, `TestEnvelopeMatchesReference`, `TestEnvelopeSupportMixedSmall`, and others |
+| No anchors within the slack (`localItems` returns the own anchor) | `TestEnvelopeAnchorExactBounds`, `TestEnvelopeAnchorRestoreNode`, `TestEnvelopeAnchorSubSlackChain`, `TestEnvelopeAnchorShortChain`, `TestEnvelopeMatchesReference`, and others |
+| The walk limit rounds inward (`inclusiveLimit` returns `budget + u`) | `TestEnvelopeAnchorWalkLimit` |
+| The end of a backward anchor term rounds inward (`u - d`, exclusive) | `TestEnvelopeAnchorSubSlackChain`, `TestEnvelopeAnchorShortChain`, `TestEnvelopeAnchorFront` |
+| The selection skips the origin unit | `TestEnvelopeAnchorSelection`, `TestEnvelopeMatchesReference`, `TestEnvelopeSupportMixedSmall`, and others |
+| The selection skips the berth of a pod at a berth | `TestEnvelopeAnchorSelection`, `TestEnvelopeMatchesReference`, `TestEnvelopeSupportMixedSmall`, and others |
+| Rule 2 before the selection, which drops the cluster lanes off the route | `TestEnvelopeAnchorRuleTwoAfterSelection`, `TestEnvelopeAnchorSubSlackChain`, `TestEnvelopeMatchesReference`, `TestEnvelopeSupportMixedSmall`, `TestEnvelopeRuleTwoPairOrders` |
+| The index is compiled without the field | `TestEnvelopeFieldOffMatchesBuilt`, `TestEnvelopeRuleTwoPairOrders` |
+| No paths through the published lane: each anchor across a node takes its own walks (`throughItems` replaced by `anchorItems`) | `TestEnvelopeAnchorAuditSibling`, `TestEnvelopeAnchorChainSiblings`, `TestEnvelopeAnchorDiverge`, `TestEnvelopeAnchorMerge`, `TestEnvelopeMatchesReference`, and others |
+| The path is matched only at the end node of the anchor lane: the walks start at A, and drop only the siblings at that node | `TestEnvelopeAnchorChainSiblings`, `TestEnvelopeMatchesReference`, `TestEnvelopeSupportMixedSmall` |
+| The audit index drops the paths, and the compiled index keeps them | `TestEnvelopeAnchorAuditSibling` |
+| The walk from the far end of L adds `length(L)` two times | `TestEnvelopeAnchorRouteCoverage`, `TestEnvelopeAnchorFront`, `TestEnvelopeAnchorRestoreNode`, `TestEnvelopeAnchorShortChain`, `TestEnvelopeMatchesReference`, and others |
+| No origin units at the near nodes of an anchor after L | `TestEnvelopeReachChangeFromBuilt` |
+| The ahead walk of an anchor before L, from the To node of L, starts 1 m further | `TestEnvelopeAnchorRouteCoverage`, by the reference and by the route check on the rule 1 chain |
+| The ahead walk of an anchor after L, from the To node of A, starts 1 m further | `TestEnvelopeAnchorRouteCoverage`, by the reference and by the route check on the rule 1 chain, and `TestEnvelopeAnchorExactBounds` |
+| The behind walk of an anchor after L, from the From node of L, starts 1 m further | None: equivalent in exact arithmetic. The anchor on L at p reads the same walk from the same node, with the least sum w. It holds a lane P while `p <= (tail(P) - w) + u`, and the item of A needs `0 <= (tail(P) - (d + length(L) + w)) + u`, with `p <= length(L)` and `d >= 0`. The origin items have the same form with `originAt`. In float64, the two tests can differ only by the rounding of these sums. |
+| No anchors past the published lane (`localItems` skips the anchors out of the near nodes ahead of L) | `TestEnvelopeAnchorRouteEnd`, by the reference and by the lane that only the anchor on the last lane holds |
+| No lanes between near nodes | None: an equivalent mutation. The anchor on L holds each such lane by its tail of at least 20 m behind and its front of at least 6 m ahead, both more than u. |
+
+`TestGateOffTables` and `TestLondonExpressBehaviorParity` pass on the change, and they do not fail when the index is compiled without the field.
+They pin the tables and the saved-state and stream bytes of D, which do not read the oracle envelope.
+
+The controls of the containment test cover the small-pod rules: the oracle without them misses support lanes (section 3.1).
 
 Slices:
 
 0. An amendment proposal for the approved texts of section 3.1, for maintainer approval.
-1. `sim`: the bound for each lane in the index, the local front and the small-pod rules in the oracle and in the reference construction behind the field, with the tests and mutations above.
+1. `sim`: the index for each lane, compiled at preparation, the oracle that reads it, and the small-pod rules, in the oracle and in the reference construction behind the field, with the tests and mutations above.
 2. `scenarios`: the preset builder, the `cmd/scenario` preset, and tests that pin the audit result and the unchanged hashes of LondonFull and D.
 3. `scenarios`: the Express parking of S4, with its site measured by the layout audit and the bank audit.
    The test that pins the network hash of the preset comes after this slice, and so does the qualification evidence.
@@ -767,7 +951,9 @@ The tests on the tight input take about 80 s.
 - The containment test samples poses, routes, and headings at a berth, so its results are measurements.
   A route window of the test can end where the route cannot go on without a lane that it already uses.
   There, the test does not check the track past the end, because a route does not use a lane two times.
-- `projectcheck` with the change of section 3.1 is inferred from the audit copy, because the change is not built.
+- The slack of 1 mm covers the restore tolerance of two `restoreTolerance` steps, and the rounding of route sums within the coordinate and block limits of `internal/project/config.go`, about 4e-6 m.
+  `internal/sim` does not enforce these limits itself, so a network that skips project validation is outside this bound.
+- `projectcheck` with the change of section 3.1 ran on the projects that the study writes, and not on the preset of slice 2.
 
 ## 10. Review
 
@@ -857,3 +1043,29 @@ Second round:
    The design must also say how the cluster rule applies to the envelopes of a traveling pod, of a pod at a berth, and of a pod before its origin release.
 
    Response: section 3.1 adds both texts to the amendment list, and it states the cluster rule for the three kinds of envelope.
+
+Code review of slice 1, 2026-11-16:
+
+1. Blocker: the seed of `F'(L)` held only the lanes into the From node of L.
+   Behind a group lane shorter than the slack, a lane two lanes back reaches the local front of a pod at the start of L, and the index does not hold its front.
+2. Blocker: the wider seed of the fix is not sound at an exact slack bound.
+   In a chain P, L, Q, M, N with the walk sum at the bound plus the slack, the closure of the bound and the walk disagree at the float64 values next to the bound, and the index misses a plane of the oracle.
+
+   Response: the rounds of fixes to the recursive bound kept finding new cases, so the design stepped back.
+   The maintainer chose the shape of section 3.1 on 2026-11-16: the anchor front `B(L)` with no recursion, an index compiled once with the anchors within the slack and outward rounding, and an oracle that reads the index at the published position.
+   The oracle is then in the index by construction, and the reference construction of SX3 and the support tests check the code independently.
+   Both blocker constructions are now tests at their exact bounds (section 7).
+   The new shape added 11 refusals on the network of section 2.1, each the pose of an earlier refusal at a node, and the preset still refused no pair.
+   The applied texts that the change makes false are in the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md).
+
+Review of the rework, 2026-11-16: no finding.
+The review agreed that the reference construction is independent of the index, and that the quotes of ST16 to ST23 match.
+It noted that the planes of the sibling lanes are conservative, and that their removal needs a provenance of the route through the anchor paths and the selection, not a route filter in an index with no route.
+
+Response: the maintainer approved ST16 to ST23 and chose to remove the 11 refusals in slice 1.
+The index takes the paths through the published lane (section 3.1).
+That provenance is the published lane, which is on the route of each pod published there, so the index needs no route, and the audit uses the same argument as the oracle.
+The review proposed path IDs on the items, a route check at selection, and a pairing rule in the audit.
+This rule evaluates the provenance at compile time instead.
+The study gives 7 refusals again on the tight and wide networks of section 2.1, and the oracle holds the same number of planes on the study networks.
+The rule is ST24 of the second proposal, which the maintainer approved on 2026-11-16, and which is applied.

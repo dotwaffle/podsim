@@ -19,7 +19,7 @@ func detachIndexes(s *Simulation) {
 func TestPreparedNetworkFields(t *testing.T) {
 	t.Parallel()
 	checkFieldRules(t, fieldRuleCheck{kind: "immutable prepared field", typ: reflect.TypeFor[networkIndexes](),
-		names:     []string{"network", "graph", "stationIndexes", "stationForbidden", "geometry", "junctionConflicts", "berthResources", "laneCells", "resourceLanes", "laneSafety", "berthSafety", "berthNodes", "nodeSafety", "berthEnvelopes", "tails", "retention", "maneuvers", "certified", "depots", "berthKeys", "lateral", "merges", "shapes", "platoonData", "pickupBounds"},
+		names:     []string{"network", "graph", "stationIndexes", "stationForbidden", "geometry", "junctionConflicts", "berthResources", "laneCells", "resourceLanes", "laneSafety", "berthSafety", "berthNodes", "nodeSafety", "berthEnvelopes", "clusterSafety", "envelopes", "tails", "retention", "maneuvers", "certified", "depots", "berthKeys", "lateral", "merges", "shapes", "platoonData", "pickupBounds"},
 		needsRule: func(reflect.StructField) bool { return true },
 	})
 }
