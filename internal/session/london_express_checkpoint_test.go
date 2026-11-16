@@ -24,11 +24,11 @@ type londonExpressFixture struct {
 	steps    restoreSteps
 }
 
-func newLondonExpressFixture(t *testing.T) *londonExpressFixture {
+func newLondonExpressFixture(t *testing.T, options ...Option) *londonExpressFixture {
 	t.Helper()
 	config := scenarios.LondonFullExpress()
 	config.Demand.Enabled = true
-	shared, err := NewWithProject(config)
+	shared, err := NewWithProject(config, options...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,24 +89,36 @@ func (f *londonExpressFixture) checkpoint(name string) {
 // second bank at Bank, and an Express pod on its way back to Express parking.
 // Each save must restore at the physical tier with no change to the pods,
 // and the restored copy must pass the safety oracle for 10 s.
-//
-// A pod chooses the bank with the lower free-flow approach cost, and from
-// Waterloo that is always the first bank at Bank. So debris on the Express
-// approach to the first bank sends pods to the second bank.
 func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("the London Express checkpoints run without -short or -race")
 	}
-	const parking = "express-parking"
 	f := newLondonExpressFixture(t)
+	f.drive(func(_ int, state string) { f.checkpoint(state) }, nil)
+}
+
+// londonExpressStates are the states of the script of drive, in order.
+var londonExpressStates = []string{"bank-b", "return", "parking-berth"}
+
+// drive runs the script of the London Express checkpoints, and calls
+// checkpoint at each state. advanced, if not nil, runs after each tick.
+// While it returns true, the script continues after the last state, and it
+// runs at least once after each checkpoint.
+//
+// A pod chooses the bank with the lower free-flow approach cost, and from
+// Waterloo that is always the first bank at Bank. So debris on the Express
+// approach to the first bank sends pods to the second bank.
+func (f *londonExpressFixture) drive(checkpoint func(tick int, state string), advanced func(tick int) bool) {
+	t := f.t
+	t.Helper()
+	const parking = "express-parking"
 	station, ok := f.config.Network.Station(londonBank)
 	if !ok || len(station.Banks) != 2 {
 		t.Fatal("Bank has no second bank")
 	}
 	bankB := station.Banks[1].BerthIDs
-	shared, client := f.shared, f.client
-	trip, checkpoint := f.trip, f.checkpoint
+	shared, client, trip := f.shared, f.client, f.trip
 	waterloo, bank := londonWaterloo, londonBank
 	// Hub parties run in both directions until an Express pod uses a berth
 	// of the second bank at Bank, for at most 30 minutes. The debris goes on
@@ -114,7 +126,8 @@ func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 	// test waits for a pod to go back to Express parking.
 	debris := ""
 	seen := map[string]bool{}
-	for tick := 0; tick < 60*60*sim.TicksPerSecond && len(seen) < 3; tick++ {
+	busy := false
+	for tick := 0; tick < 60*60*sim.TicksPerSecond && (len(seen) < len(londonExpressStates) || busy); tick++ {
 		ordering := !seen["bank-b"] && tick < 30*60*sim.TicksPerSecond
 		if ordering && tick%(20*sim.TicksPerSecond) == 0 {
 			trip(waterloo, bank, 13+tick/(20*sim.TicksPerSecond)%8)
@@ -127,7 +140,10 @@ func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 			debris = reply.FaultID
 		}
 		shared.advance()
-		if tick%sim.TicksPerSecond != 0 {
+		if advanced != nil {
+			busy = advanced(tick)
+		}
+		if tick%sim.TicksPerSecond != 0 || len(seen) == len(londonExpressStates) {
 			continue
 		}
 		state := ""
@@ -151,12 +167,14 @@ func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 			continue
 		}
 		seen[state] = true
-		checkpoint(state)
+		checkpoint(tick, state)
+		// advanced decides on the next tick whether the script continues.
+		busy = advanced != nil
 		if state == "bank-b" && debris != "" {
 			client.mustApply(t, Command{Action: "clearFault", FaultID: debris})
 		}
 	}
-	for _, state := range []string{"bank-b", "return", "parking-berth"} {
+	for _, state := range londonExpressStates {
 		if !seen[state] {
 			t.Errorf("no Express pod reached state %s", state)
 		}
