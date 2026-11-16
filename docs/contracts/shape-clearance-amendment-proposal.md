@@ -1,11 +1,10 @@
 # Shape clearance amendment proposal
 
-Status: proposed on 2026-11-16, for the maintainer's approval.
+Status: approved by the maintainer on 2026-11-16, and applied.
 Revised on 2026-11-16 after an adversarial review (see "Review").
 On 2026-11-16, the maintainer approved the [shape clearance](../design/shape-clearance.md) design, with D1-B, D3-A, D5 included, D6-B, D12-A, D2 for all classes, D4 at 20 m, D7 as the network field `shapeClearance`, D8, D9, and D11.
-Section 5 of the design lists the contract changes, and each one needs maintainer approval before the build.
-This proposal gives the text of each change.
-It changes no contract and no design.
+Section 5 of the design lists the contract changes.
+This proposal gives the text of each change, and the text is now in each target document.
 
 ## Conventions
 

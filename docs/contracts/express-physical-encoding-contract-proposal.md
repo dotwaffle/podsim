@@ -4,7 +4,7 @@ Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
-Amended through November 12, 2026.
+Amended through November 16, 2026.
 Git history holds the dated amendment notes and the earlier text.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
@@ -204,10 +204,15 @@ No new physical number is proposed.
 
 [`profile_geometry.go`](../../internal/sim/profile_geometry.go) already treats Group and Express as large for shared geometry preparation.
 Retain 20 m interaction clearance when either participant is large.
+When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 m with a small pod and 4.0 m with a large pod, as the [shape clearance](../design/shape-clearance.md) design defines.
+Each other pair keeps the 20 m clearance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
 Prepare resources for the largest admitted class even when no Express pod starts in the fleet.
+When the network sets `shapeClearance`, the static extents of a merge, split, or shape pair use the union body of the classes that each lane admits, and not the body of the largest class.
+The union body holds the body of each admitted class.
 Include small-only incident lanes and neighboring berths that share affected resources.
 Retain lane minimum 40 m and check every actual cell's offsets for at least 20 m.
 Lane length divided by a nominal cell count is not a substitute for that check.
+Amended 2026-11-16, by maintainer decision: the merge, split, and shape pairs of the shape clearance design use the side-by-side distance and the union body, and each other pair keeps 20 m, behind the `shapeClearance` network field.
 
 Retain origin, track, cell, junction, crossing, and berth ownership until the applicable release frontier passes the retained tail.
 The common tail is at least 20 m.
@@ -527,6 +532,24 @@ The [Express London qualification proposal](express-london-qualification-proposa
   Wire size does not bound decoded memory.
 - E8, Orders and registry, and Storage and recovery: use the current limits: 600 pods under `express-v1`, 17,000 pending and outstanding orders, and 20 stored Express riders for each pod.
   Keep whole-party admission, immutable service identity, history rollover, and conservation over repeated recovery.
+
+### Shape clearance amendments
+
+The maintainer approved these amendments on 2026-11-16.
+They apply when the network sets `shapeClearance`, as the [shape clearance](../design/shape-clearance.md) design defines.
+
+- SC6, Physical geometry: the centered 10 m body stays the test of the envelope, which following pairs, through junction pairs, and the envelope planes keep.
+  A merge, split, or shape pair certifies the 6 m by 2.5 m class body only, with the union body for a lane that admits a small class and a large class.
+  A class body longer than 6 m needs new sweeps and new disk bounds.
+  Cover two straight lanes side by side for each pairing of admitted classes, at the side-by-side distance and 0.01 m over it, and lanes at 3, 15, 45, and 90 degrees that share no node.
+  Cover the union body in both class orders, with Group in place of Express, and on mixed lanes whose initial fleet holds only small pods.
+  Cover tangency, the disk bounds, and the join turns.
+- SC7, Independent safety oracle: the oracle also checks shape pairs, and merge and split pairs, with the side-by-side distance of the classes of the two pods.
+  An oriented body oracle tests the grown bodies of these pairs at each tick.
+  An independent body-and-ownership oracle runs at each tick of a merge test and of a restored continuation.
+  For each merge or split pair whose oriented grown bodies are not disjoint, it requires that one pod holds the junction of the node and the other pod is outside its extent.
+  A failure names the tick, the pods, the lanes, the bodies, and the owner of the junction.
+  Its cases are a stopped pod, a faulted pod, an emergency journey, and a pod on a join turn at the end of a lane, each in both class orders.
 
 ## Browser and offline authoring
 

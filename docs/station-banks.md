@@ -58,6 +58,14 @@ The audit reports a pair that only these locations refuse after its scan, and a 
 The locations of a berth are the berth and its incident lanes.
 Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
 With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.
+When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
+For a pair with a large class, the locations of a lane are then the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
+The locations of a berth do not change.
+Two lanes that share no node are a shape pair when the shape certification of the [service contract](contracts/service-contract-proposals.md) proves them, and the audit does not refuse a shape pair.
+Each other pair needs 12 meters, or 20 meters when either path admits a large class, at each pair of positions that are not separated.
+A pair with a berth is not a shape pair.
+The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
+The order of the refusals and their text do not change.
 The editor uses the same index (`sim.NewLaneClearance`), so its checks match the server.
 
 ## Depot lanes

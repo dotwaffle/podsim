@@ -1,7 +1,7 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
-Amended through November 15, 2026.
+Amended through November 16, 2026.
 Git history holds the dated amendment notes and the earlier text.
 It also holds the review history.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
@@ -505,6 +505,7 @@ The footprint `F` of debris on lane `l` with segment `[from, to]` is the union o
 `F` also holds the resources of each cell of a lateral neighbor of `l` that comes closer than `Clearance` to the segment.
 A lateral neighbor is a depot lane that the lateral certification pairs with `l` (`internal/sim/depot_lateral.go`).
 When the network sets `lateralMerges`, a lateral neighbor is also a lane that forms a lateral merge pair with `l` ([lateral merge zones](../design/lateral-merge-zones.md)).
+When the network sets `shapeClearance`, a lateral neighbor is also a lane that forms a merge or split pair or a shape pair with `l` ([shape clearance](../design/shape-clearance.md)).
 A lateral neighbor can be closer than `Clearance` to `l`.
 The distance test is strict, so a depot with lanes `Clearance` apart has only the cells of `l` in `F`.
 The resources of `l` come first, then the resources of each neighbor in lane order and cell order, with no resource twice.
@@ -514,6 +515,7 @@ A cell at a lane end includes its node and junction resources (`newLaneCells`), 
 It is computed again at restore and is not saved.
 
 Amended 2026-11-15, by maintainer decision: a lateral neighbor also includes the partner lanes of a lateral merge pair when the network sets `lateralMerges`.
+Amended 2026-11-16, by maintainer decision: a lateral neighbor also includes the partner lanes of a merge, split, or shape pair when the network sets `shapeClearance`.
 
 ### 7.3 Start preconditions
 

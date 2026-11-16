@@ -1,7 +1,7 @@
 # Service contract proposals
 
 Status: approved October 2, 2026.
-Amended through November 15, 2026.
+Amended through November 16, 2026.
 Git history holds the dated amendment notes and the earlier text.
 The compact station queue section went with station buffers and compact station queues on October 7, 2026.
 The opt-in Compact station added in October 2026 (maneuver groups, `internal/sim/maneuver_*.go` and `internal/sim/station_maneuvers.go`) is a different feature, and this removal does not cover it.
@@ -47,10 +47,42 @@ Approve these data and compatibility rules as one foundation:
   When the network sets `lateralMerges`, two small pods on a lateral merge pair keep 3.1 meters, under the same guideway-bound assumption.
   A lateral merge pair is two small lanes that both end at one node or both start at it, as the [lateral merge zones](../design/lateral-merge-zones.md) design defines.
   The junction of the node orders the two pods, so this rule has no speed term.
-  Every other pair of small pods keeps 12 meters, and a pair with a large pod keeps 20 meters.
+  When the network sets `shapeClearance`, the [shape clearance](../design/shape-clearance.md) rule applies to pods of each class.
+  The certified pairs and the skip rules of the maneuver groups come first and do not change.
+  The depot lateral pairs keep `W(v)`, and clearance layer A does not change.
+  A following pair is two pods on one lane, or on two lanes where one ends at the node where the other starts.
+  A following pair keeps its current rule: layer A on a qualifying lane, and otherwise 12 meters, or 20 meters with a large pod.
+  A merge or split pair is two lanes that meet clauses 1, 2, 4, and 5 of the [lateral merge zones](../design/lateral-merge-zones.md) design.
+  The two lanes both end at one node or both start at it, neither lane is a loop, and the two lanes do not share both endpoints.
+  Neither lane is in a maneuver group or a depot, and the body range does not reach the far end of either lane.
+  A lane that admits a large class or has a geometry tail can be part of a merge or split pair.
+  The junction of the node orders the two pods of a merge or split pair.
+  Its extent is the body range with the union body, and the node range of the last or first 12 meters of the lane.
+  A position on a lane has the plane of the lane when neither lane of a pair admits a large class.
+  Otherwise it has the planes of its envelope reach, as the [group physics design](../design/group-physics-design.md) defines it under the field.
+  Two positions, one on each of two paths, are separated when each plane of one and each plane of the other are different planes.
+  At separated positions, the plane exemption holds as before.
+  Shape certification sweeps the grown body of each of two lanes that share no node over the lane and over the join turns at both of its ends.
+  It certifies the two lanes as a shape pair when the grown bodies are disjoint at each pair of positions that are not separated.
+  Two lanes on one plane have no separated positions, so their two swept regions must be disjoint.
+  When the grown bodies meet at such a pair of positions, or the sweep does not resolve, the two lanes are not a shape pair.
+  The network audit then requires 12 meters, or 20 meters when either lane admits a large class, at each pair of positions that are not separated.
+  Shape certification is for two lanes only, and a pair with a berth keeps its current rule.
+  The network audit checks each pair of such a network, small pairs included, also without banks, large classes, maneuver groups, or depots.
+  No resource orders the two pods of a shape pair.
+  Two pods on a merge, split, or shape pair keep the side-by-side distance of their classes: 3.1 meters for two small pods, 3.55 meters for a small pod and a large pod, and 4.0 meters for two large pods.
+  The grown body of a lane is the union of the bodies of the classes that the lane admits.
+  When the fleet has a large pod, the oracle keeps the envelope of each pod, so the plane exemption of two pods does not change.
+  The qualification of the field, for pods of each class, runs the body-and-ownership oracle of the design at each tick of a merge test and of a restored continuation.
+  In such a network, `lateralMerges` has no further effect.
+  Merge, split, and shape pairs assume guideway-bound pods at line speed: the reference of a pod stays within 0.25 meters of its lane, its heading follows the lane, and a fault stops it on its lane.
+  Their distance has no speed term.
+  Every other pair of small pods keeps 12 meters, and every other pair with a large pod keeps 20 meters.
   Debris clearance stays 12 meters, and debris on a depot lane also blocks the cells of the neighbor depot lanes within 12 meters.
   Debris on a lane of a lateral merge pair also blocks the cells of the partner lane within 12 meters.
+  When the network sets `shapeClearance`, debris on a lane of a merge, split, or shape pair also blocks the cells of the partner lane within 12 meters.
   Amended 2026-11-15, by maintainer decision: the lateral merge pair and its debris rule, behind the `lateralMerges` network field.
+  Amended 2026-11-16, by maintainer decision: the following, merge, split, and shape pairs of each class, their guideway-bound assumption, their debris rule, and the envelope planes of the audit, behind the `shapeClearance` network field.
   Group has an approved physical profile (`internal/sim/vehicle_class.go`).
   Express needs an approved physical profile, through the `express-v1` contract, before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.

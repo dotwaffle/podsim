@@ -686,7 +686,7 @@ The new hubs use the default LondonFull at scale 0.5, with the hub pitch of sect
 
 ## 5. Contract changes
 
-Each change needs maintainer approval.
+On 2026-11-16, the maintainer approved these changes as amendments SC1 to SC15 of the [shape clearance amendment proposal](../contracts/shape-clearance-amendment-proposal.md).
 This design does not change a contract document.
 
 | Document and section | Current text | Proposed change |
@@ -766,7 +766,7 @@ The rule is the recommended combination: D1-B, D3-A, D5 included, D6-B, and D12-
 D2 covers all classes, D4 keeps 20 m along the path, and D7 is the network field `shapeClearance`.
 D8 is a parking comb beside each origin hub, D9 orders the pairs by demand and residuals, and D11 keeps D and adds a shared-track preset.
 For D10, the maintainer asked for both a generator study of the rows at 25 m and the short access lanes, and a design of berths in series.
-The contract amendments of section 5 still need the maintainer's approval before the build.
+On 2026-11-16, the maintainer approved the contract amendments of section 5, as the [shape clearance amendment proposal](../contracts/shape-clearance-amendment-proposal.md) gives them.
 
 ### 6.1 Dependencies
 

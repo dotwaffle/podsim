@@ -78,6 +78,12 @@ A pair is a lateral pair when all of these are true:
 
 Through pairs, crossings, and every other pair keep the isotropic rule.
 Pairs with a large class keep 20 m, as the Express contract requires (`docs/contracts/express-physical-encoding-contract-proposal.md:206`).
+When the network sets `shapeClearance`, the [shape clearance](shape-clearance.md) design applies this rule to each class, and `lateralMerges` has no further effect.
+Clause 3 does not apply, so a lane with a large class or a geometry tail can form a pair.
+Clauses 1, 2, 4, and 5 stay.
+The body of each lane is the union of the bodies of the classes that the lane admits, and a pair keeps the side-by-side distance of the classes of its two pods.
+The node range stays 12 m, because the union body changes only the body range.
+Amended 2026-11-16, by maintainer decision: the rule for each class, behind the `shapeClearance` network field.
 
 The extent of lane A against lane B in a lateral pair is the union of two ranges:
 

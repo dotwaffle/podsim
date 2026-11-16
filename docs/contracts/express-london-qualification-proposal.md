@@ -148,6 +148,14 @@ Each row needs its own answer.
 | A18 | Stage 7, Formats, and A4 | Express stays unproved until the Express byte proof of E5 passes. When it passes, record its source and its margins next to the plain proofs. |
 | B1 | Station banks, Formats and restore | D is an opt-in qualification preset. Its bank members and routes survive the project, save, and stream round trips. No new saved bank member and no format version change. |
 
+D does not set `shapeClearance`, and the field does not change the text of a row above.
+D keeps its evidence for these rows only if a test shows behavior parity.
+With the field built and unset, D must give the same saved-state and stream bytes at each of its checkpoints as the build before the change.
+Without that test, each row of D needs its evidence again.
+The byte proofs of E5 and A18 run again, because the worst-case project gets one more member.
+A shared-track preset is a new project, and its rows need their own evidence, also where the limits and the requirements do not change.
+Amended 2026-11-16, by maintainer decision: the evidence of D under the [shape clearance](../design/shape-clearance.md) design.
+
 ## London soak row
 
 The row uses the London branch length and keeps redistribution and pickup reassignment on in every arm.

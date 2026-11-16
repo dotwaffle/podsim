@@ -2,7 +2,7 @@
 
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
-Amended through November 12, 2026.
+Amended through November 16, 2026.
 Git history holds the dated amendment notes and the earlier text.
 No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.
@@ -71,6 +71,7 @@ A private on-demand party of 13 to 20 therefore stands in part.
 ### 2.3 Body envelope
 
 The 6 m radius circle and the 20 m pair clearance stay.
+When the network sets `shapeClearance`, a merge, split, or shape pair keeps the side-by-side distance of its two classes, as the [shape clearance](../design/shape-clearance.md) design defines, and each other pair keeps the 20 m pair clearance.
 A 6 by 2.5 m rectangle has a half-diagonal of 3.25 m, so a smaller radius is possible.
 A radius for each class makes `classPairClearance`, `LaneMinimumLength`, the cell size guard, the junction clearance, the bank audit scan, and the envelope front into a table of class pairs.
 This has no gain for a Group or Express pod until the mixed cases have a proof, so it is decision 8 and it is out of this slice.
@@ -216,6 +217,10 @@ The rule is on centers, as in the group physics design, and two envelopes of rad
 The proof has three cases, by the lanes of the two pods.
 The tail carries only the first case.
 The old bound also addressed only the first case, so its proof did not cover the part of a tail on a later lane either.
+When the network sets `shapeClearance`, the set of locations of a pod is its envelope (`internal/sim/envelope_safety.go`), and the claim holds for each pair except two kinds.
+A merge or split pair of case B, and a shape pair of case C, keep the side-by-side distance of the classes of the two pods instead, by section 3.4 of the [shape clearance](../design/shape-clearance.md) design.
+Case A does not change, and sections 4.4 and 4.5 each give a branch for the field.
+Amended 2026-11-16, by maintainer decision: the claim of the 20 m proof under the `shapeClearance` network field.
 
 ### 4.3 Case A: the same lane
 
@@ -245,6 +250,11 @@ If one pod is outside its interval, the distance is above 20 m.
 A sharp join, an S-bend across two lanes, and a tail that continues onto the next lane are all in this case.
 On the presets, route pairs at or past the tail have chords down to 7.29 m when the front pod is on the next lane, so a path gap alone does not separate them.
 The independent check found 0 close samples outside a held junction section, in about 2.7 million close samples.
+When the network sets `shapeClearance`, this case holds as written for a through pair, and for each pair at a node that is not a merge or split pair of the service contract.
+A merge or split pair has the extent of the [lateral merge zones](../design/lateral-merge-zones.md) design in place of the 20 m interval: the body range with the union body, and the node range of 12 m.
+Each cell that overlaps the extent holds the junction resource of the node, so the junction orders the two pods.
+A pod outside its extent clears each body position of the other lane, so the grown bodies are disjoint, and the centers are at least the side-by-side distance of the two classes apart.
+This holds only while the junction orders the pods, so the body-and-ownership oracle of the [shape clearance](../design/shape-clearance.md) design checks it at each tick of a merge test and of a restored continuation.
 
 ### 4.5 Case C: two lanes that share no node
 
@@ -259,6 +269,12 @@ It reads whole lanes, so it refuses a pass that is far from the join on a lane i
 A berth is a zero-length path in this audit, so it is in this case too.
 This case holds for a leader 2 or more lanes ahead on the route, and for a pod on an unrelated lane, at each path gap.
 The independent check found 0 such samples under 20 m, and 0 route pairs under 20 m past the next lane.
+When the network sets `shapeClearance`, the audit takes the envelope reach of the [group physics design](../design/group-physics-design.md) at each position, and not the whole lane.
+The envelope reach of a position holds each plane of the envelope of a pod at that position.
+So when a location of the envelope of `x` and a location of the envelope of `y` are on one plane, their two positions are not separated.
+At such positions, the audit refuses the network when the paths are less than 20 m apart, unless the two lanes are a shape pair of the service contract.
+For a shape pair, the sweep proves that the grown bodies are disjoint at each such pair of positions, so the centers are at least the side-by-side distance of the two classes apart.
+A pair with a berth is not a shape pair, so it keeps 20 m at such positions.
 
 ### 4.6 Adversarial search
 
@@ -294,6 +310,7 @@ These are gaps, and I do not hide them behind the case split.
    The front is a maximum over the route, so one long-tail curve can make the window reach two lanes ahead, and the audit does not cover that case.
    One scratch probe reported 19.996 m there, with the body far from that lane.
    It looks like a false alarm, this is not proved, and the maintainer chose to record it and not change the observer.
+   When the network sets `shapeClearance`, the envelope reach of the audit holds the largest front bound of each route through a lane, so the audit covers that case.
 5. `scale100` did not finish the pair check inside the 5-minute limit.
    It has no curved lanes.
 6. Cross-architecture equality of the scan is not tested, and the maintainer decided that it needs no work now.

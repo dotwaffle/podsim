@@ -28,10 +28,15 @@ The approval does not authorize default adoption, deployment, real vehicle certi
 ## Geometry and ownership
 
 An interaction with a large class requires at least 20 meters between reference positions on overlapping physical planes.
+When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
+Each other pair with a large pod keeps the 20 meter clearance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
+The overlapping physical planes are those of the envelope of "Body planes" below.
 Large-admitting lanes require at least 40 meters of length and actual cells of at least 20 meters.
 Station and berth masks must both admit the class.
 Network preparation checks the largest admitted class, even when the fleet contains only small pods.
 It also checks small lanes that meet a large-admitting lane or berth node.
+When the network sets `shapeClearance`, the static extents of a merge, split, or shape pair use the union body of the classes that each lane admits, and not the body of the largest class.
+Amended 2026-11-16, by maintainer decision: the following, merge, split, and shape pairs of the shape clearance design, behind the `shapeClearance` network field.
 
 A 20-meter path gap on a curve can give less than 20 meters of physical separation.
 Preparation derives a larger retention tail from the actual movement polyline.
@@ -73,6 +78,22 @@ The audit uses the whole lane, so a pass that is far from the join on a lane tha
 The audit returns this refusal as a `PlaneReachError`, and a caller reports it after its other checks (the path, length, and cell checks of preparation, the placements of a fleet, and the other checks of a project), so that it does not hide an earlier refusal.
 The route window of a pod can reach further than an incident lane, because the front bound is the largest `6 * projection bound / 20` of the lanes of the route, and each lane stores it beside its tail.
 The audit does not cover that case, so the observer can report a pair that the audit accepted.
+When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
+For a pair with a large path, it takes the planes of each path by position, and not for the whole lane.
+The envelope reach of a position on a lane holds each plane that the envelope of a pod at that position can hold, on each route through the lane.
+The reach can hold more planes than such an envelope, but not fewer.
+This includes the lanes behind the position on the route, each up to its retained tail, also more than one lane back.
+It includes the lanes ahead on the route, up to the largest front bound of the lanes of the route, also more than one lane ahead.
+It includes the origin berth of the route and the lanes at its node, at each position before the origin release.
+A berth has its own plane and the planes of the lanes at its node.
+A test shows, for each lane of a test network and positions along it, that the planes of `appendVehicleSafetyLocations` for a pod on each route through the lane are in the envelope reach at that position.
+At positions that the service contract calls separated, the pair is exempt, as before.
+At the other positions, two lanes keep the shape certification of the [service contract](../contracts/service-contract-proposals.md).
+Two lanes that it does not certify, and a pair with a berth, keep 12 meters, or 20 meters when either path admits a large class, at those positions.
+The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
+In such a network, the envelope reach covers the route window of the case above, so that case stays a gap only in a network without the field.
+The order of the refusals and their text do not change.
+Amended 2026-11-16, by maintainer decision: the envelope planes of the audit, behind the `shapeClearance` network field.
 The observation uses the existing tick rate and authored speed limits.
 Its separation has no braking term, because a pod stops inside the cells that it owns, so the [rates of a class](../model.md#vehicle-classes) do not change it.
 
