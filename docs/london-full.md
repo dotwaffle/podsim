@@ -319,7 +319,18 @@ The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c
 | 1,000 | 120 | 0.809 | 0.566 | 2.965 | 5.212 | 825 |
 
 The variant starts from the preset options, so it has tight stations since November 16, 2026.
-The two runs above are for the wide stations of the earlier preset, and no run with tight stations is recorded yet.
+The two runs above are for the wide stations of the earlier preset.
+One run of all six cases on Go 1.27.4, on November 16, 2026, at 60 Hz, at `212c1b68`, passed without restore demotions.
+The network SHA-256 of the variant with tight stations is `1d65b3d547b3656355f3d37767b3e1181c557e146ccafe29debad731d398ff36`.
+
+| Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 327 | 10 | 0.064 | 0.058 | 0.072 | 0.153 | 106 |
+| 327 | 120 | 0.245 | 0.232 | 0.287 | 0.536 | 327 |
+| 600 | 10 | 0.088 | 0.080 | 0.096 | 0.209 | 109 |
+| 600 | 120 | 0.509 | 0.364 | 1.730 | 3.342 | 578 |
+| 1,000 | 10 | 0.130 | 0.124 | 0.149 | 0.318 | 131 |
+| 1,000 | 120 | 0.977 | 0.613 | 4.012 | 6.673 | 827 |
 
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
 At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.
