@@ -1,6 +1,9 @@
 # Shared-track amendment proposal
 
-Status: proposed on 2026-11-16.
+Status: approved by the maintainer on 2026-11-16, and applied.
+The maintainer approved ST1 to ST15, the SX rows, and Q1 after a confirmation review.
+Applied on 2026-11-16: the text of each ST item is in its target document, and the SX rows are in the new [Express shared-track qualification](express-shared-track-qualification-proposal.md) contract.
+Files changed: `docs/design/shape-clearance.md` (ST1, ST5 to ST8, ST10, ST15, and its status line), `docs/design/group-physics-design.md` (ST2, ST3, ST9, ST14), `docs/contracts/service-contract-proposals.md` (ST4), `docs/contracts/express-standees-contract-proposal.md` (ST11), `docs/contracts/shape-clearance-amendment-proposal.md` (ST12 notes), `docs/station-banks.md` (ST13), `docs/contracts/express-shared-track-qualification-proposal.md` (new, SX1 to SX13), `docs/design/shared-track-preset.md`, and `README.md`.
 
 ## Summary
 

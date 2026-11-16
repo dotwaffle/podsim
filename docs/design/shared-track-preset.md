@@ -1,6 +1,8 @@
 # Shared-track Express preset
 
 Status: proposed on 2026-11-16, revised on 2026-11-16 after review (section 10).
+On 2026-11-16, the maintainer approved the contract amendment of this design as ST1 to ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md), and the SX rows as the [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md) contract, and the text was applied.
+The design itself still waits for its build.
 
 This design is decision D11 of the approved [shape clearance](shape-clearance.md) design.
 D11 keeps project D (`london-full-express`) as it is, and it adds a new opt-in preset with Express on shared main-line track between Waterloo and Bank.

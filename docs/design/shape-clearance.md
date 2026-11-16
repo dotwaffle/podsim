@@ -1,6 +1,7 @@
 # Shape clearance
 
 Status: approved on 2026-11-16.
+Amended on 2026-11-16, by maintainer decision: rule A1 and the envelope of decision S1 of the [shared-track](shared-track-preset.md) design, in amendments ST1, ST5 to ST8, ST10, and ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md).
 Proposed on 2026-11-15, and revised on 2026-11-16 after an adversarial review (section 9).
 Build record: on 2026-11-16, the rule of parts 1 to 5 was built behind the `shapeClearance` network field.
 The commits are `2c918f46` (the field and digest extension 17, with no effect), `4b09997e` and `f6fd4091` (the envelope reach index by position, built on demand), `29af1248` (shape certification, the shape pair table, the all-pairs audit, the oracle, and debris), `33607784` (the independent body oracle for merge pairs), `4805ba4a` (merge and split pairs admit large and tailed lanes with the union body), `e515829b` (the editor runs the server lane check under the field), and `3d71de3d` (the independent body oracle for shape pairs).
@@ -57,6 +58,16 @@ Two pods side by side on parallel lanes need the same distance as two pods on on
 
 A pair is exempt when its two pods are on different planes.
 Two locations are on different planes when their separation groups differ and they share no node (`safetyLocationsSeparated`, `internal/sim/safety.go:332`).
+When the network sets `shapeClearance`, rule A1 of the model applies.
+A1: two bodies do not overlap when each lane under each body has a nonempty separation group, each lane under one body is in a different group from each lane under the other body, and no lane under one body shares a node with a lane under the other.
+The lanes under a body are its support: the connected part of the route that is under the body and holds the reference of the pod.
+A part of the route that leaves the body and comes back is not in the support.
+The network stores no level, so A1 is a declaration of the author, and validation does not check the groups against the geometry.
+A1 also assumes that the vertical gap between two levels is enough for each admitted body.
+For a body on one lane, A1 is the test of `safetyLocationsSeparated` on two locations.
+For a body over a node, A1 is the reason that D1-B adds the lanes ahead and behind.
+A network without the field, project D included, keeps the envelope of this section and its requirements, and none of its rules depends on A1.
+Stated 2026-11-16, by maintainer decision: rule A1, which the maintainer accepted as a rule of the model on 2026-11-16 (decision S1 of the [shared-track](shared-track-preset.md) design).
 A small pod has one location: the lane or the berth of its reference (`indexSafety`, `internal/sim/prepared.go:230`).
 When the fleet has a large pod, each pod has an envelope of locations (`largeSafety` and `appendVehicleSafetyLocations`, `internal/sim/envelope_safety.go:13` and `:30`).
 The envelope holds each route lane from 20 m, or the longer tail, behind the reference to the front bound ahead of it (`:57`), the origin berth until release (`:73`), and each lane at a berth node (`:83`).
@@ -137,6 +148,8 @@ Route validation has other refusals, such as the lane length of section 2.4, whi
   A berth has its own plane and the planes of the lanes at its node.
   The envelope adds only the lanes of the route of the pod (`envelope_safety.go:55` to `:68`), so the rule does not take the other lanes at these nodes.
   This is the rule of D1-B.
+  When the network sets `shapeClearance`, rule 2 of the [group physics design](group-physics-design.md) also adds each lane at a node of the cluster of a held maneuver group lane, also a lane off the route, and a berth gets the same lanes.
+  The counts of this section come from the rule above, without rule 2.
 - Body reach: the planes of the lanes into the From node in the first 6 m, and of the lanes out of the To node in the last 6 m.
   It drops the retained tail and the origin berth.
   This is the rule of D1-C.
@@ -144,10 +157,14 @@ Route validation has other refusals, such as the lane length of section 2.4, whi
   This is the rule of D1-A.
 
 The envelope of the oracle also holds the small pod of a mixed pair, so the probe gives each rule to small paths too.
-The probe takes the front bound of a lane from that lane only, while the envelope takes the largest front bound of the route.
+The probe takes the front bound of a lane from that lane only.
+When the network does not set `shapeClearance`, the envelope takes the largest front bound of the route, as it did when the probe ran.
+With the field, the envelope takes the local front of the [group physics design](group-physics-design.md).
 It also adds the lanes of one node back only.
 On the measured routes, no lane is curved and each tail is 20 m, which is shorter than each lane, so these limits do not change a count (inferred).
 The built envelope reach index takes the largest front bound of the network for each lane, and that changes the counts (section 2.2, "Counts of the built audit").
+This sentence records the index as built for this design.
+When the network sets `shapeClearance`, the index of decision S1 of the [shared-track](shared-track-preset.md) design takes the reach bound of each lane of the [group physics design](group-physics-design.md) in place of this bound.
 
 | Pair | Route, each way | Stations passed | Whole reach, 20 m (today) | Whole reach, 12 m | Envelope reach, 20 m | Envelope reach, 12 m | Body reach, 20 m | Body reach, 12 m | Lane plane, 20 m or 12 m |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -224,6 +241,8 @@ No refusal includes a berth or a berth link.
 The difference comes from the front reach.
 The study probe takes the front bound of each lane, which is 6 m on this route.
 The envelope reach index takes the largest front bound of the network, which is 66.42 m on LondonFull, from the curved lane `940GZZLUWLO-move-05-01`.
+This sentence records the index as built for this design.
+When the network sets `shapeClearance`, the index of decision S1 of the shared-track design takes the reach bound of each lane, and on this network it gives the 7 refusals of the next line (section 2.2 of that design).
 With a front reach of 6 m, the audit gives 7 refusals: the 5 pairs under 4.0 m of this section, and 2 pairs at 4.55 m and 6.26 m.
 The longer front reach adds 7 refusals at the two portals of link 100, and 5 of them are under 4.0 m.
 On project D, the Waterloo b bank takes the road to link 100, so the route runs 3,547 m through 5 stations.
@@ -521,7 +540,10 @@ The union body holds each class body, so a pair that the union sweep clears is c
    This rule extends it to pairs that no resource orders, at line speed.
    The depot rule `3.1 + v²/2` keeps a stop term for the same kind of pair, and that term is 101 m at 14 m/s.
    Decision D3 chooses between the two.
-5. Under D1-B, the planes of each pod are those of today's envelope, so the plane exemption does not change.
+5. Under D1-B, the planes of each pod are those of its envelope.
+   When the network sets `shapeClearance`, the envelope takes the local front and the small-pod rules of the [group physics design](group-physics-design.md).
+   Under rule A1 of section 1.1, the envelope then holds each lane under the body, for the bodies and within the limits that the group physics design states.
+   So the plane exemption keeps its meaning, and the envelope can drop a plane of the largest front bound of the route that is not under the body.
    The audit takes the envelope reach by position, and not by whole lane.
    Each envelope plane of a pod at a position is in the reach of that part of its path, so the audit covers each pair of envelopes that the oracle can see.
    Where the reaches overlap, part 4 replaces the 20 m distance with the body test.
@@ -539,8 +561,8 @@ The union body holds each class body, so a pair that the union sweep clears is c
 
 | Place | Change |
 | --- | --- |
-| `pair`, `safety.go:261` | Under D1-B, the envelopes stay. Under D1-A, large pods use their lane location. A shape pair or a merge pair from the tables needs the side-by-side distance of its two classes. |
-| `largeSafety`, `envelope_safety.go:13` | Under D1-B, no change. Under D1-A, not used for the plane test when the field is set. |
+| `pair`, `safety.go:261` | Under D1-B, when the field is set, the envelopes take the local front and the small-pod rules of the [group physics design](group-physics-design.md), by decision S1 of the [shared-track](shared-track-preset.md) design. Under D1-A, large pods use their lane location. A shape pair or a merge pair from the tables needs the side-by-side distance of its two classes. |
+| `largeSafety`, `envelope_safety.go:13` | Under D1-B, when the field is set, `appendVehicleSafetyLocations` and its reference construction take the local front and the small-pod rules. Without the field, no change. Under D1-A, not used for the plane test when the field is set. |
 | `validateBankGeometry`, `bank_geometry.go:82` | Under D1-B, envelope reach in place of whole reach, with part 4 on the overlapping parts. Under D1-A, no plane reach. When the field is set, the early return at `:85` and the skip of small pairs at `:146` do not apply (D12). |
 | `newPlaneReach`, `plane_reach.go:45` | Under D1-B, an envelope reach index by part of a path. Under D1-A, not used when the field is set. |
 | `newMergeLateral`, `lateral_merges.go:35` | Eligibility takes large lanes and lanes with tails, with the union body of the admitted classes of each lane. |
@@ -759,7 +781,7 @@ Its rows need their own evidence, even where the limits and the requirements do 
 
 | ID | Decision | Options | Recommendation |
 | --- | --- | --- | --- |
-| D1 | Plane of a large pod | A: the plane of its lane or berth, as for a small pod. B: envelope reach: the oracle keeps the envelope, and the audit takes its planes by part of a path, with the body test where they overlap. C: body reach, 6 m at each end, which drops the retained tail and the origin berth from the envelope. D: today's reach, with a smaller distance. | B. It keeps every plane that the oracle checks today, and it does not rest on refusals going away. It leaves 3 to 129 residual pairs at 20 m on each route, of which 1 to 30 are under 4.0 m (section 2.2), so each route needs some geometry work (section 4.1). A refuses no measured pair, but it permits projected body overlap across planes by assumption. C refuses fewer pairs than B, but it needs a proof that the retained tail and the origin berth do not need their planes. D clears at most a third of the refusals at 12 m. |
+| D1 | Plane of a large pod | A: the plane of its lane or berth, as for a small pod. B: envelope reach: the oracle keeps the envelope, and the audit takes its planes by part of a path, with the body test where they overlap. C: body reach, 6 m at each end, which drops the retained tail and the origin berth from the envelope. D: today's reach, with a smaller distance. | B. It keeps every plane that the oracle checks today, and it does not rest on refusals going away. When the network sets `shapeClearance`, decision S1 of the [shared-track](shared-track-preset.md) design later drops the planes of the largest front bound of the route that are not under the body, by rule A1 of section 1.1. It leaves 3 to 129 residual pairs at 20 m on each route, of which 1 to 30 are under 4.0 m (section 2.2), so each route needs some geometry work (section 4.1). A refuses no measured pair, but it permits projected body overlap across planes by assumption. C refuses fewer pairs than B, but it needs a proof that the retained tail and the origin berth do not need their planes. D clears at most a third of the refusals at 12 m. |
 | D2 | Scope of classes | Large pods only. All classes. | All classes, as the maintainer asked. Small pods change only for parts 3 and 4. |
 | D3 | Lateral pairs that no resource orders | A: side-by-side distance, under the guideway-bound assumption at line speed. B: the depot term `3.1 + v²/2`. C: B above a speed, A below it. | A, with the assumption stated as for lateral merges. B gives 101 m at 14 m/s, which is larger than today. D3 does not change depot pairs unless the maintainer extends it to depots. |
 | D4 | Gap along paths for a large pod | Keep 20 m. 14 m: a 6 m centered body and the 8 m gap. | Keep 20 m now. Use a hub pitch for the 40 m links. 14 m changes the tails, the cells, the lane minimum (to 28 m), and the curve bounds, and it needs its own design. |

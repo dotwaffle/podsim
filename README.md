@@ -167,6 +167,8 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. Stopped with D adoption. |
 | [Individual limits amendment](docs/contracts/individual-limits-amendment-proposal.md) | One physical move of one pod puts hundreds of requests over the individual limits in a saturated fleet. D keeps the current limits. Closed with no amendment; the shapes stay as a reference. |
 | [Shape clearance amendment](docs/contracts/shape-clearance-amendment-proposal.md) | The contract text of the approved shape clearance design, behind the `shapeClearance` network field. Following pairs keep 12 m or 20 m, and merge, split, and shape pairs keep the side-by-side distance of their classes. Approved by the maintainer on 2026-11-16, and applied. |
+| [Shared-track amendment](docs/contracts/shared-track-amendment-proposal.md) | The contract text of decision S1 of the shared-track design: a local front and a reach bound for each lane, and rule A1, behind the `shapeClearance` network field. Approved by the maintainer on 2026-11-16, and applied. |
+| [Express shared-track qualification](docs/contracts/express-shared-track-qualification-proposal.md) | Rows SX1 to SX13 for the opt-in preset `london-full-shared-express`. Approved by the maintainer on 2026-11-16, and the preset is not built or qualified yet. |
 
 ### Designs
 

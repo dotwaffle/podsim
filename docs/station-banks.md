@@ -60,7 +60,7 @@ Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
 With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.
 When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
 For a pair with a large class, the locations of a lane are then the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
-The locations of a berth do not change.
+When the network sets `shapeClearance`, for a pair with a large class, the locations of a berth are the berth, its incident lanes, and by rule 2 of the [group physics design](design/group-physics-design.md) each lane at a node of the cluster of a maneuver group lane among them.
 Two lanes that share no node are a shape pair when the shape certification of the [service contract](contracts/service-contract-proposals.md) proves them, and the audit does not refuse a shape pair.
 Each other pair needs 12 meters, or 20 meters when either path admits a large class, at each pair of positions that are not separated.
 A pair with a berth is not a shape pair.

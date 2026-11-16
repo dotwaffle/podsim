@@ -93,6 +93,8 @@ These lines follow the design:
 - D6 oracle: D2 covers all classes, and section 7 runs the oracle at each tick of a merge test and of a restored continuation, with no Express condition.
   SC7 puts the same oracle in the Express gate, and this line keeps it for a plain project with the field.
 
+Note of 2026-11-16: under the field, amendment ST4 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) replaces the line at `:66` in the service contract, because the oracle envelope takes the local front and the small-pod rules.
+
 ### SC2: Service contract, guideway-bound assumption
 
 Section 5 row: service contract, `:46`.
@@ -317,6 +319,11 @@ The envelope reach follows the safety requirement of the design, and not the pro
 
 `:74` to `:75` record the gap of the front bound for a network without the field.
 The containment above closes it for a network with the field.
+Note of 2026-11-16: decision S1 of the [shared-track](../design/shared-track-preset.md) design changes the SC9 text and its reasons under the field.
+The route window of the oracle takes the local front, and not the largest front bound of the route (`:282`, `:302`, and `:315`).
+The reach takes the reach bound of each lane (`:294`), and a berth also holds the clusters of rule 2 (`:296`).
+The oracle envelope changes, so the claim of `:307` holds only in a network without the field.
+Amendments ST2, ST3, ST9, and ST14 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) give the applied text.
 
 ### SC10: Incident suspension contract, debris footprint
 
@@ -491,6 +498,7 @@ These branches follow the design.
 Part 2 keeps the junction extents of through pairs (design `:466`), and the lateral merge zones design keeps the isotropic rule for each pair that fails a clause (`lateral-merge-zones.md:77` to `:79`).
 Section 3.4, items 2 and 3, give the arguments for merge and split pairs and for shape pairs.
 SC9 gives the containment that the case C branch and the item 4 line use.
+Note of 2026-11-16: amendment ST11 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) replaces the line at `:487` in the standee contract, because the oracle takes the local front under the field.
 
 ### SC14: Lateral merge zones design, clause 3
 
@@ -554,6 +562,8 @@ A pair with a berth is not a shape pair.
 The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
 The order of the refusals and their text do not change.
 ```
+
+Note of 2026-11-16: amendment ST13 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) replaces the line at `:550` in the station banks document, because a berth also holds the clusters of rule 2 under the field.
 
 ### SC16: Conditions on the earlier rule text
 
@@ -650,6 +660,7 @@ These rows of section 5 need no amendment under D1-B:
   A new project with shared track needs its own row.
 - Group physics design, body planes, `:68` to `:70`: the plane exemption of the oracle.
   D1-B keeps the envelope of each pod, so the exemption does not change.
+  Note of 2026-11-16: under the field, decision S1 of the shared-track design changes the envelope, by amendment ST4 of the [shared-track amendment proposal](shared-track-amendment-proposal.md).
   The audit text at `:71` to `:75` changes, in SC9.
 - Tick-rate contract, section 1.2, `:50` to `:60`: a path-gap argument along one route, and SC1 keeps 20 m for a following pair.
 
@@ -741,6 +752,7 @@ None.
 The first version asked seven questions, and the design answers each of them:
 
 1. Front bound of the envelope planes: SC9 takes the largest front bound of each route, by section 3.4, item 5, and the envelope reach test of section 7.
+   Note of 2026-11-16: decision S1 of the shared-track design replaces this answer with the reach bound of each lane and the local front of the oracle, by amendment ST3 of the [shared-track amendment proposal](shared-track-amendment-proposal.md).
 2. Node range of a merge or split pair with a large lane: 12 m, in SC1 and SC14, by section 3.4, item 2.
 3. Debris partners: merge, split, and shape partners, in SC3 and SC10, by part 3 and section 3.5.
 4. D6 oracle in a plain project: required, in SC1, by D2 and section 7.
