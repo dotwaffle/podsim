@@ -94,6 +94,7 @@ These lines follow the design:
   SC7 puts the same oracle in the Express gate, and this line keeps it for a plain project with the field.
 
 Note of 2026-11-16: under the field, amendment ST4 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) replaces the line at `:66` in the service contract, because the oracle envelope takes the local front and the small-pod rules.
+Note of 2026-11-16: the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md) replaces the local front and the reach bound with the anchor front of each lane and an oracle that reads the compiled envelope reach, by amendments ST16, ST17, and ST20.
 
 ### SC2: Service contract, guideway-bound assumption
 
@@ -322,6 +323,7 @@ The containment above closes it for a network with the field.
 Note of 2026-11-16: decision S1 of the [shared-track](../design/shared-track-preset.md) design changes the SC9 text and its reasons under the field.
 The route window of the oracle takes the local front, and not the largest front bound of the route (`:282`, `:302`, and `:315`).
 The reach takes the reach bound of each lane (`:294`), and a berth also holds the clusters of rule 2 (`:296`).
+Note of 2026-11-16: the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md) replaces the local front and the reach bound with the anchor front of each lane and an oracle that reads the compiled envelope reach, by amendments ST16, ST17, and ST20.
 The oracle envelope changes, so the claim of `:307` holds only in a network without the field.
 Amendments ST2, ST3, ST9, and ST14 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) give the applied text.
 
@@ -499,6 +501,7 @@ Part 2 keeps the junction extents of through pairs (design `:466`), and the late
 Section 3.4, items 2 and 3, give the arguments for merge and split pairs and for shape pairs.
 SC9 gives the containment that the case C branch and the item 4 line use.
 Note of 2026-11-16: amendment ST11 of the [shared-track amendment proposal](shared-track-amendment-proposal.md) replaces the line at `:487` in the standee contract, because the oracle takes the local front under the field.
+Note of 2026-11-16: the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md) replaces the local front and the reach bound with the anchor front of each lane and an oracle that reads the compiled envelope reach, by amendments ST16, ST17, and ST20.
 
 ### SC14: Lateral merge zones design, clause 3
 
@@ -753,6 +756,7 @@ The first version asked seven questions, and the design answers each of them:
 
 1. Front bound of the envelope planes: SC9 takes the largest front bound of each route, by section 3.4, item 5, and the envelope reach test of section 7.
    Note of 2026-11-16: decision S1 of the shared-track design replaces this answer with the reach bound of each lane and the local front of the oracle, by amendment ST3 of the [shared-track amendment proposal](shared-track-amendment-proposal.md).
+   Note of 2026-11-16: the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md) replaces the local front and the reach bound with the anchor front of each lane and an oracle that reads the compiled envelope reach, by amendments ST16, ST17, and ST20.
 2. Node range of a merge or split pair with a large lane: 12 m, in SC1 and SC14, by section 3.4, item 2.
 3. Debris partners: merge, split, and shape partners, in SC3 and SC10, by part 3 and section 3.5.
 4. D6 oracle in a plain project: required, in SC1, by D2 and section 7.

@@ -83,18 +83,22 @@ For a pair with a large path, it takes the planes of each path by position, and 
 The envelope reach of a position on a lane holds each plane that the envelope of a pod at that position can hold, on each route through the lane.
 The reach can hold more planes than such an envelope, but not fewer.
 This includes the lanes behind the position on the route, each up to its retained tail, also more than one lane back.
-When the network sets `shapeClearance` and the fleet has a large pod, the envelope of a pod takes a local front in place of the largest front bound of the route.
-At a route distance x, the local front is the least value that is at least 6 meters, and at least the front bound of each route lane that ends at x minus the slack or later and starts at x plus the local front or earlier.
+When the network sets `shapeClearance` and the fleet has a large pod, the envelope of a pod comes from the envelope reach, and not from the largest front bound of the route.
 The slack is `envelopeReachSlack`, 1 millimeter.
 Rule 1: a curved lane with no geometry tail has the front bound `min(6 / (c (1 - conflictSlack)), 16.2 meters)`, where c is the minimum projection of a segment of the lane on its chord, and 16.2 meters when c is 0 or less.
 Rule 2: when an envelope holds a lane of a maneuver group, it also holds each lane at a node of the cluster of that lane.
 A cluster is a maneuver group with each group that shares a node with it, and so on.
 Rule 2 applies to the envelope of a traveling pod, of a pod before its origin release, and of a pod at a berth.
-The reach includes the lanes ahead on the route, up to the reach bound of the lane, also more than one lane ahead.
-For a lane L, `F(L)` is the least value that is at least 6 meters and at least the front bound of L, and at least the front bound of each lane that starts at a node within `F(L)` of the To node of L.
-This distance is the shortest walk along lanes, with the slack.
-The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P into the From node of L.
-The reach bound is at most the largest front bound of the network.
+The anchor front of a lane L is the larger of 6 meters and the front bound of L, with rule 1.
+It does not take the front bound of another lane.
+An anchor on L holds L, each lane behind up to its retained tail, the origin berths and the lanes at their nodes up to the origin tail, and each lane that starts within the anchor front of L ahead of the position, by the shortest walk along lanes.
+Each bound has the slack, and rounds outward.
+The reach of a published lane position is the union of the planes of each anchor within the slack of that position, also across one or more nodes, each anchor with its own anchor front.
+An anchor on another lane holds only the planes along the paths through the published lane: its walk on the side of the published lane starts at the far end of that lane, with the distance through it.
+The reach is compiled once, when the network is prepared.
+The envelope of a traveling pod is the part of the reach at its published lane position that holds the lanes of its route, and the origin berth and the lanes at its node before the origin release.
+The envelope of a pod at a berth is the reach of the berth.
+Rule 2 then applies to the envelope.
 The reach applies rule 2 to each lane and each berth that it holds.
 It includes the origin berth of the route and the lanes at its node, at each position before the origin release.
 A berth has its own plane, the planes of the lanes at its node, and by rule 2 the planes of each lane at a node of the cluster of a maneuver group lane among them.
@@ -110,11 +114,12 @@ At positions that the service contract calls separated, the pair is exempt, as b
 At the other positions, two lanes keep the shape certification of the [service contract](../contracts/service-contract-proposals.md).
 Two lanes that it does not certify, and a pair with a berth, keep 12 meters, or 20 meters when either path admits a large class, at those positions.
 The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
-In such a network, the oracle takes the local front, so a front bound of a route lane that ends before the route distance of the pod minus the slack, or that starts past the local front, does not extend the route window.
+In such a network, the oracle takes its envelope from the reach at the published lane position, so the front bound of a route lane extends the route window only from an anchor on that lane.
 The envelope reach holds each plane of the route window of this changed oracle, so the case above stays a gap only in a network without the field.
 The order of the refusals and their text do not change.
 Amended 2026-11-16, by maintainer decision: the envelope planes of the audit, behind the `shapeClearance` network field.
 Amended 2026-11-16, by maintainer decision: the local front of the envelope, the small-pod rules, and the reach bound of each lane, behind the `shapeClearance` network field.
+Amended 2026-11-16, by maintainer decision: the anchor front of each lane, the compiled reach, and the envelope that reads the reach, in place of the local front and the reach bound, behind the `shapeClearance` network field.
 The observation uses the existing tick rate and authored speed limits.
 Its separation has no braking term, because a pod stops inside the cells that it owns, so the [rates of a class](../model.md#vehicle-classes) do not change it.
 

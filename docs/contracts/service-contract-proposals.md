@@ -72,7 +72,7 @@ Approve these data and compatibility rules as one foundation:
   No resource orders the two pods of a shape pair.
   Two pods on a merge, split, or shape pair keep the side-by-side distance of their classes: 3.1 meters for two small pods, 3.55 meters for a small pod and a large pod, and 4.0 meters for two large pods.
   The grown body of a lane is the union of the bodies of the classes that the lane admits.
-  When the fleet has a large pod, the oracle keeps an envelope of planes for each pod, with the local front and the small-pod rules of the [group physics design](../design/group-physics-design.md).
+  When the fleet has a large pod, the oracle keeps an envelope of planes for each pod, from the envelope reach at the published lane position, with the small-pod rules of the [group physics design](../design/group-physics-design.md).
   A pair with at least one large pod keeps the plane exemption only when each cross-pair of the two envelopes is on different planes.
   A pair of two small pods keeps the plane exemption when the locations of the two pods are on different planes, as before.
   Under rule A1 of the [shape clearance](../design/shape-clearance.md) design, the envelope holds each lane under the body, for the bodies and within the limits that the group physics design states.
@@ -88,6 +88,7 @@ Approve these data and compatibility rules as one foundation:
   Amended 2026-11-15, by maintainer decision: the lateral merge pair and its debris rule, behind the `lateralMerges` network field.
   Amended 2026-11-16, by maintainer decision: the following, merge, split, and shape pairs of each class, their guideway-bound assumption, their debris rule, and the envelope planes of the audit, behind the `shapeClearance` network field.
   Amended 2026-11-16, by maintainer decision: the local front and the small-pod rules of the oracle envelope, and rule A1, behind the `shapeClearance` network field.
+  Amended 2026-11-16, by maintainer decision: the oracle envelope from the compiled envelope reach, in place of the local front, behind the `shapeClearance` network field.
   Group has an approved physical profile (`internal/sim/vehicle_class.go`).
   Express needs an approved physical profile, through the `express-v1` contract, before placement, simulation start, or restore.
   Do not reuse ordinary legacy links for a larger body without a separately qualified class certificate.

@@ -310,10 +310,11 @@ These are gaps, and I do not hide them behind the case split.
    The front is a maximum over the route, so one long-tail curve can make the window reach two lanes ahead, and the audit does not cover that case.
    One scratch probe reported 19.996 m there, with the body far from that lane.
    It looks like a false alarm, this is not proved, and the maintainer chose to record it and not change the observer.
-   When the network sets `shapeClearance`, the oracle takes the local front of the [group physics design](../design/group-physics-design.md), and not the largest front bound of the route.
-   A front bound of a route lane that ends before the route distance of the pod minus the slack, or that starts past the local front, does not extend the window.
-   The envelope reach of the audit holds the window of this changed oracle, so the audit covers it.
+   When the network sets `shapeClearance`, the oracle takes its envelope from the envelope reach of the [group physics design](../design/group-physics-design.md), and not from the largest front bound of the route.
+   The front bound of a route lane extends the window only from an anchor on that lane.
+   The audit takes the same envelope reach, so it holds each plane of the oracle, and the audit covers the window.
    Amended 2026-11-16, by maintainer decision: the local front of the oracle envelope, behind the `shapeClearance` network field.
+   Amended 2026-11-16, by maintainer decision: the oracle envelope from the compiled envelope reach, behind the `shapeClearance` network field.
 5. `scale100` did not finish the pair check inside the 5-minute limit.
    It has no curved lanes.
 6. Cross-architecture equality of the scan is not tested, and the maintainer decided that it needs no work now.

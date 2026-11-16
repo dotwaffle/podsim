@@ -3,6 +3,7 @@
 Status: approved by the maintainer on 2026-11-16, rows SX1 to SX13.
 The [shared-track amendment proposal](shared-track-amendment-proposal.md) gave the rows, and decision S6-A of the [shared-track](../design/shared-track-preset.md) design chose a new contract for them.
 No simulation has run on the preset, so the preset is not qualified.
+Amended 2026-11-16, by maintainer decision: SX3 compares the compiled envelope reach with an independent reference, in amendment ST22 of the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md).
 
 ## Scope
 
@@ -41,7 +42,9 @@ No simulation has run on the preset, so each evidence item below is evidence tha
 - SX3, Motion and ownership, and Independent safety oracle (from E3).
   Measures: the oracle on the mixed fleet of the preset, and the parity of the two envelope constructions.
   Pass: the oracle checks the mixed fleet at each tick, with fault stops and emergency journeys, the shape table, the envelope reach, and the D6 oracle, and it finds no failure.
-  Under decision S1, the indexed and the reference envelope constructions take the local front and the small-pod rules, and they give the same locations in the same order.
+  Under decision S1, the indexed construction reads the compiled envelope reach, and the reference construction computes the envelope again from the definition of the [group physics design](../design/group-physics-design.md), with the small-pod rules.
+  The reference reads no span, item, or bound of the compiled reach.
+  The two constructions give the same locations in the same order.
   Evidence: runs of the preset with the oracle and the D6 oracle at each tick, with faults and emergencies.
   A test that compares the indexed and the reference constructions for each pod at each tick of a run of the preset.
   `TestEnvelopeReachHoldsEnvelope` and the body support tests of section 7 of the design, with the preset among their networks.

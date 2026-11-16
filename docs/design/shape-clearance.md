@@ -2,6 +2,7 @@
 
 Status: approved on 2026-11-16.
 Amended on 2026-11-16, by maintainer decision: rule A1 and the envelope of decision S1 of the [shared-track](shared-track-preset.md) design, in amendments ST1, ST5 to ST8, ST10, and ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md).
+Amended on 2026-11-16, by maintainer decision: the envelope of decision S1 from the compiled envelope reach, in amendments ST18 and ST19 of the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md).
 Proposed on 2026-11-15, and revised on 2026-11-16 after an adversarial review (section 9).
 Build record: on 2026-11-16, the rule of parts 1 to 5 was built behind the `shapeClearance` network field.
 The commits are `2c918f46` (the field and digest extension 17, with no effect), `4b09997e` and `f6fd4091` (the envelope reach index by position, built on demand), `29af1248` (shape certification, the shape pair table, the all-pairs audit, the oracle, and debris), `33607784` (the independent body oracle for merge pairs), `4805ba4a` (merge and split pairs admit large and tailed lanes with the union body), `e515829b` (the editor runs the server lane check under the field), and `3d71de3d` (the independent body oracle for shape pairs).
@@ -159,12 +160,12 @@ Route validation has other refusals, such as the lane length of section 2.4, whi
 The envelope of the oracle also holds the small pod of a mixed pair, so the probe gives each rule to small paths too.
 The probe takes the front bound of a lane from that lane only.
 When the network does not set `shapeClearance`, the envelope takes the largest front bound of the route, as it did when the probe ran.
-With the field, the envelope takes the local front of the [group physics design](group-physics-design.md).
+With the field, the envelope comes from the envelope reach at the published lane position, with the anchor front of each lane of the [group physics design](group-physics-design.md).
 It also adds the lanes of one node back only.
 On the measured routes, no lane is curved and each tail is 20 m, which is shorter than each lane, so these limits do not change a count (inferred).
 The built envelope reach index takes the largest front bound of the network for each lane, and that changes the counts (section 2.2, "Counts of the built audit").
 This sentence records the index as built for this design.
-When the network sets `shapeClearance`, the index of decision S1 of the [shared-track](shared-track-preset.md) design takes the reach bound of each lane of the [group physics design](group-physics-design.md) in place of this bound.
+When the network sets `shapeClearance`, the index of decision S1 of the [shared-track](shared-track-preset.md) design takes the anchor front of each lane of the [group physics design](group-physics-design.md) in place of this bound.
 
 | Pair | Route, each way | Stations passed | Whole reach, 20 m (today) | Whole reach, 12 m | Envelope reach, 20 m | Envelope reach, 12 m | Body reach, 20 m | Body reach, 12 m | Lane plane, 20 m or 12 m |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -242,7 +243,7 @@ The difference comes from the front reach.
 The study probe takes the front bound of each lane, which is 6 m on this route.
 The envelope reach index takes the largest front bound of the network, which is 66.42 m on LondonFull, from the curved lane `940GZZLUWLO-move-05-01`.
 This sentence records the index as built for this design.
-When the network sets `shapeClearance`, the index of decision S1 of the shared-track design takes the reach bound of each lane, and on this network it gives the 7 refusals of the next line (section 2.2 of that design).
+When the network sets `shapeClearance`, the index of decision S1 of the shared-track design takes the anchor front of each lane, and on this network it gives the 7 refusals of the next line (section 2.2 of that design).
 With a front reach of 6 m, the audit gives 7 refusals: the 5 pairs under 4.0 m of this section, and 2 pairs at 4.55 m and 6.26 m.
 The longer front reach adds 7 refusals at the two portals of link 100, and 5 of them are under 4.0 m.
 On project D, the Waterloo b bank takes the road to link 100, so the route runs 3,547 m through 5 stations.
@@ -541,7 +542,7 @@ The union body holds each class body, so a pair that the union sweep clears is c
    The depot rule `3.1 + v²/2` keeps a stop term for the same kind of pair, and that term is 101 m at 14 m/s.
    Decision D3 chooses between the two.
 5. Under D1-B, the planes of each pod are those of its envelope.
-   When the network sets `shapeClearance`, the envelope takes the local front and the small-pod rules of the [group physics design](group-physics-design.md).
+   When the network sets `shapeClearance`, the envelope comes from the envelope reach, with the small-pod rules of the [group physics design](group-physics-design.md).
    Under rule A1 of section 1.1, the envelope then holds each lane under the body, for the bodies and within the limits that the group physics design states.
    So the plane exemption keeps its meaning, and the envelope can drop a plane of the largest front bound of the route that is not under the body.
    The audit takes the envelope reach by position, and not by whole lane.
@@ -561,8 +562,8 @@ The union body holds each class body, so a pair that the union sweep clears is c
 
 | Place | Change |
 | --- | --- |
-| `pair`, `safety.go:261` | Under D1-B, when the field is set, the envelopes take the local front and the small-pod rules of the [group physics design](group-physics-design.md), by decision S1 of the [shared-track](shared-track-preset.md) design. Under D1-A, large pods use their lane location. A shape pair or a merge pair from the tables needs the side-by-side distance of its two classes. |
-| `largeSafety`, `envelope_safety.go:13` | Under D1-B, when the field is set, `appendVehicleSafetyLocations` and its reference construction take the local front and the small-pod rules. Without the field, no change. Under D1-A, not used for the plane test when the field is set. |
+| `pair`, `safety.go:261` | Under D1-B, when the field is set, the envelopes come from the envelope reach, with the small-pod rules of the [group physics design](group-physics-design.md), by decision S1 of the [shared-track](shared-track-preset.md) design. Under D1-A, large pods use their lane location. A shape pair or a merge pair from the tables needs the side-by-side distance of its two classes. |
+| `largeSafety`, `envelope_safety.go:13` | Under D1-B, when the field is set, `appendVehicleSafetyLocations` reads the compiled envelope reach, and its reference construction computes the same envelope from the definition, with the small-pod rules. Without the field, no change. Under D1-A, not used for the plane test when the field is set. |
 | `validateBankGeometry`, `bank_geometry.go:82` | Under D1-B, envelope reach in place of whole reach, with part 4 on the overlapping parts. Under D1-A, no plane reach. When the field is set, the early return at `:85` and the skip of small pairs at `:146` do not apply (D12). |
 | `newPlaneReach`, `plane_reach.go:45` | Under D1-B, an envelope reach index by part of a path. Under D1-A, not used when the field is set. |
 | `newMergeLateral`, `lateral_merges.go:35` | Eligibility takes large lanes and lanes with tails, with the union body of the admitted classes of each lane. |
