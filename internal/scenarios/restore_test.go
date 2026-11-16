@@ -11,14 +11,14 @@ import (
 
 const (
 	// The London restore test requests AM peak journeys at 20 per minute.
-	// After a 50 s warmup, it restores the simulation every 5 s for 20 s.
+	// After a 35 s warmup, it restores the simulation every 5 s for 20 s.
 	// Then it runs the last restored copy for 30 s, which includes the first
-	// completion at about 77 s. The cost of Step grows with the active pods,
+	// completion at about 63 s. The cost of Step grows with the active pods,
 	// and each second of London after 90 s costs more than 0.1 s with the
 	// race detector. A 2-minute restore window and a 1-minute continuation
 	// take about 40 s, so the test uses shorter ones.
 	londonRestoreInterval          = 3 * sim.TicksPerSecond
-	londonRestoreWarmupTicks       = 50 * sim.TicksPerSecond
+	londonRestoreWarmupTicks       = 35 * sim.TicksPerSecond
 	londonRestorePeriodTicks       = 5 * sim.TicksPerSecond
 	londonRestoreCount             = 5
 	londonRestoreContinuationTicks = 30 * sim.TicksPerSecond
@@ -204,19 +204,20 @@ func TestRestorePhysicalLondon(t *testing.T) {
 
 // TestLondonPlatoonsRestoreAndClone restores and clones London when pods
 // travel in platoons. The schedules of the other London restore and clone
-// tests form no platoon link. This test requests 120 AM peak journeys, four
-// each second. With the lateral merges of the preset, the first link forms
-// at about 422 s. At that tick, the test
+// tests form no platoon link. This test requests 160 AM peak journeys, four
+// each second. With the lateral merges and the tight stations of the
+// preset, the first link forms at about 684 s. 120 journeys form no link in
+// 1,500 s. At that tick, the test
 // restores the physical state and clones the simulation. Then it runs the
 // clone and the restored simulation for 30 s.
 func TestLondonPlatoonsRestoreAndClone(t *testing.T) {
 	if testing.Short() {
-		t.Skip("the London platoon test runs for about 16 s with the race detector")
+		t.Skip("the London platoon test runs for about 21 s with the race detector")
 	}
 	t.Parallel()
 	const (
-		requests  = 120
-		linkTicks = 450 * sim.TicksPerSecond
+		requests  = 160
+		linkTicks = 720 * sim.TicksPerSecond
 		runTicks  = 30 * sim.TicksPerSecond
 	)
 	config := LondonCentral()

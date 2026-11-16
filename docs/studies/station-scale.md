@@ -5,6 +5,8 @@ The maintainer asked (November 14, 2026) for station paths at least 50% shorter.
 This study measures LondonFull with smaller stations, made by the `-station-scale` flag of `cmd/scenario`.
 LondonCentral and LondonFull use scale 0.5 since this study.
 The LondonFull network at that scale is the network that this study measures.
+Since November 16, 2026, the passenger stations of these presets that are not Compact stations are tight, as [Tight stations](#tight-stations) describes.
+`-wide-stations` gives the scale 0.5 shape.
 `london-full-express` keeps scale 1, because its approved contract fixes its geometry.
 
 ## Result
@@ -84,6 +86,57 @@ Scale 0.4 shortens the median path from the diverge to a berth from 196 m to 155
 The berth pitch and the width of the berth lanes stay large, because lanes that are not joined stay at least the 12 m clearance apart.
 The maintainer kept scale 0.5.
 
+## Tight stations
+
+On November 16, 2026, a study at `b054fedc` measured a tight shape of LondonFull at station scale 0.5.
+Tight sets each part of a passenger station past the throat to the 25 m minimum berth pitch.
+The throat stays 80 m from the junction, and the diverge and the merge stay 30 m to each side of the axis.
+Compact stations and Parking facilities keep their shapes.
+
+| Part | Scale 0.5 | Tight |
+| --- | ---: | ---: |
+| Diverge to entry (`access-in`) | 63.2 m | 25.5 m |
+| Entry to the first berth row | 45 m | 25 m |
+| Arrival and departure lanes from the axis | 50 m | 25 m |
+| Berth pitch | 37.5 m | 25 m |
+
+The through lane is then 50 m long, against 100 m.
+The keep-access arm keeps the entry of scale 0.5 and sets the other three parts to 25 m.
+The pitch 25 arm sets only the berth pitch to 25 m.
+
+| Arm | Diverge to berth, median |
+| --- | ---: |
+| Scale 0.5 | 195.7 m |
+| Pitch 25 | 183.2 m |
+| Keep-access | 135.2 m |
+| Tight | 100.5 m |
+
+With tight stations, the p90 path from the diverge to a berth is 125.5 m.
+The pitch 25 path comes from section 2.7 of the [shape clearance design](../design/shape-clearance.md#27-stations).
+
+The tight network has no hard and no soft layout conflicts.
+The study built it with scratch options, and its network SHA-256 is `acba7958cf8bdaa25a67d24d891cdcfd04ac99586c9ad4918ddb4856d92845fe`.
+In the study, a scratch row gap also moved the search shapes of the Compact stations, and a pitch of 50 m at scale 1 moved the search shapes of the Parking facilities.
+The adopted generator keeps both shapes, so `-berth-pitch 50` gives the study network, and the default network differs from it only at the three Parking facilities.
+With the adopted generator, these LondonFull variants validate with no soft conflicts: the default, `-berth-pitch 50`, `-station-scale 1`, `-station-scale 1 -berth-pitch 50`, and `-station-scale 0.4`.
+
+Each change is the mean of the paired changes from scale 0.5 over seeds 1 to 6, with the method below.
+
+| Arm | Drained | Mean wait | Mean journey | Junction wait | Stopped pod time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Pitch 25 | 5/6 | -0.4% | -0.2% | +1.3% | -0.7% |
+| Keep-access | 5/6 | -2.4% | -1.4% | +20% | +14% |
+| Tight | 5/6 | -4.3% | -2.4% | +49% | +32% |
+
+At scale 0.5, the means over the six seeds are 205.2 s of wait, 663 s of junction wait, and 1,144 s of stopped pod time.
+Pitch 25 alone saves 12.5 m of path and gives no service change.
+With tight stations, the empty distance is 2.5% shorter, and seed 1 has one unfinished request at minute 120.
+
+The study recommended tight stations.
+On November 16, 2026, the maintainer made tight stations the default of LondonCentral and LondonFull.
+The default LondonFull network SHA-256 is now `e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e`, with no hard and no soft layout conflicts.
+`london-full-express` keeps wide stations at scale 1.
+
 ## Method
 
 The measured source is `d8089c89`.
@@ -98,3 +151,4 @@ mise run compare -- -project /tmp/podsim-london-full-0.5.json -pattern profile -
 ```
 
 The path lengths are the shortest paths over the station lanes of each passenger station with berth rows, from its diverge node to each berth node, and from each berth node to its merge node.
+Since November 16, 2026, the presets have tight stations, so at a later source, add `-wide-stations` to `cmd/scenario` to build the scaled networks of this study.

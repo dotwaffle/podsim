@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -49,6 +50,12 @@ func TestLondonStationScale(t *testing.T) {
 			shape: londonStationShape{berths: 1, pitch: 75, scale: 0.4},
 			want:  []offset{{-30, 80}, {30, 80}, {-40, 128}, {40, 128}, {-40, 164}, {0, 164}, {40, 164}},
 			area:  [2]float64{80, 184},
+		},
+		{
+			name:  "tight ignores the pitch, the scale, and the side",
+			shape: londonStationShape{berths: 2, pitch: 75, scale: 0.5, side: 50, tight: true},
+			want:  []offset{{-30, 80}, {30, 80}, {-25, 105}, {25, 105}, {-25, 130}, {0, 130}, {25, 130}, {-25, 155}, {0, 155}, {25, 155}},
+			area:  [2]float64{80, 175},
 		},
 	}
 	for _, test := range tests {
@@ -133,34 +140,64 @@ func TestLondonStationScaleOptions(t *testing.T) {
 			t.Fatalf("project name %q has no custom capacity suffix", config.Name)
 		}
 	})
-	t.Run("default half scale", func(t *testing.T) {
+	t.Run("default shapes", func(t *testing.T) {
 		t.Parallel()
-		if scale := DefaultLondonCentralOptions().StationScale; scale != 0.5 {
-			t.Fatalf("default station scale = %v, want 0.5", scale)
+		defaults := DefaultLondonCentralOptions()
+		if defaults.StationScale != 0.5 || defaults.WideStations {
+			t.Fatalf("default station scale = %v, wide stations %v, want 0.5 and tight stations", defaults.StationScale, defaults.WideStations)
 		}
-		config := LondonCentral()
-		// Baker Street has berth rows. Its entry is 60 m past the throat
-		// and 20 m farther from the axis, and its first berth is 45 m past
-		// the entry and 50 m beside it.
-		node := func(id string) sim.Point {
-			n, ok := config.Network.Node(id)
-			if !ok {
-				t.Fatalf("no node %s", id)
+		wideOptions := DefaultLondonCentralOptions()
+		wideOptions.WideStations = true
+		wide, err := LondonCentralWith(wideOptions)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasSuffix(wide.Name, CustomCapacitySuffix) {
+			t.Fatalf("project name %q has no custom capacity suffix", wide.Name)
+		}
+		distance := func(config project.Config, from, to string) float64 {
+			t.Helper()
+			a, aOK := config.Network.Node(from)
+			b, bOK := config.Network.Node(to)
+			if !aOK || !bOK {
+				t.Fatalf("no node %s or %s", from, to)
 			}
-			return n.Position
+			return math.Hypot(b.Position.X-a.Position.X, b.Position.Y-a.Position.Y)
 		}
-		distance := func(a, b sim.Point) float64 { return math.Hypot(b.X-a.X, b.Y-a.Y) }
-		if got := distance(node("940GZZLUBST-diverge"), node("940GZZLUBST-entry")); math.Abs(got-math.Hypot(20, 60)) > 1e-6 {
-			t.Fatalf("diverge to entry = %v m, want %v", got, math.Hypot(20, 60))
-		}
-		if got := distance(node("940GZZLUBST-entry"), node("940GZZLUBST-01-node")); math.Abs(got-math.Hypot(50, 45)) > 1e-6 {
-			t.Fatalf("entry to first berth = %v m, want %v", got, math.Hypot(50, 45))
-		}
-		// Regent's Park has Compact bays. Their entry is 60 m past the
-		// throat, londonCompactSide from the axis.
-		want := math.Hypot(londonCompactSide-londonStationThroatOffset, 60)
-		if got := distance(node("940GZZLURGP-diverge"), node("940GZZLURGP-entry")); math.Abs(got-want) > 1e-6 {
-			t.Fatalf("Compact diverge to entry = %v m, want %v", got, want)
+		for _, test := range []struct {
+			name   string
+			config project.Config
+			// entry, first, and pitch are the distances from the diverge to
+			// the entry, from the entry to the first berth, and from the
+			// first berth to the second berth of Baker Street, which has
+			// berth rows.
+			entry, first, pitch float64
+		}{
+			// The tight entry is 25 m past the throat and 5 m nearer to the
+			// axis, and its first berth is 25 m past the entry and 25 m
+			// beside it.
+			{name: "tight", config: LondonCentral(), entry: math.Hypot(5, 25), first: math.Hypot(25, 25), pitch: 25},
+			// The wide entry is 60 m past the throat and 20 m farther from
+			// the axis, and its first berth is 45 m past the entry and 50 m
+			// beside it.
+			{name: "wide", config: wide, entry: math.Hypot(20, 60), first: math.Hypot(50, 45), pitch: 37.5},
+		} {
+			got := []float64{
+				distance(test.config, "940GZZLUBST-diverge", "940GZZLUBST-entry"),
+				distance(test.config, "940GZZLUBST-entry", "940GZZLUBST-01-node"),
+				distance(test.config, "940GZZLUBST-01-node", "940GZZLUBST-02-node"),
+			}
+			for index, want := range []float64{test.entry, test.first, test.pitch} {
+				if math.Abs(got[index]-want) > 1e-6 {
+					t.Fatalf("%s: Baker Street distances %v m, want %v, %v, and %v", test.name, got, test.entry, test.first, test.pitch)
+				}
+			}
+			// Regent's Park has Compact bays. Their entry is 60 m past the
+			// throat, londonCompactSide from the axis, with both shapes.
+			want := math.Hypot(londonCompactSide-londonStationThroatOffset, 60)
+			if got := distance(test.config, "940GZZLURGP-diverge", "940GZZLURGP-entry"); math.Abs(got-want) > 1e-6 {
+				t.Fatalf("%s: Compact diverge to entry = %v m, want %v", test.name, got, want)
+			}
 		}
 	})
 }

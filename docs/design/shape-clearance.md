@@ -111,6 +111,7 @@ D5 uses section 2.5, D8 uses section 2.8, D9 uses section 2.10, and D10 uses sec
 Values that come from a formula or from reasoning, and not from a probe, are marked inferred.
 
 The base is the default LondonFull preset: station scale 0.5, `lateralMerges` set, 5,740 nodes, 9,024 lanes, and network SHA-256 `441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d`.
+Since November 16, 2026, `-wide-stations` gives this network, because the default stations are tight.
 For each pair, the probe finds the free-flow route from the exit of one hub to the entry of the other in each direction, through no other station.
 It sets the classes Legacy, Compact, and Express on the route lanes, on each lane of the two hubs except the roads off the route, and on the hubs and their berths.
 It then runs a copy of the pair scan of `validateBankGeometry`.
@@ -307,6 +308,9 @@ Most of the path is the fixed part (inferred from the shape constants of `intern
 With each of these three lanes at the 24 m minimum, the median would be about 97 m at pitch 25 m (inferred, not built, and not validated).
 The throat stays 80 m from the junction, which keeps the access lanes off the junction guideways ([station scale study](../studies/station-scale.md#shape)).
 
+Since November 16, 2026, the default stations are tight, and `-wide-stations` gives the scale 0.5 layout of this table.
+A tight station has each access lane, the berth lane, and the pitch at 25 m, and its median path from the diverge to a berth is 100.5 m ([tight stations](../studies/station-scale.md#tight-stations)).
+
 ### 2.8 Express Parking
 
 This measurement is from a deleted scratch probe.
@@ -379,7 +383,7 @@ The project files are about 15 MB each, so the commands write them to a scratch 
 
 ```sh
 D=$(mktemp -d)
-go run ./cmd/scenario -preset london-full -output "$D/lf.json"
+go run ./cmd/scenario -preset london-full -wide-stations -output "$D/lf.json"
 go run ./cmd/scenario -preset london-full-express -output "$D/lfx.json"
 PODSIM_SHAPE_STUDY="$D/lfx.json" go test ./internal/sim -run 'TestShapeClearanceStudyBase$' -count=1 -v
 PODSIM_SHAPE_STUDY="$D/lf.json" go test ./internal/sim -run 'TestShapeClearanceStudyRoutes$' -count=1 -v
@@ -638,7 +642,7 @@ This is decision D8.
 ### 4.3 Stations
 
 The 12 m gap across lanes does not bind in a London station at scale 0.5 (section 2.6).
-The pitch is 37.5 m, and the floor of 25 m comes from the 24 m lane minimum, which is a following rule, and the 1 m allowance of the generator (`layout_audit.go:17`, `london.go:348`).
+At scale 0.5, the pitch is 37.5 m, and the floor of 25 m comes from the 24 m lane minimum, which is a following rule, and the 1 m allowance of the generator (`layout_audit.go:17`, `london.go:348`).
 
 These layouts work under the current rules, and they do not need shape clearance:
 
@@ -646,6 +650,9 @@ These layouts work under the current rules, and they do not need shape clearance
 | --- | --- | --- |
 | Rows at 25 m | `BerthPitch` 50 at scale 0.5. It validates today (section 2.7). | Median path from the diverge to a berth 183.2 m, against 195.7 m |
 | Short access lanes | A generator change: each access lane at the 24 m minimum | Median path about 97 m (inferred, not built, and not validated) |
+
+The [tight station study](../studies/station-scale.md#tight-stations) built both layouts together, with each part at 25 m, and measured a median path of 100.5 m.
+Since November 16, 2026, tight stations are the default of LondonCentral and LondonFull.
 
 This layout needs shape clearance:
 

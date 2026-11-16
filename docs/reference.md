@@ -491,7 +491,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 ### Capacity flags
 
-The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the Compact stations, and the junctions of a preset, and `-lateral-merges` changes one network field.
+The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, and the junctions of a preset, and `-lateral-merges` changes one network field.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
 They do not apply to `independent-banks`, `compact-station`, or `london-full-express`.
 
@@ -503,8 +503,9 @@ They do not apply to `independent-banks`, `compact-station`, or `london-full-exp
 | `-berths ID=N,ID=N` | Set the berths of single stations by station ID, such as `station-19` or the ID of a TfL station. |
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each parking station. |
-| `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. On a London preset, M is the pitch at station scale 1, and the station scale multiplies it. |
-| `-station-scale S` | London presets only. Multiply the size of each passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. Parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` at scale 1, so its approved geometry does not change. Some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
+| `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. On a London preset, M is the pitch at station scale 1, and the station scale multiplies it. A tight London station keeps its pitch of 25 meters, so M sets only the wide stations, the Compact stations in the heading search, and the parking stations. |
+| `-station-scale S` | London presets only. Multiply the size of each wide or Compact passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. A tight station and the parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` with wide stations at scale 1, so its approved geometry does not change. With `-wide-stations`, some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
+| `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the network is then the preset network from before that date. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
 | `-lateral-merges=false` | London presets only. Do not set [`lateralMerges`](#lateral-merges) on the network, so that the lanes of shallow merges and splits keep the longer junction zones. The default is true, the preset value, which gives these lanes shorter junction zones. With `=false`, the project name ends with " (custom capacity)". Use the form with `=`, because `-lateral-merges false` sets the flag to true and leaves `false` as a positional argument. `london-full-express` does not set the field, so its qualification evidence stays valid. |
@@ -515,7 +516,8 @@ mise run scenario -- -preset london-central -station-berths 3 -berths 940GZZLUEM
 ```
 
 A ring station has a 30-meter pitch, and a `scale100` station has a 75-meter pitch.
-A `london-central` or `london-full` station has a 75-meter pitch at station scale 1, which is 37.5 meters at the default scale 0.5.
+A tight `london-central` or `london-full` station has a 25-meter pitch.
+A wide station has a 75-meter pitch at station scale 1, which is 37.5 meters at the default scale 0.5.
 The ring and `scale100` presets put the initial pods round robin on the passenger stations, and a full station gets no more pods.
 With changed capacity, the project name ends with "(custom capacity)".
 

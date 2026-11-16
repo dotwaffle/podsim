@@ -59,11 +59,16 @@ A road lane goes from each arrival portal to the diverge node, and from the merg
 The core lanes of a station go from the diverge node, through the berths, to the merge node.
 The station axis goes from the TfL station position through the middle of the berth rows.
 The diverge and merge nodes are 80 meters out on this axis and 30 meters to each side of it.
-The [station scale](reference.md#capacity-flags) sets the rest of the station, and the preset uses 0.5.
-At this scale, the entry and exit nodes are 140 meters out, the first berth row is 185 meters out, and the berth pitch is 37.5 meters.
-The arrival and departure lanes are 50 meters to each side of the axis, or about 54 meters at a Compact station, so that they stay outside the bays.
+A passenger station that is not a Compact station is tight.
+Its entry and exit nodes are 105 meters out, its first berth row is 130 meters out, and its berth pitch is 25 meters.
+Its arrival and departure lanes are 25 meters to each side of the axis.
+The [station scale](reference.md#capacity-flags) sets the rest of a Compact station, and the preset uses 0.5.
+At this scale, the entry and exit nodes are 140 meters out.
+The arrival and departure lanes of a Compact station are about 54 meters to each side of the axis, so that they stay outside the bays.
+With [`-wide-stations`](reference.md#capacity-flags), the station scale also sets the other passenger stations.
+At scale 0.5, the entry and exit nodes are then 140 meters out, the first berth row is 185 meters out, the berth pitch is 37.5 meters, and the arrival and departure lanes are 50 meters to each side.
 At station scale 1, these values are 200 meters, 290 meters, 75 meters, and 100 meters.
-The [station scale study](studies/station-scale.md) measures the smaller stations.
+The [station scale study](studies/station-scale.md) measures the smaller and the tight stations.
 The portals are 60 meters along the link from the station position, or nearer on a short link.
 Thus pods do not make a hairpin turn between a guideway and the station.
 
@@ -110,11 +115,11 @@ Each road lane has its own separation group, so the separation oracle treats suc
 The road lanes of each Parking facility and its gateway station cross once, because they connect to the same portals.
 No other lanes of two different stations cross.
 The core lanes of two different stations are at least 42 meters apart.
-For the 48 through stations, the median angle between the berth rows and the line is 2.5 degrees.
+For the 48 through stations, the median angle between the berth rows and the line is 2.6 degrees.
 One is more than 30 degrees off.
 Mansion House lies between three stations: Bank and Monument, Cannon Street, and St. Paul's.
-At station scale 1, each of its headings crosses a guideway or puts its berths nearer to one of these stations, so its berths are nearer to St. Paul's.
-The smaller stations of the preset do not have this conflict.
+With wide stations at station scale 1, each of its headings crosses a guideway or puts its berths nearer to one of these stations, so its berths are nearer to St. Paul's.
+The tight stations of the preset do not have this conflict.
 The two links of Willesden Green go in almost the same direction.
 No road lane turns more than 135 degrees from its guideway.
 
@@ -214,7 +219,7 @@ The lanes can have at most 64,000 track cells of about 30 meters in total.
 The London preset has 16,976 cells and the largest London capacity options in the tests have 24,675.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 32 MiB or less.
-The central generated file is indented, so it is about 2.6 MiB (2,701,733 bytes).
+The central generated file is indented, so it is about 2.6 MiB (2,701,772 bytes).
 The generator uses compact JSON when indentation would exceed the project file limit.
 Project validation also limits the compact JSON form of a project to 32 MiB, with room for the widest demand settings.
 In that form, the London project is about 1.1 MiB (1,199,261 bytes).
@@ -296,11 +301,11 @@ A soft conflict is a station whose berths are nearer to the TfL position of anot
 The preset has no soft conflicts.
 
 All 96 passenger stations take 3 berths.
-At station scale 1, a core lane at Embankment then crosses a guideway, and a 40-meter pitch lets all 96 stations take 3 berths.
+With wide stations at station scale 1, a core lane at Embankment then crosses a guideway, and a 40-meter pitch lets all 96 stations take 3 berths.
 The next two projects use `-parking-lanes 0 -compact-stations none`.
 3 berths at each passenger station and 24 berths at each Parking facility give 2,238 nodes and 3,629 lanes, with no soft conflicts.
-The generated file has 2,870,080 bytes.
-At station scale 1 with a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
+The generated file has 2,870,101 bytes.
+With wide stations at station scale 1 and a 40-meter pitch, 3 berths at each passenger station and 200 berths at each Parking facility give 3,822 nodes and 5,741 lanes, with 1 soft conflict.
 This generated file has 3,835,597 bytes.
 When the editor applies this project, the command has about 1.9 MiB of JSON, and the editor sends about 0.3 MiB with gzip.
 Capacity options must also pass the layout audit.

@@ -96,7 +96,7 @@ func TestLondonFullWith(t *testing.T) {
 		{name: "unknown site", change: func(o *LondonOptions) { o.Berths["unknown"] = 2 }, wantError: "unknown London station"},
 		{name: "too many pods", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths, o.StationPods = 4, 4 }, wantError: "fleet has"},
 		{name: "too many nodes", change: func(o *LondonOptions) { o.Berths = nil; o.StationBerths = 12 }, wantError: "nodes"},
-		{name: "Bank geometry at station scale 1", change: func(o *LondonOptions) { o.Berths["940GZZLUBNK"], o.StationScale = 4, 1 }, wantError: "layout conflict"},
+		{name: "Bank geometry with wide stations at station scale 1", change: func(o *LondonOptions) { o.Berths["940GZZLUBNK"], o.StationScale, o.WideStations = 4, 1, true }, wantError: "layout conflict"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -165,9 +165,9 @@ func TestLondonFullOwnedAndDeterministic(t *testing.T) {
 }
 
 // TestLondonCentralMirroredBytesPinned pins LondonCentral, and the
-// opt-out layout at station scale 1 without lateral merges at the hash of
-// the preset before depots, Compact stations, the smaller stations, and
-// lateral merges became the default.
+// opt-out layout with wide stations at station scale 1 without lateral
+// merges at the hash of the preset before depots, Compact stations, the
+// smaller stations, lateral merges, and tight stations became the default.
 func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 	t.Parallel()
 	config := LondonCentral()
@@ -175,7 +175,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		t.Fatal("central display name changed")
 	}
 	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
-	options.StationScale, options.NoLateralMerges = 1, true
+	options.StationScale, options.NoLateralMerges, options.WideStations = 1, true, true
 	optOut, err := LondonCentralWith(options)
 	if err != nil {
 		t.Fatal(err)
@@ -185,7 +185,7 @@ func TestLondonCentralMirroredBytesPinned(t *testing.T) {
 		config project.Config
 		want   string
 	}{
-		{"default", config, "1332abe2acdcd5a2d95ffb62705a66ae824ca48af0ebce6e0a3a6ade9628e807"},
+		{"default", config, "6f896f117e165cb612c4c8698b1fb8e6f65acbca6f5b5086b3d42854378c5dce"},
 		{"opt-out", optOut, "b3b8f3a1695804fcd398d71bedc4f4718e84e8b9448ce422109edfb8d7f12807"},
 	} {
 		test.config.Name = "Central London Underground-derived PRT"
@@ -331,10 +331,10 @@ func TestLondonBankLayoutRefusal(t *testing.T) {
 	for _, test := range []struct{ berths, conflicts int }{{3, 14}, {4, 38}} {
 		t.Run(strconv.Itoa(test.berths), func(t *testing.T) {
 			t.Parallel()
-			// At station scale 1, a third berth row at Bank comes near St.
-			// Paul's.
+			// With wide stations at station scale 1, a third berth row at
+			// Bank comes near St. Paul's.
 			options := DefaultLondonFullOptions()
-			options.Berths["940GZZLUBNK"], options.StationScale = test.berths, 1
+			options.Berths["940GZZLUBNK"], options.StationScale, options.WideStations = test.berths, 1, true
 			_, err := LondonFullWith(options)
 			want := fmt.Sprintf("layout conflict at station Bank and Monument (940GZZLUBNK): lane %q is nearer than 36 meters to St. Paul's lane %q (%d hard conflicts)", "940GZZLUBNK-03-arrival-link", "940GZZLUSPU-access-in", test.conflicts)
 			if err == nil || err.Error() != want {

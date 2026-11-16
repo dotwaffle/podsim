@@ -1,9 +1,11 @@
 package scenarios
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
+	"fmt"
 	"math"
 	"reflect"
 	"strings"
@@ -15,14 +17,14 @@ import (
 
 // largestLondonOptions returns the London options of the largest project in
 // the tests: 3 berths at each passenger station, 200 berths at each ordinary
-// Parking facility, no Compact stations, station scale 1, and a 40 meter
-// pitch. It has 3,822
+// Parking facility, no Compact stations, wide stations at station scale 1,
+// and a 40 meter pitch. It has 3,822
 // of the 4,000 nodes that the project limits allow. 4 berths at each
 // passenger station would need 4,110 nodes.
 func largestLondonOptions() LondonOptions {
 	options := ordinaryLondonOptions(DefaultLondonCentralOptions())
 	options.StationBerths, options.ParkingBerths, options.BerthPitch = 3, 200, 40
-	options.StationScale = 1
+	options.StationScale, options.WideStations = 1, true
 	return options
 }
 
@@ -75,6 +77,45 @@ func TestLondonLateralMergesOption(t *testing.T) {
 	}
 }
 
+// TestLondonWideStationsOption checks that the London presets have tight
+// stations, and that WideStations gives the bytes of each preset from before
+// tight stations became the default, with the name suffix.
+func TestLondonWideStationsOption(t *testing.T) {
+	t.Parallel()
+	if DefaultLondonCentralOptions().WideStations || DefaultLondonFullOptions().WideStations {
+		t.Fatal("the default options give wide stations")
+	}
+	for _, test := range []struct {
+		name    string
+		options LondonOptions
+		build   func(LondonOptions) (project.Config, error)
+		sha256  string
+	}{
+		{name: "LondonCentral", options: DefaultLondonCentralOptions(), build: LondonCentralWith, sha256: "dd7e853675ceaeb087f746044bce8c11be2fd24ba27722d842c19bea7d06dc0b"},
+		{name: "LondonFull", options: DefaultLondonFullOptions(), build: LondonFullWith, sha256: "04ec20877c010b35a7dd4f7e011b849774607e3d153221b6f2d23cddde2bba08"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			test.options.WideStations = true
+			config, err := test.build(test.options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.Name != test.name+CustomCapacitySuffix {
+				t.Fatalf("name %q, want the suffix", config.Name)
+			}
+			config.Name = test.name
+			data, err := jsonv2.Marshal(config, json.DefaultOptionsV1())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := fmt.Sprintf("%x", sha256.Sum256(data)); got != test.sha256 {
+				t.Fatalf("wide project SHA-256 = %s, want %s", got, test.sha256)
+			}
+		})
+	}
+}
+
 func TestLondonWithCapacity(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -100,16 +141,18 @@ func TestLondonWithCapacity(t *testing.T) {
 			},
 		},
 		{
-			name: "third berth at Embankment at station scale 1",
+			name: "third berth at Embankment with wide stations at station scale 1",
 			change: func(options *LondonOptions) {
-				options.Berths, options.StationScale = map[string]int{"940GZZLUEMB": 3}, 1
+				options.Berths, options.StationScale, options.WideStations = map[string]int{"940GZZLUEMB": 3}, 1, true
 			},
 			err: "layout conflict at station Embankment (940GZZLUEMB)",
 		},
 		{
-			name:   "three berths at each station at station scale 1",
-			change: func(options *LondonOptions) { options.StationBerths, options.StationScale = 3, 1 },
-			err:    "layout conflict at station Embankment (940GZZLUEMB)",
+			name: "three berths at each station with wide stations at station scale 1",
+			change: func(options *LondonOptions) {
+				options.StationBerths, options.StationScale, options.WideStations = 3, 1, true
+			},
+			err: "layout conflict at station Embankment (940GZZLUEMB)",
 		},
 		{
 			name:   "largest",
@@ -158,9 +201,11 @@ func TestLondonWithCapacity(t *testing.T) {
 			},
 		},
 		{
-			name:   "shorter pitch",
-			change: func(options *LondonOptions) { options.StationBerths, options.BerthPitch = 3, 50 },
-			nodes:  2174,
+			name: "shorter pitch of wide stations",
+			change: func(options *LondonOptions) {
+				options.StationBerths, options.BerthPitch, options.WideStations = 3, 50, true
+			},
+			nodes: 2174,
 		},
 		{
 			name: "Parking pods past the berths",

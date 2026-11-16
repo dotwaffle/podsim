@@ -156,7 +156,7 @@ func TestPickPodBeforeStation(t *testing.T) {
 func TestPickStationBerth(t *testing.T) {
 	t.Parallel()
 	game := londonPickGame(t)
-	game.zoomMap(mapMaxZoom)
+	game.zoomMap(londonBerthZoom)
 	input := game.mapPickTargets(sim.Point{})
 	var anchors []mapCandidate
 	for id, anchor := range game.stationAnchors() {

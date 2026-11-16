@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	// The first London trip for this seed completes at 105 s. The 80 s
+	// The first London trip for this seed completes at 71 s. The 60 s
 	// warmup puts that completion inside the replay window, so the test also
-	// compares unloading and completion. Of seeds 1 to 64, only this seed
-	// completes a trip before 120 s. With the race detector, the test takes
-	// about 8 s. A 2-minute warmup takes about 14 s and has no completion in
+	// compares unloading and completion. Of seeds 1 to 64, this seed
+	// completes the first trip. With the race detector, the test takes
+	// about 6 s. A 2-minute warmup takes about 14 s and has no completion in
 	// the window.
 	londonCloneSeed        = uint64(18)
-	londonCloneWarmupTicks = 80 * sim.TicksPerSecond
+	londonCloneWarmupTicks = 60 * sim.TicksPerSecond
 	londonCloneReplayTicks = 60 * sim.TicksPerSecond
 	// The benchmark clones a busier fleet.
 	londonBenchmarkWarmupTicks = 2 * 60 * sim.TicksPerSecond

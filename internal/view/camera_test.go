@@ -578,9 +578,10 @@ func TestMaxZoomOfExpandedNetworks(t *testing.T) {
 		{name: "small with a depot", build: func() (project.Config, error) {
 			return scenarios.PresetWith("small", func(parameters *scenarios.Parameters) { parameters.ParkingLanes = 2 })
 		}},
-		{name: "LondonCentral, ordinary", build: func() (project.Config, error) {
+		{name: "LondonCentral, ordinary, wide stations", build: func() (project.Config, error) {
 			options := scenarios.DefaultLondonCentralOptions()
 			options.ParkingLanes, options.ParkingBerths, options.CompactStations = 0, scenarios.LondonParkingBerths, nil
+			options.WideStations = true
 			return scenarios.LondonCentralWith(options)
 		}},
 	}

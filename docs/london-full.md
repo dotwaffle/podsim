@@ -50,7 +50,7 @@ See [Depots and Compact stations](#depots-and-compact-stations).
 
 The generator assigns 100 extra passenger berths from the largest boarding-plus-alighting share of each site across the six observed bands.
 It uses the largest-remainder method, with station ID as the tie-breaker.
-Bank keeps two berths, because more rows cause a hard layout conflict at station scale 1.
+Bank keeps two berths, because more rows cause a hard layout conflict with wide stations at station scale 1.
 Its two extra berths are reassigned by the same allocation rule.
 Bank, Mansion House, and Canary Wharf Jubilee use full-network headings of 234, 56, and 330 degrees.
 The Canary Wharf heading clears the North Greenwich guideway.
@@ -62,7 +62,7 @@ LondonCentral's headings and capacity remain unchanged.
 The preset sets [`lateralMerges`](reference.md#lateral-merges), as LondonCentral does, so two small lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
 `london-full-express` does not set it.
 
-The layout audit reports no hard conflicts and one soft conflict.
+The layout audit reports no hard conflicts and no soft conflicts.
 Soft conflicts describe overlap or proximity to source station positions.
 They do not establish that a running simulation is safe or that a demand rate is sustainable.
 
@@ -70,6 +70,31 @@ An explicit `-station-berths` value replaces the weighted allocation with a unif
 A `-berths ID=N` override changes that site and preserves the remaining defaults.
 When both flags are present, the site override applies over the uniform base.
 All generated capacity variants must pass normal project and layout validation.
+
+### Station shape
+
+Each passenger station that is not a Compact station is tight.
+The diverge and the merge are 80 meters from the junction and 30 meters to each side of the station axis.
+The arrival and departure lanes are 25 meters to each side of the axis, so the through lane is 50 meters long.
+The entry is 25 meters past the throat, so the lane from the diverge to the entry is 25.5 meters long.
+The first berth row is 25 meters past the entry, and the berth pitch is 25 meters.
+Each of these parts is equal to the 25-meter minimum berth pitch of the generator.
+A Compact station keeps the shape that the station scale sets, and the Parking facilities keep their shape.
+The maintainer made the tight shape the default on November 16, 2026, after the [tight station study](studies/station-scale.md#tight-stations).
+
+`-wide-stations` gives each such station the shape that `-station-scale` and `-berth-pitch` set.
+The network SHA-256 is the `network_sha256` value of the summary line.
+
+| Flags | Shape | Network SHA-256 | Soft conflicts |
+| --- | --- | --- | ---: |
+| none, the default | Tight | `e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e` | 0 |
+| `-wide-stations` | Station scale 0.5, the default before November 16, 2026 | `441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d` | 1 |
+| `-berth-pitch 50` | Tight, the network of the study | `acba7958cf8bdaa25a67d24d891cdcfd04ac99586c9ad4918ddb4856d92845fe` | 0 |
+
+A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide stations, the Compact stations in the heading search, and the Parking facilities.
+The study network differs from the default only at the three Parking facilities, because a pitch of 50 meters changes their shape.
+`-station-scale` sets only the wide stations and the Compact stations.
+`london-full-express` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
 
 ## Depots and Compact stations
 
@@ -84,6 +109,8 @@ mise run scenario -- -preset london-full -parking-lanes 0 -compact-stations none
 ```
 
 Before October 19, 2026, this layout was the default.
+These flags keep the tight passenger stations.
+Add `-wide-stations` for the [wide stations](#station-shape) of the station scale.
 
 ### Depots
 
@@ -125,7 +152,8 @@ In each band, the shares of all stations add to 2, but the largest shares of all
 
 The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and 1 soft conflict, and its indented export has 14,823,665 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and no soft conflicts, and its indented export has 14,823,604 bytes.
+With `-wide-stations` also, it has 1 soft conflict and 14,823,665 bytes.
 
 ### Measurements, October 19, 2026
 
@@ -236,7 +264,7 @@ These checks do not establish a sustainable demand rate.
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
 The default compact project JSON has 5,612,389 bytes.
-The default indented export has 14,912,526 bytes.
+The default indented export has 14,912,436 bytes.
 The saved-state cap is 128 MiB.
 The plain and Express saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Stream JSON is capped at 64 MiB, with 32,832 bytes of gzip overhead; HTTP state has a separate 128 MiB cap.
@@ -248,7 +276,9 @@ The junction-pair limit is 250,000, and the track-cell limit remains 64,000.
 The variant has 6,463 nodes, 9,968 lanes, 312 stations, and 1,045 berths.
 Passenger sites have at least three berths except Bank, which keeps two.
 The eight Compact stations of the default have four bays each, and each pod is Compact.
-Each parking site is a depot of 4 lanes of 8 slots, and the berth pitch is 37.5 m at station scale 1.
+Each parking site is a depot of 4 lanes of 8 slots.
+The variant has station scale 1 and a berth pitch of 37.5 m, which set its Compact stations and its Parking facilities.
+The other passenger stations are tight, as in the preset.
 The default project does not change.
 These qualification cases turn redistribution and pickup reassignment off.
 Smaller fleets sample the same 1,000 starting placements evenly.
@@ -287,6 +317,9 @@ The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c
 | 600 | 120 | 0.462 | 0.337 | 1.520 | 2.927 | 573 |
 | 1,000 | 10 | 0.130 | 0.120 | 0.140 | 0.265 | 130 |
 | 1,000 | 120 | 0.809 | 0.566 | 2.965 | 5.212 | 825 |
+
+The variant starts from the preset options, so it has tight stations since November 16, 2026.
+The two runs above are for the wide stations of the earlier preset, and no run with tight stations is recorded yet.
 
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
 At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.

@@ -155,7 +155,8 @@ A test pins the axis mapping with a station pair of known compass direction.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, and ACES tone mapping.
   In the check of the cascaded shadows, a weak bloom (threshold 0.85, weight 0.2) spread the bright map tiles into soft blotches on the edges of the dark cabin pillars, so the page has no bloom.
 - Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
-  On LondonFull, 6,712 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 710 between station lanes.
+  On LondonFull with the wide stations of station scale 0.5, 6,712 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 710 between station lanes.
+  The tight stations of November 16, 2026, do not change the mainline lanes, and nobody counted the crossings of their station lanes again.
   Most mainline crossings are in hubs: a ring of nodes where each entry joins each exit by a straight chord, so the chords cross in the middle.
   Of the mainline crossings, the median one has 132 other mainline crossings within 150 m, and only 11 have none, so a flyover for each crossing does not fit.
 - Hubs: the page groups mainline lanes that cross with no shared node, and a group with at least 10 crossings and 4 lanes is a hub.
@@ -306,7 +307,10 @@ The page derives each height from the network, and the model stores no elevation
   Between them, the height follows a smoothstep curve, so a ramp starts and ends level, and its steepest grade is 5%.
 - A point on a lane has the distance of its two nodes, interpolated by the fraction of the lane length.
   A pod at a berth has the distance of the berth node.
-- On LondonFull, the berth nodes that are not on a mainline node are 188 m to 383 m from the mainline, so each of them is at the station level.
+- On LondonFull, the berth nodes that are not on a mainline node are 105.5 m to 269.6 m from the mainline.
+  9 berths, each at a different station, are less than the ramp length from the mainline, so they are on a ramp.
+  The other berths are at the station level.
+  With wide stations, these berths were 188 m to 383 m from the mainline, and each was at the station level.
   68 berths are on mainline nodes, and they stay at the guideway height.
   The 3 station lanes between two mainline nodes are through lanes of banks, and they stay at the guideway height too.
 - Go computes the heights in `internal/ride`.
@@ -318,7 +322,7 @@ The page derives each height from the network, and the model stores no elevation
 - The platform slabs, the station signs, and the platform camera use the height of their station: the mean height of its berths.
 - The pods stay level on a ramp.
   At a grade of at most 5%, a pitch of less than 3 degrees does not show.
-- On LondonFull, 301 of the 312 stations are at the station level, and 136 pairs of twin lanes draw once.
+- On LondonFull, 292 of the 312 stations are at the station level, against 301 with wide stations, and 136 pairs of twin lanes draw once.
   A pod on a ramp is within 1 cm of the beam that the page draws under it.
   The beams and the pillars take about 240 ms to build in Node.
 

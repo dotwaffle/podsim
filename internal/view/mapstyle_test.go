@@ -474,7 +474,7 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 
 	// The slots of a depot and the bays of a Compact station are too near
 	// to separate on the screen, so only these stations stay collapsed at
-	// maximum zoom.
+	// londonBerthZoom.
 	var dense []string
 	for _, depot := range network.Depots {
 		dense = append(dense, depot.Station)
@@ -482,16 +482,16 @@ func TestNetworkStyleOnLondon(t *testing.T) {
 	for _, group := range network.ManeuverGroups {
 		dense = append(dense, group.StationID)
 	}
-	zoomed := zoomedGame(network, input, mapMaxZoom)
+	zoomed := zoomedGame(network, input, londonBerthZoom)
 	markers = zoomed.collapsedStationMarkers()
 	style = newNetworkStyle(networkStyleInput{network: network, markers: markers, lineLanes: zoomed.currentLineLanes(), scale: zoomed.camera.scale, unit: zoomed.layout.unit})
 	collapsed := slices.Sorted(maps.Keys(markers))
 	slices.Sort(dense)
 	if len(dense) != 10 || !slices.Equal(collapsed, dense) || !style.nodeDots {
-		t.Fatalf("collapsed stations %q and node dots %t at maximum zoom, want the 3 depots and 7 Compact stations %q and true", collapsed, style.nodeDots, dense)
+		t.Fatalf("collapsed stations %q and node dots %t at %d times Fit, want the 3 depots and 7 Compact stations %q and true", collapsed, style.nodeDots, londonBerthZoom, dense)
 	}
 	if style.markerRadius != 10 || style.laneWidth != 5 {
-		t.Fatalf("marker radius, lane width = %v, %v at maximum zoom, want 10, 5", style.markerRadius, style.laneWidth)
+		t.Fatalf("marker radius, lane width = %v, %v at %d times Fit, want 10, 5", style.markerRadius, style.laneWidth, londonBerthZoom)
 	}
 }
 
@@ -856,6 +856,11 @@ func denseStyleNetwork() sim.Network {
 
 // zoomedGame returns a game that shows the network at the zoom factor over
 // the Fit scale, centered on the map viewport.
+// londonBerthZoom is a zoom of the London presets past the zoom at which
+// the berths of the tight stations separate. In the smallest window, they
+// separate between 40 and 44 times the Fit scale.
+const londonBerthZoom = 60
+
 func zoomedGame(network sim.Network, input layoutInput, zoom float64) *Game {
 	game := &Game{network: network, layout: newDisplayLayout(input)}
 	game.fitNetwork()

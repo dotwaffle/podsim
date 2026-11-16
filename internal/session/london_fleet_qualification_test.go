@@ -24,7 +24,10 @@ import (
 // retains two berths. The three parking sites are depots of 4 lanes of 8
 // slots each. With compact, the eight Compact stations of the preset stay;
 // without it, the stations are ordinary. The network keeps station scale 1,
-// the scale at which the fleets and the byte bounds were qualified.
+// the scale at which the fleets and the byte bounds were qualified. The
+// scale and the pitch set only the Compact stations and the Parking
+// facilities, because the other passenger stations are tight, as in the
+// preset.
 func londonQualificationBuild(compact bool) (project.Config, error) {
 	options := scenarios.DefaultLondonFullOptions()
 	options.StationPods, options.ParkingPods, options.StationScale = 1, 1, 1

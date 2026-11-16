@@ -2664,12 +2664,12 @@ func hasField(typ reflect.Type, name string) bool {
 // TestLondonStateSave saves and restores a London session with demand. It
 // reports the time that SaveState holds the session lock. It does not check
 // the time, because the time depends on the machine. The larger project has
-// ordinary Parking facilities, no Compact stations, station scale 1, and
-// 3,822 nodes, near the node limit of 4,000.
+// ordinary Parking facilities, no Compact stations, wide stations at station
+// scale 1, and 3,822 nodes, near the node limit of 4,000.
 func TestLondonStateSave(t *testing.T) {
 	t.Parallel()
 	larger := scenarios.DefaultLondonCentralOptions()
-	larger.ParkingLanes, larger.CompactStations, larger.StationScale = 0, nil, 1
+	larger.ParkingLanes, larger.CompactStations, larger.StationScale, larger.WideStations = 0, nil, 1, true
 	larger.StationBerths, larger.ParkingBerths, larger.BerthPitch = 3, 200, 40
 	largerConfig, err := scenarios.LondonCentralWith(larger)
 	if err != nil {

@@ -485,9 +485,9 @@ func TestStationTextFormFollowsZoom(t *testing.T) {
 }
 
 // TestStationTextFormOnLondon checks London zoomed in on three stations. At
-// 40 times the Fit scale, the long form of most station text covers lanes,
-// so the short form shows. At the largest zoom, the long form shows, so the
-// full counts of each station stay available.
+// londonBerthZoom, the long form of some station text covers lanes, so the
+// short form shows. At the largest zoom, the long form shows, so the full
+// counts of each station stay available.
 func TestStationTextFormOnLondon(t *testing.T) {
 	t.Parallel()
 	network := scenarios.LondonCentral().Network
@@ -504,7 +504,7 @@ func TestStationTextFormOnLondon(t *testing.T) {
 					game.state = session.State{Epoch: "london"}
 					game.layoutFor(input)
 					game.fitNetwork()
-					zoom := 40.0
+					zoom := float64(londonBerthZoom)
 					if largest {
 						zoom = game.camera.maxScale / game.camera.scale
 					}
@@ -523,7 +523,7 @@ func TestStationTextFormOnLondon(t *testing.T) {
 					}
 				}
 				if !largest && short == 0 {
-					t.Errorf("zoom 40: %d long and %d short station text blocks, want short blocks", long, short)
+					t.Errorf("zoom %d: %d long and %d short station text blocks, want short blocks", londonBerthZoom, long, short)
 				}
 				if largest && (long == 0 || short > 0) {
 					t.Errorf("largest zoom: %d long and %d short station text blocks, want only long blocks", long, short)
@@ -785,9 +785,9 @@ func TestStationTextOnLondon(t *testing.T) {
 			if !ok {
 				t.Fatalf("station %s has no anchor", stationID)
 			}
-			// The berths of the half-size stations separate at about 29
-			// times the Fit scale.
-			game.camera.zoomAt(game.mapPoint(anchor), 40)
+			// The berths of the tight stations separate at less than
+			// londonBerthZoom.
+			game.camera.zoomAt(game.mapPoint(anchor), londonBerthZoom)
 			expanded, placed, _ := placedTestText(game)
 			found := false
 			for _, station := range expanded {

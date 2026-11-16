@@ -174,7 +174,8 @@ type LondonOptions struct {
 	// Pods holds the initial pod count of single stations.
 	Pods map[string]int
 	// BerthPitch is the distance in meters between two berth rows at
-	// station scale 1. It must be at least minimumBerthPitch.
+	// station scale 1. It must be at least minimumBerthPitch. A tight
+	// station does not use it. See WideStations.
 	BerthPitch float64
 	// ParkingLanes is the number of depot lanes of each Parking facility.
 	// Zero gives the ordinary facilities. With depots, the berth count of
@@ -191,7 +192,8 @@ type LondonOptions struct {
 	// departure lanes from the station axis. The scaled pitch must be at
 	// least minimumBerthPitch. It is greater than 0 and at
 	// most 1. Parking facilities keep scale 1, and the arrival and
-	// departure lanes of a Compact station stay outside its bays.
+	// departure lanes of a Compact station stay outside its bays. A tight
+	// station does not use it. See WideStations.
 	StationScale float64
 	// Junctions selects the junctions that join the links of a station.
 	// The zero value is LondonChords.
@@ -201,6 +203,14 @@ type LondonOptions struct {
 	// junction zones. The zero value sets the field, as the presets do.
 	// See docs/design/lateral-merge-zones.md.
 	NoLateralMerges bool
+	// WideStations gives each passenger station that is not a Compact
+	// station the shape that StationScale and BerthPitch set. The zero
+	// value gives such a station the tight shape, as the presets do: its
+	// side, the distance from the throat to its entry, the distance from
+	// the entry to its first berth row, and its berth pitch are each
+	// minimumBerthPitch. Compact stations and Parking facilities keep
+	// their shapes. See docs/studies/station-scale.md.
+	WideStations bool
 }
 
 // LondonJunctions selects the junctions of the London stations.
@@ -218,7 +228,8 @@ const (
 
 // DefaultLondonCentralOptions returns owned options of the London preset.
 // Each Parking facility is a depot, seven passenger stations are Compact
-// stations, and the passenger stations have half their size at scale 1.
+// stations, the other passenger stations are tight, and the Compact
+// stations have half their size at scale 1.
 func DefaultLondonCentralOptions() LondonOptions {
 	return LondonOptions{
 		StationBerths: londonStationBerths, ParkingBerths: londonDepotSlots,
@@ -276,6 +287,8 @@ type londonCapacity struct {
 	junctions LondonJunctions
 	// lateralMerges is the LateralMerges field of the network.
 	lateralMerges bool
+	// wide is the WideStations option.
+	wide bool
 }
 
 // hasCompact reports whether a site is a Compact station.
@@ -301,6 +314,12 @@ func (capacity londonCapacity) side(index int) float64 {
 		side = max(side, londonCompactSide)
 	}
 	return side
+}
+
+// tight reports whether the passenger station at index has the tight
+// shape. See LondonOptions.WideStations.
+func (capacity londonCapacity) tight(index int) bool {
+	return !capacity.wide && !capacity.compact[index]
 }
 
 // search returns the berth count of the site at index for the heading
@@ -329,11 +348,11 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 }
 
 // equal reports whether the capacity has the pitch, the scale, the berth and pod
-// counts, the station layouts, the junctions, and the lateral merges of the
-// other capacity.
+// counts, the station layouts, the junctions, the lateral merges, and the
+// station shapes of the other capacity.
 func (capacity londonCapacity) equal(other londonCapacity) bool {
 	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other) &&
-		capacity.junctions == other.junctions && capacity.lateralMerges == other.lateralMerges
+		capacity.junctions == other.junctions && capacity.lateralMerges == other.lateralMerges && capacity.wide == other.wide
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -371,7 +390,7 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 	}
 	capacity := londonCapacity{
 		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, scale: options.StationScale, lanes: options.ParkingLanes,
-		compact: make([]bool, len(ids)), junctions: options.Junctions, lateralMerges: !options.NoLateralMerges,
+		compact: make([]bool, len(ids)), junctions: options.Junctions, lateralMerges: !options.NoLateralMerges, wide: options.WideStations,
 	}
 	for _, id := range options.CompactStations {
 		index := slices.Index(ids, id)
@@ -575,7 +594,7 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 		input.centers = append(input.centers, center)
 		input.sites = append(input.sites, londonSite{
 			center: center, berths: capacity.berths[index], pitch: capacity.pitch, own: index,
-			scale: capacity.scale, side: capacity.side(index),
+			scale: capacity.scale, side: capacity.side(index), tight: capacity.tight(index),
 			arrivals:   londonPortalPositions(slips[index].arrivals),
 			departures: londonPortalPositions(slips[index].departures),
 			preferred:  londonStationPreferences(center, neighbors[station.ID]),

@@ -56,10 +56,10 @@ func activeRequest(snapshot sim.Snapshot) (sim.Request, bool) {
 }
 
 // londonRewindWarmupSeconds puts the replay window where London makes
-// guarded moves. At 5 orders per minute, the moves start after about 200 s,
-// and a burst of moves comes between 520 s and 560 s. The queue stays short,
+// guarded moves. At 5 orders per minute, the moves start after about 150 s,
+// and a burst of moves comes between 450 s and 500 s. The queue stays short,
 // so each simulated second costs little.
-const londonRewindWarmupSeconds = 500
+const londonRewindWarmupSeconds = 440
 
 // londonRewindPerMinute is the demand rate of the London rewind test. The
 // guarded gate of the London fleet is active below 5.7 orders per minute.

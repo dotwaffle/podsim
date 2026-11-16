@@ -119,15 +119,15 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
 		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
-		"london-central":      "af3910caad1a094b64ad3af36b4e8450eba5d39f413ce0c25a3ada35dbb1c5db",
-		"london-full":         "d1b78b514e6deac9f67fb04b36265fea25b040234f85dc59ad1ae847f3d5914c",
+		"london-central":      "7f6661b765605e50f0ad8610fbc5522f93f1e9fa5134061874bf617321713efa",
+		"london-full":         "dbc144f9da0449a45e64ba5f24480c4c28ebe0d1879dbfc0a0cbdeb37a69bb18",
 		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central":      "693a4ab4e01a3db7d67744d76d72610496822852bd2e5358741835142a1f37c7",
-		"london-full":         "441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d",
+		"london-central":      "39899b27fe6bcbc623ab5aa940a9bcdc1a6b654521f37e0fcfecc1e0f3335844",
+		"london-full":         "e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e",
 		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
 	}
 	for preset, want := range tests {
@@ -179,17 +179,17 @@ func TestRunLondonOptOut(t *testing.T) {
 		flags                 []string
 		groups, depots        int
 	}{
-		{name: "LondonCentral", preset: "london-central", network: "6c588fb4a1b515fa741975f82af07fe0908727205076e38fc4b7afce6b265234",
+		{name: "LondonCentral", preset: "london-central", network: "3ff5c3b8035d3850b44c1860a199f816f239947f147c04c09bf1968546250ff5",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonCentral without depots", preset: "london-central", network: "4ea9902e9a26f414dc87a9da2254b57b9fa0236f5cc301b20d8e09e53c8b80f2",
+		{name: "LondonCentral without depots", preset: "london-central", network: "7ba62393c212205bfcf431ed2d11ec410f41ac25c7bc5c27e820f76842fbd3c5",
 			flags: []string{"-parking-lanes", "0"}, groups: 7},
-		{name: "LondonCentral without Compact stations", preset: "london-central", network: "fd4267cf18993117691f8cc6d9a50a8acc7e0ef9cede9f09bcfa08fba2fb48d4",
+		{name: "LondonCentral without Compact stations", preset: "london-central", network: "173bae9bc0af876d80252a49c58049d72dbc4b26817d7fd48e7930e94ede9fbe",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
-		{name: "LondonFull", preset: "london-full", network: "b42cb02a0417be4cfde13cbee8e36ab4fc2f0c6fce15651d96e87c36a12eb675",
+		{name: "LondonFull", preset: "london-full", network: "d1b47f78c52ac801fc9609e36848d2ab16360e0e8c8e9d6df4237dc5237f2b56",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: "5b25877d840fd2d1f9212e6c5db79c7d16544ee493ef0a870c5c3d297247f083",
+		{name: "LondonFull without depots", preset: "london-full", network: "5181fdc49456c2053b69d715fc480368678207b232ea47a2ff4e2d48b00d7ef3",
 			flags: []string{"-parking-lanes", "0"}, groups: 8},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: "6f04a34bd880e1e61ab7c74f3fdd3bf8b35aca99453859e21d3e6fffeb2da510",
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "4d5573d10611528e5cbe16d4bef23188b04e60c62764d82a67d6e1c45c66923d",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {
@@ -325,36 +325,95 @@ func TestRunCapacityFlags(t *testing.T) {
 	})
 	t.Run("station scale", func(t *testing.T) {
 		t.Parallel()
-		config, _ := generate(t, "-preset", "london-central", "-station-scale", "0.5")
+		config, _ := generate(t, "-preset", "london-central", "-wide-stations", "-station-scale", "0.5")
 		diverge, _ := config.Network.Node("940GZZLUBST-diverge")
 		entry, _ := config.Network.Node("940GZZLUBST-entry")
 		if distance := math.Hypot(entry.Position.X-diverge.Position.X, entry.Position.Y-diverge.Position.Y); math.Abs(distance-math.Hypot(20, 60)) > 1e-6 {
 			t.Fatalf("diverge to entry = %v meters, want %v", distance, math.Hypot(20, 60))
 		}
 	})
-	t.Run("junctions", func(t *testing.T) {
+	t.Run("wide stations", func(t *testing.T) {
 		t.Parallel()
-		var preset, chords bytes.Buffer
+		var preset, tight bytes.Buffer
 		if err := run([]string{"-preset", "london-central"}, &preset, io.Discard); err != nil {
 			t.Fatal(err)
 		}
-		if err := run([]string{"-preset", "london-central", "-junctions", "chords"}, &chords, io.Discard); err != nil {
+		if err := run([]string{"-preset", "london-central", "-wide-stations=false"}, &tight, io.Discard); err != nil {
 			t.Fatal(err)
 		}
-		if !bytes.Equal(preset.Bytes(), chords.Bytes()) {
-			t.Fatal("-junctions chords changed the preset")
+		if !bytes.Equal(preset.Bytes(), tight.Bytes()) {
+			t.Fatal("-wide-stations=false changed the preset")
 		}
-		ramps, summary := generate(t, "-preset", "london-central", "-junctions", "ramps")
-		count := map[string]int{}
-		for _, lane := range ramps.Network.Lanes {
-			for _, kind := range []string{"-move-", "-ramp-"} {
-				if strings.Contains(lane.ID, kind) {
-					count[kind]++
+		// With -wide-stations, the network is the network of the preset
+		// before tight stations became the default. -berth-pitch then sets
+		// the pitch of the wide stations, as it did before.
+		tests := []struct {
+			preset, network string
+			flags           []string
+		}{
+			{preset: "london-central", network: "693a4ab4e01a3db7d67744d76d72610496822852bd2e5358741835142a1f37c7"},
+			{preset: "london-full", network: "441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d"},
+			{preset: "london-full", network: "ab1f8da06b24a6abcdb1ca0f33e8e9b960807a9521e9c5133502c28f4d9f0917", flags: []string{"-berth-pitch", "50"}},
+		}
+		for _, test := range tests {
+			t.Run(strings.Join(append([]string{test.preset}, test.flags...), " "), func(t *testing.T) {
+				t.Parallel()
+				config, summary := generate(t, append([]string{"-preset", test.preset, "-wide-stations"}, test.flags...)...)
+				if strings.Count(config.Name, " (custom capacity)") != 1 || !strings.HasSuffix(config.Name, " (custom capacity)") {
+					t.Fatalf("name %q, want one suffix (custom capacity)", config.Name)
+				}
+				if !strings.Contains(summary, " network_sha256="+test.network+" ") {
+					t.Fatalf("summary = %q, want network SHA-256 %s", summary, test.network)
+				}
+			})
+		}
+	})
+	t.Run("berth pitch of tight stations", func(t *testing.T) {
+		t.Parallel()
+		// A tight station keeps its pitch of 25 m. -berth-pitch sets the
+		// Parking facilities and the Compact stations. With 50 m, the
+		// network is the network of the station shape study.
+		config, summary := generate(t, "-preset", "london-full", "-berth-pitch", "50")
+		first, _ := config.Network.Node("940GZZLUBST-01-node")
+		second, _ := config.Network.Node("940GZZLUBST-02-node")
+		if distance := math.Hypot(second.Position.X-first.Position.X, second.Position.Y-first.Position.Y); math.Abs(distance-25) > 1e-6 {
+			t.Fatalf("berth pitch = %v meters, want 25", distance)
+		}
+		if network := "acba7958cf8bdaa25a67d24d891cdcfd04ac99586c9ad4918ddb4856d92845fe"; !strings.Contains(summary, " network_sha256="+network+" ") {
+			t.Fatalf("summary = %q, want network SHA-256 %s", summary, network)
+		}
+	})
+	t.Run("station scale of tight stations", func(t *testing.T) {
+		t.Parallel()
+		// A tight station keeps its 25 m parts at each scale. The scale
+		// still moves the bays of a Compact station.
+		preset, _ := generate(t, "-preset", "london-central")
+		scaled, _ := generate(t, "-preset", "london-central", "-station-scale", "1")
+		distance := func(config project.Config, from, to string) float64 {
+			t.Helper()
+			a, aOK := config.Network.Node(from)
+			b, bOK := config.Network.Node(to)
+			if !aOK || !bOK {
+				t.Fatalf("no node %s or %s", from, to)
+			}
+			return math.Hypot(b.Position.X-a.Position.X, b.Position.Y-a.Position.Y)
+		}
+		for _, test := range []struct {
+			from, to string
+			want     float64
+		}{
+			{from: "940GZZLUBST-diverge", to: "940GZZLUBST-entry", want: math.Hypot(5, 25)},
+			{from: "940GZZLUBST-entry", to: "940GZZLUBST-01-node", want: math.Hypot(25, 25)},
+			{from: "940GZZLUBST-01-node", to: "940GZZLUBST-02-node", want: 25},
+		} {
+			for _, config := range []project.Config{preset, scaled} {
+				if got := distance(config, test.from, test.to); math.Abs(got-test.want) > 1e-6 {
+					t.Fatalf("%s: %s to %s = %v meters, want %v", config.Name, test.from, test.to, got, test.want)
 				}
 			}
 		}
-		if !strings.HasSuffix(ramps.Name, " (custom capacity)") || count["-move-"] != 0 || count["-ramp-"] == 0 || !strings.Contains(summary, " soft_conflicts=0\n") {
-			t.Fatalf("name %q, %d chords, %d ramps, summary %q", ramps.Name, count["-move-"], count["-ramp-"], summary)
+		if near, far := distance(preset, "940GZZLURGP-diverge", "940GZZLURGP-entry"), distance(scaled, "940GZZLURGP-diverge", "940GZZLURGP-entry"); !(far > near+50) {
+			t.Fatalf("Compact diverge to entry = %v meters at scale 1, %v meters at the preset scale, want more than 50 meters longer", far, near)
 		}
 	})
 	t.Run("lateral merges", func(t *testing.T) {
@@ -369,8 +428,9 @@ func TestRunCapacityFlags(t *testing.T) {
 		if !bytes.Equal(preset.Bytes(), on.Bytes()) {
 			t.Fatal("-lateral-merges changed the preset")
 		}
-		// Without the field, the network is the network of the preset, with
-		// chords or ramps, before the presets set it.
+		// Without the field and with wide stations, the network is the
+		// network of the preset, with chords or ramps, before the presets set
+		// it.
 		networks := map[string]map[string]string{
 			"london-central": {
 				"chords": "98872d902a7109289d750d53664a87ff0d81eedd7753075b5e6db42140e51c0c",
@@ -385,7 +445,7 @@ func TestRunCapacityFlags(t *testing.T) {
 			for junctions, network := range junctionNetworks {
 				t.Run(preset+" "+junctions, func(t *testing.T) {
 					t.Parallel()
-					config, summary := generate(t, "-preset", preset, "-junctions", junctions, "-lateral-merges=false")
+					config, summary := generate(t, "-preset", preset, "-junctions", junctions, "-lateral-merges=false", "-wide-stations")
 					if config.Network.LateralMerges {
 						t.Fatal("-lateral-merges=false set the network field")
 					}
@@ -444,7 +504,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "station scale for a ring", arguments: []string{"-preset", "busy", "-station-scale", "0.5"}, err: "-station-scale applies only to the London presets"},
 		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
-		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
+		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-wide-stations", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 		{name: "junctions for a ring", arguments: []string{"-preset", "busy", "-junctions", "ramps"}, err: "-junctions applies only to the London presets"},
 		{name: "junctions for the mesh", arguments: []string{"-preset", "scale100", "-junctions", "chords"}, err: "-junctions applies only to the London presets"},
 		{name: "junctions for a fixture", arguments: []string{"-preset", "compact-station", "-junctions", "ramps"}, err: "-junctions does not apply to the compact station fixture"},
@@ -458,6 +518,12 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "no lateral merges for the mesh", arguments: []string{"-preset", "scale100", "-lateral-merges=false"}, err: "-lateral-merges applies only to the London presets"},
 		{name: "no lateral merges for a fixture", arguments: []string{"-preset", "compact-station", "-lateral-merges=false"}, err: "-lateral-merges does not apply to the compact station fixture"},
 		{name: "no lateral merges for the Express preset", arguments: []string{"-preset", "london-full-express", "-lateral-merges=false"}, err: "-lateral-merges does not apply to the LondonFull Express preset"},
+		{name: "wide stations for a ring", arguments: []string{"-preset", "busy", "-wide-stations"}, err: "-wide-stations applies only to the London presets"},
+		{name: "wide stations for the mesh", arguments: []string{"-preset", "scale100", "-wide-stations"}, err: "-wide-stations applies only to the London presets"},
+		{name: "wide stations for a fixture", arguments: []string{"-preset", "compact-station", "-wide-stations"}, err: "-wide-stations does not apply to the compact station fixture"},
+		{name: "wide stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
+		{name: "tight stations for a ring", arguments: []string{"-preset", "busy", "-wide-stations=false"}, err: "-wide-stations applies only to the London presets"},
+		{name: "tight stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations=false"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -653,7 +719,7 @@ func TestRunWritesImportableLondonFull(t *testing.T) {
 		len(config.DemandProfiles) != 1 || len(config.DemandProfiles[0].Flows) != 76567 || len(config.DemandProfiles[0].Bands) != 6 {
 		t.Fatal("full export lost its preset identity, network, fleet, or demand")
 	}
-	if !strings.Contains(summary.String(), "soft_conflicts=1") {
+	if !strings.Contains(summary.String(), "soft_conflicts=0") {
 		t.Fatalf("full summary = %s", summary.String())
 	}
 }
