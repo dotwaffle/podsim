@@ -309,7 +309,7 @@ Replace `:313` with:
 
 ```markdown
    When the network sets `shapeClearance`, the oracle takes the local front of the [group physics design](../design/group-physics-design.md), and not the largest front bound of the route.
-   A front bound of a route lane that ends before the pod, or that starts past the local front, does not extend the window, so the window of this case does not occur.
+   A front bound of a route lane that ends before the route distance of the pod minus the slack, or that starts past the local front, does not extend the window.
    The envelope reach of the audit holds the window of this changed oracle, so the audit covers it.
 ```
 
@@ -465,7 +465,7 @@ In such a network, the envelope reach covers the route window of the case above,
 Replace `:94` with:
 
 ```markdown
-In such a network, the oracle takes the local front, so a front bound of a route lane that ends before the pod, or that starts past the local front, does not extend the route window.
+In such a network, the oracle takes the local front, so a front bound of a route lane that ends before the route distance of the pod minus the slack, or that starts past the local front, does not extend the route window.
 The envelope reach holds each plane of the route window of this changed oracle, so the case above stays a gap only in a network without the field.
 ```
 
