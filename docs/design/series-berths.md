@@ -1,6 +1,7 @@
 # Series berths
 
-Status: proposed on 2026-11-16, for the maintainer's approval.
+Status: parked on 2026-11-16, after the review in section 8.
+Proposed on 2026-11-16.
 Nothing in this design is built.
 Code references are for `b054fedc`.
 
@@ -660,3 +661,30 @@ The study records means over seeds and paired changes against the base.
 Batch 1 has 4 arms and batch 2 has 2, so the study stays inside the cap of 6 arms and 3 seeds.
 The criteria are those of the station scale study: drained seeds, mean wait, mean journey, track and junction wait, and stopped pod time.
 An arm at 60 requests per minute, or a pitch of 9.5 m (D5-C), comes back as a proposal.
+
+## 8. Review
+
+An adversarial review on 2026-11-16 found two blockers and eight major gaps.
+The maintainer parked the design with this record, and made no decision of section 5.
+
+1. Blocker: an emergency pod bound to a platform entry has no destination berth, which section 9.4 of the service transitions contract and `state_contract.go:173` require of a traveling purpose-1 pod.
+   Sections 9.3, 9.4, and the purpose-1 restore row of section 9.6 would need amendments, with round trips before, during, and after the binding.
+2. Major: the depot refusal at `depot_network.go:195` is part of the format, so "no format change" holds only for the serialized members.
+   No new member or digest extension is needed, but each changed refusal needs an audit and new fixtures.
+3. Blocker: the binding at `depot.go:154` knows an unbound arrival only through `RelocatingTo`, and a failed binding falls back to `parkReleased`, which can send the pod to another station.
+   Loaded arrivals, assigned pickups, relocations, emergencies, and fault recovery each need their own binding, no-slot, cancellation, and restore rules.
+4. Major: `routes.go:123` and `blocked_routes.go:166` keep every berth node forbidden, so a search from the entry to the head fails past a tail slot.
+   Reachability, continuation, estimates, and slot binding need separate rules, and pickup access must stay independent of occupancy (suspension contract section 9.4).
+5. Major: an emergency candidate that depends on free slots breaks the no-candidate memo of `emergency_choice.go:104`, whose proof assumes candidates that do not depend on occupancy.
+6. Major: local dispatch (`dispatch.go:479`) and guarded positioning (`positioning.go:542`) do not pass through `depotGate`, so the dispatch restriction of section 4 does not reach them.
+7. Major: the no-cycle argument covers slot order only.
+   An intermediate stop with phase zero, a blocked departure, or exhausted parking can hold a platform past a fault clear.
+8. Major: `depotSlotOf` finds a pod through its destination, so a departing pod that faults on the lead-out does not close its platform.
+9. Major: no two-platform layout with fast exits was validated, so D5 and D11 depend on a geometry that does not exist yet.
+10. Major: the comparison uses the berth rows before tight stations.
+   With tight stations, a 101 m path takes about 10.7 s (inferred), and the discharge of 2 to 3 pods a minute is a burst figure, not a sustained rate.
+11. Minor: debris is refused only for segments that hold a berth or a berth node (`debris.go:74`), so fans, runs, and throats can hold debris.
+12. Minor: the dependency table omits D9 and D10, and section 5 does not separate a proof that applies from evidence that must be measured again.
+
+The review found no case for platforms at London stations now that tight stations are the default.
+A small prototype could suit a quiet station of small pods, where the width of the station or the storage of pods matters more than the time of a stop.
