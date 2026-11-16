@@ -190,6 +190,7 @@ func widestProofProject(t *testing.T, contract sim.OrderContract) project.Config
 	}
 	c.Fleet = slices.Repeat([]sim.Placement{{ID: widestID('p', 0), StationID: widestID('s', 0), BerthID: widestID('b', 0)}}, project.MaxPods)
 	c.Network.LateralMerges = true
+	c.Network.ShapeClearance = true
 	// Padding fills the independent project cap without relying on geometry.
 	// The long name is a size bound, not a project validation fixture.
 	c.Name = ""

@@ -453,4 +453,5 @@ var digestExtensions = []digestExtension{
 	{n: 14, path: "Project.Network.Depots"},
 	{n: 15, path: "Project.GeneratedOrderConsent"},
 	{n: 16, path: "Project.Network.LateralMerges"},
+	{n: 17, path: "Project.Network.ShapeClearance"},
 }

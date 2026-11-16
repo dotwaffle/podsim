@@ -127,6 +127,13 @@ type Network struct {
 	// shorter junction conflict zone, and their pods keep lateralClearance(0)
 	// in place of Clearance. The zero value keeps the isotropic zones.
 	LateralMerges bool `json:"lateralMerges,omitzero" digest:"ext=16"`
+	// ShapeClearance selects the shape clearance rule of the service
+	// contract for pods of each class: merge, split, and shape pairs keep
+	// the side-by-side distance of their classes, and the network audit
+	// checks each pair. When it is set, LateralMerges has no further
+	// effect. The zero value keeps the current rules. The rule is not built
+	// yet, so the field has no effect.
+	ShapeClearance bool `json:"shapeClearance,omitzero" digest:"ext=17"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.
