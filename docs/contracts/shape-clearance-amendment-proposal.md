@@ -1,6 +1,7 @@
 # Shape clearance amendment proposal
 
 Status: proposed on 2026-11-16, for the maintainer's approval.
+Revised on 2026-11-16 after an adversarial review (see "Review").
 On 2026-11-16, the maintainer approved the [shape clearance](../design/shape-clearance.md) design, with D1-B, D3-A, D5 included, D6-B, D12-A, D2 for all classes, D4 at 20 m, D7 as the network field `shapeClearance`, D8, D9, and D11.
 Section 5 of the design lists the contract changes, and each one needs maintainer approval before the build.
 This proposal gives the text of each change.
@@ -18,6 +19,10 @@ It changes no contract and no design.
 - Since D1-B is approved, this proposal drops each D1-A alternative of section 5.
 - Each new rule applies only when the network sets `shapeClearance`, and a network without the field does not change.
   SC12 records a condition on evidence, and the replacement sentence of SC1 keeps its meaning without the field.
+- Each term has one definition.
+  SC1 defines the following, merge, split, and shape pairs, the separated positions, and shape certification.
+  SC9 defines the envelope reach.
+  The other amendments refer to these definitions.
 
 ## Amendments
 
@@ -35,22 +40,32 @@ Insert these lines before `:50`, after the lateral merge lines `:47` to `:49`:
 
 ```markdown
   When the network sets `shapeClearance`, the [shape clearance](../design/shape-clearance.md) rule applies to pods of each class.
+  The certified pairs and the skip rules of the maneuver groups come first and do not change.
+  The depot lateral pairs keep `W(v)`, and clearance layer A does not change.
   A following pair is two pods on one lane, or on two lanes where one ends at the node where the other starts.
   A following pair keeps its current rule: layer A on a qualifying lane, and otherwise 12 meters, or 20 meters with a large pod.
-  A merge or split pair is two lanes that both end at one node or both start at it, as for a lateral merge pair.
+  A merge or split pair is two lanes that meet clauses 1, 2, 4, and 5 of the [lateral merge zones](../design/lateral-merge-zones.md) design.
+  The two lanes both end at one node or both start at it, neither lane is a loop, and the two lanes do not share both endpoints.
+  Neither lane is in a maneuver group or a depot, and the body range does not reach the far end of either lane.
   A lane that admits a large class or has a geometry tail can be part of a merge or split pair.
-  A pair whose body range reaches the far end of a lane is not a merge or split pair.
   The junction of the node orders the two pods of a merge or split pair.
-  A shape pair is two lanes on one plane that share no node, with disjoint swept regions.
-  The network audit sweeps the grown body of each lane over the lane and over the join turns at both of its ends.
-  When the two regions meet, or the sweep does not resolve, the pair keeps 12 meters, or 20 meters with a large pod.
+  Its extent is the body range with the union body, and the node range of the last or first 12 meters of the lane.
+  A position on a lane has the plane of the lane when neither lane of a pair admits a large class.
+  Otherwise it has the planes of its envelope reach, as the [group physics design](../design/group-physics-design.md) defines it under the field.
+  Two positions, one on each of two paths, are separated when each plane of one and each plane of the other are different planes.
+  At separated positions, the plane exemption holds as before.
+  Shape certification sweeps the grown body of each of two lanes that share no node over the lane and over the join turns at both of its ends.
+  It certifies the two lanes as a shape pair when the grown bodies are disjoint at each pair of positions that are not separated.
+  Two lanes on one plane have no separated positions, so their two swept regions must be disjoint.
+  When the grown bodies meet at such a pair of positions, or the sweep does not resolve, the two lanes are not a shape pair.
+  The network audit then requires 12 meters, or 20 meters when either lane admits a large class, at each pair of positions that are not separated.
+  Shape certification is for two lanes only, and a pair with a berth keeps its current rule.
   The network audit checks each pair of such a network, small pairs included, also without banks, large classes, maneuver groups, or depots.
   No resource orders the two pods of a shape pair.
   Two pods on a merge, split, or shape pair keep the side-by-side distance of their classes: 3.1 meters for two small pods, 3.55 meters for a small pod and a large pod, and 4.0 meters for two large pods.
   The grown body of a lane is the union of the bodies of the classes that the lane admits.
-  When the fleet has a large pod, the planes of each pod are those of its envelope.
-  The network audit takes these planes at each position on a path, not for the whole lane.
-  Where these planes of two paths overlap, the audit applies the shape pair test in place of the 20 meter distance.
+  When the fleet has a large pod, the oracle keeps the envelope of each pod, so the plane exemption of two pods does not change.
+  The qualification of the field, for pods of each class, runs the body-and-ownership oracle of the design at each tick of a merge test and of a restored continuation.
   In such a network, `lateralMerges` has no further effect.
 ```
 
@@ -61,6 +76,23 @@ Replace `:50` with:
 ```
 
 The sentence must change, because its second half applies to each pair with a large pod.
+
+These lines follow the design:
+
+- Precedence: section 3.7 keeps the maneuver certificates and skip rules first, keeps `3.1 + vÂ²/2` for the depot lateral pairs, and keeps retention layer A.
+  The audit and the oracle apply them in that order today (`internal/sim/bank_geometry.go:154` and `:203`, `internal/sim/safety.go:262` to `:290`).
+  A certified depot lateral pair can be two lanes that share no node (`internal/sim/depot_lateral.go:8` to `:19`, and the depot row of design `:274`), so without these lines it could also be a shape pair.
+- Merge and split pairs: part 3 drops clause 3 only, and the code applies clauses 1, 2, and 4 (`lateralMergePair`, `internal/sim/lateral_merges.go:141`, and `eligible`, `:42`).
+- Node range: section 3.4, item 2, says that the union body changes only the body range.
+  The node range stays 12 m (`lateral-merge-zones.md:87`, and `sweep.bound = length - Clearance`, `lateral_merges.go:234`).
+  D4 keeps the other 20 m protections.
+- Separated positions: part 1 under D1-B applies part 4 only where the envelope reaches of two paths overlap (design `:462`).
+  The audit gives the envelope planes only to a pair with a large path (`internal/sim/bank_geometry.go:221` to `:236`), and section 2.1 gives each rule to the small path of such a pair (design `:141`).
+- Fallback: part 4 keeps 12 m or 20 m for a pair that the sweep does not certify (design `:475`).
+- Lanes only: part 4 sweeps lane bodies and join turns (design `:473`).
+  The design defines no body or heading for a berth, and its layout of two platforms side by side uses two platform lanes (design `:661`).
+- D6 oracle: D2 covers all classes, and section 7 runs the oracle at each tick of a merge test and of a restored continuation, with no Express condition.
+  SC7 puts the same oracle in the Express gate, and this line keeps it for a plain project with the field.
 
 ### SC2: Service contract, guideway-bound assumption
 
@@ -78,10 +110,10 @@ Insert these lines after the SC1 lines, before `:50`:
 ```markdown
   Merge, split, and shape pairs assume guideway-bound pods at line speed: the reference of a pod stays within 0.25 meters of its lane, its heading follows the lane, and a fault stops it on its lane.
   Their distance has no speed term.
-  Depot lateral pairs keep `W(v)`.
 ```
 
 This is decision D3-A, with the assumption of section 3.4, item 4, of the design.
+The SC1 lines state that depot lateral pairs keep `W(v)`, so SC2 does not repeat it.
 
 ### SC3: Service contract, debris partners
 
@@ -101,18 +133,17 @@ Insert this line after `:52`:
   When the network sets `shapeClearance`, debris on a lane of a merge, split, or shape pair also blocks the cells of the partner lane within 12 meters.
 ```
 
-The words "merge, split, or" depend on open question 3.
-If the answer is shape partners only, as section 3.5 of the design names them, the line is this:
-
-```markdown
-  When the network sets `shapeClearance`, debris on a lane of a shape pair also blocks the cells of the partner lane within 12 meters.
-```
-
 Insert this line after `:53`, and keep only the parts that the maintainer approves:
 
 ```markdown
   Amended <date>, by maintainer decision: the following, merge, split, and shape pairs of each class, their guideway-bound assumption, their debris rule, and the envelope planes of the audit, behind the `shapeClearance` network field.
 ```
+
+Part 3 of the design applies the lateral merge rule to each class.
+That rule includes its debris partners (decision D5 of the lateral merge zones design, and the shared table of `newMergeLateral`, `internal/sim/lateral_merges.go:30` to `:34`).
+Section 3.5 of the design adds the shape partners.
+So the footprint holds the merge, split, and shape partners.
+With shape partners only, `lateralMerges` would still change the footprint when both fields are set, which section 3.6 excludes.
 
 ### SC4: Express physical contract, 20 m clearance
 
@@ -127,8 +158,8 @@ Retain 20 m interaction clearance when either participant is large.
 Insert these lines after `:206`:
 
 ```markdown
-When the network sets `shapeClearance`, the 20 m clearance applies to a following pair: two pods on one lane, or on two lanes where one ends at the node where the other starts.
-A merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 m with a small pod and 4.0 m with a large pod, as the [shape clearance](../design/shape-clearance.md) design defines.
+When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 m with a small pod and 4.0 m with a large pod, as the [shape clearance](../design/shape-clearance.md) design defines.
+Each other pair keeps the 20 m clearance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
 ```
 
 ### SC5: Express physical contract, union body
@@ -151,7 +182,7 @@ The union body holds the body of each admitted class.
 Insert this line after `:210`, the end of the paragraph, and keep only the parts that the maintainer approves:
 
 ```markdown
-Amended <date>, by maintainer decision: the following pairs keep 20 m, and the merge, split, and shape pairs of the shape clearance design use the side-by-side distance and the union body, behind the `shapeClearance` network field.
+Amended <date>, by maintainer decision: the merge, split, and shape pairs of the shape clearance design use the side-by-side distance and the union body, and each other pair keeps 20 m, behind the `shapeClearance` network field.
 ```
 
 ### SC6: Express physical contract, Physical geometry gate
@@ -204,6 +235,7 @@ Add this item to the subsection of SC6:
 ```
 
 When the maintainer approves only one of SC6 and SC7, the subsection keeps only that item.
+SC1 states the same body-and-ownership oracle for pods of each class, so this gate does not limit it to Express.
 
 ### SC8: Group physics design, 20 m rule
 
@@ -223,8 +255,8 @@ It also checks small lanes that meet a large-admitting lane or berth node.
 Insert these lines after `:30`:
 
 ```markdown
-When the network sets `shapeClearance`, this distance applies to a following pair: two pods on one lane, or on two lanes where one ends at the node where the other starts.
-A merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
+When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
+Each other pair keeps this distance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
 The overlapping physical planes are those of the envelope of "Body planes" below.
 ```
 
@@ -256,20 +288,36 @@ Insert these lines after `:75`:
 
 ```markdown
 When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
-It takes the planes of the envelope at each position on a path, and not for the whole lane.
-A lane has the planes of the lanes into its From node in its first 20 meters, or the longer tail of those lanes.
-When its From node is a berth node, the lane also has that berth and the lanes at its node, up to the origin tail of the lane.
-A lane has the planes of the lanes out of its To node in its last 6 meters, or the longer front bound of the lane.
+For a pair with a large path, it takes the planes of each path by position, and not for the whole lane.
+The envelope reach of a position on a lane holds each plane that the envelope of a pod at that position can hold, on each route through the lane.
+The reach can hold more planes than such an envelope, but not fewer.
+This includes the lanes behind the position on the route, each up to its retained tail, also more than one lane back.
+It includes the lanes ahead on the route, up to the largest front bound of the lanes of the route, also more than one lane ahead.
+It includes the origin berth of the route and the lanes at its node, at each position before the origin release.
 A berth has its own plane and the planes of the lanes at its node.
-The audit does not take the other lanes at these nodes.
-Where these planes of two paths overlap on a part of each path, the pair is not exempt on those parts.
-On those parts, the pair is a shape pair when the swept bodies of the two paths are disjoint, and otherwise it keeps 20 meters.
+A test shows, for each lane of a test network and positions along it, that the planes of `appendVehicleSafetyLocations` for a pod on each route through the lane are in the envelope reach at that position.
+At positions that the service contract calls separated, the pair is exempt, as before.
+At the other positions, two lanes keep the shape certification of the [service contract](../contracts/service-contract-proposals.md).
+Two lanes that it does not certify, and a pair with a berth, keep 12 meters, or 20 meters when either path admits a large class, at those positions.
+The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
+In such a network, the envelope reach covers the route window of the case above, so that case stays a gap only in a network without the field.
 The order of the refusals and their text do not change.
 Amended <date>, by maintainer decision: the envelope planes of the audit, behind the `shapeClearance` network field.
 ```
 
 The oracle exemption at `:68` to `:70` does not change, because D1-B keeps the envelope of each pod.
-Open question 1 asks whether `:74` to `:75` stay true when the network sets the field.
+
+The envelope reach follows the safety requirement of the design, and not the probe:
+
+- Section 3.4, item 5, says that each envelope plane of a pod at a position is in the reach of that part of its path, so the audit covers each pair of envelopes that the oracle can see.
+  The envelope reach test of section 7 (design `:810`) checks this containment, and the line above states it.
+- Section 2.1 describes the reach that the probe measured, with the front bound of the lane only and the lanes of one node back.
+  The design names these as limits of the probe (`:142` to `:144`).
+- The code takes the largest front bound of the route, and tests each route lane against its own retained tail (`internal/sim/envelope_safety.go:50` to `:69`).
+  The unreleased origin adds the origin berth and the lanes at its node (`:70` to `:85`).
+
+`:74` to `:75` record the gap of the front bound for a network without the field.
+The containment above closes it for a network with the field.
 
 ### SC10: Incident suspension contract, debris footprint
 
@@ -296,14 +344,7 @@ Amended <date>, by maintainer decision: a lateral neighbor also includes the par
 ```
 
 SC10 and SC3 state one rule in two contracts.
-The words "a merge or split pair or" depend on open question 3.
-If the answer is shape partners only, the inserted line is this:
-
-```markdown
-When the network sets `shapeClearance`, a lateral neighbor is also a lane that forms a shape pair with `l` ([shape clearance](../design/shape-clearance.md)).
-```
-
-The note then says "the partner lanes of a shape pair".
+SC3 gives the reason for the merge and split partners.
 
 ### SC11: Tick-rate contract, section 1.5
 
@@ -325,8 +366,9 @@ Insert these lines after `:97`:
 A merge or split pair of a network that sets `shapeClearance` keeps the side-by-side distance of the classes of its two pods, 3.1 m, 3.55 m, or 4.0 m, with no speed term ([shape clearance](../design/shape-clearance.md)).
 The junction of its node orders the two pods, and its body sweep runs at network preparation, over continuous geometry, with no time term.
 A shape pair of such a network keeps the same distance, with no speed term.
-Its sweep runs at network preparation, over continuous geometry, with no time term.
-The sweep proves that the grown bodies are disjoint at each pair of positions on the two lanes, so no resource orders the two pods.
+Its sweep is the shape certification of the [service contract](service-contract-proposals.md), and it runs at network preparation, over continuous geometry, with no time term.
+The sweep proves that the grown bodies are disjoint at each pair of positions that are not separated, and the plane exemption holds at the other positions.
+So no resource orders the two pods.
 Amended <date>, by maintainer decision: the merge, split, and shape pairs of the shape clearance design.
 ```
 
@@ -361,6 +403,8 @@ E3 names D only, so its text does not change.
 ### SC13: Express standees contract, the 20 m proof
 
 Section 5 does not name this contract (see "Documents that section 5 omits").
+For a network without the field, the claim of section 4.2 and its proof in sections 4.3 to 4.5 do not change.
+With the field, sections 4.4 and 4.5 each get a branch, because their premises change for merge, split, and shape pairs.
 
 Current text, `docs/contracts/express-standees-contract-proposal.md:73`:
 
@@ -371,7 +415,7 @@ The 6 m radius circle and the 20 m pair clearance stay.
 Insert this line after `:73`:
 
 ```markdown
-When the network sets `shapeClearance`, the 20 m pair clearance stays for following pairs, and a merge, split, or shape pair keeps the side-by-side distance of its two classes, as the [shape clearance](../design/shape-clearance.md) design defines.
+When the network sets `shapeClearance`, a merge, split, or shape pair keeps the side-by-side distance of its two classes, as the [shape clearance](../design/shape-clearance.md) design defines, and each other pair keeps the 20 m pair clearance.
 ```
 
 Current text, `docs/contracts/express-standees-contract-proposal.md:212` to `:214`:
@@ -385,13 +429,69 @@ Then the centers are at least 20 m apart at each tick, less the tolerance of 1 Â
 Insert these lines after `:218`, the end of section 4.2:
 
 ```markdown
-When the network sets `shapeClearance`, this claim holds for case A, for a through pair of case B, and for a pair of case C whose swept bodies meet or whose sweep does not resolve.
+When the network sets `shapeClearance`, the set of locations of a pod is its envelope (`internal/sim/envelope_safety.go`), and the claim holds for each pair except two kinds.
 A merge or split pair of case B, and a shape pair of case C, keep the side-by-side distance of the classes of the two pods instead, by section 3.4 of the [shape clearance](../design/shape-clearance.md) design.
-In case C, the set of locations of a lane is then the set of envelope planes at each position on the lane, and not the whole lane with its incident lanes.
+Case A does not change, and sections 4.4 and 4.5 each give a branch for the field.
 Amended <date>, by maintainer decision: the claim of the 20 m proof under the `shapeClearance` network field.
 ```
 
-Sections 4.4 and 4.5 (`:239` to `:243`, `:251` to `:258`) then read under the amended claim of section 4.2, so they keep their text.
+Current text, `docs/contracts/express-standees-contract-proposal.md:239` to `:243`:
+
+```markdown
+`buildJunctionConflicts` (`internal/sim/junction_conflicts.go:29`) compares each pair of lanes at each node, with a clearance of 20 m when one mask admits a large class, plus a pad of 0.5 m.
+It finds an interval on each lane, and each point outside it is more than 20 m from each point of the other lane.
+Each cell that overlaps the interval holds the junction resource of the node, and a pod keeps it until the cell end (`internal/sim/traffic.go:950`).
+If both pods are inside their intervals, both need one resource, which has one owner.
+If one pod is outside its interval, the distance is above 20 m.
+```
+
+Insert these lines after `:247`, the end of section 4.4:
+
+```markdown
+When the network sets `shapeClearance`, this case holds as written for a through pair, and for each pair at a node that is not a merge or split pair of the service contract.
+A merge or split pair has the extent of the [lateral merge zones](../design/lateral-merge-zones.md) design in place of the 20 m interval: the body range with the union body, and the node range of 12 m.
+Each cell that overlaps the extent holds the junction resource of the node, so the junction orders the two pods.
+A pod outside its extent clears each body position of the other lane, so the grown bodies are disjoint, and the centers are at least the side-by-side distance of the two classes apart.
+This holds only while the junction orders the pods, so the body-and-ownership oracle of the [shape clearance](../design/shape-clearance.md) design checks it at each tick of a merge test and of a restored continuation.
+```
+
+Current text, `docs/contracts/express-standees-contract-proposal.md:251` to `:253`:
+
+```markdown
+`validateBankGeometry` (`internal/sim/bank_geometry.go:128`) refuses a network when a large-admitting path comes within 20 m of a nonincident path, unless each pair of their locations is on two planes.
+A location set holds the lane, its incident lanes, and the berths at its `From` node, so a pod near a plane join counts on both planes.
+Both pods are inside their polylines, so the distance is at least 20 m.
+```
+
+Insert these lines after `:261`, the end of section 4.5:
+
+```markdown
+When the network sets `shapeClearance`, the audit takes the envelope reach of the [group physics design](../design/group-physics-design.md) at each position, and not the whole lane.
+The envelope reach of a position holds each plane of the envelope of a pod at that position.
+So when a location of the envelope of `x` and a location of the envelope of `y` are on one plane, their two positions are not separated.
+At such positions, the audit refuses the network when the paths are less than 20 m apart, unless the two lanes are a shape pair of the service contract.
+For a shape pair, the sweep proves that the grown bodies are disjoint at each such pair of positions, so the centers are at least the side-by-side distance of the two classes apart.
+A pair with a berth is not a shape pair, so it keeps 20 m at such positions.
+```
+
+Current text, `docs/contracts/express-standees-contract-proposal.md:294` to `:296`:
+
+```markdown
+   The front is a maximum over the route, so one long-tail curve can make the window reach two lanes ahead, and the audit does not cover that case.
+   One scratch probe reported 19.996 m there, with the body far from that lane.
+   It looks like a false alarm, this is not proved, and the maintainer chose to record it and not change the observer.
+```
+
+Insert this line after `:296`:
+
+```markdown
+   When the network sets `shapeClearance`, the envelope reach of the audit holds the largest front bound of each route through a lane, so the audit covers that case.
+```
+
+These branches follow the design.
+Part 2 keeps the junction extents of through pairs (design `:466`), and the lateral merge zones design keeps the isotropic rule for each pair that fails a clause (`lateral-merge-zones.md:77` to `:79`).
+Section 3.4, items 2 and 3, give the arguments for merge and split pairs and for shape pairs.
+SC9 gives the containment that the case C branch and the item 4 line use.
 
 ### SC14: Lateral merge zones design, clause 3
 
@@ -414,8 +514,9 @@ Insert these lines after `:80`:
 ```markdown
 When the network sets `shapeClearance`, the [shape clearance](shape-clearance.md) design applies this rule to each class, and `lateralMerges` has no further effect.
 Clause 3 does not apply, so a lane with a large class or a geometry tail can form a pair.
+Clauses 1, 2, 4, and 5 stay.
 The body of each lane is the union of the bodies of the classes that the lane admits, and a pair keeps the side-by-side distance of the classes of its two pods.
-Clause 5 stays.
+The node range stays 12 m, because the union body changes only the body range.
 Amended <date>, by maintainer decision: the rule for each class, behind the `shapeClearance` network field.
 ```
 
@@ -426,7 +527,9 @@ Use the quoted text as the anchor.
 
 Section 5 does not name this document.
 It is a guide and not a contract, but it holds the approved amendment B1, and the [bank load choice](bank-load-choice-proposal.md) proposal asked for approval of a change to its rule text.
-The maintainer can approve SC15, or treat it as a documentation change of the build (open question 6).
+This proposal recommends that SC15 is part of this approval batch.
+The maintainer can approve it as an amendment or as a documentation change of the build.
+In both cases, the station banks document must agree with SC1 and SC9 before the build hands back.
 
 Current text, `docs/station-banks.md:54` to `:60`:
 
@@ -444,9 +547,12 @@ Insert these lines after `:60`:
 
 ```markdown
 When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
-The locations of a path are then the envelope planes at each position on the path, and not the whole lane with its incident lanes ([shape clearance](design/shape-clearance.md)).
-When two paths that share no node have disjoint swept bodies, the pair is a shape pair, and the audit does not refuse it.
-Otherwise the pair needs 12 meters, or 20 meters with a large class.
+For a pair with a large class, the locations of a lane are then the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
+The locations of a berth do not change.
+Two lanes that share no node are a shape pair when the shape certification of the [service contract](contracts/service-contract-proposals.md) proves them, and the audit does not refuse a shape pair.
+Each other pair needs 12 meters, or 20 meters when either path admits a large class, at each pair of positions that are not separated.
+A pair with a berth is not a shape pair.
+The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
 The order of the refusals and their text do not change.
 ```
 
@@ -494,6 +600,8 @@ The other items correct the scope of a row.
    The second half of the sentence, "a pair with a large pod keeps 20 meters", applies to each pair with a large pod, so SC1 also replaces it.
 8. Service contract: the row says "The planes of a pod follow D1".
    With D1-B approved, SC1 states the envelope planes.
+9. Service contract `:51` to `:52`, and incident suspension contract section 7.2: section 5 adds the shape partners only.
+   Part 3 applies the lateral merge rule, with its debris partners, to each class, so SC3 and SC10 also add the merge and split partners.
 
 Each other line number and quote of section 5 matches `212c1b68`: the service contract `:46`, `:50`, and `:51` to `:52`, the Express physical contract `:206`, `:207`, and `:219`, the group physics design `:30`, and the tick-rate contract `:50`.
 
@@ -501,15 +609,17 @@ Each other line number and quote of section 5 matches `212c1b68`: the service co
 
 These documents need an amendment:
 
-- Express standees contract, sections 2.3 and 4.2 (SC13).
+- Express standees contract, sections 2.3, 4.2, 4.4, 4.5, and 4.7 (SC13).
   Section 2.3 (`:73`) keeps the 20 m pair clearance with no condition.
   The claim of section 4.2 (`:212` to `:214`) proves 20 m for each pair of a large pod on one plane, with location sets of whole lanes.
   Case B (`:239` to `:243`) uses the 20 m junction extent for each pair at a node, and case C (`:251` to `:258`) uses the whole-lane audit.
+  Item 4 of section 4.7 (`:294` to `:296`) records the gap of the front bound.
   Under D5 and D1-B, merge, split, and shape pairs keep less than 20 m.
 - Lateral merge zones design, clause 3 (SC14).
   It is approved text, and part 3 of the design drops clause 3 when the field is set.
 - Station banks document, the audit text (SC15).
   `:60` limits the audit to depot pairs when the network has a depot and no bank, and D12-A changes this when the field is set.
+  `:56` gives a lane the whole-lane locations, and D1-B changes this when the field is set.
 
 These documents need no amendment:
 
@@ -546,67 +656,93 @@ These documents change with the build and need no approval: `docs/model.md:37` t
 
 ## Open questions
 
-1. Front bound of the envelope planes.
-   Section 2.1 of the design gives a lane "the longer front bound of the lane", and SC9 uses that text.
-   The same section also defines the rule "for any route through the lane", and section 3.4, item 5, says that the audit covers each pair of envelopes that the oracle can see.
-   The front bound of the envelope is the largest of the lanes of the route (group physics design `:74`).
-   The design does not say which value the audit takes.
-   The answer decides whether group physics design `:74` to `:75` and item 4 of section 4.7 of the standee contract (`:294`) stay true when the network sets the field.
-2. Node range of a merge or split pair with a large lane.
-   The lateral merge zones design gives the last or first 12 m of a lane as the node range (`:87`).
-   The shape clearance design does not say if a lane that admits a large class keeps 12 m or uses 20 m.
-3. Debris partners of merge and split pairs.
-   Section 3.5 of the design names only the shape partners for the debris footprint.
-   Section 3.6 says that `lateralMerges` has no further effect when the field is set, because part 3 includes it.
-   The design does not say if the merge and split partners of part 3 join the footprint.
-   Without them, a network that sets both fields loses the debris partners of its lateral merge pairs.
-   SC3 and SC10 give the text for each answer.
-4. D6 oracle in a plain project.
-   SC7 puts the body-and-ownership oracle in the Express gate, as section 5 does.
-   D2 applies the field to small pods too, and no contract row requires the D6 oracle for a plain project that sets the field.
-5. Rows of the shared-track preset.
-   Section 5.1 says that the preset "Needs its own row, or E1 extended to name it".
-   The preset has no name or geometry yet, so this proposal writes no row for it.
-   Its rows come with its own qualification proposal.
-6. Station banks document.
-   SC15 changes a guide.
-   The maintainer can approve it as an amendment, or treat it as a documentation change of the build.
-7. Amendment notes.
-   The group physics design and the lateral merge zones design have no "Amended" notes today.
-   SC8, SC9, and SC14 add one, as the contracts do.
+None.
+The first version asked seven questions, and the design answers each of them:
+
+1. Front bound of the envelope planes: SC9 takes the largest front bound of each route, by section 3.4, item 5, and the envelope reach test of section 7.
+2. Node range of a merge or split pair with a large lane: 12 m, in SC1 and SC14, by section 3.4, item 2.
+3. Debris partners: merge, split, and shape partners, in SC3 and SC10, by part 3 and section 3.5.
+4. D6 oracle in a plain project: required, in SC1, by D2 and section 7.
+5. Rows of the shared-track preset: a deferred deliverable (see below).
+6. Station banks document: an approval choice, not a design gap.
+   The recommendation is to approve SC15 in this batch, and the document must agree before the build hands back.
+7. Amendment notes: an editorial choice.
+   SC8, SC9, and SC14 add dated notes, as the contracts have, so that each change can be traced.
+
+## Deferred deliverables
+
+- Rows of the shared-track preset.
+  Section 5.1 of the design says that the preset "Needs its own row, or E1 extended to name it".
+  The preset has no name or geometry yet, so this proposal writes no row for it.
+  A separate qualification proposal gives its geometry and each row of section 5.1 that applies, before the preset claims qualification.
 
 ## Approval
 
 | ID | Document | Change |
 | --- | --- | --- |
-| SC1 | Service contract | Following, merge, split, and shape pairs of each class, with the side-by-side distances and the envelope planes. |
+| SC1 | Service contract | The precedence of the current exceptions, following, merge, split, and shape pairs of each class, separated positions, shape certification for lane pairs, the side-by-side distances, and the D6 oracle for each class. |
 | SC2 | Service contract | The guideway-bound assumption at line speed for merge, split, and shape pairs. |
 | SC3 | Service contract | Debris blocks the cells of merge, split, and shape partners within 12 meters. |
-| SC4 | Express physical contract | 20 m for following pairs, and the side-by-side distance for lateral pairs with a large pod. |
+| SC4 | Express physical contract | The side-by-side distance for lateral pairs with a large pod, and 20 m for each other pair. |
 | SC5 | Express physical contract | Union body for the static extents of lateral pairs. |
 | SC6 | Express physical contract | Physical geometry gate: the class body for lateral pairs, and the sweep cases. |
 | SC7 | Express physical contract | Independent safety oracle gate: shape pairs and the body-and-ownership oracle. |
-| SC8 | Group physics design | 20 m for following pairs, the side-by-side distance for lateral pairs, and the union body. |
-| SC9 | Group physics design | The audit takes the envelope planes by position, with the body test where they overlap. |
+| SC8 | Group physics design | The side-by-side distance for lateral pairs, 20 m for each other pair, and the union body. |
+| SC9 | Group physics design | The envelope reach by position, with its containment test, and the end of the front bound gap for networks with the field. |
 | SC10 | Incident suspension contract | Merge, split, and shape partners are lateral neighbors of the debris footprint. |
 | SC11 | Tick-rate contract | Section 1.5 lines for merge, split, and shape pairs, with no time term. |
 | SC12 | Express London qualification | D keeps its evidence only with a behavior parity test. |
-| SC13 | Express standees contract | The 20 m claim covers following pairs, and lateral pairs keep the side-by-side distance. |
-| SC14 | Lateral merge zones design | Clause 3 does not apply when the field is set. |
+| SC13 | Express standees contract | The proof without the field stays, and cases B and C get branches for the field. |
+| SC14 | Lateral merge zones design | Clause 3 does not apply when the field is set, and the node range stays 12 m. |
 | SC15 | Station banks document | The audit text for the field. |
 
 Dependencies:
 
 - One field sets parts 1 to 5 of the design together (section 6.1).
-  So each of SC1 to SC11, SC13, and SC14 states a part of one rule, and the build of the field needs all of them.
+  So each of SC1 to SC11, SC13, SC14, and SC15 states a part of one rule, and the build of the field needs all of them.
   If the maintainer approves only some, a binding text contradicts the behavior of the field.
+- SC1 defines the pairs, the separated positions, and shape certification.
+  SC9 defines the envelope reach that SC1 uses.
+  So SC1 and SC9 go together, and SC4, SC5, SC8, SC10, SC11, SC13, SC14, and SC15 use their terms.
 - SC2 is the assumption that SC1 needs for shape pairs at line speed, so SC1 and SC2 go together.
 - SC3 and SC10 state one debris rule in two contracts, so they go together.
-  Both use the pair names of SC1.
-- SC4, SC5, SC8, SC11, SC13, and SC14 use the pair names and distances of SC1.
-- SC9 gives the envelope planes that SC1 names, so SC1 and SC9 go together.
-- SC7 is the D6 oracle that D5 needs (section 6.1), and SC1 includes the D5 merge pairs, so SC1 needs SC7.
+- SC1 includes the D5 merge pairs, which need the D6 oracle (section 6.1).
+  SC1 states that oracle for each class, and SC7 puts it in the Express gate, so SC1 and SC7 go together.
 - SC6 and SC7 share one new subsection of the Express physical contract.
 - SC12 does not depend on the others, and the maintainer can approve it alone.
-- SC15 uses the terms of SC1 and SC9, and it can wait for open question 6.
-  SC1 and SC9 carry the all-pairs audit of D12-A, so the rule does not depend on SC15.
+  Its condition on evidence still applies to the build of the field.
+- This proposal recommends that SC15 is part of this batch.
+  As an amendment or as a documentation change, the station banks document must agree with SC1 and SC9 before the build hands back.
+
+## Review
+
+An adversarial review checked the first version of this proposal on 2026-11-16.
+It found 6 major problems and 1 minor problem.
+This revision checked each finding against the design and the code at `212c1b68`, and folds all seven, one of them in part.
+
+1. Major: SC9 kept 20 m for each pair that fails the shape test, small pairs included.
+   Design `:475` gives 12 m or 20 m.
+   Folded: SC1 gives the fallback for two lanes, and SC9 and SC15 give the same rule for paths, berths included.
+   SC4, SC8, and SC13 (`:73`) said that 20 m applies to a following pair, which can read as "only to a following pair".
+   They now say that each pair that is not a merge, split, or shape pair keeps 20 m.
+2. Major: the shape pair definitions disagreed about planes and sweep scope.
+   SC1 said "two lanes on one plane" with disjoint swept regions, and part 1 applies part 4 only where the envelope reaches overlap (design `:462`).
+   Folded: SC1 defines separated positions and shape certification once, and SC9, SC11, SC13, and SC15 refer to it.
+   The plane exemption holds at separated positions.
+3. Major: the precedence of the current exceptions was missing.
+   A certified depot lateral pair can be two lanes that share no node (`depot_lateral.go:8`, design `:274`), and the audit applies maneuver certificates and skip rules first (`bank_geometry.go:154`).
+   Folded: SC1, SC9, and SC15 state the precedence of design section 3.7.
+   SC1 lists clauses 1, 2, 4, and 5 of the lateral merge zones design (`lateral_merges.go:42` and `:141`).
+4. Major: SC9 copied the lane-local front bound and the one-node reach of the probe (design `:142`).
+   The code takes the largest front bound of the route and tests each route lane against its own tail (`envelope_safety.go:50` to `:69`).
+   Folded: SC9 states the containment of section 3.4, item 5, and the test of design `:810`, with multi-lane reach and the unreleased origin.
+   SC9 and SC13 close the recorded front bound gap for networks with the field.
+5. Major: SC13 kept sections 4.4 and 4.5 of the standee contract, whose premises change with the field.
+   `:239` gives each pair at a node a 20 m extent, and `:251` uses the whole-lane audit.
+   Folded: the proof without the field stays, and sections 4.4 and 4.5 get branches for the field.
+6. Major: SC9 and SC15 used "paths", which includes berths (`bank_geometry.go:111`), and the design sweeps lane bodies only (`:473`).
+   Folded in part: shape certification is for two lanes, and a pair with a berth keeps its current rule.
+   The review also asked for a scope question about berth pairs.
+   This revision adds none, because the design defines no berth body and its side-by-side platform layout uses lanes (`:661`).
+7. Minor: the open questions mixed design gaps with settled answers and editorial choices.
+   Folded: "Open questions" lists where each answer now is, the preset rows are a deferred deliverable, and the proposal recommends SC15 in this batch.
