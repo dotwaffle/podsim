@@ -256,7 +256,7 @@ Insert these lines after `:30`:
 
 ```markdown
 When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
-Each other pair keeps this distance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
+Each other pair with a large pod keeps the 20 meter clearance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
 The overlapping physical planes are those of the envelope of "Body planes" below.
 ```
 
@@ -746,3 +746,7 @@ This revision checked each finding against the design and the code at `212c1b68`
    This revision adds none, because the design defines no berth body and its side-by-side platform layout uses lanes (`:661`).
 7. Minor: the open questions mixed design gaps with settled answers and editorial choices.
    Folded: "Open questions" lists where each answer now is, the preset rows are a deferred deliverable, and the proposal recommends SC15 in this batch.
+
+A confirmation review of the revision on 2026-11-16 found the seven findings resolved, and found one new major problem.
+In SC8, "Each other pair keeps this distance" followed the sentence on the side-by-side distances, so it could give a following pair 3.55 m or 4.0 m.
+Fixed: each other pair with a large pod keeps the 20 meter clearance.
