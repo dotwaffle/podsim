@@ -120,8 +120,13 @@ func (c draftClearance) pairConflict(path, other geometryPath) (gap, minimum flo
 
 // laneConflict returns the first lane pair that comes closer than its
 // clearance. As in the bank audit of the server, a pair that only the reach
-// of its lanes denies the plane exemption reports its conflict last.
+// of its lanes denies the plane exemption reports its conflict last. A
+// draft that sets shapeClearance has no conflict here: the server checks
+// of the edit (see serverChecks) audit its lane gaps.
 func (g geometryDraft) laneConflict(ids []string, separationGroups bool) *geometryConflict {
+	if hasShapeClearance(g.network) {
+		return nil
+	}
 	clearance := newDraftClearance(g.network)
 	paths, byID := []geometryPath{}, map[string]geometryPath{}
 	for _, item := range items(g.network["lanes"]) {

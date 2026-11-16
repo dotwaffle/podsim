@@ -44,6 +44,15 @@ func hasManeuverGroups(network any) bool {
 	return len(items(member(network, "maneuverGroups"))) > 0
 }
 
+// hasShapeClearance reports whether a draft network sets shapeClearance.
+// The server then audits each pair of lanes, small pairs included, with
+// shape pairs and the envelope reach by position. The draft approximations
+// of the editor do not know these rules, so the editor uses the network
+// check of the server for the lane gaps of such a draft.
+func hasShapeClearance(network any) bool {
+	return member(network, "shapeClearance") == true
+}
+
 // draftClearanceNetwork copies the members of a draft that the index reads.
 // The depots let the index find the chain lanes. The station gates, the
 // parking flag, the banks and the separation groups are the other members

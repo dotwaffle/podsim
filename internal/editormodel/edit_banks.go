@@ -68,7 +68,7 @@ func (d *serverDraft) decode() (sim.Network, error) {
 }
 
 // validateBankDraft runs the server validation of a draft with banks,
-// large geometry, maneuver groups or depots.
+// large geometry, maneuver groups, depots or shape clearance.
 func validateBankDraft(network any) error {
 	return (&serverDraft{network: network}).validate()
 }
@@ -113,6 +113,14 @@ func (d *serverDraft) validate() error {
 	if hasDepots(network) {
 		if err := d.check.Err(); err != nil {
 			return fmt.Errorf("validate depots: %w", err)
+		}
+		return nil
+	}
+	// A draft with banks keeps the bank audit below, which audits each
+	// pair when the draft sets shapeClearance.
+	if hasShapeClearance(network) && !hasBanks(network) {
+		if err := d.check.Err(); err != nil {
+			return fmt.Errorf("validate shape clearance: %w", err)
 		}
 		return nil
 	}

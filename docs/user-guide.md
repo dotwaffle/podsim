@@ -527,6 +527,9 @@ The editor refuses a change that would break the network, and a message gives th
 
 **Remove** removes the berth, its node, and the lanes of its node, and on the last row of a chain it removes all of the row.
 
+When the network sets `shapeClearance`, the editor does not use its own lane gap check.
+It runs the network check of the server after each change, and the message gives the text of the server.
+
 #### Undo and focus
 
 Use undo and redo for draft changes (see [Editor keyboard shortcuts](#editor-keyboard-shortcuts)).
