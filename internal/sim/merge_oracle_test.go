@@ -10,7 +10,7 @@ import (
 )
 
 // The tests of the body-and-ownership oracle of decision D6 of
-// docs/design/shape-clearance.md (see mergeBodyCheck).
+// docs/design/shape-clearance.md (see lateralBodyCheck).
 
 // oracleDegrees is the angle of the merge and split pairs of the oracle
 // tests. At 6 degrees, the body range on each lane is about 33 m, and
@@ -298,7 +298,7 @@ func runMergeOracle(s *Simulation, seconds int) oracleRun {
 	run := oracleRun{closest: math.Inf(1)}
 	for range seconds * TicksPerSecond {
 		s.Step()
-		if err := s.mergeBodyCheck(); err != nil && run.oracle == nil {
+		if err := s.lateralBodyCheck(); err != nil && run.oracle == nil {
 			run.oracle = err
 		}
 		if _, err := s.SafetyObservation().Check(); err != nil && run.check == nil {
@@ -675,19 +675,19 @@ func checkOracleControl(t *testing.T, test oracleControl, classes [2]VehicleClas
 	}
 	if test.joinOnly {
 		first, second := s.vehicles[0].Pod, s.vehicles[1].Pod
-		static := func(pod Pod, lane int) sweepRectangle {
-			return sweepEnclosure(s.podPoses(pod.Position, lane, pod.LaneDistance)[0], classShapeBody(pod.Class).sweep(), 0, 1)
+		static := func(pod Pod, lane int) [4]Point {
+			return oracleClassBody(pod.Class).enclosure(s.podPoses(pod.Position, lane, pod.LaneDistance)[0])
 		}
-		if !rectanglesSeparated(static(first, a), static(second, b)) {
+		if !oracleSeparated(static(first, a), static(second, b)) {
 			t.Fatal("the bodies at the headings of the lanes overlap, so the case does not test the join turn")
 		}
-		if poses := s.podPoses(first.Position, a, first.LaneDistance); len(poses) != 2 || poses[1].sweep == 0 {
+		if poses := s.podPoses(first.Position, a, first.LaneDistance); len(poses) != 2 || poses[1].turn == 0 {
 			t.Fatalf("poses %+v at the end of lane a, want the pose of the lane and the join turn", poses)
 		}
 	}
 	start, end, _ := s.merges.mergeExtent(b, a)
 	t.Logf("extent of b [%.3f, %.3f]", start, end)
-	err = s.mergeBodyCheck()
+	err = s.lateralBodyCheck()
 	if failed := err != nil; failed != test.fail {
 		t.Fatalf("oracle error %v, want an error %v", err, test.fail)
 	}
@@ -700,7 +700,7 @@ func checkOracleControl(t *testing.T, test oracleControl, classes [2]VehicleClas
 	for _, want := range []string{
 		"tick 0:", "node n", fmt.Sprintf("junction owner %q", test.owner),
 		fmt.Sprintf("pod p1 (%s) on lane a", classes[0]), fmt.Sprintf("pod p2 (%s) on lane b", classes[1]),
-		"center (", "heading ", oracleBodyText(classes[0]), oracleBodyText(classes[1]),
+		"pose (", "heading ", oracleBodyText(classes[0]), oracleBodyText(classes[1]),
 	} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("oracle error %q does not name %q", err, want)
