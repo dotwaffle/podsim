@@ -125,7 +125,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX9 | Fault, Dwell, and Restore and stream evidence on the preset. Open: the browser game page, which the maintainer checks. |
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
-| SX11 | CI case complete. Open: the release soak, until a release tag. |
+| SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. |
 | SX12 | Performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row recorded for D and the preset. Open: a quiet run of the worst-case row, which ran at a load average of 5.7 to 9.0. |
 
 ### Fixture
@@ -403,8 +403,23 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   This is a per-seed extrapolation from the wall time of the CI case.
   At those rates, a checked arm takes about 990 s and the reference about 140 s, so the arms of one seed take about 35 minutes one after another.
   The task shares 3 run slots across 5 seeds and its other presets, so the wall time of a whole release run is not verified, and it can reach the 2-hour limit of the task with seeds not complete.
-  Commit `ee9059e0` did not run the release soak, because the host load average rose to about 14 from other work after the soak row.
-  The release soak of the preset stays open until a release tag.
+- `mise run soak:full` ran on 2026-11-17 on commit `86441b8e`, under `nice`, from 03:00Z, at a host load average of 2.6 at the start and about 13 during the run.
+  The 2-hour limit of the task cut it.
+  Three seeds finished: seed 1 of D, and seeds 1 and 5 of the preset.
+  No seed of `rail-hub` or `london-central` finished, so a whole release run does not fit the limit of the task.
+- Seed 1 of the preset failed the Progress gate of the emergency contract in arm `incidents`.
+  Record i1.18 on Express pod `express-07` had 611.6 s not blocked by a fault, and the limit is 600 s.
+  A run of the arm alone gave the same counts and the same record, so the miss is deterministic.
+- A trace of the record shows the cause.
+  The record started at 103.6 simulated minutes, on the lane of link 100 toward Bank (about 956 m, limit 14 m/s).
+  The pod spent about 508 s on that lane behind other pods ("Pod ahead" and "Junction traffic"), then waited 51 s for a Bank berth ("Berth occupied"), and started to unload at 593 s.
+  No fault was on the chain of the pod at any reading, so rule A counts the whole time.
+  Two more records of the arm, on Express pods toward Waterloo and toward Bank, ended after 806 s and 840 s in total, with 424 s and 399 s not blocked by a fault, in the same queues on link 100.
+- Over 6 simulated hours, the preset is near its queue cap without incidents.
+  The queue of the `reference` arm peaked at 166 to 200 across seeds 1 to 5 (the cap is 200), with a mean wait of 384 to 699 s.
+  The same arm of D peaked at 84 to 94, with a mean wait of 232 to 280 s.
+  The longest record not blocked by a fault was 611.6 s and 525.5 s on the preset (seed 1, `incidents` and `emergencies`), and 208.0 s and 317.2 s on D.
+- The release soak of the preset fails until the maintainer decides how to treat the queues of link 100.
 
 #### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
 
