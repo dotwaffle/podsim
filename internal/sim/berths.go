@@ -9,17 +9,24 @@ func (s *Simulation) stationApproachRouteForClass(fromNode, stationID string, cl
 }
 
 func (s *Simulation) stationApproachRouteMatching(fromNode, stationID string, class VehicleClass, accept func(Berth) bool) ([]Lane, error) {
-	return s.stationApproachRouteOn(false, fromNode, stationID, class, accept)
+	return s.stationApproachRouteOn(false, fromNode, stationID, class, s.berthLoad, accept)
 }
 
 // stationApproachRouteOn is stationApproachRouteMatching, on the static
-// graph when static is true. See routeOn.
-func (s *Simulation) stationApproachRouteOn(static bool, fromNode, stationID string, class VehicleClass, accept func(Berth) bool) ([]Lane, error) {
+// graph when static is true (see routeOn), with the berth load function
+// load. The load selects the bank entry, and thus the route. It does not
+// change whether the call fails, for a load below the largest int, such
+// as berthLoad and noBerthLoad: stationBankEntryOn gives only entries
+// that it can reach from fromNode or, from a berth of a bank, from the
+// exit of that bank, and from such a berth each route to an entry starts
+// with the same departure to the bank exit. A caller that uses only
+// whether the call fails can give noBerthLoad.
+func (s *Simulation) stationApproachRouteOn(static bool, fromNode, stationID string, class VehicleClass, load func(Berth) int, accept func(Berth) bool) ([]Lane, error) {
 	station, ok := s.station(stationID)
 	if !ok {
 		return nil, fmt.Errorf("unknown station %q", stationID)
 	}
-	entry, err := s.stationBankEntryOn(static, fromNode, station, s.berthLoad, class, accept)
+	entry, err := s.stationBankEntryOn(static, fromNode, station, load, class, accept)
 	if err != nil {
 		return nil, err
 	}

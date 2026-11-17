@@ -271,7 +271,9 @@ func (s *Simulation) pickupBerthFitsRequest(v *vehicle, request Request, berth B
 	if !ok || selected.Node != berth.Node {
 		return false
 	}
-	_, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class)
+	// The load does not change the error, and berthLoad reads the whole
+	// fleet for each berth.
+	_, err := s.stationApproachRouteOn(false, berth.Node, request.To, v.Pod.Class, noBerthLoad, nil)
 	return err == nil
 }
 

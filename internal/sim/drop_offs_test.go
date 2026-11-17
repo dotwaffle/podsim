@@ -405,7 +405,7 @@ func (s *Simulation) stationsOnRoute(from, stationID string) []string {
 // node to the entry of a station, on the static graph while the blocked
 // set is not empty. It reports false when the route does not exist.
 func (s *Simulation) routeMeters(from, stationID string) (float64, bool) {
-	route, err := s.stationApproachRouteOn(s.blockedActive(), from, stationID, LegacyClass, nil)
+	route, err := s.stationApproachRouteOn(s.blockedActive(), from, stationID, LegacyClass, s.berthLoad, nil)
 	if err != nil {
 		return 0, false
 	}
