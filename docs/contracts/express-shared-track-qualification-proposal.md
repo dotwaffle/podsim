@@ -126,7 +126,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
 | SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. |
-| SX12 | Performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row recorded for D and the preset. Open: a quiet run of the worst-case row, which ran at a load average of 5.7 to 9.0. |
+| SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 misses the A11 median rule in the timed run, before the D11 build too (see SX12). |
 
 ### Fixture
 
@@ -469,17 +469,16 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   The suspension and fleet-limit rows do not apply, because they use generated fleets of 300 and 1,000 pods and not a preset.
   The test now stops when the active emergencies are not `MaxEmergencies` after the placement.
   On D and the preset, the driver placed 3 records, and the emergency sampler of the session had started the fourth in the warm time.
-- The rows ran with `PODSIM_SOAK_WORST=1` and `PODSIM_SOAK_GATE=1`, with no `nice`.
-  The load average rose from 5.7 to 9.0 from other work during the run, and the host had no quiet time before the deadline of the task.
+- The rows ran with `PODSIM_SOAK_WORST=1` and `PODSIM_SOAK_GATE=1`, with no `nice`, on 2026-11-17 at 07:16Z on commit `9d1e9f79`, at a load average of 2.9 at the start.
+  An earlier run at a load average of 5.7 to 9.0 also passed for both presets.
 
 | Preset | Run medians, against the reference | Run slowest steps, against the reference | A11 |
 | --- | --- | --- | --- |
-| D | 42.6, 39.5, 38.6, 38.9 µs, against 38.6, 38.2, 38.7, 50.0 µs | 2.49, 2.16, 2.63, 2.64 ms, against 2.31, 2.58, 2.18, 2.20 ms | Passes |
-| The preset | 39.4, 39.9, 40.2, 39.4 µs, against 49.0, 39.3, 39.2, 37.7 µs | 2.11, 2.12, 2.19, 2.06 ms, against 2.47, 5.21, 2.00, 2.02 ms | Passes |
+| D | 37.7, 39.0, 38.3, 38.2 µs, against 38.7, 38.8, 37.8, 37.6 µs | 2.16, 2.48, 2.58, 2.80 ms, against 2.56, 2.66, 2.75, 2.24 ms | Passes |
+| The preset | 38.2, 38.6, 39.0, 40.0 µs, against 40.2, 38.4, 38.9, 38.9 µs | 2.39, 2.47, 2.07, 2.35 ms, against 2.40, 2.38, 2.30, 2.37 ms | Passes |
 
-- In the same run, the london-central row failed the slowest-step rule in one run and the median rule of A11.
-  It passed at a load average of 2.7 earlier the same morning, and this change does not touch its path.
-- A quiet run of the worst-case rows of D and the preset is open.
+- In the same run, the london-central row missed the median rule of A11 by 1.888 µs against a limit of 1.802 µs.
+  Two runs of the row alone right after, at a load average of 2.7, passed, and this change does not touch its path.
 - Web: `mise run test:web` passed.
 
 ### Wall times
