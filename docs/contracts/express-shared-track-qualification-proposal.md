@@ -126,7 +126,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
 | SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. |
-| SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 misses the A11 median rule in the timed run, before the D11 build too (see SX12). |
+| SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
 
 ### Fixture
 
@@ -449,6 +449,18 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   `pickupBerthFitsRequest` uses only whether a route exists, so the load ranking does not change its answer.
   The arms in the opposite order in one process gave the same gap, so the order of the runs is not the cause.
   The diagnosis changes no code.
+- Commit `9b043b18` gives `noBerthLoad` to that check, so it no longer reads `berthLoad`.
+  The load can change the selected bank entry but not whether a route exists, and `TestPickupBerthFitsLoadFree` compares the old and new answers on D and the preset under faults.
+  Two timed runs of D after the change, at a 1-minute host load average of 1.5 and 2.7, pass each seed.
+
+| D seed | Median | Reference median | Percent |
+| --- | ---: | ---: | ---: |
+| 1 | 98.5 µs | 96.6 µs | 2.0 |
+| 2 | 96.3 µs | 89.5 µs | 7.5 |
+| 3 | 104.7 µs | 99.2 µs | 5.5 |
+
+- The table gives the second run.
+  The first run gave 3.0, 7.5, and 6.4 percent.
 - `TestSampledTickLatency` and `TestEmergencyChoiceLatency` now also run on the networks of D and the preset.
   D's network is `internal/sim/testdata/express_network.json.gz`, which `TestExpressNetworkFixture` in `internal/scenarios` pins, and the preset's network is the SX fixture.
   The fixture places up to 600 legacy pods, so the cases measure the network and not the preset fleet.
