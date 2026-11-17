@@ -441,6 +441,14 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   Commit `256b7fd1` does not change the path of D.
   The same run at commit `5d8afa00`, before the D11 build, also fails seed 2, by 11.8 and 10.8 percent, so the miss predates the build.
   The reproducer is `PODSIM_SOAK_TIMED=0.1 PODSIM_SOAK_GATE=1 PODSIM_SOAK_PRESETS=london-full-express go test ./internal/session -count=1 -v -timeout=0 -run '^TestIncidentSoakTimed$'`.
+- A diagnosis on 2026-11-17 compared CPU profiles of the two arms of D seed 2, each in its own process.
+  Their totals differ by 1.3 percent, but one path costs about 1 s more in `incidents`, on a total `Step` time of about 8.7 s.
+  While the blocked set is not empty, `keepTripPod` calls `pickupAccess` for each waiting trip with a pod at each dispatch pass.
+  Its berth filter calls `pickupBerthFitsRequest` for each berth, and that call runs `stationApproachRouteForClass`.
+  There, `stationBankEntryOn` ranks the banks of the destination by `berthLoad`, which scans each pod and each waiting trip for each berth.
+  `pickupBerthFitsRequest` uses only whether a route exists, so the load ranking does not change its answer.
+  The arms in the opposite order in one process gave the same gap, so the order of the runs is not the cause.
+  The diagnosis changes no code.
 - `TestSampledTickLatency` and `TestEmergencyChoiceLatency` now also run on the networks of D and the preset.
   D's network is `internal/sim/testdata/express_network.json.gz`, which `TestExpressNetworkFixture` in `internal/scenarios` pins, and the preset's network is the SX fixture.
   The fixture places up to 600 legacy pods, so the cases measure the network and not the preset fleet.
