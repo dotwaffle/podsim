@@ -212,8 +212,9 @@ type choiceTickInput struct {
 
 // newChoiceTickFixture places a pod at each berth of the passenger
 // stations of the network that admits the legacy class, up to the fleet
-// limit, with the routing policy. When warm is true, it first runs 600
-// ticks of traffic, with a
+// limit, with the routing policy. A station with no such berth is not a
+// passenger station of the fixture, because a legacy pod cannot ride to
+// it. When warm is true, it first runs 600 ticks of traffic, with a
 // trip between random passenger stations every 20 ticks. It then makes
 // four idle pods board for another passenger station, and steps until the
 // four pods travel and can divert. When warm is false, it returns a clone
@@ -227,6 +228,9 @@ func newChoiceTickFixture(t *testing.T, input choiceTickInput) choiceTickFixture
 	var passenger []string
 	for _, station := range network.Stations {
 		if station.ParkingOnly {
+			continue
+		}
+		if !slices.ContainsFunc(station.Berths, func(berth Berth) bool { return berthAllows(station, berth, LegacyClass) }) {
 			continue
 		}
 		passenger = append(passenger, station.ID)
@@ -378,20 +382,43 @@ func allBound(fixture choiceTickFixture) func(*Simulation) error {
 	}
 }
 
+// choiceTickNetwork is a network of the choice-tick and sampled-tick
+// gates.
+type choiceTickNetwork struct {
+	name    string
+	network Network
+}
+
+// choiceTickNetworks returns the networks of the choice-tick and
+// sampled-tick gates: LondonCentral, the rail-hub preset, and the networks
+// of london-full-express (project D) and london-full-shared-express. Rows
+// A17 and SX12 of the Express qualifications add the last two. The fixture
+// pods are legacy pods. The fleets of the two Express presets are Compact,
+// but Compact pods in adjacent Compact bays are 6 m apart, and checkTraffic
+// in the fixture refuses a gap below Clearance for each class.
+func choiceTickNetworks(t *testing.T) []choiceTickNetwork {
+	t.Helper()
+	networks := scenarioNetworks(t)
+	return []choiceTickNetwork{
+		{name: "London", network: networks["London"]},
+		{name: "rail hub", network: networks["rail hub"]},
+		{name: "london-full-express", network: expressNetworkFixture(t)},
+		{name: "london-full-shared-express", network: sharedExpressNetwork(t)},
+	}
+}
+
 // TestEmergencyChoiceLatency measures the worst choice tick of section 15
 // of the incident emergency contract: four emergencies that start on one
-// tick, cold and warm. The slowest tick of
-// LondonCentral and of the rail-hub preset, and of the delayed-routes
-// fixture at the project limits, is at most choiceTickLimit (product
-// choice P23). The median is only a diagnostic. The test runs alone,
-// without the race detector, because it measures time. The qualify task
-// runs it.
+// tick, cold and warm. The slowest tick on each network of
+// choiceTickNetworks, and of the delayed-routes fixture at the project
+// limits, is at most choiceTickLimit (product choice P23). The median is
+// only a diagnostic. The test runs alone, without the race detector,
+// because it measures time. The qualify task runs it.
 func TestEmergencyChoiceLatency(t *testing.T) {
 	skipLong(t)
 	if raceEnabled {
 		t.Skip("the race detector slows the measured code")
 	}
-	networks := scenarioNetworks(t)
 	gate := func(t *testing.T, tick choiceTick) {
 		t.Helper()
 		t.Logf("slowest %v, median %v, fastest %v; searches %+v", tick.slowest, tick.median, tick.fastest, tick.counts)
@@ -399,10 +426,10 @@ func TestEmergencyChoiceLatency(t *testing.T) {
 			t.Errorf("the slowest choice tick takes %v, more than %v", tick.slowest, choiceTickLimit)
 		}
 	}
-	for _, name := range []string{"London", "rail hub"} {
+	for _, network := range choiceTickNetworks(t) {
 		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s, warm %t", name, warm), func(t *testing.T) {
-				fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], warm: warm})
+			t.Run(fmt.Sprintf("%s, warm %t", network.name, warm), func(t *testing.T) {
+				fixture := newChoiceTickFixture(t, choiceTickInput{network: network.network, warm: warm})
 				gate(t, measureChoiceTick(t, fixture, allBound(fixture)))
 			})
 		}

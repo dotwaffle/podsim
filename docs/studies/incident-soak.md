@@ -87,7 +87,7 @@ R3 is a target and not a measurement, because no such change exists.
 `TestIncidentSoakCI` took 285 seconds at a load average of about 30: a reference run of 51 seconds, and a checked run of 233 seconds.
 The checked run had 9 faults and 9 emergencies, and it passed.
 It uses rail-hub only, because the CI row names no preset and a london-central run takes an estimated 20 to 30 CPU minutes.
-`mise run qualify` also runs `TestSampledTickLatency`, in about 3 seconds.
+`mise run qualify` also runs `TestSampledTickLatency`, which took 11 seconds at a load average of about 3 after it added the networks of D and the shared-track preset.
 `mise run qualify:limits` runs `TestSampledTickNoCandidateLatency`, which took 386 seconds at a load average of about 15.
 
 ## Soak of amendment A6

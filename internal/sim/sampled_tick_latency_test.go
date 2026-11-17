@@ -80,7 +80,8 @@ func measureSampledTick(t *testing.T, fixture choiceTickFixture) sampledTick {
 // TestSampledTickLatency is the sampled-tick latency gate of section 5.1.9 of
 // the incident stage 7 contract. A step holds the session lock, so the gate
 // measures a whole step with the fault start, the reroute pass, the emergency
-// start, and the station search. mise run qualify runs it.
+// start, and the station search, on each network of choiceTickNetworks. mise
+// run qualify runs it.
 func TestSampledTickLatency(t *testing.T) {
 	if os.Getenv("PODSIM_QUALIFY") != "1" {
 		t.Skip("the sampled-tick gate runs only in mise run qualify (PODSIM_QUALIFY=1)")
@@ -89,11 +90,10 @@ func TestSampledTickLatency(t *testing.T) {
 	if raceEnabled {
 		t.Skip("the race detector slows the measured code")
 	}
-	networks := scenarioNetworks(t)
-	for _, name := range []string{"London", "rail hub"} {
+	for _, network := range choiceTickNetworks(t) {
 		for _, warm := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s, warm %t", name, warm), func(t *testing.T) {
-				fixture := newChoiceTickFixture(t, choiceTickInput{network: networks[name], warm: warm})
+			t.Run(fmt.Sprintf("%s, warm %t", network.name, warm), func(t *testing.T) {
+				fixture := newChoiceTickFixture(t, choiceTickInput{network: network.network, warm: warm})
 				tick := measureSampledTick(t, fixture)
 				t.Logf("slowest %v, fastest %v; searches %+v", tick.slowest, tick.fastest, tick.counts)
 				if tick.slowest > choiceTickLimit {

@@ -2855,7 +2855,8 @@ func TestSoakEmergencyMedianFailure(t *testing.T) {
 // report for the fleet limit.
 func TestSoakWorstRowGates(t *testing.T) {
 	t.Parallel()
-	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateEmergency, "london-central": soakGateEmergency, "fleet-1000": soakGateReport}
+	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateEmergency, "london-central": soakGateEmergency,
+		soakLondonExpressPreset: soakGateEmergency, soakLondonSharedExpressPreset: soakGateEmergency, "fleet-1000": soakGateReport}
 	if len(soakWorstRows) != len(want) {
 		t.Fatalf("%d rows, want %d", len(soakWorstRows), len(want))
 	}
@@ -2932,6 +2933,9 @@ func soakWorstCase(t *testing.T, d *soakDriver, debris, pods, emergencies int) (
 
 // soakWorstRows holds the worst-case rows of the Performance gates. Each row has
 // its approved rule. The row names are the names in the report, so they stay.
+// Rows A17 and SX12 of the Express qualifications add the emergency row of
+// project D and of the shared-track preset. The suspension and fleet-limit rows
+// use generated fleets of 300 and 1,000 pods, and not a preset.
 var soakWorstRows = []struct {
 	name                      string
 	preset                    string
@@ -2941,6 +2945,8 @@ var soakWorstRows = []struct {
 	{name: "suspension: 64 debris and 300 pod faults", preset: "fleet-300", debris: 64, pods: 300, gate: soakGateSuspension},
 	{name: "emergency: MaxEmergencies records", preset: "rail-hub", emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
+	{name: "emergency: MaxEmergencies records", preset: soakLondonExpressPreset, emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
+	{name: "emergency: MaxEmergencies records", preset: soakLondonSharedExpressPreset, emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "fleet limit: 64 debris and 1,000 pod faults", preset: "fleet-1000", debris: 64, pods: 1000, gate: soakGateReport},
 }
 
@@ -2964,6 +2970,13 @@ func TestIncidentWorstCaseStepTime(t *testing.T) {
 				if apply {
 					debris, pods, emergencies := soakWorstCase(t, d, row.debris, row.pods, row.emergencies)
 					t.Logf("records: %d debris, %d pod faults, %d emergencies, of %d pods", debris, pods, emergencies, len(d.config.Fleet))
+					// An emergency row measures the worst case only with
+					// each of its records in place. The emergency sampler
+					// of the session can start a record in the warm time,
+					// so the check counts the active records.
+					if active := len(d.s.simulation.Snapshot().Emergencies.Active); row.emergencies > 0 && active != row.emergencies {
+						t.Fatalf("%d emergencies active, want %d", active, row.emergencies)
+					}
 				}
 				for range measuredTicks {
 					d.step()

@@ -126,7 +126,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
 | SX11 | CI case complete. Open: the release soak, until a release tag. |
-| SX12 | Performance timed runs recorded beside D. Open: sampled-tick and choice-tick latency, and the worst-case Performance measurements, because their fixtures hold neither D nor the preset. |
+| SX12 | Performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row recorded for D and the preset. Open: a quiet run of the worst-case row, which ran at a load average of 5.7 to 9.0. |
 
 ### Fixture
 
@@ -426,10 +426,37 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   Commit `256b7fd1` does not change the path of D.
   The same run at commit `5d8afa00`, before the D11 build, also fails seed 2, by 11.8 and 10.8 percent, so the miss predates the build.
   The reproducer is `PODSIM_SOAK_TIMED=0.1 PODSIM_SOAK_GATE=1 PODSIM_SOAK_PRESETS=london-full-express go test ./internal/session -count=1 -v -timeout=0 -run '^TestIncidentSoakTimed$'`.
-- The worst-case rows of `TestIncidentWorstCaseStepTime` name their presets in the code, and none is D or the preset.
-  So the worst-case Performance measurements stay open for D and for the preset.
-- `TestSampledTickLatency` and `TestEmergencyChoiceLatency` use the LondonCentral and rail-hub networks of `testdata/scenario_networks.json.gz`, and neither D nor the preset.
-  No fixture holds them yet, so these rows stay open for D and for the preset.
+- `TestSampledTickLatency` and `TestEmergencyChoiceLatency` now also run on the networks of D and the preset.
+  D's network is `internal/sim/testdata/express_network.json.gz`, which `TestExpressNetworkFixture` in `internal/scenarios` pins, and the preset's network is the SX fixture.
+  The fixture places up to 600 legacy pods, so the cases measure the network and not the preset fleet.
+  On both networks, 8 stations have only Compact bay berths, so the fixture does not use them as passenger stations.
+  Compact pods fill adjacent bays 6 m apart, and the traffic check of the fixture refuses a gap below `Clearance`, so the fixture keeps legacy pods.
+  The limit stays at 50 ms.
+- The runs were alone, with no `nice`, on 2026-11-17.
+  `TestSampledTickLatency` started at a load average of 2.9 and took 11 s, and `TestEmergencyChoiceLatency` started at 2.9 and took 14 s.
+
+| Case | Sampled tick, slowest | Choice tick, slowest | Choice tick, median |
+| --- | ---: | ---: | ---: |
+| D, cold | 1.03 ms | 2.37 ms | 2.31 ms |
+| D, warm | 5.04 ms | 2.88 ms | 2.38 ms |
+| The preset, cold | 1.06 ms | 2.33 ms | 2.24 ms |
+| The preset, warm | 1.53 ms | 2.50 ms | 2.41 ms |
+
+- `TestIncidentWorstCaseStepTime` has the emergency row with `MaxEmergencies` records for D and for the preset, with the rule of A11.
+  The suspension and fleet-limit rows do not apply, because they use generated fleets of 300 and 1,000 pods and not a preset.
+  The test now stops when the active emergencies are not `MaxEmergencies` after the placement.
+  On D and the preset, the driver placed 3 records, and the emergency sampler of the session had started the fourth in the warm time.
+- The rows ran with `PODSIM_SOAK_WORST=1` and `PODSIM_SOAK_GATE=1`, with no `nice`.
+  The load average rose from 5.7 to 9.0 from other work during the run, and the host had no quiet time before the deadline of the task.
+
+| Preset | Run medians, against the reference | Run slowest steps, against the reference | A11 |
+| --- | --- | --- | --- |
+| D | 42.6, 39.5, 38.6, 38.9 µs, against 38.6, 38.2, 38.7, 50.0 µs | 2.49, 2.16, 2.63, 2.64 ms, against 2.31, 2.58, 2.18, 2.20 ms | Passes |
+| The preset | 39.4, 39.9, 40.2, 39.4 µs, against 49.0, 39.3, 39.2, 37.7 µs | 2.11, 2.12, 2.19, 2.06 ms, against 2.47, 5.21, 2.00, 2.02 ms | Passes |
+
+- In the same run, the london-central row failed the slowest-step rule in one run and the median rule of A11.
+  It passed at a load average of 2.7 earlier the same morning, and this change does not touch its path.
+- A quiet run of the worst-case rows of D and the preset is open.
 - Web: `mise run test:web` passed.
 
 ### Wall times
