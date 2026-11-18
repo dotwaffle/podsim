@@ -2,6 +2,7 @@
 
 Status: Approved revision 7, October 6, 2026.
 Amended through 2026-11-13.
+Section 9.3.1, queue promotion, is an amendment that the maintainer approved on 2026-11-18.
 Git history holds the dated amendment notes and the earlier text.
 
 The maintainer approved product choices P1 to P22 of section 18.2 as proposed, on October 5, 2026, at 22:08Z, and decided P23 on October 5, 2026, at 23:59Z.
@@ -818,6 +819,92 @@ A deferred record pod also gets the tier, because it moves toward the berth wher
 
 "Alternate entries" in decision 1 is the station choice: the estimate compares the stations and the entries of their routes, and terminal reevaluation compares the free berths of one station.
 
+#### 9.3.1 Queue promotion
+
+Status: approved by the maintainer on 2026-11-18.
+The maintainer chose queue promotion with a transitive queue, for all presets, as one model rule with no project setting.
+
+The rule comes from record i1.18 of the release soak of the shared-track preset (row SX11 of the shared-track qualification).
+The record pod waited about 435 s behind other pods on the lane of link 100 toward Bank.
+Section 9.3 gives the record pod the first claim on free resources, but it gives nothing to the pods ahead of the record pod.
+
+Queue spans.
+The queue spans of a pod are its prospective reservations, one after the other.
+The first span starts at the first block that the pod has not reserved, and each span ends at `reservationEnd` of its first block.
+The spans stop after the first span that has a junction resource, or at the end of the route.
+The spans do not depend on the reservation horizon of the tick or on linked sharing.
+Thus they over-approximate the pods that the pod waits for.
+For example, a linked grant can take a cell that a pod ahead owns, but that pod still counts.
+A faulted pod has no queue spans, and neither has a pod that is not ready to depart and not `Traveling`.
+Other pods keep their queue spans in a tick in which `admit` makes no request for them.
+For example, `admissionRequest` skips a pod whose reservation covers its horizon, and `admit` skips a pod whose terminal berth choice fails.
+
+Queue of a record.
+At each tick, `admit` finds the queue of each record after the berth choices of the tick and before the sort.
+The queue holds the record pod.
+It also holds each pod that owns a resource of the queue spans of a pod of the queue.
+For a linked follower of the queue, it also holds each other pod that owns a resource of `routeReleases` of the follower.
+`grant` refuses a request of a linked follower outside its linked span while such a resource has another owner (`holdsPending`).
+Thus a draining follower can wait for its leader at a fork while its queue spans are free.
+When the queue gets a pod, it also gets the pods behind that pod in its platoon.
+A linked follower can hold a cell that a pod ahead owns, so the owner of the cell does not name the follower.
+`admit` finds the queues in serial order, and a pod gets the serial of the first queue that holds it.
+The queue of a record is the closure of these rules, so the order of the search does not change the serial of a pod.
+`intent` gets `promoted uint64`: that serial, or 0.
+A record pod keeps `emergency` and gets no `promoted` serial.
+
+The queue is transitive.
+The queue spans of the record pod are its route up to its next merge.
+A pod past the merge can block a pod of the queue, and then it also delays the record pod.
+The transitive queue is also the variant that the study below measured.
+
+Order.
+`compareAdmission` uses this order:
+
+1. The emergency intents, in the order of rules 1 and 2 of section 9.3.
+2. The promoted intents, before every other intent.
+   Among them, the lower serial goes first, and then the order of rule 3 of section 9.3: the age rule, the priority of a young intent, the wait, and the pod ID.
+3. The order of rule 3 of section 9.3 for every other intent.
+
+A promoted intent takes only free resources, as an emergency intent does.
+No grant is revoked (decision 1).
+
+Formats.
+The queues are not state.
+`admit` derives them at each tick from the records, the routes, the reservations, and the owners.
+No saved-state, stream, or protocol member changes, and a restore gives the same queues.
+With no record, `admit` finds no queue, so admission keeps its order.
+A run with records can change its trajectory.
+
+Evidence of the choice.
+A study ran the `incidents` arm of the shared-track preset for seeds 1, 2, and 3, with the full check at each tick, in three variants.
+`base` is `c958b9f6`.
+`promo` adds this rule.
+`both` adds this rule and a berth hold: while a record pod was bound, a pod outside every queue could not take a free berth of its station that the record pod could use.
+The table gives the totals of the three seeds.
+
+| Variant | Late records | Longest record not blocked by a fault | Records over 600 s not blocked | Records | Completed trips | Mean of the mean waits | Longest wait |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `base` | 1 | 611.6 s | 1 | 251 | 13,171 | 705.4 s | 5,530.5 s |
+| `promo` | 0 | 468.6 s | 0 | 256 | 13,482 | 702.7 s | 5,240.6 s |
+| `both` | 1 | 759.6 s | 1 | 254 | 13,089 | 723.5 s | 5,898.6 s |
+
+The maintainer chose `promo`.
+The berth hold was measured and rejected.
+Row SX11 of the shared-track qualification gives the figures of each seed.
+Three seeds of a preset at its queue cap are not enough to rank the variants with confidence.
+The study rule did not have the `routeReleases` owners of a linked follower.
+A rerun of seed 1 of `promo` with the rule as written gave the same figures: no late record, 462.4 s, 86 records, 4,180 completed trips, and waits of 793.8 s and 4,800.1 s.
+
+Evidence of the cost.
+A scratch measurement on 2026-11-18 ran the warm choice-tick fixture of section 15 with virtual platoons, on the networks of london-full-express and london-full-shared-express.
+It had 600 pods, a trip every 4 ticks, and 9,000 measured ticks.
+It kept `MaxEmergencies` records active, and each new record went to the traveling pod with the largest queue.
+The largest queue had 21 pods on london-full-express and 23 pods on london-full-shared-express, and the walk read at most 531 resources in one tick.
+The queue build took at most 74 µs in a tick, and 41 µs at the 99th percentile.
+A whole `Step` took at most 1.75 ms at the 99th percentile, and the slowest `Step` took 24.1 ms, of which the queue build is at most 74 µs.
+After the change, the slowest choice tick of `TestEmergencyChoiceLatency` was 6.30 ms, and the slowest tick of `TestSampledTickLatency` was 5.01 ms.
+
 ### 9.4 Claim surrender gate
 
 `incidentOutstanding()` (stage 2, section 9.5) is also true when an emergency record exists or a pod has `emergencyHold`.
@@ -837,6 +924,9 @@ This contract makes only the following claims:
 - An emergency pod finishes its unload when its route admits it under the conditions of stage 2, section 9.7: owners move and release their resources, receiving capacity becomes available, and phase timers end.
   A reservation cycle or a berth that never frees has no guaranteed end in stage 3.
 - When no record starts after a tick `t0`, and each record from `t0` ends, the tier is empty after the last end, and ordinary admission returns to its existing order.
+- From section 9.3.1: the cap of `MaxEmergencies` does not bound the promoted tier.
+  Only the fleet bounds the number of promoted intents at each tick.
+- From section 9.3.1: an ordinary intent also loses the age protection against each promoted intent.
 - With a sustained start rate, no finite wait is claimed for ordinary intents.
 
 When a condition fails, the system stays safe, and the pod reports its existing wait reason.
@@ -1319,6 +1409,18 @@ The rows for coupling members, the approach, the Q7 skip, `couplingMemberEligibi
 | Tag `OrderID` with `N = 4` | Digest registry test. |
 | Wrap a counter at the maximum | Counter test. |
 | Use the delta path `/groups/emergencies/value/active` | Prescan audit. |
+| From section 9.3.1: stop the queue spans after the first span, or go past the first junction span | Queue test. |
+| From section 9.3.1: leave out the pods that a queue pod waits for | Queue test of a queue pod with its own queue. |
+| From section 9.3.1: leave out the pods behind in a platoon | Queue tests of a platoon. |
+| From section 9.3.1: walk the spans of a faulted or idle pod | Queue tests of a faulted and an idle queue pod. |
+| From section 9.3.1: give a pod the serial of a later record | Queue serial test. |
+| From section 9.3.1: put the promoted tier after the ordinary order or before the emergency tier | Promoted order test. |
+| From section 9.3.1: order promoted intents by pod ID only, or without the serial | Promoted order test. |
+| From section 9.3.1: leave `promoted` unset in `admit` | Promoted admission test: the pod on the other branch gets the merge. |
+| From section 9.3.1: leave out the `routeReleases` owners of a linked follower, or add them for an unlinked pod | Queue test of retained cells. |
+| From section 9.3.1: find only the queue of the first record, or give each queue the serial of the first record | Queue test of more than one record. |
+| From section 9.3.1: give no queue spans to a pod whose terminal berth choice fails | Queue test of a pod with no request. |
+| From section 9.3.1: let a promoted serial replace the emergency serial of a record pod | Admission test of a record pod in an older queue. |
 
 Amended 2026-11-13, by maintainer decision: the row "Let a choice write the free-flow memo" is removed, because a choice can write that memo.
 

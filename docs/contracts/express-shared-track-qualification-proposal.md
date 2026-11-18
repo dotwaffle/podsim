@@ -125,7 +125,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX9 | Fault, Dwell, and Restore and stream evidence on the preset. Open: the browser game page, which the maintainer checks. |
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
-| SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. |
+| SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. With queue promotion (section 9.3.1 of the emergency contract), seeds 1 to 3 had no late record, and the release soak has not run again. |
 | SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
 
 ### Fixture
@@ -420,6 +420,32 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   The same arm of D peaked at 84 to 94, with a mean wait of 232 to 280 s.
   The longest record not blocked by a fault was 611.6 s and 525.5 s on the preset (seed 1, `incidents` and `emergencies`), and 208.0 s and 317.2 s on D.
 - The release soak of the preset fails until the maintainer decides how to treat the queues of link 100.
+- A trace of the record names the pods ahead of it.
+  For about 435 s, `express-07` waited behind `express-11` on the lane of link 100.
+  The 51 s of "Berth occupied" were the unload and then the boarding of `express-11` at Bank berth 01, a grant that the emergency pod cannot revoke.
+- On 2026-11-17, a study ran the `incidents` arm of the preset for seeds 1, 2, and 3, with the full check at each tick, under `nice`, with three runs at a time.
+  `base` is `c958b9f6`.
+  `promo` adds the queue promotion of section 9.3.1 of the emergency contract.
+  `both` adds the queue promotion and a berth hold for the station of each bound record.
+  The rates are from three runs at a time, so they are not a latency measure.
+
+  | Variant | Seed | Late | Longest not blocked by a fault | Over 600 s not blocked | Records | Completed trips | Mean wait, longest wait | Queue peak | Ticks a second |
+  | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+  | `base` | 1 | 1 | 611.6 s | 1 | 78 | 3,902 | 868.2 s, 5,070.0 s | 200 | 356 |
+  | `base` | 2 | 0 | 417.5 s | 0 | 93 | 4,920 | 546.6 s, 3,654.0 s | 200 | 362 |
+  | `base` | 3 | 0 | 338.5 s | 0 | 80 | 4,349 | 701.5 s, 5,530.5 s | 200 | 353 |
+  | `promo` | 1 | 0 | 462.4 s | 0 | 86 | 4,180 | 793.8 s, 4,800.1 s | 200 | 348 |
+  | `promo` | 2 | 0 | 348.8 s | 0 | 86 | 4,929 | 610.3 s, 3,704.1 s | 200 | 352 |
+  | `promo` | 3 | 0 | 468.6 s | 0 | 84 | 4,373 | 703.9 s, 5,240.6 s | 200 | 352 |
+  | `both` | 1 | 1 | 759.6 s | 1 | 81 | 4,137 | 804.1 s, 5,174.1 s | 200 | 344 |
+  | `both` | 2 | 0 | 317.5 s | 0 | 90 | 4,782 | 610.1 s, 4,123.4 s | 200 | 357 |
+  | `both` | 3 | 0 | 372.4 s | 0 | 83 | 4,170 | 756.3 s, 5,898.6 s | 200 | 378 |
+
+- Over the three seeds, `base` had 1 late record and 13,171 completed trips, `promo` had none and 13,482, and `both` had 1 and 13,089.
+  The late record of `both` was on a pod bound to Waterloo, which waited 446 s in the queue toward Bank while a fault blocked its chain, and about 275 s more after the fault.
+  The maintainer chose `promo` and approved section 9.3.1 of the emergency contract on 2026-11-18.
+- Three seeds do not qualify the preset.
+  The release soak needs 5 seeds of each default preset, or a reduced count that is not decided yet, so row SX11 stays failed until that soak runs.
 
 #### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
 
