@@ -524,6 +524,9 @@ type intent struct {
 	// emergency is the serial of the emergency record of the pod, or 0
 	// (section 9.3 of the incident emergency contract).
 	emergency uint64
+	// promoted is the lowest serial of the records whose queue holds the
+	// pod, or 0 (section 9.3.1 of the incident emergency contract).
+	promoted uint64
 }
 
 // admissionWork belongs to one simulation. Each pass clears pod IDs before
@@ -533,6 +536,7 @@ type admissionWork struct {
 	intents []intent
 	pickups map[string]bool
 	denied  []deniedRequest
+	tiers   emergencyTiers
 }
 
 func (s *Simulation) setVehicleRoute(v *vehicle, route []Lane) {
@@ -604,11 +608,16 @@ func (s *Simulation) admit() {
 			pickups[trip.request.PodID] = true
 		}
 	}
+	// The tiers read the routes after the berth choices of this tick.
+	tiers := &work.tiers
+	tiers.build(s)
 	for i := range intents {
 		v := &s.vehicles[intents[i].index]
 		intents[i].priority = admissionPriority(v, pickups[v.Pod.ID])
 		if record := s.emergencyOf(v); record >= 0 {
 			intents[i].emergency = s.emergencies[record].serial
+		} else {
+			intents[i].promoted = tiers.promoted[intents[i].index]
 		}
 	}
 	slices.SortFunc(intents, func(a, b intent) int {
@@ -635,21 +644,47 @@ func admissionPriority(v *vehicle, pickup bool) int {
 }
 
 // compareAdmission gives the requests of emergency pods precedence over
-// every other request, in the order of their record serials (section 9.3
-// of the incident emergency contract). Among the other requests, a request
-// that waited ten seconds has precedence over younger requests. Existing
-// reservations do not participate in this order, so the emergency tier
-// takes only free resources.
+// every other request, in the order of their record serials, and then the
+// pod IDs (section 9.3 of the incident emergency contract). The requests
+// of promoted pods come next, in the order of their serials, and then in
+// the order of the other requests (section 9.3.1). Among the other
+// requests, a request that waited ten seconds has precedence over younger
+// requests. Existing reservations do not participate in this order, so the
+// tiers take only free resources.
 func compareAdmission(a, b intent, tick int64) int {
-	if a.emergency != 0 || b.emergency != 0 {
-		switch {
-		case b.emergency == 0:
-			return -1
-		case a.emergency == 0:
-			return 1
-		}
-		return cmp.Or(cmp.Compare(a.emergency, b.emergency), cmp.Compare(a.id, b.id))
+	tierA, serialA := admissionTier(a)
+	tierB, serialB := admissionTier(b)
+	if order := cmp.Or(cmp.Compare(tierA, tierB), cmp.Compare(serialA, serialB)); order != 0 {
+		return order
 	}
+	if tierA == emergencyTier {
+		return cmp.Compare(a.id, b.id)
+	}
+	return compareOrdinary(a, b, tick)
+}
+
+// The admission tiers, in order.
+const (
+	emergencyTier = iota
+	promotedTier
+	ordinaryTier
+)
+
+// admissionTier returns the tier of in and its serial in that tier.
+func admissionTier(in intent) (int, uint64) {
+	switch {
+	case in.emergency != 0:
+		return emergencyTier, in.emergency
+	case in.promoted != 0:
+		return promotedTier, in.promoted
+	}
+	return ordinaryTier, 0
+}
+
+// compareOrdinary is the order of two requests in one tier below the
+// emergency tier: the age rule, the priority of a young request, the wait,
+// and the pod ID.
+func compareOrdinary(a, b intent, tick int64) int {
 	agedA, agedB := tick-a.since >= admissionAgeTicks, tick-b.since >= admissionAgeTicks
 	if agedA != agedB {
 		if agedA {
