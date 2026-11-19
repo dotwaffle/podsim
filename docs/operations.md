@@ -1002,12 +1002,12 @@ The checks run at the stride of amendment A10: the full check runs at each simul
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
 The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full-express`, and `london-full-shared-express`, with the full check at each tick.
-The `soak:full` task runs 5 seeds of 6 simulated hours with the full check at each tick, on `rail-hub`, `london-central`, `london-full-express`, and `london-full-shared-express` unless `PODSIM_SOAK_PRESETS` names others.
+The `soak:full` task runs 2 seeds of 6 simulated hours (amendment A19) with the full check at each tick, on `rail-hub`, `london-central`, `london-full-express`, and `london-full-shared-express` unless `PODSIM_SOAK_PRESETS` names others.
 On `london-central` and the two London Express presets, it runs no platoon arm, because these presets already set the platoon limit of those arms.
 On a project that sets `shapeClearance`, each check of the soak also runs the D6 oracle of the [shape clearance](design/shape-clearance.md) design, so it runs at each tick.
-This run keeps the wall limit of 2 hours, so it can end cut, before each seed finishes.
-A run that the limit stops counts only its completed seeds.
-The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a cut.
+This run keeps the wall limit of 2 hours.
+By amendment A19, a run that the limit stops fails.
+The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a stop, to show how far the run got.
 
 The tasks set a memory cap of 16 GB of address space.
 They hold a lock on `/tmp/podsim-soak.lock`, so one host runs one soak at a time.

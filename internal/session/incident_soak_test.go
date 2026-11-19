@@ -1260,7 +1260,8 @@ var soakPlatoonPresetArms = []string{"incidents", "emergencies", "reference"}
 
 // soakShapeOf returns the shape of the name for a preset. "branches" is the
 // routine shape of amendment A10. "seeds" is the shape of amendment A6, which
-// A10 keeps for the same triggers as the every-tick mode.
+// A10 keeps for the same triggers as the every-tick mode, with the seed count
+// of amendment A19.
 func soakShapeOf(name, preset string) (soakShape, error) {
 	switch name {
 	case "branches":
@@ -1284,7 +1285,7 @@ func soakShapeOf(name, preset string) (soakShape, error) {
 		if preset == "london-central" || soakLondonHubPreset(preset) {
 			arms = soakPlatoonPresetArms
 		}
-		return soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: arms}, nil
+		return soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: soakTicksPerHour, arms: arms}, nil
 	}
 	return soakShape{}, fmt.Errorf("unknown soak shape %q", name)
 }
@@ -1319,9 +1320,10 @@ func soakEnvNumber[N uint64 | int64 | float64](t *testing.T, name string, fallba
 // reference-low-demand and 10 incidents-low-demand branches use 1 order/min,
 // including the warm time, with the same 30-minute Progress window.
 //
-// A run that the wall limit stops counts only its completed seeds. With
-// PODSIM_SOAK_FINISHED set, the test adds a line to that file for each finished
-// seed, at once, so the file survives the stop.
+// By amendment A19, a run of the "seeds" shape that the wall limit stops
+// fails. With PODSIM_SOAK_FINISHED set, the test adds a line to that file for
+// each finished seed, at once, so the file survives the stop and shows how far
+// the run got.
 //
 // These variables select the run: PODSIM_SOAK=1, PODSIM_SOAK_SHAPE ("branches"
 // or "seeds"), PODSIM_SOAK_EVERY_TICK=1, PODSIM_SOAK_PRESETS, PODSIM_SOAK_ARMS,
@@ -2274,11 +2276,11 @@ func TestSoakShape(t *testing.T) {
 		{"branches", soakExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakExpressPartiesPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 10, hours: 1.5, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakLondonExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
-		{"seeds", "rail-hub", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
-		{"seeds", "london-central", soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
-		{"seeds", soakLondonExpressPreset, soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"seeds", "rail-hub", soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: soakAllArms}},
+		{"seeds", "london-central", soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"seeds", soakLondonExpressPreset, soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakLondonSharedExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
-		{"seeds", soakLondonSharedExpressPreset, soakShape{seeds: 5, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
+		{"seeds", soakLondonSharedExpressPreset, soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 	}
 	for _, test := range tests {
 		got, err := soakShapeOf(test.name, test.preset)

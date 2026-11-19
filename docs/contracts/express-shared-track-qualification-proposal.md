@@ -96,7 +96,7 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
   Evidence: a soak run of the row with the preset, with its log.
 - SX11, the CI soak and the release soak (from A16).
   Measures: long runs of the preset with the full check.
-  Pass: a CI case of one simulated hour, and 5 seeds of 6 simulated hours before a release tag, with the full check and the D6 oracle at each tick.
+  Pass: a CI case of one simulated hour, and 2 seeds of 6 simulated hours before a release tag (amendment A19 of the stage 7 contract), with the full check and the D6 oracle at each tick.
   Carried from A16: the release runs end with a clear of 30 minutes.
   Evidence: the CI case in the CI tasks, and the logs of the release runs.
 - SX12, Performance, Sampled-tick latency, Worst choice tick, and Web (from A17).
@@ -445,7 +445,12 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   The late record of `both` was on a pod bound to Waterloo, which waited 446 s in the queue toward Bank while a fault blocked its chain, and about 275 s more after the fault.
   The maintainer chose `promo` and approved section 9.3.1 of the emergency contract on 2026-11-18.
 - Three seeds do not qualify the preset.
-  The release soak needs 5 seeds of each default preset, or a reduced count that is not decided yet, so row SX11 stays failed until that soak runs.
+  The release soak needs the seed count of amendment A19 of the stage 7 contract, so row SX11 stays failed until that soak runs.
+- On 2026-11-19, a timing run at `cc8f951f` ran 1 seed of each default preset of `mise run soak:full`, the preset included, on a quiet host.
+  It took 51.4 minutes, and each seed passed, with no late record.
+  The preset took 3,111 s of run-slot time, the most of the 4 presets, and its `incidents` arm was the longest run, at 1,553 s.
+  From this run, the maintainer set the release soak to 2 seeds of each preset in amendment A19 on 2026-11-19.
+  Row SX11 stays failed until the release soak runs at 2 seeds.
 
 #### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
 

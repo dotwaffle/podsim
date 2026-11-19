@@ -644,6 +644,20 @@ A7, A11, and the current latency limits stay.
 Amendment A18, approved by the maintainer on 2026-11-07: for the Formats row and A4, Express stays unproved until the Express byte proof of amendment E5 of the physical contract passes.
 When it passes, its source and its margins are recorded next to the plain proofs.
 
+Amendment A19, approved by the maintainer on 2026-11-19: the release soak of A6, A12, and A16 runs 2 seeds of 6 simulated hours, then the clear of 30 simulated minutes, on each default preset of `mise run soak:full`, with the full check at each tick.
+This replaces the 5 seeds of A6, A12, and A16.
+The limit of 2 hours of wall time stays.
+A timing run on 2026-11-19, at commit `cc8f951f`, ran 1 seed of each default preset with the 3 run slots of the task, on a quiet host.
+The whole run took 51.4 minutes (3,084 s), and each seed passed.
+The runs took 7,618 s of run-slot time in total: 728 s on `rail-hub`, 1,286 s on `london-central`, 2,493 s on `london-full-express`, and 3,111 s on `london-full-shared-express`.
+The longest run was the `incidents` arm of `london-full-shared-express`, 1,553 s after a reference run of 285 s.
+In each of the 1,008 windows of the log, the tick rate by wall time was between 95 and 101 percent of the rate by thread CPU time, so the host added little contention.
+At 3 run slots, 3 seeds need at least 7,618 s (127 minutes), which is more than the limit.
+2 seeds need between 85 minutes (full use of the slots) and 103 minutes (twice the measured run).
+The release soak passes only when each seed of each preset finishes.
+A run that the limit stops fails, and the count is open again.
+This replaces, for the release soak only, the rule of A6 that a stopped run counts only its completed seeds.
+
 Amendments, each for a separate answer in section 8:
 
 | # | Approved text | Change | Reason |
