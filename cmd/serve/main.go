@@ -451,17 +451,20 @@ func loadProject(path string) (project.Config, error) {
 
 // decodeProject reads the project at path from r. It reads one byte past
 // project.MaxFileBytes and refuses that byte, because a pipe or a growing
-// file has no size to check first.
+// file has no size to check first. The decoder gets a read error after
+// the bytes read before it, so a JSON error before the failed read comes
+// first, as it does when the decoder reads r itself.
 func decodeProject(path string, r io.Reader) (project.Config, error) {
-	data, err := io.ReadAll(io.LimitReader(r, project.MaxFileBytes+1))
-	if err != nil {
-		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
-	}
+	data, readErr := io.ReadAll(io.LimitReader(r, project.MaxFileBytes+1))
 	if len(data) > project.MaxFileBytes {
 		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
 	}
+	var source io.Reader = bytes.NewReader(data)
+	if readErr != nil {
+		source = io.MultiReader(source, failedRead{readErr})
+	}
 	// Member names match exactly. The other encoding/json rules stay.
-	decoder := jsontext.NewDecoder(bytes.NewReader(data), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
+	decoder := jsontext.NewDecoder(source, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
 	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
 		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
@@ -474,6 +477,11 @@ func decodeProject(path string, r io.Reader) (project.Config, error) {
 	}
 	return config, nil
 }
+
+// failedRead is a reader that gives err at each read.
+type failedRead struct{ err error }
+
+func (f failedRead) Read([]byte) (int, error) { return 0, f.err }
 
 // saveProject replaces the file at path with the canonical encoding of
 // config. project.Validate measures the same encoding (see encodedSize in

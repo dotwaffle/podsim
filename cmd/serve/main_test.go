@@ -798,6 +798,33 @@ func TestDecodeProjectStreamBound(t *testing.T) {
 	}
 }
 
+// TestDecodeProjectReadErrorOrder checks that a read error comes after a
+// JSON error in the bytes before it, as it did when the decoder read the
+// file itself. A read error before the end of the value gives that error.
+func TestDecodeProjectReadErrorOrder(t *testing.T) {
+	t.Parallel()
+	failure := errors.New("disk failure")
+	tests := []struct {
+		name, before string
+		want         func(error) bool
+	}{
+		{"after a value", `{}`, func(err error) bool { return err.Error() == "read project p: expected one JSON value" }},
+		{"after a syntax error", `{]`, func(err error) bool {
+			return !errors.Is(err, failure) && strings.HasPrefix(err.Error(), "read project p: ")
+		}},
+		{"inside a value", `{"version":`, func(err error) bool { return errors.Is(err, failure) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			_, err := decodeProject("p", io.MultiReader(strings.NewReader(test.before), failedRead{failure}))
+			if err == nil || !test.want(err) {
+				t.Fatalf("got %v", err)
+			}
+		})
+	}
+}
+
 func TestRunPublicOrigin(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
