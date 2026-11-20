@@ -35,7 +35,7 @@ const (
 	// the curve.
 	londonFilletCurved londonFilletOutcome = iota
 	// londonFilletNoNeighbor keeps the chord: a lane before or after the
-	// road is missing.
+	// road is missing, or a heading or the chord has no direction.
 	londonFilletNoNeighbor
 	// londonFilletControl keeps the road, which already has a control
 	// point.
@@ -80,10 +80,10 @@ func filletLondonRoads(network *sim.Network) {
 // <station>-road-out-NN of its station. The rule takes the heading u at
 // the start a of the road and the heading v at its end b, and the control
 // point C = a + s u = b - t v. It keeps the road when it already has a
-// control point. It keeps the chord, in this order of the checks, when the
-// rays are parallel, when an end is already tangent, when s or t is at
-// most londonFilletBehind, or when the curve is slower than
-// londonRampMinimumSpeed.
+// control point. It keeps the chord, in this order of the checks, when u,
+// v, or the chord has no direction, when the rays are parallel, when an end
+// is already tangent, when s or t is at most londonFilletBehind, or when
+// the curve is slower than londonRampMinimumSpeed.
 func londonRoadFillets(network sim.Network) []londonFillet {
 	positions := make(map[string]sim.Point, len(network.Nodes))
 	for _, node := range network.Nodes {
@@ -149,11 +149,16 @@ func londonFilletCurve(lane sim.Lane, a, b, u, v sim.Point) (londonFilletOutcome
 	if lane.Control != nil {
 		return londonFilletControl, sim.Point{}, 0
 	}
+	// A zero or non-finite heading or chord makes NaN values that pass each
+	// check below.
+	d := sim.Point{X: b.X - a.X, Y: b.Y - a.Y}
+	if !londonDirected(u) || !londonDirected(v) || !londonDirected(d) {
+		return londonFilletNoNeighbor, sim.Point{}, 0
+	}
 	cross := u.X*v.Y - u.Y*v.X
 	if math.Abs(cross) < londonFilletParallel {
 		return londonFilletParallelRays, sim.Point{}, 0
 	}
-	d := sim.Point{X: b.X - a.X, Y: b.Y - a.Y}
 	s := (d.X*v.Y - d.Y*v.X) / cross
 	t := (u.X*d.Y - u.Y*d.X) / cross
 	chord := londonUnit(d)
@@ -175,6 +180,13 @@ func londonFilletCurve(lane sim.Lane, a, b, u, v sim.Point) (londonFilletOutcome
 func londonUnit(p sim.Point) sim.Point {
 	length := math.Hypot(p.X, p.Y)
 	return sim.Point{X: p.X / length, Y: p.Y / length}
+}
+
+// londonDirected reports whether p has a direction: its length is finite
+// and above zero.
+func londonDirected(p sim.Point) bool {
+	length := math.Hypot(p.X, p.Y)
+	return length > 0 && !math.IsInf(length, 0)
 }
 
 // londonAngle returns the angle in radians between the unit directions u

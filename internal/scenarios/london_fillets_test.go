@@ -12,8 +12,9 @@ import (
 
 // TestLondonFilletCurve checks the rule for one road: the control point,
 // the speed of decisions FL-D2 and FL-D3, and each case that keeps the
-// road. The tangent check comes before the check of the rays behind the
-// ends.
+// road. The checks of the directions come first. The parallel check comes
+// before the tangent check, and the tangent check comes before the check of
+// the rays behind the ends.
 func TestLondonFilletCurve(t *testing.T) {
 	t.Parallel()
 	east, north, west := sim.Point{X: 1}, sim.Point{Y: 1}, sim.Point{X: -1}
@@ -34,8 +35,14 @@ func TestLondonFilletCurve(t *testing.T) {
 		// smallest radius of 12.5 m.
 		{name: "floor", a: sim.Point{X: -5}, b: sim.Point{X: 5}, u: londonUnit(sim.Point{X: 5, Y: -2}), v: londonUnit(sim.Point{X: 5, Y: 2}), want: londonFilletCurved, control: sim.Point{Y: -2}, speed: londonRampMinimumSpeed},
 		{name: "below the floor", a: sim.Point{X: -5}, b: sim.Point{X: 5}, u: londonUnit(sim.Point{X: 5, Y: -2.1}), v: londonUnit(sim.Point{X: 5, Y: 2.1}), want: londonFilletSlow, control: sim.Point{Y: -2.1}},
+		// A zero vector has the direction NaN, which passes each other check.
+		{name: "no start heading", b: sim.Point{X: 100, Y: 100}, u: londonUnit(sim.Point{}), v: north, want: londonFilletNoNeighbor},
+		{name: "no end heading", b: sim.Point{X: 100, Y: 100}, u: east, v: londonUnit(sim.Point{}), want: londonFilletNoNeighbor},
+		{name: "no chord", u: east, v: north, want: londonFilletNoNeighbor},
+		{name: "chord of infinite length", b: sim.Point{X: math.Inf(1)}, u: east, v: north, want: londonFilletNoNeighbor},
 		{name: "control point", lane: sim.Lane{Control: &sim.Point{X: 100}}, b: sim.Point{X: 100, Y: 100}, u: east, v: north, want: londonFilletControl},
 		{name: "parallel", b: sim.Point{X: 100, Y: 10}, u: east, v: east, want: londonFilletParallelRays},
+		{name: "collinear", b: sim.Point{X: 100}, u: east, v: east, want: londonFilletParallelRays},
 		{name: "opposite", b: sim.Point{X: 100, Y: 10}, u: east, v: west, want: londonFilletParallelRays},
 		{name: "tangent at the start", b: sim.Point{X: 100, Y: 1}, u: east, v: north, want: londonFilletTangentEnd},
 		{name: "tangent at the end", b: sim.Point{X: 100, Y: 1}, u: north, v: east, want: londonFilletTangentEnd},
@@ -77,10 +84,10 @@ func TestLondonFilletCurve(t *testing.T) {
 
 // TestLondonRoadFillets checks the neighbors of the roads on a small
 // network: the end tangent of a curved link lane, the start tangent of a
-// curved access lane, a control point at the end of a lane, a portal with
-// two link lanes, a station without an access lane, the lanes that are
-// not roads, and a road-out between a curved access lane and a curved link
-// lane.
+// curved access lane, a control point at the end or the start of a lane, a
+// portal with two link lanes in or out, a station without an access lane in
+// or out, the lanes that are not roads, and a road-out between a curved
+// access lane and a curved link lane.
 func TestLondonRoadFillets(t *testing.T) {
 	t.Parallel()
 	node := func(id string, x, y float64) sim.Node { return sim.Node{ID: id, Position: sim.Point{X: x, Y: y}} }
@@ -93,6 +100,9 @@ func TestLondonRoadFillets(t *testing.T) {
 			node("s-exit", -40, 100), node("s-merge", -40, 40), node("departure", -80, 0), node("link-end", -180, 0),
 			node("other-start", -100, 50), node("other-arrival", 0, 200), node("t-diverge", 50, 250),
 			node("r-exit", 1900, 300), node("r-merge", 1900, 0), node("r-departure", 1600, -300), node("r-link-end", 1300, -900),
+			node("s-split", -140, -60), node("split-west", -240, -60), node("split-southwest", -340, -160),
+			node("t-merge", 0, 300), node("t-departure", 100, 400), node("t-link-end", 100, 600),
+			node("q-link-start", 3000, 0), node("q-arrival", 3100, 0), node("q-diverge", 3200, 100), node("q-entry", 3200, 300),
 		},
 		Lanes: []sim.Lane{
 			// The end tangent of the link lane is east, and its chord is not.
@@ -121,6 +131,19 @@ func TestLondonRoadFillets(t *testing.T) {
 			lane("r-access-out", "r-exit", "r-merge", "r", &sim.Point{X: 2200, Y: 150}),
 			lane("r-road-out-01", "r-merge", "r-departure", "r", nil),
 			lane("london-link-004-ba-1", "r-departure", "r-link-end", "", &sim.Point{X: 1600, Y: -600}),
+			// Two link lanes start at the portal of this road. Each one gives
+			// a curve.
+			lane("s-road-out-02", "s-merge", "s-split", "s", nil),
+			lane("london-link-005-ba-1", "s-split", "split-southwest", "", nil),
+			lane("london-link-006-ba-1", "s-split", "split-west", "", nil),
+			// Station t has no access-out lane. Lane 0 would give a curve.
+			lane("t-road-out-01", "t-merge", "t-departure", "t", nil),
+			lane("london-link-007-ba-1", "t-departure", "t-link-end", "", nil),
+			// The control point is at the start, so the start tangent is the
+			// chord, north.
+			lane("london-link-008-ab-2", "q-link-start", "q-arrival", "", nil),
+			lane("q-road-in-01", "q-arrival", "q-diverge", "q", nil),
+			lane("q-access-in", "q-diverge", "q-entry", "q", &sim.Point{X: 3200, Y: 100}),
 		},
 	}
 	fillets := londonRoadFillets(network)
@@ -131,7 +154,8 @@ func TestLondonRoadFillets(t *testing.T) {
 	want := map[string]londonFilletOutcome{
 		"s-road-in-01": londonFilletCurved, "s-road-out-01": londonFilletCurved,
 		"s-road-in-02": londonFilletNoNeighbor, "t-road-in-01": londonFilletNoNeighbor,
-		"r-road-out-01": londonFilletCurved,
+		"r-road-out-01": londonFilletCurved, "s-road-out-02": londonFilletNoNeighbor, "t-road-out-01": londonFilletNoNeighbor,
+		"q-road-in-01": londonFilletCurved,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("%d roads, want %d: %+v", len(got), len(want), fillets)
@@ -141,8 +165,10 @@ func TestLondonRoadFillets(t *testing.T) {
 			t.Fatalf("%s: outcome %d, want %d", id, got[id].outcome, outcome)
 		}
 	}
-	for id, control := range map[string]sim.Point{"s-road-in-01": {X: 40}, "s-road-out-01": {X: -40}, "r-road-out-01": {X: 1600, Y: -150}} {
-		if c := got[id].control; math.Hypot(c.X-control.X, c.Y-control.Y) > 1e-9 {
+	controls := map[string]sim.Point{"s-road-in-01": {X: 40}, "s-road-out-01": {X: -40}, "r-road-out-01": {X: 1600, Y: -150}, "q-road-in-01": {X: 3200}}
+	for id, control := range controls {
+		// The negated test also refuses a NaN control point.
+		if c := got[id].control; !(math.Hypot(c.X-control.X, c.Y-control.Y) <= 1e-9) {
 			t.Fatalf("%s: control %v, want %v", id, c, control)
 		}
 	}
@@ -177,7 +203,7 @@ func TestLondonRoadFilletsOnLondonFull(t *testing.T) {
 	for _, fillet := range fillets {
 		counts[fillet.outcome]++
 	}
-	// The tangent check comes first, so the 15 tangent roads with rays
+	// The tangent check comes first, so the 6 tangent roads with rays
 	// behind an end count as tangent.
 	want := map[londonFilletOutcome]int{londonFilletCurved: 676, londonFilletSlow: 631, londonFilletTangentEnd: 15, londonFilletRaysBehind: 134}
 	if !reflect.DeepEqual(counts, want) {
