@@ -139,11 +139,28 @@ func sharedExpressTick(t *testing.T, s *Simulation, r *envelopeReference, name s
 	}
 }
 
-// sharedExpressRestore saves s, restores the save, and requires the
-// physical tier with no change to the pods, the counters, or the queue,
-// except a distance within restoreTolerance (see checkRestoredMatches). The restored copy then runs for 10 s with the checks of
-// sharedExpressTick at each tick.
+// sharedExpressRestore saves s and restores the save (see
+// restoreExpressSave). It turns the policies off in a copy of the restored
+// simulation (see sharedExpressPoliciesOff). The restored copy then runs
+// for 10 s with the checks of sharedExpressTick at each tick.
 func sharedExpressRestore(t *testing.T, p sharedExpressProject, s *Simulation, name string, counts *sharedExpressCounts) {
+	t.Helper()
+	cold := restoreExpressSave(t, p, s, name)
+	counts.restores++
+	resets, kept, dropped, rebuilt := sharedExpressRestoreChanges(t, s, cold)
+	t.Logf("%s: tick %d restored at the physical tier: %d speed resets; forward grants: %d kept, %d not rebuilt, %d new from the route geometry", name, s.tick, resets, kept, dropped, rebuilt)
+	if links, control := sharedExpressPoliciesOff(t, cold.Clone(), name); links > 0 {
+		counts.policiesOff++
+		counts.control += control
+	}
+	runRestoredExpress(t, cold, name)
+}
+
+// restoreExpressSave saves s, restores the save, and requires the physical
+// tier with no change to the pods, the counters, or the queue, except a
+// distance within restoreTolerance (see checkRestoredMatches). It returns
+// the restored simulation.
+func restoreExpressSave(t *testing.T, p sharedExpressProject, s *Simulation, name string) *Simulation {
 	t.Helper()
 	// With no incident, the state takes a strict JSON round trip first. The
 	// session adapter saves the fault and emergency records, which the plain
@@ -168,13 +185,13 @@ func sharedExpressRestore(t *testing.T, p sharedExpressProject, s *Simulation, n
 		t.Fatal(err)
 	}
 	checkRestoredMatches(t, s, cold)
-	counts.restores++
-	resets, kept, dropped, rebuilt := sharedExpressRestoreChanges(t, s, cold)
-	t.Logf("%s: tick %d restored at the physical tier: %d speed resets; forward grants: %d kept, %d not rebuilt, %d new from the route geometry", name, s.tick, resets, kept, dropped, rebuilt)
-	if links, control := sharedExpressPoliciesOff(t, cold.Clone(), name); links > 0 {
-		counts.policiesOff++
-		counts.control += control
-	}
+	return cold
+}
+
+// runRestoredExpress runs a restored simulation for 10 s with the checks
+// of sharedExpressTick at each tick.
+func runRestoredExpress(t *testing.T, cold *Simulation, name string) {
+	t.Helper()
 	reference := newEnvelopeReference(cold)
 	for range 10 * TicksPerSecond {
 		cold.Step()

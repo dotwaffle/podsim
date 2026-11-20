@@ -14,7 +14,8 @@ const expressMaximumBraking = 1.15
 // soak row on the London Express preset, with background demand: 20 pooled
 // singletons in one Express pod, a fault on that pod at speed with its
 // standees, and an emergency on a pod with standees. It saves and restores
-// at each state, and checks the safety oracle at each tick of each incident.
+// at each state, and checks the safety oracle and the D6 oracle at each
+// tick of the session.
 func TestLondonExpressIncidentFixtures(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
@@ -44,17 +45,18 @@ func TestLondonExpressIncidentFixtures(t *testing.T) {
 		if _, err := shared.simulation.SafetyObservation().Check(); err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
+		if err := shared.simulation.LateralBodyCheckForTest(); err != nil {
+			t.Fatalf("%s: D6 oracle: %v", name, err)
+		}
 	}
 	// until advances the session one second at a time, for at most limit
-	// seconds, until done reports true. each runs at every tick.
-	until := func(name string, limit int, each func(), done func() bool) {
+	// seconds, until done reports true. The oracles run at every tick.
+	until := func(name string, limit int, done func() bool) {
 		t.Helper()
 		for range limit {
 			for range sim.TicksPerSecond {
 				shared.advance()
-				if each != nil {
-					each()
-				}
+				oracle(name)
 			}
 			if done() {
 				return
@@ -80,7 +82,7 @@ func TestLondonExpressIncidentFixtures(t *testing.T) {
 	}
 	pooled := ""
 	standing := false
-	until("pooled singletons", 600, nil, func() bool {
+	until("pooled singletons", 600, func() bool {
 		for _, v := range shared.simulation.Snapshot().Vehicles {
 			parties, passengers := aboard(v)
 			if v.Pod.Class != sim.ExpressClass || parties == 0 {
@@ -134,7 +136,7 @@ func TestLondonExpressIncidentFixtures(t *testing.T) {
 	}
 	t.Logf("fault on %s at %.2f m/s: largest drop %.5f m/s per tick, %.2f m to rest", pooled, start, largest, travel)
 	f.checkpoint("fault at rest with standees")
-	until("fault end", 120, func() { oracle("fault hold") }, func() bool { return find(pooled).Withdrawn&1 == 0 })
+	until("fault end", 120, func() bool { return find(pooled).Withdrawn&1 == 0 })
 
 	// An emergency on a pod with standees at speed. It unloads at a station
 	// and leaves service until the emergency ends.
@@ -142,7 +144,7 @@ func TestLondonExpressIncidentFixtures(t *testing.T) {
 		t.Fatal(refusal)
 	}
 	target := ""
-	until("standees at speed", 600, nil, func() bool {
+	until("standees at speed", 600, func() bool {
 		for _, v := range shared.simulation.Snapshot().Vehicles {
 			if _, passengers := aboard(v); passengers > 12 && v.Pod.Activity == sim.Traveling && v.Pod.Speed >= 10 {
 				target = v.Pod.ID
@@ -155,7 +157,7 @@ func TestLondonExpressIncidentFixtures(t *testing.T) {
 	t.Logf("emergency on %s at tick %d", target, shared.simulation.Snapshot().Tick)
 	f.checkpoint("emergency journey")
 	unloaded := false
-	until("emergency unload", 600, func() { oracle("emergency") }, func() bool {
+	until("emergency unload", 600, func() bool {
 		v := find(target)
 		if !unloaded && v.Pod.Activity == sim.Unloading && v.Operational == sim.OperationalEmergencyUnload {
 			unloaded = true

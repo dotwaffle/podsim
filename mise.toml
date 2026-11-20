@@ -114,6 +114,20 @@ go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonSharedExpress
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonSharedExpressRemoteLoads|TestLondonSharedExpressRemoteRecovery)$'
 '''
 
+# The qualification tests of the london-full-express preset (project D)
+# under the shape clearance rule. Most of them skip under -race and with
+# -short. Each pattern names each test, because a pattern that matches no
+# test passes. Add a new test of these rows here.
+[tasks."test:london-express"]
+description = "Run the qualification tests of the London Express preset without the race detector"
+run = '''
+go test ./internal/scenarios -count=1 -timeout=20m -run '^(TestLondonFullExpress|TestLondonFullExpressRoutes)$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^(TestLondonExpressEnvelopeRun|TestEnvelopeMatchesReference)$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full-express$' || exit 1
+go test ./internal/session -count=1 -timeout=30m -run '^(TestLondonExpressPhysicalCheckpoints|TestLondonExpressIncidentFixtures|TestSoakLondonExpressDriver)$' || exit 1
+go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonExpressRemoteLoads|TestLondonExpressRemoteRecovery)$'
+'''
+
 [tasks.vulncheck]
 description = "Check dependencies for known vulnerabilities"
 run = """

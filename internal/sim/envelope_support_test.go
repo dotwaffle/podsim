@@ -5,6 +5,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -161,6 +162,8 @@ func TestEnvelopeSupportCurves(t *testing.T) {
 // station, the support of a small body passes maneuver group lanes,
 // traveling, before its origin release, and at a berth, and rule 2 holds
 // the lanes after them. Without the rules, the oracle misses support lanes.
+// The long run adds the shared lanes of london-full-shared-express and the
+// hub lanes of london-full-express.
 func TestEnvelopeSupportMixedSmall(t *testing.T) {
 	t.Parallel()
 	t.Run("hook", func(t *testing.T) {
@@ -214,6 +217,29 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 				c.lane(lane, diskSmall, c.behind+1, c.bounds[lane]+60, 2)
 			}
 		}
+		supportRun(t, c, map[string]int{"poses small": 1})
+		t.Logf("%v", c.counts)
+	})
+	// The lanes of Waterloo and Bank of london-full-express (project D)
+	// that admit a small class. There Compact pods pass the Express lanes
+	// and the maneuver groups of the hubs. The case runs only in the long
+	// run, without -race.
+	t.Run("london-full-express", func(t *testing.T) {
+		t.Parallel()
+		if testing.Short() || raceEnabled {
+			t.Skip("the preset network is large")
+		}
+		n := expressNetworkFixture(t)
+		c := newSharedContainment(t, "london-full-express", n)
+		c.reference = true
+		lanes := 0
+		for lane, l := range n.Lanes {
+			if (strings.HasPrefix(l.ID, sharedExpressWaterloo) || strings.HasPrefix(l.ID, sharedExpressBank)) && diskSmall.allows(l.VehicleClasses) {
+				c.lane(lane, diskSmall, c.behind+1, c.bounds[lane]+60, 2)
+				lanes++
+			}
+		}
+		t.Logf("%d lanes", lanes)
 		supportRun(t, c, map[string]int{"poses small": 1})
 		t.Logf("%v", c.counts)
 	})

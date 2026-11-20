@@ -46,6 +46,8 @@ func newLondonExpressFixture(t *testing.T, options ...Option) *londonExpressFixt
 	for _, service := range config.ExpressServices {
 		f.services[service.From] = service.ID
 	}
+	// The restored copy of each checkpoint runs the D6 oracle at each tick.
+	f.tick = func(restored *sim.Simulation) error { return restored.LateralBodyCheckForTest() }
 	return f
 }
 
@@ -104,15 +106,30 @@ func (f *londonExpressFixture) checkpoint(name string) {
 // through the encoded session path at the states that the risk-check probe of
 // the qualification proposal did not reach: an Express pod at a berth of the
 // second bank at Bank, and an Express pod on its way back to Express parking.
-// Each save must restore at the physical tier with no change to the pods,
-// and the restored copy must pass the safety oracle for 10 s.
+// It also saves at the first second with a traveling pod on a join turn at
+// a lane end (see JoinTurnPodsForTest). Each save must restore at the
+// physical tier with no change to the pods, and the restored copy must pass
+// the safety oracle and the D6 oracle for 10 s.
 func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("the London Express checkpoints run without -short or -race")
 	}
 	f := newLondonExpressFixture(t)
-	f.drive(func(_ int, state string) { f.checkpoint(state) }, nil)
+	joined := false
+	f.drive(func(_ int, state string) { f.checkpoint(state) }, func(tick int) bool {
+		if !joined && (tick+1)%sim.TicksPerSecond == 0 {
+			if pods := f.shared.simulation.JoinTurnPodsForTest(); len(pods) > 0 {
+				joined = true
+				t.Logf("tick %d: join turn: %v", tick, pods)
+				f.checkpoint("join turn")
+			}
+		}
+		return !joined
+	})
+	if !joined {
+		t.Error("no pod reached a join turn at a lane end")
+	}
 }
 
 // londonExpressStates are the states of the script of drive, in order.

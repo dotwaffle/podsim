@@ -38,6 +38,48 @@ func (s *Simulation) LateralBodyCheckForTest() error {
 	return s.lateralBodyCheck()
 }
 
+// JoinTurnPodsForTest returns the IDs of the traveling pods at a join turn:
+// at a lane end, where the oracle turns the body toward a lane that joins
+// there with another heading (see podPoses). It is a test entry: the
+// session tests save at such a state. No production code calls it.
+func (s *Simulation) JoinTurnPodsForTest() []string {
+	var pods []string
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		lane, ok := s.graph.lanes[v.Pod.LaneID]
+		if v.Pod.Activity != Traveling || !ok {
+			continue
+		}
+		this := s.network.Lanes[lane]
+		points := s.network.Polyline(this)
+		first, last, ok := polylineEndHeadings(points)
+		if !ok {
+			continue
+		}
+		length := 0.0
+		for k := 1; k < len(points); k++ {
+			length += pointDistance(points[k-1], points[k])
+		}
+		distance := v.Pod.LaneDistance
+		atStart, atEnd := distance <= mergeOracleNear, distance >= length-mergeOracleNear
+		if !atStart && !atEnd {
+			continue
+		}
+		for _, other := range s.network.Lanes {
+			otherFirst, otherLast, otherOK := polylineEndHeadings(s.network.Polyline(other))
+			if other.From == other.To || !otherOK {
+				continue
+			}
+			if atStart && other.To == this.From && math.Abs(math.Remainder(first-otherLast, 2*math.Pi)) > 0 ||
+				atEnd && other.From == this.To && math.Abs(math.Remainder(otherFirst-last, 2*math.Pi)) > 0 {
+				pods = append(pods, v.Pod.ID)
+				break
+			}
+		}
+	}
+	return pods
+}
+
 // lateralBodyCheck is the oriented body oracle of the lateral pairs of
 // docs/design/shape-clearance.md. It is independent of Check: it does not
 // use pair or the clearance of a pair. It reads the merge table only for
