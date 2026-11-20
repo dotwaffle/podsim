@@ -59,9 +59,8 @@ Its guideways connect through Canary Wharf DLR, and its demand endpoints are exc
 Poplar uses the shared heading search without an override.
 LondonCentral's headings and capacity remain unchanged.
 
-The preset sets [`lateralMerges`](reference.md#lateral-merges), as LondonCentral does, so two small lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
-`london-full-express` does not set it.
-`london-full-shared-express` sets it, and it has no further effect there, because that preset also sets [`shapeClearance`](reference.md#shape-clearance).
+Two lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
+The [shape clearance](reference.md#shape-clearance) rule gives these pairs to each network.
 
 The layout audit reports no hard conflicts and no soft conflicts.
 Soft conflicts describe overlap or proximity to source station positions.
@@ -113,13 +112,11 @@ mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-lond
 | Stations | Tight | Wide, scale 1, two banks at each hub | Tight, with parts of 41 m at Waterloo and Bank |
 | Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
 | Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo |
-| `shapeClearance` | Not set | Not set | Set |
-| `lateralMerges` | Set | Not set | Set, with no further effect |
 | Junction lanes | All chords | All chords | Two chords removed |
 | Network SHA-256 | `e194426a...` | `3aa0a2eb...` | `652d75eb...` |
 
 The hub geometry changes are a Waterloo throat at 90 m, Bank turned by 5 degrees, a curve on `940GZZLUWLO-road-in-05`, and the removal of `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06`.
-Without them, the bank audit with `shapeClearance` refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
+Without them, the bank audit refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
 Express free-flow routes grow by about 45 m from Waterloo to Bank and 48 m back, and 1,249 station pairs get a longer route.
 The worst of them is 21.4 s longer, from Waterloo to St. Paul's.
 Wait and journey times are not measured.
@@ -340,7 +337,7 @@ The network SHA-256 of the variant is `d17ae5c5a2c7743e07a572b8402190c8caab33ed2
 | 1,000 | 10 | 0.147 | 0.126 | 0.202 | 0.286 | 129 |
 | 1,000 | 120 | 0.931 | 0.747 | 1.248 | 5.928 | 809 |
 
-The variant starts from the preset options, so it has `lateralMerges` set since November 15, 2026.
+The variant starts from the preset options, so it has had lateral merge pairs since November 15, 2026.
 One run of all six cases on Go 1.27.4, on November 15, 2026, at 60 Hz, passed without restore demotions.
 The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c730cf59557a86afe7763e68`.
 

@@ -3,8 +3,9 @@
 Status: the maintainer approved this design on 2026-11-15.
 Slice 1 is built as the `-junctions ramps` option.
 The study is done, and on 2026-11-15 the maintainer kept chords, because ramps failed the drain criterion by one seed.
-The follow-up is the [lateral merge zones](lateral-merge-zones.md) design, built behind the `lateralMerges` network field.
-The presets keep chords, and since 2026-11-15 they also set `lateralMerges`.
+The follow-up is the [lateral merge zones](lateral-merge-zones.md) design.
+The presets keep chords, and since 2026-11-15 they also have lateral merge pairs.
+Since 2026-11-20, the [shape clearance](shape-clearance.md) rule gives lateral merge pairs to each network, and the `lateralMerges` network field is removed.
 The maintainer made the decisions below on 2026-11-15.
 
 ## Goal

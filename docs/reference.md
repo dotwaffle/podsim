@@ -32,7 +32,7 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | --- | --- | --- |
 | `version` | The project version, now 1. | Required |
 | `name` | The scenario name. | Required |
-| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups`, `depots`, `lateralMerges`, and `shapeClearance`. | Required |
+| `network` | `nodes`, `lanes`, and `stations`, with optional `maneuverGroups` and `depots`. | Required |
 | `fleet` | One placement for each pod: `id`, `stationID`, `berthID`, and an optional `class`. | Required |
 | `demand` | The demand settings: `enabled`, `perMinute`, `pattern`, `seed`, and the optional `destination`, `profile`, `band`, and `dailyStartMinute`. | Required |
 | `redistribution` | A Boolean that turns on [guarded positioning](model.md#redistribution). The presets and the example project set it to true. | Off |
@@ -52,29 +52,22 @@ Validation limits each project to 32 MiB in this compact form, also after a dema
 | `orderContract` | `express-v1`, which selects the [Express](model.md#vehicle-classes) order bounds. | Plain bounds |
 | `expressServices` | Directed hub pairs for Express, at most 300. | None |
 
-### Lateral merges
-
-The network member `lateralMerges` is a Boolean that turns on the [lateral merge pairs](model.md#junctions) of shallow merges and splits.
-Absent or false keeps the junction zones of each pair of lanes at a node.
-The `london-central` and `london-full` presets set it, and the other presets do not.
-
 ### Shape clearance
 
-The network member `shapeClearance` is a Boolean that turns on the [shape clearance](design/shape-clearance.md) rule for all vehicle classes.
-Absent or false keeps the rules above.
-Only the `london-full-shared-express` preset sets it.
-When it is true, `lateralMerges` has no further effect.
+The [shape clearance](design/shape-clearance.md) rule applies to each network and to all vehicle classes.
+No network member turns it on or off.
+Two lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
 
 A bank audit sweeps the union body of each lane over the lane and its join turns, and it certifies two lanes that share no node when the swept bodies never meet.
 Pods on such a shape pair keep the side-by-side distance of their classes, and not 12 or 20 meters.
 The distance is 3.1 meters for two small pods, 3.55 meters for a small and a large pod, and 4.0 meters for two large pods.
 Merge and split pairs admit each class, and they use the union body of the classes that each lane admits.
 The audit checks every pair of lanes, small pairs included, and it takes the planes of a large pod by position on the path.
-On the London networks, validation with the field took up to 1.25 times as long as without it.
-The editor does not use its own lane gap check for a draft that sets the field.
+On the London networks, validation with this rule took up to 1.25 times as long as with the earlier rules.
+The editor has no lane gap check of its own.
 It runs the same lane check as the server after each change.
 
-With the field and a large pod in the fleet, the envelope of a pod comes from a compiled envelope reach, and not from the largest front bound of the network.
+With a large pod in the fleet, the envelope of a pod comes from a compiled envelope reach, and not from the largest front bound of the network.
 Each lane has an anchor front, the larger of 6 meters and its own front bound.
 A curved lane with no geometry tail gets a front of at most 16.2 meters.
 The anchor front does not take the front of another lane, so one long front widens the reach of its own lane only.
@@ -85,7 +78,31 @@ The separation oracle reads the compiled span at the published lane position of 
 The bank audit builds the same index, so each plane that the oracle can test is a plane that the audit tested.
 The envelope holds each lane under the body of a pod, under rule A1 of the [shape clearance](design/shape-clearance.md) design: paths in different separation groups can cross on different levels.
 The network keeps no levels, and validation does not check the groups against the geometry.
-A network without the field keeps the earlier envelope, so the other presets do not change.
+
+### Removed network members
+
+On 2026-11-20, the format removed the network members `lateralMerges` and `shapeClearance`, because the rule now applies to each network.
+Each entry point refuses a project, a command, a saved state, a topology, or an editor draft with either member, because the member is unknown.
+There is no migration.
+The values `true`, `false`, and `null` give the same error.
+With both members, the error names the first member in the document.
+The error text depends on the entry point, where `<m>` is the member:
+
+| Entry point | Error | Result |
+| --- | --- | --- |
+| Project file of `serve -project` | `read project <path>: json: unknown field "<m>"` | The server does not load the file. |
+| Project command | `invalid command JSON` | HTTP 400, and the session does not change. |
+| Saved state | `decode session state: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"` | `invalid_state`. The file moves aside, and the server starts a new session. |
+| Topology of the stream, the HTTP state, or the Go client | `json: unknown field "<m>"` | The client refuses the topology. |
+| Editor engine, `validate` | `decode project branch network: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"` | Refused. |
+| Editor call, `validate` | `decode editor project: json: invalid JSON object at /network/<m>: unknown object member name "<m>"` | Refused. |
+| Editor checks | `decode bank geometry: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>"` | A check error. |
+| Editor geometry edit | `decode bank geometry: json: invalid JSON object at /<m>: unknown object member name "<m>"` | The edit is refused. |
+| Other editor edits, for example `name` | The unknown-member error of the network decode | Refused. |
+
+A project file with either member and `"version":2` also gets the unknown-member error.
+To use an old file, remove both members from its network.
+The project can then fail the audit of the rule (see [refused lane pairs](#refused-lane-pairs)).
 
 ### Generated order consent
 
@@ -186,6 +203,23 @@ The topology limit is a guard that a valid project does not reach.
 A topology at the node, lane, and station limits, with the widest IDs and names, has about 9 MB, where the topology JSON writes each `<`, `>`, and `&` of a name as 6 bytes.
 
 The editor has limits of its own for imports and images (see [Import and export](user-guide.md#import-and-export) and [Import an image](user-guide.md#import-an-image)).
+
+### Refused lane pairs
+
+Validation runs the audit of the [shape clearance](#shape-clearance) rule on each pair of lanes of each network.
+A project or a draft that was valid before 2026-11-20 can fail this audit, also when it has neither [removed member](#removed-network-members).
+For example, the audit refuses two small lanes that are 3.0 meters apart and share no node.
+There is no migration and no exemption.
+
+The error names the first refused pair only.
+In the editor, a geometry edit that repairs one pair still fails the network check on another refused pair, and the editor refuses the edit.
+Thus you cannot repair a network with two independent refused pairs one pair at a time in the editor.
+Repair such a project in its JSON file:
+
+1. Run `go run ./cmd/projectcheck -project <file>` to get the first refused pair.
+2. In the project JSON, move or remove a lane of that pair.
+3. Do steps 1 and 2 again until the project is valid.
+4. Open the valid project in the editor.
 
 ## Compare command
 
@@ -482,7 +516,7 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `london-central` | The [LondonCentral qualification network](london.md): 96 passenger stations, three depots, and 242 berths. | 114 Compact |
 | `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
 | `london-full-express` | LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. The capacity flags do not apply. | 327 Compact, 16 Express |
-| `london-full-shared-express` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, `shapeClearance` set, and Express parking beside Waterloo. The capacity flags do not apply. | 327 Compact, 16 Express |
+| `london-full-shared-express` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, and Express parking beside Waterloo. The capacity flags do not apply. | 327 Compact, 16 Express |
 | `independent-banks` | A planar station with two independent gates and a separate parking station. | 3 |
 | `compact-station` | A station with four Compact bays, in a loop with an ordinary station of three berths. | 6 Compact |
 
@@ -524,7 +558,7 @@ Its Express pods run on the lanes of link 100 between Waterloo and Bank, on the 
 There are no Express trunks.
 The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`.
 The Waterloo throat is 90 meters from its junction, Bank is turned by 5 degrees, `road-in-05` at Waterloo is curved, and the junction lanes `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06` are removed.
-Together, these changes leave the [bank audit](station-banks.md) with no refusal, with `shapeClearance` set.
+Together, these changes leave the [bank audit](station-banks.md) with no refusal.
 There are two Express services, one in each direction between the two stations, with a party limit of 20.
 The 16 Express pods start at `express-parking`, a comb of 16 berths beside Waterloo, between its berth rows and link 100.
 Two roads join the comb to the link 100 portals at Waterloo, so an Express pod at the comb is about 650 to 700 meters of route from the first berth of Waterloo.
@@ -550,7 +584,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 ### Capacity flags
 
-The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, and the junctions of a preset, and `-lateral-merges` changes one network field.
+The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, and the junctions of a preset.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
 They do not apply to `independent-banks`, `compact-station`, `london-full-express`, or `london-full-shared-express`.
 
@@ -567,7 +601,6 @@ They do not apply to `independent-banks`, `compact-station`, `london-full-expres
 | `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the network is then the preset network from before that date. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
-| `-lateral-merges=false` | London presets only. Do not set [`lateralMerges`](#lateral-merges) on the network, so that the lanes of shallow merges and splits keep the longer junction zones. The default is true, the preset value, which gives these lanes shorter junction zones. With `=false`, the project name ends with " (custom capacity)". Use the form with `=`, because `-lateral-merges false` sets the flag to true and leaves `false` as a positional argument. `london-full-express` does not set the field, so its qualification evidence stays valid. |
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json

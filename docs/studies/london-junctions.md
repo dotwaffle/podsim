@@ -147,4 +147,6 @@ The lateral merge runs use the sources `b42b6a59` (first build) and `3fc026de` (
 The runs without lateral merges at this source gave the same rows as at `b3d79964` for seed 1.
 A run of one seed with lateral merges took 31 s and 801 MB.
 After the adoption, the presets set the field, so at a later source, add `-lateral-merges=false` to `cmd/scenario` to build the networks without lateral merges.
+On 2026-11-20, the field and the flag were removed, and each network has lateral merge pairs.
+To build the networks without lateral merges, use a source before the removal, for example `3bbb5ff4`.
 Since November 16, 2026, the presets have tight stations, so also add `-wide-stations` to build the networks of this study.

@@ -517,7 +517,7 @@ The editor refuses a change that would break the network, and a message gives th
 | Action | Refused when | The message gives |
 | --- | --- | --- |
 | **Add physical berth** on any station | A node would get more than 64 lanes | The node and the lane limit |
-| **Add physical berth** on a berth chain | A new lane crosses another lane or comes nearer than the clearance of the two lanes to it, which is 12 m for small classes and 20 m for large classes. The check also compares the new lanes with each other. It skips two lanes that share a node. | The new lane, the clearance, and the other lane |
+| **Add physical berth** on a berth chain | The network check of the server refuses the changed network, for example because a new lane crosses another lane or comes too near to it | The text of the server |
 | **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | The first such lane, the berth node, and the station. Delete that lane first. |
 | **Remove** on the last row of a chain | Another lane uses the arrival or departure node of that row | The first such lane, the arrival or departure node that it uses, and the station. Delete that lane first. |
 | **Remove** on a berth of a station with banks | The berth is the only berth of the station | The station |
@@ -527,8 +527,11 @@ The editor refuses a change that would break the network, and a message gives th
 
 **Remove** removes the berth, its node, and the lanes of its node, and on the last row of a chain it removes all of the row.
 
-When the network sets `shapeClearance`, the editor does not use its own lane gap check.
+The editor has no lane gap check of its own.
 It runs the network check of the server after each change, and the message gives the text of the server.
+The check applies the [shape clearance](reference.md#shape-clearance) rule to each network.
+You cannot repair a network with two independent refused lane pairs one pair at a time in the editor.
+Repair such a project in its JSON file (see [refused lane pairs](reference.md#refused-lane-pairs)).
 
 #### Undo and focus
 

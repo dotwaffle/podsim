@@ -35,8 +35,9 @@ A project that names no class gets Legacy pods, and the London presets use Compa
 
 A large class needs more room, and the rest of this document refers to it by that name.
 A pair of pods with a large class keeps 20 meters of clearance, where other pairs keep 12 meters, and a lane that admits a large class must be at least 40 meters long.
-A network that sets [`shapeClearance`](reference.md#shape-clearance) changes both rules for merge, split, and shape pairs: they keep the side-by-side distance of the two classes, 3.1, 3.55, or 4.0 meters, and not 12 or 20 meters.
-Without it, two kinds of small pairs can be closer than 12 meters: the lateral pairs of [depot lanes](#parking-depots), and the [lateral merge pairs](#junctions) of a network that sets `lateralMerges`.
+The [shape clearance](reference.md#shape-clearance) rule changes both rules for merge, split, and shape pairs in each network.
+These pairs keep the side-by-side distance of the two classes, 3.1, 3.55, or 4.0 meters, and not 12 or 20 meters.
+Two small pods on a lateral pair of [depot lanes](#parking-depots) can also be closer than 12 meters.
 Each other pair keeps 12 or 20 meters, a following pair included.
 The route position of a large class is the center of its body envelope, which has a 6-meter radius.
 
@@ -214,30 +215,27 @@ Each junction has one conflict resource for nearby sections of its incident lane
 The controller derives these sections from the same geometry that it uses for movement, including the 12-meter clearance.
 It acquires each continuous conflict section together, including the downstream cells needed to cross lane endpoints, and it releases the resource after the pod reaches the end of that section.
 
-A network that sets `lateralMerges` or `shapeClearance` has [lateral merge pairs](design/lateral-merge-zones.md).
+Each network has [lateral merge pairs](design/lateral-merge-zones.md), by the [shape clearance](design/shape-clearance.md) rule.
 Such a pair is two lanes that both end at a node or both start at it, with no loop and not the same two nodes.
-Both lanes must be small, with no large class and no large-class tail, and neither lane can be in a Compact station or a depot.
+Neither lane can be in a Compact station or a depot.
+A lane that admits a large class, or that has a large-class tail, can be part of a pair, and a pair can have lanes of different classes.
 The body range of a lane is each position where the body of a pod can meet the body of a pod on the other lane.
-The body is 2.5 meters behind the route position, 3.7 meters ahead, and 1.05 meters to each side, and each side grows by 0.5 meters.
+The body of a lane is the union of the bodies of the classes that it admits.
+For a small class, the body is 2.5 meters behind the route position, 3.7 meters ahead, and 1.05 meters to each side, and each side grows by 0.5 meters.
 On neither lane can the body range reach the far end of the lane: the start for two lanes that end at the node, or the end for two lanes that start at it.
 A join to the next lane at that end counts as part of the lane.
 The section stops at the lane end, where a pod releases the junction, so a pair whose body range reaches that end keeps the 12-meter sections.
 The section of such a pair holds the body range and the 12 meters next to the node.
 A shallow merge thus gets a shorter section than the 12-meter clearance gives.
-The two pods of such a pair keep 3.1 meters, and the junction orders them.
+The two pods of such a pair keep the side-by-side distance of their classes, and the junction orders them.
+The distance is 3.1 meters for two small pods, 3.55 meters for a small and a large pod, and 4.0 meters for two large pods.
 The rule assumes that a pod stays within 0.25 meters of its lane, also at line speed.
 Debris on a lane of the pair also blocks the cells of the other lane within 12 meters.
 The other pairs at the node keep their sections.
 
-When the network sets `shapeClearance`, `lateralMerges` has no further effect, and the rule above applies to each class.
-A lane that admits a large class, or that has a large-class tail, can be part of a pair, and a pair can have lanes of different classes.
-The body of a lane is the union of the bodies of the classes that it admits, and the body range uses it.
-The 12-meter node range and the exclusion of the far end stay.
-The two pods of a pair keep the side-by-side distance of their classes: 3.1 meters for two small pods, 3.55 meters for a small and a large pod, and 4.0 meters for two large pods.
-Debris on a lane of a shape pair also blocks the cells of the other lane within 12 meters.
-
 Two lanes that share no node can be a shape pair when the swept grown bodies of their lanes never meet, also at the join turns.
 The audit finds these pairs, and the junction does not order their pods, because the bodies cannot meet.
+The two pods keep the same side-by-side distance, and debris on a lane of a shape pair also blocks the cells of the other lane within 12 meters.
 A pair that the sweep does not clear keeps 12 or 20 meters.
 
 Admission follows these rules:

@@ -48,8 +48,8 @@ These lanes let pods continue through the station area, change corridors, or rev
 Each movement has a separate separation group.
 Movements conflict when they share a portal.
 Unconnected movement crossings represent grade-separated paths.
-The preset sets [`lateralMerges`](reference.md#lateral-merges), so two small lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
-`-lateral-merges=false` gives the isotropic junction zones.
+Two lanes that merge or split at a shallow angle form a [lateral merge pair](model.md#junctions) with shorter junction zones.
+The [shape clearance](reference.md#shape-clearance) rule gives these pairs to each network.
 
 Station access branches from every arrival portal and rejoins every departure portal.
 Each station has distinct diverge, entry, exit, and merge nodes.

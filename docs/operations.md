@@ -381,6 +381,10 @@ Likewise, a version 12 file with a member of the removed station buffer or compa
 A version 12 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
+Likewise, a version 12 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
+Its error is `decode session state: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"`, where `<m>` is the first of these members in the file.
+A version 12 file without these members restores under the shape clearance rule.
+When the audit of that rule refuses the saved network, the file gets `invalid_state` with the error `saved project: ...`.
 Until the first release, a narrower set of accepted values also keeps the version.
 By maintainer decision, version 12 is an exception to both rules, because it removes `journeyOrigin` of a pod and needs a boarding record for each party in a pod.
 Thus a version 11 file gets `unsupported_version`, and a version 12 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
@@ -423,11 +427,8 @@ Bank-inconsistent retained routes reject restoration before either tier.
 See [independent station banks](station-banks.md) for bank membership, routing, and browser editing.
 The optional network member `maneuverGroups` of the [compact bays](model.md#compact-bays) is absent from a network without groups.
 The optional network member `depots` of the [parking depots](model.md#parking-depots) and the optional pod member `parkedSince` follow the same rule.
-The network member `lateralMerges` of the [lateral merge pairs](model.md#junctions) is absent when it is false, so the save version stays the same.
-A physical restore of a network that sets it checks the separation of a lateral merge pair with 3.1 meters.
-The network member `shapeClearance` of the [shape clearance](reference.md#shape-clearance) rule follows the same rule, with the digest extension 17.
-A physical restore of a network that sets it checks the separation of a merge, split, or shape pair with the side-by-side distance of the classes of its two pods, 3.1, 3.55, or 4.0 meters, and `lateralMerges` has no further effect.
-The network audit of such a network checks every pair of lanes, and on the London networks validation took up to 1.25 times as long as without the field.
+A physical restore checks the separation of a merge, split, or shape pair of the [shape clearance](reference.md#shape-clearance) rule with the side-by-side distance of the classes of its two pods, 3.1, 3.55, or 4.0 meters.
+The network audit checks every pair of lanes of each network, and on the London networks validation with this rule took up to 1.25 times as long as with the earlier rules.
 A file writes `parkedSince` only for a pod that is idle at a depot slot or moves up in one depot lane.
 After the earlier checks, the restore refuses a negative parked tick, and then a parked tick after the saved tick.
 Then it refuses a parked tick on a pod that is not parked in a depot lane.
@@ -1011,7 +1012,7 @@ After a change to dispatch, routing, or the fault and emergency state machines, 
 The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full-express`, and `london-full-shared-express`, with the full check at each tick.
 The `soak:full` task runs 2 seeds of 6 simulated hours (amendment A19) with the full check at each tick, on `rail-hub`, `london-central`, `london-full-express`, and `london-full-shared-express` unless `PODSIM_SOAK_PRESETS` names others.
 On `london-central` and the two London Express presets, it runs no platoon arm, because these presets already set the platoon limit of those arms.
-On a project that sets `shapeClearance`, each check of the soak also runs the D6 oracle of the [shape clearance](design/shape-clearance.md) design, so it runs at each tick.
+On each project, each check of the soak also runs the D6 oracle of the [shape clearance](design/shape-clearance.md) design, so it runs at each tick.
 This run keeps the wall limit of 2 hours.
 By amendment A19, a run that the limit stops fails.
 The task writes each finished seed to the file of `PODSIM_SOAK_FINISHED`, with its failure state, and it prints that file at the end, also after a stop, to show how far the run got.
