@@ -95,7 +95,7 @@ func shapeStreamRing(prefix, lane string, flip bool, gap float64) ([]Node, []Lan
 // stations b1 and b2. A pod on its way from station 1 to station 2 of its
 // ring passes its parallel lane.
 func shapeStreamNetwork(gap float64) Network {
-	n := Network{ShapeClearance: true}
+	n := Network{}
 	for _, ring := range []struct {
 		prefix, lane string
 		flip         bool
@@ -261,7 +261,7 @@ const shapeProbeY = -5000.0
 // another. Each lane admits Compact and Express.
 func shapeProbeNetwork(from, to Point) Network {
 	nodes, lanes, stations := shapeStreamRing("a", "upper", false, shapeStreamGap)
-	n := Network{ShapeClearance: true, Nodes: nodes, Lanes: lanes, Stations: stations}
+	n := Network{Nodes: nodes, Lanes: lanes, Stations: stations}
 	n.Nodes = append(n.Nodes,
 		Node{ID: "first-from", Position: Point{Y: shapeProbeY}}, Node{ID: "first-to", Position: Point{X: 400, Y: shapeProbeY}},
 		Node{ID: "second-from", Position: from}, Node{ID: "second-to", Position: to})

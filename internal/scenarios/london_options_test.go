@@ -50,33 +50,6 @@ func TestLondonWithDefaultOptionsIsLondon(t *testing.T) {
 	}
 }
 
-// TestLondonLateralMergesOption checks that the London presets set
-// LateralMerges, and that NoLateralMerges gives the preset network without
-// the field and with the name suffix.
-func TestLondonLateralMergesOption(t *testing.T) {
-	t.Parallel()
-	if !LondonCentral().Network.LateralMerges || !LondonFull().Network.LateralMerges {
-		t.Fatal("a London preset does not set LateralMerges")
-	}
-	options := DefaultLondonCentralOptions()
-	if options.NoLateralMerges || DefaultLondonFullOptions().NoLateralMerges {
-		t.Fatal("the default options turn off the lateral merges")
-	}
-	options.NoLateralMerges = true
-	config, err := LondonCentralWith(options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if config.Network.LateralMerges || config.Name != "LondonCentral"+CustomCapacitySuffix {
-		t.Fatalf("name %q, LateralMerges %v, want the suffix and no field", config.Name, config.Network.LateralMerges)
-	}
-	preset := LondonCentral()
-	preset.Network.LateralMerges = false
-	if !reflect.DeepEqual(config.Network, preset.Network) || !reflect.DeepEqual(config.Fleet, preset.Fleet) {
-		t.Fatal("NoLateralMerges changed more than the network field")
-	}
-}
-
 // TestLondonWideStationsOption checks that the London presets have tight
 // stations, and that WideStations gives the bytes of each preset from before
 // tight stations became the default, with the name suffix.
@@ -91,8 +64,8 @@ func TestLondonWideStationsOption(t *testing.T) {
 		build   func(LondonOptions) (project.Config, error)
 		sha256  string
 	}{
-		{name: "LondonCentral", options: DefaultLondonCentralOptions(), build: LondonCentralWith, sha256: "dd7e853675ceaeb087f746044bce8c11be2fd24ba27722d842c19bea7d06dc0b"},
-		{name: "LondonFull", options: DefaultLondonFullOptions(), build: LondonFullWith, sha256: "04ec20877c010b35a7dd4f7e011b849774607e3d153221b6f2d23cddde2bba08"},
+		{name: "LondonCentral", options: DefaultLondonCentralOptions(), build: LondonCentralWith, sha256: "7f8eb551e8915ee1dc93980a908291cc4ce63c7b9577aa50677ed7ff6e0ee0c2"},
+		{name: "LondonFull", options: DefaultLondonFullOptions(), build: LondonFullWith, sha256: "4861d23f0454452591ccc2cddb0cec164d3df870b9bd1acf940726b2d2ffa928"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

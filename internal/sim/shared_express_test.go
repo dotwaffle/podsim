@@ -54,8 +54,8 @@ func readSharedExpressProject(t *testing.T) sharedExpressProject {
 	if err := jsonv2.UnmarshalRead(reader, &p, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
 	}
-	if !p.Network.ShapeClearance || len(p.Fleet) != 343 || len(p.ExpressServices) != 2 {
-		t.Fatalf("the fixture is not the preset: ShapeClearance %v, %d pods, %d services", p.Network.ShapeClearance, len(p.Fleet), len(p.ExpressServices))
+	if len(p.Fleet) != 343 || len(p.ExpressServices) != 2 {
+		t.Fatalf("the fixture is not the preset: %d pods, %d services", len(p.Fleet), len(p.ExpressServices))
 	}
 	return p
 }

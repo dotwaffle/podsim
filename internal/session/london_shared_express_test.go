@@ -593,7 +593,7 @@ func TestLondonSharedExpressByteBounds(t *testing.T) {
 			t.Errorf("the preset has %d %s, over the %d of the worst-case project", c.value, c.name, c.limit)
 		}
 	}
-	if config.OrderContract != sim.ExpressOrderContract || express != 16 || !n.ShapeClearance || !n.LateralMerges {
+	if config.OrderContract != sim.ExpressOrderContract || express != 16 {
 		t.Fatalf("the preset is not the Express project of the proofs: %q, %d Express pods", config.OrderContract, express)
 	}
 	topology, err := jsonv2.Marshal(f.shared.Topology(), json.DefaultOptionsV1())

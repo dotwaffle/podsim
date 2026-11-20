@@ -205,8 +205,7 @@ func TestRestorePhysicalLondon(t *testing.T) {
 // TestLondonPlatoonsRestoreAndClone restores and clones London when pods
 // travel in platoons. The schedules of the other London restore and clone
 // tests form no platoon link. This test requests 160 AM peak journeys, four
-// each second. With the lateral merges and the tight stations of the
-// preset, the first link forms at about 684 s. 120 journeys form no link in
+// each second. With the tight stations of the preset, the first link forms at about 684 s. 120 journeys form no link in
 // 1,500 s. At that tick, the test
 // restores the physical state and clones the simulation. Then it runs the
 // clone and the restored simulation for 30 s.

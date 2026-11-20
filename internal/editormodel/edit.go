@@ -423,6 +423,9 @@ func cloneEditValue(value any) any {
 }
 
 func (e *engine) edit(raw jsontext.Value) (response, error) {
+	if err := unknownNetworkMember(e.branches["network"]); err != nil {
+		return response{}, err
+	}
 	if err := e.ensureNetworkValue(); err != nil {
 		return response{}, err
 	}

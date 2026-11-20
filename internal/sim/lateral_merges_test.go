@@ -1604,7 +1604,7 @@ const laneEndPods = 6
 
 // TestLateralMergeLaneEndTwoStreams runs the two streams of
 // runLaneEndStreams through the split of
-// TestLateralMergeExcludesLaneEndPairs, with LateralMerges set. Lane b has
+// TestLateralMergeExcludesLaneEndPairs. Lane b has
 // a speed limit of 1 m/s, so that each pod on d passes a pod on b. Lanes a
 // and d are in one separation group and lanes b and b2 in another, so
 // Check does not compare a pod on d with a pod on b, and only the body

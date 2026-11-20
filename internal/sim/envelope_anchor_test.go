@@ -115,10 +115,10 @@ func TestEnvelopeAnchorFront(t *testing.T) {
 	anchorHolds(t, s, v, 0, "far", []float64{length - 20}, func(float64) bool { return false })
 }
 
-// envelopeReachSubSlackCurves returns the curves network with
-// ShapeClearance and a group lane gap of the given length from node b,
-// where lane bend ends, to the start of lane short, and a lane spur out
-// of the end of gap that no route of the tests uses. This is the first
+// envelopeReachSubSlackCurves returns the curves network with a group
+// lane gap of the given length from node b, where lane bend ends, to the
+// start of lane short, and a lane spur out of the end of gap that no route
+// of the tests uses. This is the first
 // construction of the code review of slice 1: lane bend has a front bound
 // over 24 m, lanes gap and short have the front bound 6 m, and lane short2
 // starts 24 m past the start of short.
@@ -172,7 +172,6 @@ func TestEnvelopeAnchorSubSlackChain(t *testing.T) {
 // plane, and lanes named by names.
 func anchorStraight(names []string, xs []float64) Network {
 	var n Network
-	n.ShapeClearance = true
 	for index, x := range xs {
 		n.Nodes = append(n.Nodes, Node{ID: fmt.Sprintf("n%d", index), Position: Point{X: x}})
 	}
@@ -261,7 +260,7 @@ func TestEnvelopeAnchorShortChain(t *testing.T) {
 // same published position has the same envelope at each use of the lane.
 func TestEnvelopeAnchorRepeatedLane(t *testing.T) {
 	t.Parallel()
-	n := Network{ShapeClearance: true, Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 100, Y: 100}}, {ID: "d", Position: Point{Y: 100}}}}
+	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 100, Y: 100}}, {ID: "d", Position: Point{Y: 100}}}}
 	for _, lane := range [][2]string{{"a", "b"}, {"b", "c"}, {"c", "d"}, {"d", "a"}} {
 		n.Lanes = append(n.Lanes, Lane{ID: lane[0] + lane[1], From: lane[0], To: lane[1], SpeedLimit: 14, SeparationGroup: "g-" + lane[0] + lane[1]})
 	}
@@ -435,11 +434,10 @@ func TestEnvelopeAnchorWalkLimit(t *testing.T) {
 	}
 }
 
-// anchorNetwork returns a network with ShapeClearance from nodes and
-// lanes. Each lane is its ID, From node, and To node, and it has its own
+// anchorNetwork returns a network from nodes and lanes. Each lane is its ID, From node, and To node, and it has its own
 // plane.
 func anchorNetwork(nodes map[string]Point, lanes [][3]string) Network {
-	n := Network{ShapeClearance: true}
+	n := Network{}
 	for _, id := range slices.Sorted(maps.Keys(nodes)) {
 		n.Nodes = append(n.Nodes, Node{ID: id, Position: nodes[id]})
 	}
@@ -694,7 +692,7 @@ func TestEnvelopeAnchorRouteCoverage(t *testing.T) {
 // small lane cross on plane other ends 3 m from x, after a lane feed whose
 // plane is feed. The span of the end of cross holds feed.
 func anchorAuditNetwork(feed string) Network {
-	return Network{ShapeClearance: true,
+	return Network{
 		Nodes: []Node{{ID: "behind", Position: Point{X: -100}}, {ID: "x"}, {ID: "end", Position: Point{X: 100}}, {ID: "side", Position: Point{X: 50, Y: 50}},
 			{ID: "ff", Position: Point{X: 2, Y: -60}}, {ID: "cf", Position: Point{X: 2, Y: -15}}, {ID: "ct", Position: Point{X: 2, Y: -3}}},
 		Lanes: []Lane{

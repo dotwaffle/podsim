@@ -886,24 +886,22 @@ test("a fixture test skips without Go unless PODSIM_REQUIRE_GO is 1", () => {
 // LondonCentral has the first seven.
 const londonCompactStations = ["940GZZLURGP", "940GZZLULBN", "940GZZLULGT", "940GZZLUERB", "940GZZLUBWT", "940GZZLUHPC", "940GZZLUBOR", "940GZZDLTWG"];
 
-test("London projects with depots, Compact stations, and lateral merges keep their scenario through import and export", needsGo, () => {
+test("London projects with depots and Compact stations keep their scenario through import and export", needsGo, () => {
   const optOut = ["-parking-lanes", "0", "-compact-stations", "none"];
   const cases = [
-    { flags: ["london-central"], depots: 3, groups: 7, lateralMerges: true },
-    { flags: ["london-central", "-junctions", "ramps"], depots: 3, groups: 7, lateralMerges: true },
-    { flags: ["london-central", "-lateral-merges=false"], depots: 3, groups: 7 },
-    { flags: ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")], depots: 3, groups: 7, lateralMerges: true },
-    { flags: ["london-central", ...optOut], depots: 0, groups: 0, lateralMerges: true },
-    { flags: ["london-full"], depots: 3, groups: 8, lateralMerges: true },
-    { flags: ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")], depots: 3, groups: 8, lateralMerges: true },
-    { flags: ["london-full", ...optOut], depots: 0, groups: 0, lateralMerges: true },
+    { flags: ["london-central"], depots: 3, groups: 7 },
+    { flags: ["london-central", "-junctions", "ramps"], depots: 3, groups: 7 },
+    { flags: ["london-central", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.slice(0, 7).join(",")], depots: 3, groups: 7 },
+    { flags: ["london-central", ...optOut], depots: 0, groups: 0 },
+    { flags: ["london-full"], depots: 3, groups: 8 },
+    { flags: ["london-full", "-parking-lanes", "2", "-parking-berths", "6", "-compact-stations", londonCompactStations.join(",")], depots: 3, groups: 8 },
+    { flags: ["london-full", ...optOut], depots: 0, groups: 0 },
   ];
-  for (const { flags, depots, groups, lateralMerges } of cases) {
+  for (const { flags, depots, groups } of cases) {
     const name = flags.join(" ");
     const config = generatedProject(...flags);
     assert.equal((config.network.depots ?? []).length, depots, `${name} depots`);
     assert.equal((config.network.maneuverGroups ?? []).length, groups, `${name} groups`);
-    assert.equal(config.network.lateralMerges, lateralMerges, `${name} lateral merges`);
     const imported = editor.parseDocument(generatedFile(...flags)).scenario;
     assert.deepEqual(imported, config, `${name} import`);
     const exported = editor.serializeDocument(imported);

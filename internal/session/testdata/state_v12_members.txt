@@ -251,8 +251,6 @@ project.network.depots[].lanes array
 project.network.depots[].lanes[] object
 project.network.depots[].lanes[].berthIDs array
 project.network.depots[].lanes[].berthIDs[] string
-project.network.lateralMerges boolean
-project.network.shapeClearance boolean
 project.fleet array
 project.fleet[] object
 project.fleet[].class string

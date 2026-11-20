@@ -123,6 +123,9 @@ func execute(input string) (response, error) {
 			return response{}, fmt.Errorf("decode editor draft: %w", err)
 		}
 		if command.Op == "edit" {
+			if err := draftNetworkMember(command.Project); err != nil {
+				return response{}, err
+			}
 			change, err := editProject(draft, command.Edit)
 			if err == nil {
 				var branches map[string]jsontext.Value

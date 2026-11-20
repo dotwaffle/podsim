@@ -54,11 +54,10 @@ func TestLondonSharedExpressRemoteLoads(t *testing.T) {
 		return state.Simulation.OrderContract == sim.ExpressOrderContract
 	})
 	state, _, _ := client.View()
-	// The preset has no banks, sets ShapeClearance, and has the Express
-	// parking beside Waterloo.
+	// The preset has no banks, and has the Express parking beside Waterloo.
 	station, ok := state.Network.Station(bank)
 	parking, okParking := state.Network.Station("express-parking")
-	if !ok || len(station.Banks) != 0 || !okParking || len(parking.Berths) != 16 || !state.Network.ShapeClearance || len(state.Network.Lanes) != len(config.Network.Lanes) {
+	if !ok || len(station.Banks) != 0 || !okParking || len(parking.Berths) != 16 || len(state.Network.Lanes) != len(config.Network.Lanes) {
 		t.Fatal("the client topology is not the shared-track preset")
 	}
 	submit := func(command session.Command) {

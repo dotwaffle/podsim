@@ -192,8 +192,8 @@ type Config struct {
 	OrderContract sim.OrderContract `json:"orderContract,omitzero"`
 	// Faults holds the fault settings, and Emergencies the emergency
 	// settings. Each one is an extension field of the command digest, so a
-	// command without it keeps its digest. Extensions 1, 2, and 10 are
-	// retired, and no field can use them again.
+	// command without it keeps its digest. Extensions 1, 2, 10, 16, and 17
+	// are retired, and no field can use them again.
 	Faults         *FaultConfig     `json:"faults,omitzero" digest:"ext=3"`
 	Emergencies    *EmergencyConfig `json:"emergencies,omitzero" digest:"ext=11"`
 	Version        int              `json:"version"`

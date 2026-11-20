@@ -2,13 +2,10 @@ package editormodel
 
 import (
 	"encoding/json/jsontext"
-	"encoding/json/v2"
 	"fmt"
-	"maps"
 	"reflect"
 	"testing"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
@@ -90,44 +87,6 @@ func TestShapeDraftEditRefusal(t *testing.T) {
 		if _, err := editGeometry(draft, jsontext.Value(test.edit)); err == nil || err.Error() != test.want {
 			t.Fatalf("%s: edit error %v, want %q", test.edit, err, test.want)
 		}
-	}
-}
-
-// TestShapeDraftRoundTrip checks that a project with shapeClearance keeps
-// the field through normalization and a geometry edit, and that the
-// project decoder reads it again.
-func TestShapeDraftRoundTrip(t *testing.T) {
-	t.Parallel()
-	source := shapeDraft(5)
-	source["shapeClearance"] = true
-	draft := map[string]any{"version": float64(project.CurrentVersion), "name": "Shape", "network": source}
-	normalized, err := normalizeProject(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	maps.Copy(draft, normalized.Patch)
-	change, err := editGeometry(draft, jsontext.Value(`{"action":"moveNode","id":"d","point":{"x":100,"y":6}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	network, found := change.Patch["network"]
-	if !found {
-		t.Fatal("the edit published no network")
-	}
-	if member(network, "shapeClearance") != true {
-		t.Fatalf("network after the edit %v", network)
-	}
-	draft["network"] = network
-	raw, err := json.Marshal(draft)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var config project.Config
-	if err := json.Unmarshal(raw, &config); err != nil {
-		t.Fatal(err)
-	}
-	if !config.Network.ShapeClearance {
-		t.Fatal("the exported project does not set shapeClearance")
 	}
 }
 

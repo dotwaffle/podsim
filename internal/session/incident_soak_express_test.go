@@ -430,9 +430,8 @@ func TestSoakLondonExpressDriver(t *testing.T) {
 
 // TestSoakLondonSharedExpressDriver runs a short soak of the LondonFull
 // Shared Express preset with the checks, as TestSoakLondonExpressDriver does
-// for D. The driver must run the D6 oracle at each tick, which it runs only
-// on a project that sets ShapeClearance. The test:shared-express task runs
-// this test.
+// for D. The driver must run the D6 oracle at each tick. The
+// test:shared-express task runs this test.
 func TestSoakLondonSharedExpressDriver(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {

@@ -435,8 +435,8 @@ type digestExtension struct {
 }
 
 // digestExtensions lists each extension field, in increasing order of N.
-// A new extension field takes the next free N. The numbers 1, 2, and 10
-// belonged to removed fields, and they stay retired. An extension field must
+// A new extension field takes the next free N. The numbers 1, 2, 10, 16,
+// and 17 belonged to removed fields, and they stay retired. An extension field must
 // have a fixed path: it must not be in a slice element or a map element.
 // TestDigestExtensionRegistry checks the table against the Command type.
 var digestExtensions = []digestExtension{
@@ -452,6 +452,4 @@ var digestExtensions = []digestExtension{
 	{n: 13, path: "Project.Network.ManeuverGroups"},
 	{n: 14, path: "Project.Network.Depots"},
 	{n: 15, path: "Project.GeneratedOrderConsent"},
-	{n: 16, path: "Project.Network.LateralMerges"},
-	{n: 17, path: "Project.Network.ShapeClearance"},
 }

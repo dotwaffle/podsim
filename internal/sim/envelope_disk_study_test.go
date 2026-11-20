@@ -48,8 +48,8 @@ import (
 // hold the fewest planes. It then confirms with real windows: the lanes
 // behind the start of each route and ahead of its end, up to
 // diskStudyWindow, for both pods. It also asks whether the envelope reach
-// of the audit with ShapeClearance separates the two positions, which
-// exempts the pair from the audit.
+// of the audit separates the two positions, which exempts the pair from
+// the audit.
 
 const diskStudyEnv = "PODSIM_DISK_STUDY"
 
@@ -182,8 +182,8 @@ type diskStudy struct {
 	grid     map[[2]int][]diskStudySegment
 	tails    map[string]geometryTails
 	paths    map[[4]int]*diskStudyPathSet
-	// reach is the envelope reach of the audit with ShapeClearance, or nil
-	// when a tail is not finite.
+	// reach is the envelope reach of the audit, or nil when a tail is not
+	// finite.
 	reach *envelopeReach
 }
 
@@ -891,8 +891,8 @@ func (d *diskStudy) witness(pose diskStudyPose, kind diskStudyKind, touched int,
 }
 
 // auditReach returns how many positions of the second pod the envelope
-// reach of the audit separates from the pose: the audit with
-// ShapeClearance exempts the pair at those positions.
+// reach of the audit separates from the pose: the audit exempts the pair
+// at those positions.
 func (d *diskStudy) auditReach(pose diskStudyPose, touched int, placements []diskStudyPlacement) string {
 	if d.reach == nil {
 		return "no envelope reach"
@@ -1120,10 +1120,7 @@ func diskStudyVariants(t *testing.T, base Network) map[string]Network {
 }
 
 // TestEnvelopeDiskStudy classifies the lanes that the body or the disk of
-// a pod touches on each network of the study. The study measures the
-// envelope of a network without ShapeClearance. The field gives the local
-// front and the small-pod rules of section 3.1 of the shared-track design,
-// which the shared-track study measures, so this study runs without it.
+// a pod touches on each network of the study.
 func TestEnvelopeDiskStudy(t *testing.T) {
 	base := diskStudyNetwork(t)
 	variants := diskStudyVariants(t, base)
@@ -1134,7 +1131,6 @@ func TestEnvelopeDiskStudy(t *testing.T) {
 	slices.Sort(names)
 	for _, name := range names {
 		n := variants[name].clone()
-		n.ShapeClearance = false
 		d := newDiskStudy(t, n)
 		result := d.run()
 		t.Logf("%s: %d lanes, %d large lanes, poses small %d, large %d, lane pairs with truncated paths %d",
@@ -1245,7 +1241,7 @@ func diskStudyTurnBack(shape diskStudyShape, classes ClassSet) (n Network, first
 
 // TestEnvelopeDiskStudyTurnBack is item 4 of the study: routes that turn
 // back beside or across their own first lane on another plane, with small
-// or large lanes, with ShapeClearance off and on. For each network that
+// or large lanes. For each network that
 // ValidateNetwork accepts, it logs whether the envelope of a pod on the
 // first lane holds the plane of the lane that comes back.
 func TestEnvelopeDiskStudyTurnBack(t *testing.T) {
@@ -1258,38 +1254,35 @@ func TestEnvelopeDiskStudyTurnBack(t *testing.T) {
 			if kind == diskLarge {
 				classes = shapeStudyClasses
 			}
-			for _, field := range []bool{false, true} {
-				n, position, onBack := diskStudyTurnBack(shape, classes)
-				n.ShapeClearance = field
-				name := fmt.Sprintf("%s, %s lanes, shapeClearance %v", diskStudyShapeNames[shape], diskStudyKindNames[kind], field)
-				err := ValidateNetwork(n)
-				t.Logf("%s: ValidateNetwork: %v", name, err)
-				d := newDiskStudy(t, n)
-				route := make([]int, len(n.Lanes))
-				for index := range route {
-					route[index] = index
+			n, position, onBack := diskStudyTurnBack(shape, classes)
+			name := fmt.Sprintf("%s, %s lanes", diskStudyShapeNames[shape], diskStudyKindNames[kind])
+			err := ValidateNetwork(n)
+			t.Logf("%s: ValidateNetwork: %v", name, err)
+			d := newDiskStudy(t, n)
+			route := make([]int, len(n.Lanes))
+			for index := range route {
+				route[index] = index
+			}
+			back := len(route) - 1
+			offset := 0.0
+			for _, lane := range route[:back] {
+				offset += d.length(lane)
+			}
+			for index, lane := range route {
+				t.Logf("%s: lane %s, length %.1f m, %s", name, n.Lanes[lane].ID, d.length(index), d.fronts(index))
+			}
+			for _, other := range []diskStudyKind{diskSmall, diskLarge} {
+				if !other.allows(classes) {
+					continue
 				}
-				back := len(route) - 1
-				offset := 0.0
-				for _, lane := range route[:back] {
-					offset += d.length(lane)
-				}
-				for index, lane := range route {
-					t.Logf("%s: lane %s, length %.1f m, %s", name, n.Lanes[lane].ID, d.length(index), d.fronts(index))
-				}
-				for _, other := range []diskStudyKind{diskSmall, diskLarge} {
-					if !other.allows(classes) {
-						continue
-					}
-					envelopeA := d.envelope(route, 0, position, kind)
-					envelopeB := d.envelope(route, back, onBack, other)
-					atA, headingA := d.pointAt(0, position)
-					atB, headingB := d.pointAt(back, onBack)
-					overlap := bodiesOverlap(bodyCorners(atA, headingA, classShapeBody(kind.class())), bodyCorners(atB, headingB, classShapeBody(other.class())))
-					t.Logf("%s: %s pod on first at %.0f m, %s pod on back at %.1f m, %.1f m ahead on the route: bodies overlap %v, envelope of the first holds back %v, raw separated %v, envelopes separated %v, envelopes %v and %v",
-						name, diskStudyKindNames[kind], position, diskStudyKindNames[other], onBack, offset+onBack-position, overlap, holds(envelopeA, d.location[back]),
-						safetyLocationsSeparated(d.location[0], d.location[back]), envelopeLocationsSeparated(envelopeA, envelopeB), envelopeA, envelopeB)
-				}
+				envelopeA := d.envelope(route, 0, position, kind)
+				envelopeB := d.envelope(route, back, onBack, other)
+				atA, headingA := d.pointAt(0, position)
+				atB, headingB := d.pointAt(back, onBack)
+				overlap := bodiesOverlap(bodyCorners(atA, headingA, classShapeBody(kind.class())), bodyCorners(atB, headingB, classShapeBody(other.class())))
+				t.Logf("%s: %s pod on first at %.0f m, %s pod on back at %.1f m, %.1f m ahead on the route: bodies overlap %v, envelope of the first holds back %v, raw separated %v, envelopes separated %v, envelopes %v and %v",
+					name, diskStudyKindNames[kind], position, diskStudyKindNames[other], onBack, offset+onBack-position, overlap, holds(envelopeA, d.location[back]),
+					safetyLocationsSeparated(d.location[0], d.location[back]), envelopeLocationsSeparated(envelopeA, envelopeB), envelopeA, envelopeB)
 			}
 		}
 	}

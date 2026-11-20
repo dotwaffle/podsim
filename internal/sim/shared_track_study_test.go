@@ -28,8 +28,7 @@ import (
 // with the envelope reach of the audit or with a copy whose ahead walk takes
 // a front bound for each lane (section 3.1). The file keeps its copies of
 // the per-lane bound, the local front of the oracle, and the small-pod
-// rules. The code has them under ShapeClearance since slice 1 of section 7,
-// and the study requires the code to give the results of the copies.
+// rules. The code has them since slice 1 of section 7, and the study requires the code to give the results of the copies.
 //
 // When the variable that sharedTrackOutEnv names holds a directory, the
 // study also writes the built projects there, with the Express order
@@ -49,25 +48,26 @@ const (
 	sharedThroatOffset = 30.0
 )
 
-// sharedTrackInputs are the project files of the study, from cmd/scenario at
-// 7bebe01e, with the SHA-256 of the file and the network SHA-256 of the
-// summary line of cmd/scenario.
+// sharedTrackInputs are the project files of the study, from cmd/scenario
+// after the removal of the lateralMerges and shapeClearance members, with
+// the SHA-256 of the file and the network SHA-256 of the summary line of
+// cmd/scenario.
 var sharedTrackInputs = []struct {
 	name, flags, file, network string
 }{
-	{"tight", "-preset london-full", "dbc144f9da0449a45e64ba5f24480c4c28ebe0d1879dbfc0a0cbdeb37a69bb18", "e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e"},
-	{"wide", "-preset london-full -wide-stations", "014cbb59fcad0afe2f4d9ef444025298aa4d84ae0aa7f8bfbd1d350f4dcf0928", "441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d"},
-	{"ramps", "-preset london-full -junctions ramps", "89cba78a7653a158603f4c387433345d87b82b781f4baf2f0a8e67946b29322f", "6a072e197b4d31ecebe49afdee27eac5daa8f34e9d50aea8fdda69b644b889a0"},
+	{"tight", "-preset london-full", "f9b42a168fbec23652695ed241ac9ba5736d67f7a4a2dc8cda560ff63d5d1da2", "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225"},
+	{"wide", "-preset london-full -wide-stations", "55a15f15bfe637ce429ea8a369c1ddf771326b5957b8b88e19a566e9ec137815", "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726"},
+	{"ramps", "-preset london-full -junctions ramps", "e8519687a157b91b273ad52805ef3612b90505c1ceac812c9cc83d321c88218e", "9bd2aae1925bcdc2c8503f2e73be5ca9a8aef9c29720e1885108450af89e73f8"},
 }
 
 // sharedTrackBuilt holds the network SHA-256 of each network that the study
 // builds, by input and network.
 var sharedTrackBuilt = map[string]string{
-	"tight 2.1": "a6526d52fc0ec813d39eb1a45cb9280f77d287d14fe0bec258c22a40835c175d",
-	"tight 3.5": "4e8503da2e9a4778b7f1310fcba0729dc8c160c2d4055525662042a00df97597",
-	"tight 3.6": "518049295f97c453ff4c09f18a33ee7afaff234179b7bbc4be56dbaff770b41f",
-	"wide 2.1":  "e25c8d2cd82d7c156bc13216e083fb3c7cdde2e78f0f674d3b118f3172aeda75",
-	"ramps 2.1": "0237461bc08470658710cd9b407eeb9b6eccec3350ff25dafe3c28693b42cc44",
+	"tight 2.1": "8906fd2b8f1c36fbf4e1898420ce0989bdb5ad3fa0922c9e3594ef0c9102d12c",
+	"tight 3.5": "09b8fdea19e1b87e438fe2539878e3bf232eaa13af5e4e954216919ff67614df",
+	"tight 3.6": "750ce680a51c247868c7e4dbbb80dd756e83eb81848186b120918388ab909372",
+	"wide 2.1":  "45ad760fb65b47297e33fb5acb55a5b6f5ebf829b0ddb1825d87b987dc7409b9",
+	"ramps 2.1": "5dd64bb14d6efb29167829b65919d4646a31e5ac0ea571ee80cc2a0eb90cef43",
 }
 
 // sharedTrackCounts holds the refusals, the refusals under 4.0 m, and the
@@ -137,8 +137,7 @@ func sharedTrackHash(t *testing.T, n Network) string {
 
 // sharedTrackBase returns the network of section 2.1: the study classes on
 // the free-flow routes between Waterloo and Bank, on each lane of the two
-// hubs except the roads off the route, and on the hubs and their berths,
-// with ShapeClearance set.
+// hubs except the roads off the route, and on the hubs and their berths.
 func sharedTrackBase(t *testing.T, base Network) Network {
 	t.Helper()
 	n := base.clone()
@@ -154,7 +153,6 @@ func sharedTrackBase(t *testing.T, base Network) Network {
 		}
 	}
 	setShapeStudyClasses(&n, keep, false, first.ID, second.ID)
-	n.ShapeClearance = true
 	return n
 }
 
@@ -457,8 +455,7 @@ func sharedTrackClusters(n Network) map[int][]int {
 
 // sharedTrackReachOptions selects the envelope reach of the study: the
 // index of section 3.1, with the anchor front of each lane and the anchors
-// within the slack. The arms with the bound of the whole network left with
-// the shapeClearance field.
+// within the slack.
 type sharedTrackReachOptions struct {
 	// small adds the small-pod rules: the small-pod fronts, and the
 	// clusters of the maneuver groups.
@@ -739,7 +736,7 @@ func sharedTrackRefusals(t *testing.T, name string, n Network, options sharedTra
 }
 
 // sharedTrackBuiltRefusals runs the audit copy with the index of the
-// network, which sets ShapeClearance. Its counts must be the counts of the
+// network. Its counts must be the counts of the
 // index of each lane with the small-pod rules, and its first refusal must
 // be the error of ValidateBankGeometry. So the pinned counts come from the
 // index of the code.
@@ -1380,9 +1377,8 @@ func newSharedContainment(t *testing.T, name string, n Network) *sharedContainme
 	small, plain := sharedTrackFronts(network, tails, true), sharedTrackFronts(network, tails, false)
 	c.previous = &sharedOracle{s: s, fronts: small, local: true, clusters: clusters}
 	c.gate = &sharedOracle{s: s, fronts: plain}
-	// Without ShapeClearance, the oracle of the code is the oracle with the
-	// route maximum, and the network has no compiled index. Then main is
-	// nil, and the controls are the simulation itself.
+	// When the network has no compiled index, main is nil, and the
+	// controls are the simulation itself.
 	c.main, c.plain, c.six = s.envelopes, s, s
 	index := s.envelopes
 	if index == nil {
@@ -2027,7 +2023,6 @@ func sharedHookNetwork() Network {
 		return Lane{ID: id, From: from, To: to, SpeedLimit: 14, SeparationGroup: id, Control: control}
 	}
 	return Network{
-		ShapeClearance: true,
 		Nodes: []Node{
 			{ID: "a", Position: Point{X: -80, Y: -1.35}}, {ID: "f", Position: Point{X: -28, Y: -1.35}}, {ID: "t", Position: Point{X: 0, Y: 0.45}},
 			{ID: "u", Position: Point{X: -40, Y: 4}}, {ID: "w", Position: Point{X: -80, Y: 4}},
@@ -2069,7 +2064,6 @@ func TestSharedTrackStudyContainment(t *testing.T) {
 				classes = shapeStudyClasses
 			}
 			n, _, _ := diskStudyTurnBack(shape, classes)
-			n.ShapeClearance = true
 			c := newSharedContainment(t, fmt.Sprintf("turn-back %s, %s lanes", diskStudyShapeNames[shape], diskStudyKindNames[kind]), n)
 			if !finiteTails(c.s.tails) {
 				t.Errorf("%s: a tail is not finite", c.name)
@@ -2105,7 +2099,6 @@ func TestSharedTrackStudyContainment(t *testing.T) {
 		"control, support miss: oracle with the anchor front 6 m, small grown, curve":     1,
 	})
 	curves := envelopeReachCurves(t)
-	curves.ShapeClearance = true
 	c = newSharedContainment(t, "curves", curves)
 	for lane := range curves.Lanes {
 		for _, kind := range []diskStudyKind{diskSmall, diskLarge} {

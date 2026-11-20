@@ -278,6 +278,36 @@ func copyDecodedBranch(config *project.Config, key string, branch projectBranch)
 	return nil
 }
 
+// unknownNetworkMember returns the decode error of the network branch when
+// the network has a member that the network decoder does not know, for
+// example a removed member. Each edit refuses such a draft, also an edit
+// that does not read the network.
+func unknownNetworkMember(branch projectBranch) error {
+	if errors.Is(branch.err, json.ErrUnknownName) {
+		return fmt.Errorf("decode project branch network: %w", branch.err)
+	}
+	return nil
+}
+
+// draftNetworkMember is unknownNetworkMember for the network of an
+// explicit project.
+func draftNetworkMember(draft jsontext.Value) error {
+	var branches struct {
+		Network jsontext.Value `json:"network"`
+	}
+	if err := json.Unmarshal(draft, &branches); err != nil {
+		return fmt.Errorf("decode editor draft: %w", err)
+	}
+	if len(branches.Network) == 0 {
+		return nil
+	}
+	branch, err := decodeBranch("network", projectBranch{raw: branches.Network})
+	if err != nil {
+		return err
+	}
+	return unknownNetworkMember(branch)
+}
+
 // serviceMetadataKeys are the branches that can hold service metadata.
 var serviceMetadataKeys = []string{"orderContract", "network", "fleet", "expressServices", "onboardPickups"}
 

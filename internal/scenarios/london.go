@@ -198,11 +198,6 @@ type LondonOptions struct {
 	// Junctions selects the junctions that join the links of a station.
 	// The zero value is LondonChords.
 	Junctions LondonJunctions
-	// NoLateralMerges leaves the network field LateralMerges unset, so
-	// that the lanes of shallow merges and splits keep the isotropic
-	// junction zones. The zero value sets the field, as the presets do.
-	// See docs/design/lateral-merge-zones.md.
-	NoLateralMerges bool
 	// WideStations gives each passenger station that is not a Compact
 	// station the shape that StationScale and BerthPitch set. The zero
 	// value gives such a station the tight shape, as the presets do: its
@@ -285,8 +280,6 @@ type londonCapacity struct {
 	compact []bool
 	// junctions selects the junctions of the stations.
 	junctions LondonJunctions
-	// lateralMerges is the LateralMerges field of the network.
-	lateralMerges bool
 	// wide is the WideStations option.
 	wide bool
 }
@@ -348,11 +341,11 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 }
 
 // equal reports whether the capacity has the pitch, the scale, the berth and pod
-// counts, the station layouts, the junctions, the lateral merges, and the
-// station shapes of the other capacity.
+// counts, the station layouts, the junctions, and the station shapes of the
+// other capacity.
 func (capacity londonCapacity) equal(other londonCapacity) bool {
 	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other) &&
-		capacity.junctions == other.junctions && capacity.lateralMerges == other.lateralMerges && capacity.wide == other.wide
+		capacity.junctions == other.junctions && capacity.wide == other.wide
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -390,7 +383,7 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 	}
 	capacity := londonCapacity{
 		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, scale: options.StationScale, lanes: options.ParkingLanes,
-		compact: make([]bool, len(ids)), junctions: options.Junctions, lateralMerges: !options.NoLateralMerges, wide: options.WideStations,
+		compact: make([]bool, len(ids)), junctions: options.Junctions, wide: options.WideStations,
 	}
 	for _, id := range options.CompactStations {
 		index := slices.Index(ids, id)
@@ -546,7 +539,7 @@ var projectLondonLimits = londonLimits{nodes: project.MaxNodes, lanes: project.M
 // The size checks and station construction are the same for both presets.
 // The presets check the size with projectLondonLimits.
 func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, overrides map[string]float64, limits londonLimits) (sim.Network, error) {
-	network := sim.Network{LateralMerges: capacity.lateralMerges}
+	var network sim.Network
 	positions := make(map[string]sim.Point, len(source.Stations))
 	portals := make(map[string]*londonStationPortals, len(source.Stations))
 	for _, station := range source.Stations {

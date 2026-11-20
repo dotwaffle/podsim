@@ -53,18 +53,17 @@ func largeOrder(classes [2]VehicleClass) bool {
 	return largeVehicleClass(classes[0]) || largeVehicleClass(classes[1])
 }
 
-// oracleVariant is a network of the oracle tests: oracleNetwork with
-// LateralMerges or with ShapeClearance, or largeOracleNetwork.
+// oracleVariant is a network of the oracle tests: oracleNetwork or
+// largeOracleNetwork.
 type oracleVariant struct {
-	name         string
-	shape, large bool
+	name  string
+	large bool
 }
 
 // oracleVariants are the networks of the oracle tests.
 var oracleVariants = []oracleVariant{
-	{name: "lateral merges"},
-	{name: "shape", shape: true},
-	{name: "shape large lanes", shape: true, large: true},
+	{name: "shape"},
+	{name: "shape large lanes", large: true},
 }
 
 // network returns the network of the variant.
@@ -73,7 +72,7 @@ func (v oracleVariant) network(t *testing.T, converging bool) Network {
 	if v.large {
 		return largeOracleNetwork(t, converging)
 	}
-	return oracleNetwork(t, converging, v.shape)
+	return oracleNetwork(t, converging)
 }
 
 // orders returns the class orders that run on the network of the variant.
@@ -82,16 +81,12 @@ func (v oracleVariant) orders() [][2]VehicleClass {
 }
 
 // oracleNetwork returns the network of laneEndNetwork with lanes a and b
-// of oracleLaneLength meters at oracleDegrees, with LateralMerges, or with
-// ShapeClearance in its place. The destination station has oracleBerths
-// berths on an arc 100 m from the entry, and its exit is 600 m beyond the
-// entry, so that the audit of the field accepts the station.
-func oracleNetwork(t *testing.T, converging, shape bool) Network {
+// of oracleLaneLength meters at oracleDegrees. The destination station has
+// oracleBerths berths on an arc 100 m from the entry, and its exit is 600 m
+// beyond the entry, so that the audit accepts the station.
+func oracleNetwork(t *testing.T, converging bool) Network {
 	t.Helper()
 	network := laneEndNetwork(converging, oracleDegrees, oracleLaneLength)
-	if shape {
-		network.LateralMerges, network.ShapeClearance = false, true
-	}
 	entry, _ := network.Node("dest-entry")
 	exit := slices.IndexFunc(network.Nodes, func(node Node) bool { return node.ID == "dest-exit" })
 	network.Nodes[exit].Position = Point{X: entry.Position.X + 600, Y: entry.Position.Y}
@@ -134,16 +129,16 @@ var oracleBerthDegrees = []float64{10, -10, 25, -25, 40, -40}
 // largeOracleNetwork.
 var oracleLargeClasses = mustClassSet("legacy", "compact", "group", "express")
 
-// largeOracleNetwork returns the network of oracleNetwork with
-// ShapeClearance, where each lane, station, and berth admits each class,
-// so the merge and split pair of lanes a and b has the union body. The
+// largeOracleNetwork returns the network of oracleNetwork, where each
+// lane, station, and berth admits each class, so the merge and split pair
+// of lanes a and b has the union body. The
 // berths of the destination station are 200 m from the entry, 12 degrees
 // apart, and the exit is 1200 m beyond the entry, so that the audit
 // accepts the station at 20 m. A lane from the origin station to the start
 // of the network gives the Express riders a path.
 func largeOracleNetwork(t *testing.T, converging bool) Network {
 	t.Helper()
-	network := oracleNetwork(t, converging, true)
+	network := oracleNetwork(t, converging)
 	entry, _ := network.Node("dest-entry")
 	for index := range network.Nodes {
 		node := &network.Nodes[index]
@@ -475,7 +470,7 @@ func TestMergeOracleCases(t *testing.T) {
 // 3 s, restores the saved state, and runs the oracle and
 // Check at each tick of 60 s more. The faulted pod of the split case is in
 // its extent, where only the junction orders it, when the state is saved.
-// The cases run with LateralMerges and small pods, and on
+// The cases run on oracleNetwork with small pods, and on
 // largeOracleNetwork with Express and Group pods.
 // The cases do not fail before the save.
 func TestMergeOracleRestoredContinuation(t *testing.T) {
@@ -490,10 +485,10 @@ func TestMergeOracleRestoredContinuation(t *testing.T) {
 	}{
 		{converging: false, index: faulted, variant: oracleVariants[0], classes: oracleClassOrders[0]},
 		{converging: true, index: streams, variant: oracleVariants[0], classes: oracleClassOrders[0]},
-		{converging: false, index: faulted, variant: oracleVariants[2], classes: [2]VehicleClass{ExpressClass, CompactClass}},
-		{converging: true, index: streams, variant: oracleVariants[2], classes: [2]VehicleClass{ExpressClass, CompactClass}},
-		{converging: false, index: faulted, variant: oracleVariants[2], classes: [2]VehicleClass{GroupClass, ExpressClass}},
-		{converging: true, index: streams, variant: oracleVariants[2], classes: [2]VehicleClass{CompactClass, GroupClass}},
+		{converging: false, index: faulted, variant: oracleVariants[1], classes: [2]VehicleClass{ExpressClass, CompactClass}},
+		{converging: true, index: streams, variant: oracleVariants[1], classes: [2]VehicleClass{ExpressClass, CompactClass}},
+		{converging: false, index: faulted, variant: oracleVariants[1], classes: [2]VehicleClass{GroupClass, ExpressClass}},
+		{converging: true, index: streams, variant: oracleVariants[1], classes: [2]VehicleClass{CompactClass, GroupClass}},
 	} {
 		oracle := oracleCases[test.index]
 		t.Run(fmt.Sprintf("converging %v %s %s %s then %s", test.converging, test.variant.name, oracle.name, test.classes[0], test.classes[1]), func(t *testing.T) {
@@ -580,11 +575,11 @@ type oracleControl struct {
 // degrees left, p1 is at the end of lane a, and p2 is 6.5 m before the
 // node on lane b, which comes in from the right. Only the join turn of p1
 // into the exit lane brings its body over the body of p2. The small orders
-// run on oracleNetwork with LateralMerges, and each order runs on
+// run on oracleNetwork, and each order runs on
 // largeOracleNetwork.
 func TestMergeOracleControls(t *testing.T) {
 	t.Parallel()
-	for _, variant := range []oracleVariant{oracleVariants[0], oracleVariants[2]} {
+	for _, variant := range oracleVariants {
 		for _, classes := range variant.orders() {
 			for _, test := range oracleControls(t, variant) {
 				t.Run(fmt.Sprintf("%s %s %s then %s", variant.name, test.name, classes[0], classes[1]), func(t *testing.T) {

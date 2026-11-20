@@ -122,11 +122,6 @@ type Network struct {
 	Stations       []Station       `json:"stations"`
 	ManeuverGroups []ManeuverGroup `json:"maneuverGroups,omitzero" digest:"ext=13"`
 	Depots         []Depot         `json:"depots,omitzero" digest:"ext=14"`
-	// LateralMerges and ShapeClearance have no effect: the shape clearance
-	// rule applies to each network. They stay in the format until the
-	// members are removed.
-	LateralMerges  bool `json:"lateralMerges,omitzero" digest:"ext=16"`
-	ShapeClearance bool `json:"shapeClearance,omitzero" digest:"ext=17"`
 }
 
 // ErrUnreachable means no directed route connects the requested nodes.
