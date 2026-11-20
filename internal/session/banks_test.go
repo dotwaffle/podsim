@@ -73,7 +73,7 @@ func TestCaptureBankStateVersion(t *testing.T) {
 	}
 	t.Cleanup(shared.Close)
 	shared.project = withBankMetadata(shared.project)
-	file, captured, err := shared.captureState(saveStartup)
+	file, captured, err := shared.captureState(t.Context(), saveStartup)
 	if err != nil || !captured || file.Version != stateVersion {
 		t.Fatalf("capture version=%d captured=%t: %v", file.Version, captured, err)
 	}

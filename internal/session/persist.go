@@ -63,6 +63,7 @@ var (
 	errSaveTimeout        = errors.New("save of the session state timed out")
 	errMoveTimeout        = errors.New("move of the saved session state timed out")
 	errCommandSaveTimeout = errors.New("save of the session state before a command reply timed out")
+	errSaveEnded          = errors.New("the save stopped before its write")
 )
 
 // StateStore keeps one saved session state. The session calls it from
@@ -156,13 +157,23 @@ func (k SaveKind) String() string {
 	}
 }
 
-// persistence saves the state of one session. mu serializes the saves. A
-// save locks mu and then the session lock, and no code locks them in the
-// other order. The atomic fields let a reader get the save results without
-// a lock.
+// persistence saves the state of one session. slot serializes the saves. A
+// save gets the slot and then the session lock, and no code gets them in
+// the other order. The atomic fields let a reader get the save results
+// without a lock.
 type persistence struct {
 	store StateStore
-	mu    sync.Mutex
+	// slot admits one save at a time. It has space for one value. A save
+	// puts a value in it before it copies the state, and takes the value
+	// out after its write. A save stops waiting for the slot when its
+	// context ends. The holder of the slot owns lastRevision, saved,
+	// attempts and encoder.
+	slot chan struct{}
+	// queueMu guards queued. queued is the command save that waits for the
+	// slot, or nil. It leaves queued when it gets the slot, before it copies
+	// the state.
+	queueMu sync.Mutex
+	queued  *queuedSave
 	// enabled is false after NewFromStore turned saving off. It does not
 	// change after NewFromStore returns.
 	enabled atomic.Bool
@@ -174,7 +185,9 @@ type persistence struct {
 	// attempts is the restore count of the startup save.
 	attempts int
 	// consecutiveFailures counts the failed saves since the last good one.
-	consecutiveFailures int
+	// A save that ends before it gets the slot also counts, so the field is
+	// atomic.
+	consecutiveFailures atomic.Int64
 	encoder             stateEncoder
 	// nudge asks RunStateSaver for a save after a project change.
 	nudge   chan struct{}
@@ -195,14 +208,14 @@ type persistence struct {
 }
 
 func newPersistence(store StateStore) *persistence {
-	persist := &persistence{store: store, nudge: make(chan struct{}, 1), now: time.Now}
+	persist := &persistence{store: store, slot: make(chan struct{}, 1), nudge: make(chan struct{}, 1), now: time.Now}
 	persist.enabled.Store(true)
 	return persist
 }
 
 // setMetrics sets the state fields of metrics. revision is the current
 // revision of the session. setMetrics reads only the atomic fields and does
-// not lock mu, so the caller can hold the session lock.
+// not wait for the save slot, so the caller can hold the session lock.
 func (p *persistence) setMetrics(metrics *Metrics, revision uint64) {
 	// Load saves before the other fields. SaveState counts a save after it
 	// sets its results, so the results are set for each counted save.
@@ -736,6 +749,12 @@ func (s *Session) logRestored(input restoredInput) {
 // it holds the session lock. It encodes, compresses and writes the copy
 // after it releases the lock. Saves run one at a time.
 //
+// A save waits for an earlier save only while ctx lasts. When ctx ends
+// before the save copies the state, or before it encodes the copy, the save
+// stops and returns an error that wraps errSaveEnded and the cause of ctx.
+// It then logs and counts a failure, because the store does not get the
+// state.
+//
 // A periodic save writes nothing when the revision did not change since the
 // last periodic, command or final save, and nothing after Close. Apply makes
 // a command save before it replies to some commands, with the same rules.
@@ -751,16 +770,48 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 	if kind != SavePeriodic && kind != SaveFinal && kind != saveStartup && kind != saveCommand {
 		return fmt.Errorf("save session state: unknown kind %d", kind)
 	}
-	persist.mu.Lock()
-	defer persist.mu.Unlock()
+	if !persist.acquire(ctx) {
+		return s.saveEnded(ctx, kind)
+	}
+	defer persist.release()
+	return s.saveAdmitted(ctx, kind)
+}
+
+// acquire puts a value in the save slot. It reports false when ctx ends
+// first. A select picks at random when the slot is free and ctx ended, so
+// a save can get the slot with an ended context. captureState checks ctx
+// again after it gets the session lock.
+func (p *persistence) acquire(ctx context.Context) bool {
+	select {
+	case p.slot <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+// release takes the value out of the save slot.
+func (p *persistence) release() { <-p.slot }
+
+// saveAdmitted runs a save that holds the save slot.
+func (s *Session) saveAdmitted(ctx context.Context, kind SaveKind) error {
+	persist := s.persist
 	// lock is the time to lock the session, copy the state, and unlock it.
 	copyStarted := time.Now()
-	file, write, err := s.captureState(kind)
+	file, write, err := s.captureState(ctx, kind)
 	lock := time.Since(copyStarted)
+	if errors.Is(err, errSaveEnded) {
+		return s.saveEnded(ctx, kind)
+	}
 	if err != nil || !write {
 		return err
 	}
 	file.SavedAt = persist.now()
+	// The encoding costs much more than the copy. Do not encode for a save
+	// that nobody waits for.
+	if ctx.Err() != nil {
+		return s.saveEnded(ctx, kind)
+	}
 	if kind == saveStartup {
 		file.RestoreAttempts = persist.attempts
 	}
@@ -774,22 +825,13 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 		writeTime = time.Since(writeStarted)
 	}
 	if err != nil {
-		persist.failures.Add(1)
-		persist.consecutiveFailures++
-		// A state that is too large fails each time, so it needs action.
-		level := slog.LevelWarn
-		if errors.Is(err, ErrStateTooLarge) {
-			level = slog.LevelError
-		}
-		s.logger.LogAttrs(ctx, level, "Save session state", slog.String("kind", kind.String()), slog.Any("error", err),
-			slog.Any("cause", context.Cause(ctx)), slog.Int("failures", persist.consecutiveFailures))
-		return fmt.Errorf("save %s session state: %w", kind, err)
+		return s.saveFailed(ctx, kind, err)
 	}
 	persist.bytes.Store(int64(len(data)))
 	persist.savedAt.Store(int64(file.SavedAt.Sub(persist.started)))
 	persist.savedRevision.Store(file.Revision)
 	persist.saves.Add(1)
-	persist.consecutiveFailures = 0
+	persist.consecutiveFailures.Store(0)
 	if kind != saveStartup {
 		persist.lastRevision, persist.saved = file.Revision, true
 	}
@@ -803,14 +845,40 @@ func (s *Session) SaveState(ctx context.Context, kind SaveKind) error {
 	return nil
 }
 
+// saveEnded fails a save whose context ended before the save encoded the
+// state.
+func (s *Session) saveEnded(ctx context.Context, kind SaveKind) error {
+	return s.saveFailed(ctx, kind, fmt.Errorf("%w: %w", errSaveEnded, context.Cause(ctx)))
+}
+
+// saveFailed counts and logs a failed save, and returns its error.
+func (s *Session) saveFailed(ctx context.Context, kind SaveKind, err error) error {
+	persist := s.persist
+	persist.failures.Add(1)
+	failures := persist.consecutiveFailures.Add(1)
+	// A state that is too large fails each time, so it needs action.
+	level := slog.LevelWarn
+	if errors.Is(err, ErrStateTooLarge) {
+		level = slog.LevelError
+	}
+	s.logger.LogAttrs(ctx, level, "Save session state", slog.String("kind", kind.String()), slog.Any("error", err),
+		slog.Any("cause", context.Cause(ctx)), slog.Int64("failures", failures))
+	return fmt.Errorf("save %s session state: %w", kind, err)
+}
+
 // captureState copies the state that a save of kind writes. It holds the
 // session lock only while it copies. The copy shares no storage that the
 // session changes, because the session replaces its project whole. It
-// reports false when the save has nothing to write. The caller holds
-// persist.mu.
-func (s *Session) captureState(kind SaveKind) (stateFile, bool, error) {
+// reports false when the save has nothing to write. The caller holds the
+// save slot. The wait for the session lock can be long, so captureState
+// returns errSaveEnded and copies nothing when ctx ended before it got the
+// lock.
+func (s *Session) captureState(ctx context.Context, kind SaveKind) (stateFile, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if ctx.Err() != nil {
+		return stateFile{}, false, errSaveEnded
+	}
 	// As for a publication, this call delivers nothing while the session
 	// keeps its delivery rule. A save then never holds a pending rail
 	// record of an order that is gone.
@@ -909,9 +977,18 @@ func (s *Session) savePeriodic(ctx context.Context) {
 
 // saveBeforeReply saves the session state before Apply replies to a
 // command. It waits at most commandSaveTimeout, also when an earlier save
-// still uses the store. After that time, Apply replies, and the save
-// continues with an ended context. SaveState logs a failure. The caller
-// does not hold the session lock.
+// still uses the store. After that time, Apply replies. A save that has
+// the save slot continues with an ended context, and a save that waits for
+// the slot stops. SaveState logs a failure. The caller does not hold the
+// session lock.
+//
+// At most one command save waits for the slot. A command save that finds
+// one joins it and waits for its result, so that a slow store does not
+// collect a queue of saves. The queued save copies the state after it gets
+// the slot, which is after each command that joined it, so it holds the
+// revision of each such command or a later revision. When the queued save
+// stops before its write because its context ended, a command save that
+// still has time tries again.
 //
 // saveBeforeReply returns the StateSaved value of the reply to the command
 // at revision. It returns nil when the session does not save its state. It
@@ -926,14 +1003,14 @@ func (s *Session) savePeriodic(ctx context.Context) {
 // state.
 //
 // The value comes from persist.savedRevision. SaveState sets it after each
-// successful write. Saves run one at a time under persist.mu, and the
+// successful write. Saves run one at a time in the save slot, and the
 // revision of a session only increases, so savedRevision does not
-// decrease. persist.lastRevision needs persist.mu. After the timeout, the
-// save continues and holds persist.mu until its write ends. The reply must
-// not wait for it, so saveBeforeReply reads the atomic value. The reply can
-// then report false, and the save can succeed later. The startup save runs
-// before the first command, so its revision is lower than the revision of
-// each command.
+// decrease. persist.lastRevision needs the slot. After the timeout, a save
+// with the slot keeps it until its write ends. The reply must not wait for
+// it, so saveBeforeReply reads the atomic value. The reply can then report
+// false, and the save can succeed later. The startup save runs before the
+// first command, so its revision is lower than the revision of each
+// command.
 //
 // Commands carry no request context, and a canceled request must not stop
 // the save, so the save uses context.Background. contextcheck skips a
@@ -947,10 +1024,73 @@ func (s *Session) saveBeforeReply(revision uint64) *bool {
 	}
 	ctx, cancel := context.WithTimeoutCause(context.Background(), commandSaveTimeout, errCommandSaveTimeout)
 	defer cancel()
-	_, _ = callStore(ctx, errCommandSaveTimeout, func(ctx context.Context) (struct{}, error) {
-		return struct{}{}, s.SaveState(ctx, saveCommand)
-	})
+	s.saveCommand(ctx)
 	return new(s.persist.savedRevision.Load() >= revision)
+}
+
+// queuedSave is a command save that waits for the save slot. done closes
+// when the save ends. retry is then true when the save stopped before its
+// write because its context ended.
+type queuedSave struct {
+	done  chan struct{}
+	retry bool
+}
+
+// saveCommand runs the queued command save, or makes one and runs it, until
+// a save ends or ctx ends. The goroutine of callStore runs the save, because
+// a store can ignore ctx. A command save that joins a queued save does not
+// start a goroutine.
+func (s *Session) saveCommand(ctx context.Context) {
+	for ctx.Err() == nil {
+		queued, lead := s.persist.enqueue()
+		if lead {
+			_, _ = callStore(ctx, errCommandSaveTimeout, func(ctx context.Context) (struct{}, error) {
+				return struct{}{}, s.runQueued(ctx, queued)
+			})
+			return
+		}
+		select {
+		case <-queued.done:
+			if !queued.retry {
+				return
+			}
+		case <-ctx.Done():
+		}
+	}
+}
+
+// enqueue returns the queued command save and false. When there is none, it
+// queues a new save and returns it and true. The caller of a new save runs
+// it with runQueued.
+func (p *persistence) enqueue() (*queuedSave, bool) {
+	p.queueMu.Lock()
+	defer p.queueMu.Unlock()
+	if p.queued != nil {
+		return p.queued, false
+	}
+	p.queued = &queuedSave{done: make(chan struct{})}
+	return p.queued, true
+}
+
+// runQueued runs the queued command save. The save leaves the queue when it
+// gets the save slot or when ctx ends, before it copies the state. A
+// command save after that does not join it.
+func (s *Session) runQueued(ctx context.Context, queued *queuedSave) error {
+	persist := s.persist
+	admitted := persist.acquire(ctx)
+	persist.queueMu.Lock()
+	persist.queued = nil
+	persist.queueMu.Unlock()
+	var err error
+	if admitted {
+		err = s.saveAdmitted(ctx, saveCommand)
+		persist.release()
+	} else {
+		err = s.saveEnded(ctx, saveCommand)
+	}
+	queued.retry = errors.Is(err, errSaveEnded)
+	close(queued.done)
+	return err
 }
 
 // nudgeSaver asks RunStateSaver for a save. It does not wait. The caller

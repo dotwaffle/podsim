@@ -224,6 +224,10 @@ The decoder keeps larger route-array caps so long routes do not change the heade
 Each startup or periodic save gets 30 seconds.
 A command save gets 2 seconds.
 This time includes the wait for an earlier save.
+At most one command save waits for an earlier save.
+Another command save that comes during this wait uses the result of the waiting save, because that save copies the state after the command.
+When the time of a save ends before the save encodes the state, the save stops and does not write.
+This counts as a failed save.
 The Go client of the simulation view sends an exact retry when it gets no reply in 3 seconds.
 The shorter save time lets the reply come before the retry.
 An exact retry of a project apply, or of a rewind that restored a project, also makes a command save before its reply.
@@ -854,6 +858,7 @@ It writes these records for each save:
 - `Save session state` (WARN) is a failed save.
   It gives the `kind`, the `error`, the `cause` of a timeout, and `failures`, the number of failed saves in sequence.
   The cause of a command save that took more than 2 seconds is `save of the session state before a command reply timed out`.
+  A save that stopped before it encoded the state has the error text `the save stopped before its write`.
   A state that is too large gives ERROR, because each later save also fails.
 
 It writes these records at shutdown:

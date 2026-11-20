@@ -1732,8 +1732,8 @@ func stateMetrics(metrics Metrics) Metrics {
 }
 
 // TestMetricsDuringBlockedSave checks that Metrics does not wait for a save
-// that holds persist.mu. Metrics must not lock persist.mu, because a save
-// holds persist.mu while it waits for the session lock.
+// that holds the save slot. Metrics must not wait for the slot, because a
+// save holds the slot while it waits for the session lock.
 func TestMetricsDuringBlockedSave(t *testing.T) {
 	t.Parallel()
 	store := &fakeStore{}
@@ -1743,10 +1743,9 @@ func TestMetricsDuringBlockedSave(t *testing.T) {
 	s.advance()
 	saved := make(chan error, 1)
 	go func() { saved <- s.SaveState(t.Context(), SavePeriodic) }()
-	// Wait until the save holds persist.mu. It holds it until the test
+	// Wait until the save holds the save slot. It holds it until the test
 	// closes release.
-	for s.persist.mu.TryLock() {
-		s.persist.mu.Unlock()
+	for len(s.persist.slot) == 0 {
 		time.Sleep(time.Millisecond)
 	}
 	got := make(chan Metrics, 1)
@@ -1768,13 +1767,13 @@ func TestMetricsDuringBlockedSave(t *testing.T) {
 }
 
 // TestMetricsDuringSaves reads Metrics while saves run. Run it with the race
-// detector. When Metrics locks persist.mu, this test locks up until the test
-// timeout, and TestMetricsDuringBlockedSave reports the cause.
+// detector. When Metrics waits for the save slot, this test locks up until
+// the test timeout, and TestMetricsDuringBlockedSave reports the cause.
 func TestMetricsDuringSaves(t *testing.T) {
 	t.Parallel()
 	diskErr := errors.New("disk full")
-	store := &fakeStore{}
-	s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(&recordHandler{}))}})
+	store, handler := &fakeStore{}, &recordHandler{}
+	s := startFromStore(t, StoreInput{Store: store, Options: []Option{WithLogger(slog.New(handler))}})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	const steps = 50
@@ -1812,9 +1811,17 @@ func TestMetricsDuringSaves(t *testing.T) {
 	}
 	metrics, writes := s.Metrics(), store.writeList()
 	writeCalls := uint64(len(slices.DeleteFunc(store.callList(), func(call string) bool { return call != "write" })))
-	if metrics.StateSaves != uint64(len(writes)) || metrics.StateSaves+metrics.StateSaveErrors != writeCalls ||
+	// A save that stops before its write, for example at the end of ctx,
+	// also counts as a failed save.
+	var stopped uint64
+	for _, record := range handler.list() {
+		if err, _ := record.attrs["error"].(error); errors.Is(err, errSaveEnded) {
+			stopped++
+		}
+	}
+	if metrics.StateSaves != uint64(len(writes)) || metrics.StateSaves+metrics.StateSaveErrors != writeCalls+stopped ||
 		metrics.StateBytes != int64(len(writes[len(writes)-1])) {
-		t.Fatalf("metrics %+v do not match %d good writes of %d", metrics, len(writes), writeCalls)
+		t.Fatalf("metrics %+v do not match %d good writes of %d and %d stopped saves", metrics, len(writes), writeCalls, stopped)
 	}
 	// Each odd step fails, because no good save has its revision.
 	if metrics.StateSaveErrors < steps/2 {
@@ -2250,10 +2257,9 @@ func TestApplySaveFailures(t *testing.T) {
 				}
 				store.setWriteErr(nil)
 				close(release)
-				// Start the saver after the reply. A goroutine that waits for a
-				// mutex stops the clock of the bubble, and the saver would wait
-				// for the blocked save. The nudge of the command stays in its
-				// channel until the saver starts.
+				// Start the saver after the reply, so that its save does not
+				// wait for the blocked save. The nudge of the command stays in
+				// its channel until the saver starts.
 				ctx, cancel := context.WithCancel(t.Context())
 				var saver sync.WaitGroup
 				saver.Go(func() { s.RunStateSaver(ctx, time.Minute) })
@@ -2276,9 +2282,7 @@ func TestApplySaveFailures(t *testing.T) {
 // TestApplySaveRetryWaits sends an exact retry of a project apply while the
 // save of the first request blocks in its write. The browser client sends
 // such a retry when it gets no reply in 3 s. The retry must reply only after
-// that write completes. A goroutine that waits for persist.mu does not block
-// durably, so the clock of a synctest bubble stops while the retry waits.
-// Thus the test uses real time.
+// that write completes.
 func TestApplySaveRetryWaits(t *testing.T) {
 	t.Parallel()
 	store := &fakeStore{}
@@ -2291,10 +2295,9 @@ func TestApplySaveRetryWaits(t *testing.T) {
 	command := client.next(Command{Action: "project", ProjectRevision: s.Project().Revision, Project: &config})
 	first := make(chan Reply, 1)
 	go func() { first <- s.Apply(command) }()
-	// Wait until the save of the first request holds persist.mu. It holds
-	// it until the test closes release.
-	for s.persist.mu.TryLock() {
-		s.persist.mu.Unlock()
+	// Wait until the save of the first request holds the save slot. It
+	// holds it until the test closes release.
+	for len(s.persist.slot) == 0 {
 		time.Sleep(time.Millisecond)
 	}
 	type result struct {

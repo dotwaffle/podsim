@@ -133,7 +133,7 @@ func BenchmarkLondonSavedProjectEncoding(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.Cleanup(shared.Close)
-	file, _, err := shared.captureState(saveStartup)
+	file, _, err := shared.captureState(b.Context(), saveStartup)
 	if err != nil {
 		b.Fatal(err)
 	}
