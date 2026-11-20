@@ -1462,6 +1462,86 @@ test("an apply without a valid acknowledgment keeps the outcome open and shows t
   assert.equal(server.live.revision, 3);
 });
 
+// stallOn gives a fetch function for server, a fakeSession. The first
+// request that match accepts stalls until its signal aborts. With
+// "headers", the request stalls before the reply. With "body", the
+// server gets the request, and the reply body stalls. reached settles
+// when the stall starts, and signals holds the signal of the stalled
+// request.
+function stallOn(server, match, where) {
+  let stalled = false, reach = null;
+  const reached = new Promise((resolve) => { reach = resolve; });
+  const signals = [];
+  const aborted = () => new DOMException("The request was aborted.", "AbortError");
+  const fetch = async (url, init) => {
+    if (stalled || !match(url, init)) return server.fetch(url, init);
+    stalled = true; signals.push(init.signal); reach();
+    if (where === "headers") return new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(aborted())));
+    const served = await server.fetch(url, init);
+    const body = new ReadableStream({ start(controller) { init.signal.addEventListener("abort", () => controller.error(aborted())); } });
+    return new Response(body, { status: served.status, headers: served.headers });
+  };
+  return { fetch, reached, signals };
+}
+
+// isCommand gives a match function for stallOn for a command with the
+// action and, when it is set, the paused value.
+const isCommand = (action, paused) => (url, init) => url === "/api/command" && requestCommand(init).action === action && (paused === undefined || requestCommand(init).paused === paused);
+
+test("a request that stalls stops after the time limit, and a stalled apply keeps the outcome open", { timeout: 20000 }, async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const timeout = "The server did not reply in 35 seconds.";
+  const unconfirmed = "The server did not confirm the apply. The live scenario can have your draft or not. Your draft is safe.";
+  const cases = [
+    {
+      name: "a state read stalls in the body before the pause", match: (url) => url === "/api/state", where: "body",
+      wantUnconfirmed: false, wantText: `Apply failed. ${timeout} The simulation was not paused.`, wantRevision: 3,
+    },
+    {
+      name: "the project read stalls before the reply", match: (url) => url === "/api/project", where: "headers",
+      wantUnconfirmed: false, wantText: `Apply failed. ${timeout} The simulation was not paused.`, wantRevision: 3,
+    },
+    {
+      name: "the pause command stalls before the reply", match: isCommand("pause", true), where: "headers",
+      wantUnconfirmed: false, wantText: `Apply failed. ${timeout} The editor resumed the simulation.`, wantRevision: 3,
+    },
+    {
+      name: "the project command stalls before the reply", match: isCommand("project"), where: "headers",
+      wantUnconfirmed: true, wantText: `${unconfirmed} The editor resumed the simulation.`, wantRevision: 3,
+    },
+    {
+      name: "the server applies the project and the reply body stalls", match: isCommand("project"), where: "body",
+      wantUnconfirmed: true, wantText: `${unconfirmed} The simulation restarted after the pause. The editor did not resume it.`, wantRevision: 7,
+    },
+  ];
+  for (const item of cases) {
+    const server = fakeSession({ paused: false });
+    const stall = stallOn(server, item.match, item.where);
+    const connection = { fetch: stall.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    const applying = editor.applyToServer({ connection, revision: 3, serverStart: "start-1", project: connectedScenario() }).then(() => null, (caught) => caught);
+    await stall.reached;
+    t.mock.timers.tick(editor.REQUEST_TIMEOUT - 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(stall.signals[0].aborted, false, item.name);
+    t.mock.timers.tick(1);
+    const error = await applying;
+    assert.ok(error, item.name);
+    assert.equal(stall.signals[0].aborted, true, item.name);
+    assert.equal(Boolean(error.unconfirmed), item.wantUnconfirmed, item.name);
+    assert.equal(editor.applyFailureText(error), item.wantText, item.name);
+    assert.equal(server.live.revision, item.wantRevision, item.name);
+  }
+
+  // The recovery read after an unconfirmed apply has the same limit.
+  const server = fakeSession({ paused: false });
+  const stall = stallOn(server, (url) => url === "/api/state", "body");
+  const connection = { fetch: stall.fetch, clientID: "editor-test", sequence: 0, epoch: "epoch-1" };
+  const reading = editor.readConflict(connection, { unconfirmed: true }, asServed);
+  await stall.reached;
+  t.mock.timers.tick(editor.REQUEST_TIMEOUT);
+  assert.deepEqual(await reading, { code: "unconfirmed", revision: null, serverStart: "" });
+});
+
 // paddedScenario gives connectedScenario with a long name, so that its JSON
 // has bytes bytes. The fake session does not check the name.
 function paddedScenario(bytes) {

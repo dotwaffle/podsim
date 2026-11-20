@@ -1035,15 +1035,41 @@
   // A Go test in internal/session checks the media type.
   const LIVE_STATE_ACCEPT = "application/vnd.podsim.state-7+json";
 
+  // REQUEST_TIMEOUT is the maximum time in milliseconds of one request to
+  // the session API, from the start of the request to the end of the
+  // reply body. The server stops the write of a reply after 30 seconds
+  // (WriteTimeout in cmd/serve), and the editor waits 5 seconds more for
+  // the network. A shorter time could stop a command that the server
+  // completes.
+  const REQUEST_TIMEOUT = 35000;
+
+  // TIMEOUT_TEXT is the message of a request that did not complete in
+  // REQUEST_TIMEOUT.
+  const TIMEOUT_TEXT = `The server did not reply in ${REQUEST_TIMEOUT / 1000} seconds.`;
+
+  // withDeadline runs request with an AbortSignal and gives its result.
+  // After REQUEST_TIMEOUT, it throws the error that expired gives, and
+  // then aborts the signal. It throws also when request ignores the
+  // signal, so a stalled request does not block the page.
+  async function withDeadline(request, expired) {
+    const controller = new AbortController();
+    let timer = null;
+    const deadline = new Promise((_, reject) => { timer = setTimeout(() => { reject(expired()); controller.abort(); }, REQUEST_TIMEOUT); });
+    try { return await Promise.race([request(controller.signal), deadline]); } finally { clearTimeout(timer); }
+  }
+
   // getJSON gets one JSON document. It throws the server error or the HTTP
   // status. When media is set, a successful reply must have that media
-  // type, or getJSON throws before it reads the body.
+  // type, or getJSON throws before it reads the body. The request and the
+  // body read have the time limit of withDeadline.
   async function getJSON(connection, url, accept = "application/json", media = "") {
-    const response = await connection.fetch(url, { headers: { Accept: accept } });
-    if (response.ok && media && mediaType(response) !== media) throw new Error("The server replied with an unsupported media type.");
-    let body = null; try { body = await response.json(); } catch (_) {}
-    if (!response.ok || body?.error) throw new Error(body?.error || `HTTP ${response.status}`);
-    return body;
+    return withDeadline(async (signal) => {
+      const response = await connection.fetch(url, { headers: { Accept: accept }, signal });
+      if (response.ok && media && mediaType(response) !== media) throw new Error("The server replied with an unsupported media type.");
+      let body = null; try { body = await response.json(); } catch (_) {}
+      if (!response.ok || body?.error) throw new Error(body?.error || `HTTP ${response.status}`);
+      return body;
+    }, () => new Error(TIMEOUT_TEXT));
   }
 
   // mediaType gives the media type of the Content-Type header of response,
@@ -1230,18 +1256,23 @@
   // send it. A successful reply must be an acknowledgment of the command,
   // as isAcknowledgment tells. Else postCommand throws an
   // unconfirmedError, because the server can have applied the command.
+  // A request that does not complete in the time limit of withDeadline
+  // also throws an unconfirmedError.
   async function postCommand(connection, command) {
     connection.sequence += 1;
     const epoch = connection.epoch;
     const { body: requestBody, headers } = await commandRequest(JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch, ...command }));
-    const response = await connection.fetch("/api/command", { method: "POST", headers, body: requestBody });
-    if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
-    let text = ""; try { text = await response.text(); } catch (_) {}
-    let body = null; try { body = JSON.parse(text); } catch (_) {}
-    if (!response.ok || body?.error) {
-      const error = new Error(body?.error || replyText(text, response.status));
-      error.status = response.status; error.errorCode = body?.errorCode || ""; error.retryAfter = retryAfterSeconds(response); throw error;
-    }
+    const body = await withDeadline(async (signal) => {
+      const response = await connection.fetch("/api/command", { method: "POST", headers, body: requestBody, signal });
+      if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
+      let text = ""; try { text = await response.text(); } catch (_) {}
+      let reply = null; try { reply = JSON.parse(text); } catch (_) {}
+      if (!response.ok || reply?.error) {
+        const error = new Error(reply?.error || replyText(text, response.status));
+        error.status = response.status; error.errorCode = reply?.errorCode || ""; error.retryAfter = retryAfterSeconds(response); throw error;
+      }
+      return reply;
+    }, () => unconfirmedError(TIMEOUT_TEXT));
     if (!isAcknowledgment(body, epoch)) throw unconfirmedError("The server reply does not confirm the command.");
     connection.epoch = body.epoch;
     return body;
@@ -2435,7 +2466,7 @@
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, MAX_STATE_DEPTH, MAX_STATE_ELEMENTS, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
-    readPreset, PRESET_QUESTION, readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
+    REQUEST_TIMEOUT, readPreset, PRESET_QUESTION, readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
     IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };
