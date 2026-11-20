@@ -2,7 +2,7 @@
 
 Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
 Slices 0 to 4 landed.
-Sections 7.2 and 7.3 record the decisions of the build.
+Sections 7.2 and 7.3 record the decisions of the build, which the maintainer approved on 2026-11-20.
 On 2026-11-20, the amendments of section 4 were applied to their target documents, with each `<date>` as 2026-11-20.
 Date: 2026-11-20.
 Revised on 2026-11-20 after an adversarial review: 6 major findings and 1 minor finding are folded in.
@@ -404,7 +404,7 @@ Two things stay apart.
 On 2026-11-20, slices 0 and 1 found section 9.2 stops for slice 2.
 A study on a forced-on copy found no oracle stop: each failure near 12 m came from the 12 m test helper `checkTraffic`, a field-off arm, or a pinned trace, and `Check` and the D6 oracle stayed clean.
 The maintainer delegated the decisions below to the agent on 2026-11-20.
-Each one is decided by the agent on that delegation, and each one waits for maintainer review.
+The agent decided each one on that delegation, and the maintainer approved each one on 2026-11-20.
 
 | ID | Stop | Decision |
 | --- | --- | --- |
@@ -421,7 +421,7 @@ Each one is decided by the agent on that delegation, and each one waits for main
 ### 7.3 Decisions in the build of slices 2 to 4
 
 The build of slices 2 to 4 and its adversarial review found the items below on 2026-11-20.
-Each one is decided by the agent on the delegation of section 7.2, and each one waits for maintainer review.
+The agent decided each one on the delegation of section 7.2, and the maintainer approved each one on 2026-11-20.
 
 | ID | Item | Decision |
 | --- | --- | --- |
