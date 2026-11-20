@@ -56,6 +56,8 @@ Each station has distinct diverge, entry, exit, and merge nodes.
 Berths use separate arrival and departure spines.
 This layout keeps access lanes away from occupied berths.
 A road lane goes from each arrival portal to the diverge node, and from the merge node to each departure portal.
+The road lanes of LondonCentral are straight.
+LondonFull gives 676 of its 1,456 road lanes a curve, and most of these curves have a lower speed limit (see [station roads](london-full.md#station-roads)).
 The core lanes of a station go from the diverge node, through the berths, to the merge node.
 The station axis goes from the TfL station position through the middle of the berth rows.
 The diverge and merge nodes are 80 meters out on this axis and 30 meters to each side of it.

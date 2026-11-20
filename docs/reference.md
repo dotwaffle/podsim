@@ -543,6 +543,7 @@ Its `geo` member is the reference of its projection, latitude 51.5074 and longit
 Its parking stations are [depots](model.md#parking-depots), and seven of its stations have [Compact bays](model.md#compact-bays), which are the Compact stations of LondonFull without Tower Gateway.
 
 LondonFull starts with a configured rate of 10 orders per minute, and demand starts off.
+Its station roads are curved, with a speed limit from the radius of each curve (see [station roads](london-full.md#station-roads)).
 West India Quay is left out for layout clearance, and Canary Wharf DLR and Jubilee stay separate stations.
 A short DLR smoke run does not establish sustainable capacity, and the earlier finite-arrival studies used the Tube-only preset.
 Its three parking stations are depots, and eight of its stations are Compact stations (see [depots and Compact stations](london-full.md#depots-and-compact-stations), which gives the depot length limit, the capacity rule, and the measurements).
@@ -561,7 +562,7 @@ The `london-full-shared-express` preset is decision D11 of the [shape clearance]
 It keeps D and adds a second Express project under the `express-v1` order contract.
 Its Express pods run on the lanes of link 100 between Waterloo and Bank, on the four hub roads of that route, and on the access, berth, and junction lanes of the two hubs, all shared with Legacy and Compact pods.
 There are no Express trunks.
-The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`.
+The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`, but with straight roads.
 The Waterloo throat is 90 meters from its junction, Bank is turned by 5 degrees, `road-in-05` at Waterloo is curved, and the junction lanes `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06` are removed.
 Together, these changes leave the [bank audit](station-banks.md) with no refusal.
 There are two Express services, one in each direction between the two stations, with a party limit of 20.
@@ -589,7 +590,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 ### Capacity flags
 
-The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, and the junctions of a preset.
+The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, the junctions, and the station roads of a preset.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
 They do not apply to `independent-banks`, `compact-station`, `london-full-express`, or `london-full-shared-express`.
 
@@ -606,6 +607,7 @@ They do not apply to `independent-banks`, `compact-station`, `london-full-expres
 | `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the network is then the preset network from before that date. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
+| `-road-fillets` | London presets only. Give each station road and each Parking facility road a quadratic curve that leaves the lane before it and joins the lane after it at their headings, by the [London road fillets proposal](contracts/london-fillets-proposal.md). The speed limit of a curved road is the smaller of 14 m/s and the square root of 2r, where r is its smallest radius in meters. A road keeps its chord at 14 m/s when an end is already tangent, when the headings do not meet ahead of both ends, or when its speed would be below 5 m/s. The movement lanes keep their chords. The flag has no effect with `-junctions ramps`. The preset value is on for `london-full` and off for `london-central`. `-road-fillets=false` gives `london-full` with straight roads, and the project name ends with " (custom capacity)". |
 
 ```sh
 mise run scenario -- -preset scale100 -berths station-19=8 -berth-pitch 68 -output /tmp/podsim-station19-8.json

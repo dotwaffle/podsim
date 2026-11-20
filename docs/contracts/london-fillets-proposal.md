@@ -3,6 +3,8 @@
 Status: APPROVED by the maintainer on 2026-11-20, with decisions FL-D1 to FL-D9 (section 9).
 The maintainer approved stage 1 of decision FL-D4: slices 0 to 3 and the evidence of LondonFull.
 Stage 2 waits until the maintainer reads the evidence of LondonFull.
+Slices 0 to 3 landed.
+Section 8.1 records the evidence of stage 1.
 An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.
 Line references are for `ddb2233a`.
@@ -517,6 +519,197 @@ Each slice passes `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -di
 Run the race task of each changed package once on the tip of slice 4: `mise run test:race:sim`, `test:race:session`, and `test:race:other`.
 Under FL-D4 A, slices 2 and 4 are one commit, and the LondonFull evidence runs with the evidence of slice 6.
 Under FL-D4 C, slices 4 and 6 do not happen, and slice 5 has FL-A4, FL-A5, FL-A7, and an SX1 note that the preset keeps its geometry.
+
+### 8.1 Evidence of stage 1
+
+The runs below are from 2026-11-20, with Go 1.27.4.
+Each run used `nice -n 10` in a systemd scope with a memory limit of 16 GiB.
+The scratch probes of this record are deleted.
+
+#### Slice 0
+
+Slice 0 built the rule in a scratch tree at `7531397e`.
+LondonFull had the fillets, and the preset had the fillets with its hub roads straight (FL-D5).
+The rule gives the rerun numbers of section 2.3 exactly.
+Before the floor of FL-D2 B, it curves 639 road-in lanes, 646 road-out lanes, and 22 of the 24 Parking roads.
+With the floor, it curves 676 lanes on LondonFull: 320 road-in lanes, 340 road-out lanes, and 16 Parking roads.
+The median speed of a curved road is about 11 m/s.
+61 roads have a smallest radius below 5 m, and the smallest radius is 0.043 m, on `940GZZLUWLO-road-out-02`.
+These roads keep their chords.
+The largest growth of a road length is 78.3 m, and the longest control leg is 151 m, both on `940GZZLUWLO-road-in-02`.
+The proposal does not limit either value.
+
+| Item | LondonFull, before and after | The preset, hub roads straight, before and after |
+| --- | --- | --- |
+| Network SHA-256 | `69baad6a...` and `03d04786...` | `5961c702...` and `cba69149...` |
+| Lanes that change | 676, with 9 at the hubs | 667, with none at the hubs |
+| Validation, layout audit, bank audit | Pass, with no hard and no soft conflict | Pass, with no hard and no soft conflict |
+| Shape pairs | 0 and 0 | 47 and 47 |
+| Tail warnings | 0 and 0 | 1 and 1, on `940GZZLUBNK-move-08-02` as pinned |
+| Passenger stations with a lane slower than 14 m/s | 0 and 280 of 309 | 0 and 278 of 309 |
+| Platoon links in 60 minutes, seeds 1, 2, and 3 | 10, 7, 4, and 0, 0, 0 | 3, 8, 7, and 1, 0, 1, each toward Bank |
+| Linked pod-seconds, seeds 1, 2, and 3 | 220, 2,110, 1,348, and 0, 0, 0 | 295, 1,906, 1,298, and 14, 0, 10 |
+| `Check` at each second of these runs | 3,600 of 3,600 pass | 3,600 of 3,600 pass |
+| Completed trips, seeds 1, 2, and 3 | 659, 674, 645, and 661, 674, 647 | 660, 673, 647, and 656, 678, 647 |
+| Lateral pair sides, clause 5 exclusions, lateral pairs | 23,972, 998, 11,487, and 23,972, 1,002, 11,485 | 23,984, 992, 11,496, with no change |
+| Residual join angle of a changed road at its start, p50, p90, maximum | 46.8, 56.4, 77.7 degrees, and 0.40, 0.56, 1.64 degrees | The same values |
+| Residual join angle of a changed road at its end, p50, p90, maximum | 46.6, 56.5, 89.9 degrees, and 0.40, 0.55, 1.72 degrees | The same, with a maximum of 1.53 degrees |
+| Free-flow time from Waterloo to Bank | 155.1 s and 173.2 s | 158.3 s and 158.3 s |
+| Free-flow change of 100 seeded pairs, p50, p90, maximum | +3.1 s, +9.7 s, +17.7 s, which is +0.20%, +1.09%, +5.31% | The same values |
+| Ride: nodes at changed roads that round | 1,229 and 1,202, with no node kept sharp | 1,216 and 1,189 |
+| Debris footprints that change | 4,026 of 8,247 segments, 2,225 larger and 360 smaller | 3,920 of 8,016 segments |
+| Debris resources, p50 and maximum | 5 and 23, and 6 and 24 | The same values |
+| Debris berth refusals | 0 and 0 | 0 and 0 |
+
+The platoon runs use the am-peak profile at 15 requests per minute and 900 requests, with the settings of a session, without redistribution.
+A link is a new pair of a pod and the pod ahead, at samples of 1 s.
+The free-flow times go from the station exit to the station entry, at the length of each lane over its speed limit.
+The debris rows use three segments of 1 m on each changed road and on each lane near it, at 10%, 50%, and 90% of the lane.
+
+The lateral pair counts do not change much, but the junction zones on the filleted roads get longer.
+The method is that of the [lateral merge zones](../design/lateral-merge-zones.md) design, on the changed lanes of LondonFull.
+
+| Lanes and node | Zone p50, p75, p90, before | After |
+| --- | --- | --- |
+| Road-in lanes at the diverge node | 13 m, 13 m, 37 m | 17.7 m, 71 m, 103 m |
+| Road-out lanes at the merge node | 13 m, 13 m, 29 m | 17 m, 85 m, 107 m |
+| Road-out lanes at the departure portal, p75 | 13 m | 39 m |
+| Road-in lanes at the arrival portal, p75 | 13 m | 38 m |
+
+The stop of section 7 for platoon links fired: LondonFull formed no platoon link in the 60-minute runs of seeds 1, 2, and 3.
+Each other stop of section 7 for slice 0 was clear.
+The D6 oracle and the envelope parity test did not run in slice 0, because they read the SX fixture, which was not current in the scratch tree.
+The maintainer then approved slice 1 and the compare study of FL-D6, with a third arm at 14 m/s.
+After the compare study, the maintainer kept FL-D3 A, the ramp speed.
+
+#### Compare study of FL-D6
+
+The study ran at `6a3a77cd`, the commit of slice 1, with the method of the [ramps study](../studies/london-junctions.md).
+The arms are:
+
+- (a): LondonFull with straight roads, network `69baad6a...`.
+- (b): LondonFull with `-road-fillets`, network `03d04786...`.
+- (c): the project of (b), with a speed limit of 14 m/s on each road that has a control point.
+  This changes 673 lanes, and the other 3 curved roads already had 14 m/s.
+
+```sh
+scenario -preset london-full -output a.json
+scenario -preset london-full -road-fillets -output b.json
+compare -project <arm>.json -pattern profile -bands am-peak -loads 4s,3s -seeds 1,2,3 \
+  -duration 120m -arrivals-for 60m -stop-when-drained -redistribution-policies off \
+  -platoon-policies virtual -queue-limit 1000000 -workers 3 -format csv
+compare -project <arm>.json -pattern profile -bands am-peak -loads 4s -seeds 4,5,6 \
+  -duration 120m -arrivals-for 60m -stop-when-drained -redistribution-policies off \
+  -platoon-policies virtual -queue-limit 1000000 -workers 3 -format csv
+```
+
+A load of `4s` is 15 requests per minute, and `3s` is 20 requests per minute.
+At 15 requests per minute, (b) drained one more seed than (a) on seeds 1 to 3, so seeds 4 to 6 also ran, as FL-D6 requires.
+A timed pilot of seed 1 at 15 requests per minute took about 25 s and 780 MB for each arm.
+Each arm then took about 65 s with 3 workers, and seeds 4 to 6 took about 26 s more.
+
+At 15 requests per minute, seeds 1 to 6, the criterion of FL-D6:
+
+| Value | (a) | (b) | (c) |
+| --- | ---: | ---: | ---: |
+| Seeds that drain | 5 of 6 | 6 of 6 | 5 of 6 |
+| Mean wait | 196.5 s | 201.9 s | 196.9 s |
+| Mean journey | 870.4 s | 883.4 s | 872.8 s |
+| Mean of the paired wait changes | | +2.83% | +0.27% |
+| Mean of the paired journey changes | | +1.50% | +0.29% |
+| `platoon_time_percent` | 0.233 | 0.012 | 0.299 |
+| `junction_wait_seconds`, mean of the seeds | 1,037 | 2,140 | 1,418 |
+| `track_wait_seconds`, mean of the seeds | 279 | 391 | 326 |
+| `stopped_pod_seconds`, mean of the seeds | 1,592 | 2,830 | 2,046 |
+
+Seed 1 of (a) and of (c) ends with one request that is not served.
+The paired wait changes of (b) are from +2.0% to +4.3% on each seed, and its paired journey changes are from +1.2% to +1.8%.
+(b) passes FL-D6, and (c) also passes.
+(b) has platoon time only on seed 1, 0.071%.
+
+At 20 requests per minute, seeds 1 to 3, for information:
+
+| Value | (a) | (b) | (c) |
+| --- | ---: | ---: | ---: |
+| Requests not served at the end of seeds 1, 2, and 3 | 1, 3, 2 | 6, 3, 4 | 3, 4, 4 |
+| Mean wait | 336.1 s | 367.5 s | 350.6 s |
+| Mean journey | 1,025.6 s | 1,058.3 s | 1,037.7 s |
+| Mean of the paired wait changes | | +9.38% | +4.20% |
+| Mean of the paired journey changes | | +3.19% | +1.16% |
+| `platoon_time_percent` | 0.382 | 0.000 | 0.510 |
+| `junction_wait_seconds`, mean of the seeds | 1,554 | 3,443 | 2,391 |
+
+The cost of (b) is mostly junction wait, which is about 2.1 times that of (a).
+This agrees with the longer junction zones of slice 0.
+The platoon probe of slice 0, on seeds 1 to 3 of (c), gave 6, 9, and 10 platoon links toward different stations, and each `Check` passed.
+
+#### Slices 1 to 3
+
+| Commit | Content |
+| --- | --- |
+| `6a3a77cd` | Slice 1: the option, the rule, the `-road-fillets` flag, and the unit tests. 23 mutations of the rule and the option, each killed. No pin moved. |
+| `b791cb93` | A test of a road-out between two curved lanes, after a review found that the tests did not tell the chords of the neighbor lanes from their tangents. |
+| `3641980c` | Slice 2: LondonFull sets the option, and the preset builds on LondonFull with straight roads. |
+| The commit of slice 3 | The live documents of section 5.4 and this record. |
+
+Slice 2 moved these pins of section 5.2:
+
+| Pin | Before | After |
+| --- | --- | --- |
+| LondonFull network | `69baad6a...` | `03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5` |
+| LondonFull output | `f9b42a16...` | `66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa` |
+| LondonFull project output | `b5d70846...` | `a2669dc0cf5eed9ea435e5b2905ea1b84ca781de23d5e0de3ff43f9cf7d12bad` |
+| Wide stations, project | `4861d23f...` | `9ec575882c3f108139c9cd05e7305bac44c8de1a50de407760fa408e958a22cd` |
+| Wide stations, network | `c8a1cbb1...` | `413119c9bd469ccc50ab755683a6bcc1f27eb78ac5d6b1105b142a482f48b9d3` |
+| Wide stations with `-berth-pitch 50` | `2050d857...` | `22067582851892434e1998166192c914cc463a5accd9b57e21fe732d480ed4b2` |
+| Tight stations with `-berth-pitch 50` | `f0defafe...` | `9503e65cd30cbe9b861552ec9d96e76b939b0be9e744b7ff85105ddd9ea2e0ec` |
+| Opt-out, no depots and no Compact stations | `fa1dc35e...` | `c34a657f750919f107fc917f137a5df851c86c0f83057e9bf1b006cce49d3006` |
+| Opt-out, no depots | `a0975e28...` | `697474d1d483e04b703aa2657b60afcd21d973daa6354c5dc7de267b34fec811` |
+| Opt-out, no Compact stations | `aa2e5c64...` | `bd9f3d1565c6b1a12f3f76fa0c63872892299c496e991ea8aab86595a3bcd0e2` |
+| Study input "tight", file and network | `f9b42a16...`, `69baad6a...` | `66be4a22...`, `03d04786...` |
+| Study input "wide", file and network | `55a15f15...`, `c8a1cbb1...` | `80b1bb3c79e20df09beb6d5024957be13fb30324fc2d3adbe0ad95bd795c5a91`, `413119c9...` |
+| Study network "tight 2.1" | `8906fd2b...` | `8cbf62c9348af2f1706ccf4c49cb3fea40c9b1537650b3f619707757535e063f` |
+| Study network "tight 3.5" | `09b8fdea...` | `41b3f9f521169842cf12c51164651155d410a5cadedd90feabf1da4fbc76b4d7` |
+| Study network "tight 3.6" | `750ce680...` | `6ded06170cd20c972e6be7b116af5d00a4ccc10e67dc31758db811fc2cb47ca2` |
+| Study network "wide 2.1" | `45ad760f...` | `019262cfdedc1a835082d25ee3bf276c193faa011d4ae0200f073acdc627c8e7` |
+| Study refusals, refusals under 4.0 m, shape pairs, "tight 2.1" | 7, 5, 39 | 9, 7, 39 |
+| The same, "tight 3.5" | 0, 0, 38 | 3, 2, 35 |
+| The same, "tight 3.6" | 0, 0, 23 | 3, 2, 20 |
+| The same, "wide 2.1" | 7, 5, 39 | 5, 4, 31 |
+| `london-full` record of `preset_behavior_parity.json`, topology | `0e282062...` | `40d35b05d1736491ec9b82affcb3e59bb5ecea3a199fd7334617bb85de7de8a0` |
+
+Each checkpoint digest of the `london-full` record also changed.
+The test wrote the record again with `-update`, and the other records of the file did not change.
+The ramps study input and its counts did not change.
+No pin of section 5.1 or 5.3 moved.
+
+The slice 2 gates passed: `go build ./...`, `go vet ./...`, golangci-lint, `go fix -diff`, `go test ./...` without `-short` in 523 s, and the 415 web tests.
+No latency gate failed.
+A scratch run of the filleted LondonFull for 20 simulated minutes ran `Check`, the D6 oracle, and the envelope parity test at each of 36,000 ticks, and each passed.
+The run had 300 trips, 99,616 pod-ticks on curved roads, and 681,810 pod-ticks on lanes with a lateral pair.
+`go test ./...` also ran the D6 oracle and envelope runs of D and the preset, which did not change.
+
+`mise run qualify:london` and `mise run check` on the tip of slice 3 are pending.
+
+#### Findings that differ from the text
+
+- Section 2.1 gives the check for rays behind an end before the check for a tangent end.
+  The code does the tangent check first, because only this order gives the rerun counts of 15 tangent roads and 132 roads with rays behind an end.
+  The two orders curve the same roads.
+- Sections 5.2 and 8 do not list four tests that slice 2 changed:
+  - `checkLondonParity` (`london_depot_test.go`), which `TestLondonDepots` and `TestLondonCompactStations` use.
+    The curve and the speed of a road come from the heading of its access lane, and a depot or Compact layout changes that heading.
+    The check now lets a road of a replaced station differ only in its control point and its speed limit, only when the options fillet the roads, and only to the values that the rule gives on the network of the variant.
+    Of 15 mutations of the check and of the generator, 14 were killed.
+    The mutation of a road of a Compact station survived, because the check already ignores each lane of a Compact station.
+  - `TestRunRoadFillets`, `TestLondonRoadFilletsOption`, and `TestLondonRoadFilletsOnLondonFull`, which expected LondonFull without the option.
+- Section 5.3 does not say that the "tight 3.5" network of the shared-track study now has 3 refusals.
+  The study copy does not set the hub roads back to their chords (section 3.7), so its filleted hub roads refuse `940GZZLUWLO-road-out-01` against `london-link-183-ba-1` at 1.69 m, `940GZZLUWLO-road-in-02` against `london-link-100-ab-2` at 5.26 m, and `940GZZLUBNK-road-out-08` against `london-link-097-ba-2` at 0.00 m.
+- Open item for the maintainer: the containment test of the shared-track study now fails on the "wide" input.
+  It has no failure of the proposal, but the count "off-support lane in the body, declared separated from the envelope (A1), gate" is 0, against its minimum of 1.
+  With straight roads, the count was 624, from large pods on `940GZZLUBNK-road-in-08`, and the fillet moves that road.
+  The study is opt-in, so CI does not run it.
+  The maintainer chooses a minimum for each input, another A1 case on the "wide" input, or no change.
 
 ## 9. Decisions for the maintainer
 

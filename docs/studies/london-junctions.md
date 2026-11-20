@@ -3,6 +3,9 @@
 This study compares LondonFull with chord junctions and with ramp junctions.
 The [junction design](../design/london-junctions.md) sets the method and the adoption criteria.
 The ramps network is the `-junctions ramps` option of `cmd/scenario`.
+Note of November 20, 2026: the arms of this study have straight station roads.
+LondonFull now fillets its station roads, so the chords arm is not the current preset.
+The compare study of the [London road fillets proposal](../contracts/london-fillets-proposal.md) uses the method of this study.
 
 ## Result
 

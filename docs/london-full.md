@@ -87,11 +87,11 @@ The network SHA-256 is the `network_sha256` value of the summary line.
 
 | Flags | Shape | Network SHA-256 | Soft conflicts |
 | --- | --- | --- | ---: |
-| none, the default | Tight | `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` | 0 |
-| `-wide-stations` | Station scale 0.5, the default before November 16, 2026 | `c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726` | 1 |
-| `-berth-pitch 50` | Tight, the flags of the study | `f0defafe5847dca7d069cf66806c29cf08207fb46cb26545436f8200111613b8` | 0 |
+| none, the default | Tight | `03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5` | 0 |
+| `-wide-stations` | Station scale 0.5, the default before November 16, 2026 | `413119c9bd469ccc50ab755683a6bcc1f27eb78ac5d6b1105b142a482f48b9d3` | 1 |
+| `-berth-pitch 50` | Tight, the flags of the study | `9503e65cd30cbe9b861552ec9d96e76b939b0be9e744b7ff85105ddd9ea2e0ec` | 0 |
 
-The hashes are for the build of November 20, 2026, when the shape clearance rule began to apply to each network.
+The hashes are for the build of November 20, 2026, when LondonFull began to fillet its station roads (see [Station roads](#station-roads)).
 The network of `london-full-express` did not change.
 
 A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide stations, the Compact stations in the heading search, and the Parking facilities.
@@ -99,11 +99,38 @@ The study network differs from the default only at the three Parking facilities,
 `-station-scale` sets only the wide stations and the Compact stations.
 `london-full-express` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
 
+### Station roads
+
+Since November 20, 2026, LondonFull fillets its station roads, by the [London road fillets proposal](contracts/london-fillets-proposal.md).
+A road is a lane `<station>-road-in-NN` or `<station>-road-out-NN` of a passenger station or of a Parking facility.
+A road-in lane goes from an arrival portal to the diverge node of its station, and a road-out lane goes from the merge node to a departure portal.
+The rule gives a road a quadratic curve that leaves the lane before it at its heading and joins the lane after it at its heading.
+The speed limit of a curved road comes from its smallest radius r: it is the smaller of 14 m/s and the square root of 2r, with r in meters.
+This is the ramp speed of the [London junction](design/london-junctions.md) design.
+A road keeps its chord and 14 m/s when an end is already tangent, when the two headings do not meet ahead of both ends, or when its speed would be below 5 m/s.
+
+Of the 1,456 roads of LondonFull, 676 are curved: 320 road-in lanes, 340 road-out lanes, and 16 Parking roads.
+The median speed of a curved road is about 11 m/s.
+280 of the 309 passenger stations have a road slower than 14 m/s.
+The movement lanes at the junctions keep their chords.
+LondonCentral, `london-full-express`, and `london-full-shared-express` keep straight roads.
+`-road-fillets=false` gives LondonFull with straight roads, with the network SHA-256 `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` (see [capacity flags](reference.md#capacity-flags)).
+
+A virtual platoon needs one speed limit on its route and on each lane of its destination station (see [virtual platoons](model.md#virtual-platoons)).
+So few platoons form on LondonFull.
+In 60-minute runs at 15 requests per minute, LondonFull with straight roads formed 10, 7, and 4 platoon links on seeds 1, 2, and 3, and the filleted LondonFull formed none.
+
+The maintainer chose the ramp speed after a compare study at 15 requests per minute, with seeds 1 to 6.
+Against the straight roads, the filleted roads drain 6 seeds against 5, with a mean wait 2.83% longer and a mean journey 1.50% longer.
+The time that pods wait for junction traffic is about 2.1 times longer.
+Section 8.1 of the proposal gives the method and the results.
+
 ### Shared Express preset
 
 `london-full-shared-express` is decision D11 of the [shape clearance](design/shape-clearance.md) design.
 It runs Express on the link 100 track between Waterloo and Bank, shared with Compact pods, in place of the dedicated trunks of `london-full-express`.
-It is a builder over the default LondonFull: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
+It is a builder over LondonFull with straight roads: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
+Until the maintainer reads the evidence of the filleted LondonFull, the preset keeps the straight roads (decision FL-D4 of the fillets proposal).
 The [shared-track design](design/shared-track-preset.md) gives the measurements and the build record.
 
 ```sh
@@ -116,7 +143,8 @@ mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-lond
 | Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
 | Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo |
 | Junction lanes | All chords | All chords | Two chords removed |
-| Network SHA-256 | `69baad6a...` | `3aa0a2eb...` | `5961c702...` |
+| Station roads | Filleted | Straight | Straight, with a curve on `940GZZLUWLO-road-in-05` |
+| Network SHA-256 | `03d04786...` | `3aa0a2eb...` | `5961c702...` |
 
 The hub geometry changes are a Waterloo throat at 90 m, Bank turned by 5 degrees, a curve on `940GZZLUWLO-road-in-05`, and the removal of `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06`.
 Without them, the bank audit refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
@@ -187,8 +215,8 @@ In each band, the shares of all stations add to 2, but the largest shares of all
 
 The default Compact stations have shares from 0.0025 to 0.0041.
 At 120 requests per minute, they have 0.29 to 0.49 trip ends per minute.
-With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and no soft conflicts, and its indented export has 14,823,577 bytes.
-With `-wide-stations` also, it has 1 soft conflict and 14,823,638 bytes.
+With the opt-out flags, LondonFull has 5,658 nodes, 8,844 lanes, and no soft conflicts, and its indented export has 14,901,130 bytes.
+With `-wide-stations` also, it has 1 soft conflict and 14,980,120 bytes.
 
 ### Measurements, October 19, 2026
 
@@ -298,8 +326,8 @@ These checks do not establish a sustainable demand rate.
 
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
-The default compact project JSON has 5,612,278 bytes.
-The default indented export has 14,912,409 bytes.
+The default compact project JSON has 5,661,974 bytes.
+The default indented export has 14,991,173 bytes.
 The saved-state cap is 128 MiB.
 The plain and Express saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
 Stream JSON is capped at 64 MiB, with 32,832 bytes of gzip overhead; HTTP state has a separate 128 MiB cap.
@@ -366,6 +394,9 @@ The network SHA-256 of the variant with tight stations is `1d65b3d547b3656355f3d
 | 600 | 120 | 0.509 | 0.364 | 1.730 | 3.342 | 578 |
 | 1,000 | 10 | 0.130 | 0.124 | 0.149 | 0.318 | 131 |
 | 1,000 | 120 | 0.977 | 0.613 | 4.012 | 6.673 | 827 |
+
+The variant starts from the preset options, so it has filleted station roads since November 20, 2026.
+The run of the qualification on the filleted roads is pending.
 
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
 At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.
