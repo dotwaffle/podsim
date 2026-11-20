@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -445,15 +446,22 @@ func loadProject(path string) (project.Config, error) {
 		return project.Config{}, fmt.Errorf("open project %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
-	info, err := file.Stat()
+	return decodeProject(path, file)
+}
+
+// decodeProject reads the project at path from r. It reads one byte past
+// project.MaxFileBytes and refuses that byte, because a pipe or a growing
+// file has no size to check first.
+func decodeProject(path string, r io.Reader) (project.Config, error) {
+	data, err := io.ReadAll(io.LimitReader(r, project.MaxFileBytes+1))
 	if err != nil {
-		return project.Config{}, fmt.Errorf("stat project %s: %w", path, err)
+		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
 	}
-	if info.Size() > project.MaxFileBytes {
+	if len(data) > project.MaxFileBytes {
 		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
 	}
 	// Member names match exactly. The other encoding/json rules stay.
-	decoder := jsontext.NewDecoder(io.LimitReader(file, project.MaxFileBytes), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
+	decoder := jsontext.NewDecoder(bytes.NewReader(data), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
 	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
 		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)

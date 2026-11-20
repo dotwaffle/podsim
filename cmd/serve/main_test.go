@@ -733,16 +733,19 @@ func canonicalJSON(t *testing.T, value any) []byte {
 	return data
 }
 
+// TestLoadProjectRejectsInvalidFiles pins the refusal text of each invalid
+// project file. The text follows the path.
 func TestLoadProjectRejectsInvalidFiles(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
 		body string
+		want string
 	}{
-		{"malformed", "{"},
-		{"unknown field", `{"version":1,"unknown":true}`},
-		{"trailing", `{}` + `{}`},
-		{"oversize", strings.Repeat(" ", project.MaxFileBytes+1)},
+		{"malformed", "{", ": unexpected end of JSON input"},
+		{"unknown field", `{"version":1,"unknown":true}`, `: json: unknown field "unknown"`},
+		{"trailing", `{}` + `{}`, ": expected one JSON value"},
+		{"oversize", strings.Repeat(" ", project.MaxFileBytes+1), ": file exceeds 32 MiB"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -751,10 +754,47 @@ func TestLoadProjectRejectsInvalidFiles(t *testing.T) {
 			if err := os.WriteFile(path, []byte(test.body), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := loadProject(path); err == nil {
-				t.Fatal("accepted invalid project file")
+			_, err := loadProject(path)
+			if want := "read project " + path + test.want; err == nil || !strings.HasPrefix(err.Error(), want) {
+				t.Fatalf("got %v, want the prefix %q", err, want)
 			}
 		})
+	}
+	path := filepath.Join(t.TempDir(), "missing.json")
+	if _, err := loadProject(path); err == nil || !strings.HasPrefix(err.Error(), "open project "+path+": ") {
+		t.Fatalf("a missing file: %v", err)
+	}
+}
+
+// spaces is an endless stream of JSON whitespace.
+type spaces struct{}
+
+func (spaces) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = ' '
+	}
+	return len(p), nil
+}
+
+// TestDecodeProjectStreamBound checks that a project stream, which has no
+// size, can have at most project.MaxFileBytes. A valid project followed by
+// whitespace past the bound must not load. Stat gives a size of 0 for a
+// pipe, so only the read can find the extra bytes.
+func TestDecodeProjectStreamBound(t *testing.T) {
+	t.Parallel()
+	data, err := jsonv2.Marshal(project.Default(), json.DefaultOptionsV1())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := func(size int) io.Reader {
+		return io.MultiReader(bytes.NewReader(data), io.LimitReader(spaces{}, int64(size-len(data))))
+	}
+	if _, err := decodeProject("at-bound", stream(project.MaxFileBytes)); err != nil {
+		t.Fatalf("a stream of exactly the bound: %v", err)
+	}
+	const want = "read project over-bound: file exceeds 32 MiB"
+	if _, err := decodeProject("over-bound", stream(project.MaxFileBytes+1)); err == nil || err.Error() != want {
+		t.Fatalf("a stream one byte over the bound: got %v, want %q", err, want)
 	}
 }
 
