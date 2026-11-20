@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1133,4 +1133,25 @@ test("railGeometry runs a strip along the middle of each beam top", () => {
   const [, onward, turn] = drawn;
   assert.deepEqual(center(onward), center(turn));
   for (const index of rail.indices) assert.ok(index < rail.positions.length / 3);
+});
+
+test("a tapered beam has a narrow bottom and sides that face out and down", () => {
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 10, y: 0 }]]);
+  const box = ride.beamGeometry([{ from: "a", to: "b" }], nodes, null);
+  const tapered = ride.beamGeometry([{ from: "a", to: "b" }], nodes, null, [], 0.9);
+  assert.equal(tapered.positions.length, box.positions.length);
+  assert.deepEqual(tapered.indices, box.indices);
+  for (let i = 0; i < tapered.positions.length; i += 3) {
+    // The beam runs along x, so z is the offset from its middle.
+    const y = tapered.positions[i + 1], z = tapered.positions[i + 2], [nx, ny, nz] = tapered.normals.subarray(i, i + 3);
+    // The positions and the normals are float32.
+    const bottom = Math.abs(y - (ride.BEAM_TOP - 0.7)) < 1e-5;
+    assert.ok(Math.abs(Math.abs(z) - (bottom ? 0.45 : 0.7)) < 1e-6, `offset ${z} at height ${y}`);
+    assert.ok(Math.abs(Math.hypot(nx, ny, nz) - 1) < 1e-6, "unit normal");
+    if (Math.abs(nz) > 0.5) {
+      // A side: out from the middle, and down, square to the slope.
+      assert.ok(nz * z > 0 && ny < 0, `side normal ${[nx, ny, nz]}`);
+      assert.ok(Math.abs(Math.abs(nz) * 0.25 - Math.abs(ny) * 0.7) < 1e-6, "normal square to the side");
+    }
+  }
 });

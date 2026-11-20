@@ -9,6 +9,8 @@
   const BEAM_TOP = 5;
   const BEAM_WIDTH = 1.4;
   const BEAM_DEPTH = 0.7;
+  // The bottom of a tapered beam.
+  const BEAM_BOTTOM_WIDTH = 0.9;
   // The light rail along the middle of the beam top. It is a little above
   // the top, so it does not fight the top in the depth buffer.
   const RAIL_WIDTH = 0.12;
@@ -149,7 +151,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -515,20 +517,23 @@
     return sides;
   }
 
-  // beamGeometry returns the vertex data of a box beam along each lane and
-  // each piece of filletPlan.
-  function beamGeometry(lanes, nodes, levels, pieces = []) {
-    return profileBeams(guidewayProfiles(lanes, nodes, levels, pieces));
+  // beamGeometry returns the vertex data of a beam along each lane and
+  // each piece of filletPlan, as profileBeams does.
+  function beamGeometry(lanes, nodes, levels, pieces = [], bottomWidth = BEAM_WIDTH) {
+    return profileBeams(guidewayProfiles(lanes, nodes, levels, pieces), bottomWidth);
   }
 
-  // profileBeams returns the vertex data of a box beam along each profile of
-  // guidewayProfiles. Each face has its own vertices and normals, so the
-  // faces have flat shading. The texture coordinate u is the distance along
-  // the beam from its start, and v is the distance across the face, both
-  // over CONCRETE_TILE.
-  function profileBeams(profiles) {
+  // profileBeams returns the vertex data of a beam along each profile of
+  // guidewayProfiles. The top is BEAM_WIDTH wide and the bottom is
+  // bottomWidth wide, so a narrower bottom gives sides that slope in. Each
+  // face has its own vertices and normals, so the faces have flat shading.
+  // The texture coordinate u is the distance along the beam from its
+  // start, and v is the distance across the face, both over CONCRETE_TILE.
+  function profileBeams(profiles, bottomWidth = BEAM_WIDTH) {
     const positions = [], normals = [], colors = [], uvs = [], indices = [];
-    const half = BEAM_WIDTH / 2;
+    const half = BEAM_WIDTH / 2, bottomHalf = bottomWidth / 2;
+    // A side normal points out and, when the sides slope in, down.
+    const slope = Math.hypot(BEAM_DEPTH, half - bottomHalf), out = BEAM_DEPTH / slope, down = (half - bottomHalf) / slope;
     for (const profile of profiles) {
       if (!profile) continue;
       const points = profile.map((point) => toScene(point.x, point.y));
@@ -541,16 +546,17 @@
       const top = 0, bottom = BEAM_DEPTH;
       const faces = [
         { edges: [[1, top], [-1, top]], normal: () => [0, 1, 0], shade: 0.42 },
-        { edges: [[-1, top], [-1, bottom]], normal: (left) => [-left[0], 0, -left[1]], shade: 0.82 },
+        { edges: [[-1, top], [-1, bottom]], normal: (left) => [-left[0] * out, -down, -left[1] * out], shade: 0.82 },
         { edges: [[-1, bottom], [1, bottom]], normal: () => [0, -1, 0], shade: 0.6 },
-        { edges: [[1, bottom], [1, top]], normal: (left) => [left[0], 0, left[1]], shade: 0.82 },
+        { edges: [[1, bottom], [1, top]], normal: (left) => [left[0] * out, -down, left[1] * out], shade: 0.82 },
       ];
       for (const face of faces) {
         const base = positions.length / 3;
         for (let i = 0; i < points.length; i++) {
           const left = sides[i], normal = face.normal(left);
           for (const [sign, depth] of face.edges) {
-            positions.push(points[i][0] + left[0] * half * sign, profile[i].h - depth, points[i][1] + left[1] * half * sign);
+            const offset = (depth === top ? half : bottomHalf) * sign;
+            positions.push(points[i][0] + left[0] * offset, profile[i].h - depth, points[i][1] + left[1] * offset);
             normals.push(normal[0], normal[1], normal[2]);
             colors.push(face.shade, face.shade, face.shade * 0.97, 1);
             uvs.push(along[i] / CONCRETE_TILE, (sign * half + depth) / CONCRETE_TILE);
@@ -1601,7 +1607,7 @@
     for (const [name, chunkLanes, chunkPieces] of chunks) {
       const profiles = guidewayProfiles(chunkLanes, nodes, levels, chunkPieces);
       if (look.rail) railProfiles.push(...profiles);
-      const geometry = profileBeams(profiles);
+      const geometry = profileBeams(profiles, look.taper ? BEAM_BOTTOM_WIDTH : BEAM_WIDTH);
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(name, scene);
       const data = new B.VertexData();
