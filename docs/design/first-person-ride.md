@@ -9,6 +9,7 @@ Milestone M4 is built, and the maintainer accepted it in Chrome on 2026-11-14.
 The station levels are built, and the maintainer accepted them in Chrome on 2026-11-14.
 The cabin HUD and the textures are built, and the maintainer accepted them in Chrome on 2026-11-15.
 The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer accepted it in Chrome on 2026-11-15.
+The [rounded joins](#rounded-joins) are built, and they wait for a check in Chrome.
 
 ## Goal
 
@@ -68,7 +69,7 @@ The bridge copies data into typed arrays, so JavaScript does not get one object 
 
 | Function | Call rate | Returns |
 | --- | --- | --- |
-| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, speed limit, and the distances of the two nodes from the mainline, the levels, stations with berth positions, the largest party size of a new order, `geo`, and `map`. The module starts the client for the page origin when it loads. |
+| `ride.topology()` | When `generation` changes | JSON: lanes with end points, control point, speed limit, the distances of the two nodes from the mainline, and the trims of the two ends, the pieces of the rounded joins, the levels, stations with berth positions, the largest party size of a new order, `geo`, and `map`. The module starts the client for the page origin when it loads. |
 | `ride.frame(out)` | Each animation frame | It fills a `Float64Array` with 6 numbers for each pod: x, y, heading, speed, class index, and the beam top under the pod. It returns the pod count, the generation, a pod list version, the connection state, and the connection error. |
 | `ride.ids()` | When the pod list version changes | The pod IDs in the order of `frame`. |
 | `ride.pods()` | When the pod list version changes, and when the user opens the pod list | The ID, class, activity, and first trip of each pod, in the order of the latest state. |
@@ -117,6 +118,7 @@ A test pins the axis mapping with a station pair of known compass direction.
 ## Scene
 
 - Guideway: one box-section beam for each lane, extruded along the line or curve, at a fixed height of 5 m on tapered pillars about every 60 m.
+  A lane beam stops at the trims of its ends, and each piece of a [rounded join](#rounded-joins) has its own beam.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
   Vertex colors make the running surface on top darker than the concrete sides.
 - Pods: the page loads `web/pod.glb`, a glTF model that `internal/cmd/podmodel` writes.
@@ -325,6 +327,56 @@ The page derives each height from the network, and the model stores no elevation
 - On LondonFull, 292 of the 312 stations are at the station level, against 301 with wide stations, and 136 pairs of twin lanes draw once.
   A pod on a ramp is within 1 cm of the beam that the page draws under it.
   The beams and the pillars take about 240 ms to build in Node.
+
+## Rounded joins
+
+On the ride page, the beams and the pods round the corners where lanes join at a node.
+The change is for display only.
+The simulation, the protocol, the 2D view, the lane lengths, and the route distances keep the sharp joins.
+
+- `internal/ride` computes the joins, and the topology gives them to the page.
+- For each node, the bridge compares the end direction of each arriving lane with the start direction of each leaving lane.
+  A curved lane uses the exact tangent of its quadratic curve.
+  Where the control point of a curve is on an end, the tangent there is zero, and the bridge uses its limit: the direction from the start to the end of the curve.
+  Only a lane with no length has no direction.
+- A node gets rounded joins when at least one pair turns by 3 to 150 degrees.
+  A node keeps its sharp joins when it is a berth node, when a pair turns by more than 150 degrees, as at a reversal or a bay end, or when a reverse lane of a maneuver group touches it.
+  A lane and its reverse twin turn by 180 degrees, so a twin pair never gets a rounded join.
+- At a rounded node, each lane end gets a trim of 8 m, or 40% of the lane length when that is shorter, in whole millimeters, so the two trims of a lane do not overlap.
+- Each pair of an arriving and a leaving lane gets a piece: a quadratic curve from the trim point of the arriving lane to the trim point of the leaving lane.
+  The trim points are on the sample lines that the simulation moves a pod on.
+  The control point is where the tangent lines at the two trim points meet, ahead of the start, behind the end, and at most twice the trims from either end.
+  Two straight lanes meet at the node, so the node is the control point, also when the two lanes are on one line.
+  A pair that turns by less than 3 degrees gets a piece too, so a pod that goes straight on has a beam under it.
+- Each piece must continue the direction of its two lanes, within 1e-6 rad at both ends.
+  When one piece of a node does not, the whole node keeps its sharp joins, with no trims and no pieces.
+  On LondonFull, no node fails this check.
+- The topology gives the two trims of each lane and, for each piece, the two lane indexes and the control point, rounded to 1 mm.
+  The page finds the two ends of a piece at the trims on the sample lines, as the bridge does, so a lane beam meets its piece to float precision.
+  The rounded control point moves a piece by less than 1 mm from the curve that the bridge puts the pods on.
+- The page draws each lane beam between its trims, and one beam for each piece.
+  The pillars stay under the lane beams, so the pieces have no pillars.
+  A piece to or from a hub lane does not draw, because the hub deck replaces the hub lanes, and the other lane then keeps its full length at that node, so its beam meets the deck.
+- A point at a fraction of the arc length of a piece has the beam top of the point at the same fraction of the two lane parts that the piece replaces.
+- `remote.Motion.Sample` keeps the lane and the lane distance of the earlier frame, so the bridge finds the lane and the distance of the sampled position on the route of the pod.
+  The search starts at the lane of the pod and goes forward along the route window, at most 100 m.
+  When the position is at two places of that part of the route, or the route holds the pod lane more than once, the pod keeps its sampled position.
+- A pod in the trim at the end of its lane, with a next lane on its route, moves to the piece to that lane.
+  A pod in the trim at the start of its lane, with a previous lane on its route or from the frame before, moves to the piece from that lane.
+  The progress along the two lane parts maps to the same fraction of the arc length of the piece.
+  A pod with no known lane on the other side of the join keeps its simulated position.
+  It keeps that position until it leaves the trims of that join, also when the lane on the other side becomes known, so it does not jump onto the piece.
+- The heading follows the drawn position, so a pod turns along the piece.
+  A new pod on a piece, or a pod after a jump, takes the direction of the piece.
+  The height of a pod uses the lane and the distance of its sampled position, as before.
+- At a 90 degree join of two straight lanes with 8 m trims, a pod half way along the piece is 2.83 m from its simulated position at the node.
+  Elsewhere on the piece the offset is smaller.
+- On LondonFull, 4,084 of the 5,740 nodes get rounded joins, 8,664 of the 9,024 lanes get a trim, and the topology has 10,380 pieces.
+  No control point is more than 0.61 m from its node.
+  The trims and the pieces add about 0.74 MB to the 2.1 MB of topology JSON.
+- A test fixture that both test suites read, `internal/ride/testdata/fillets.json`, pins the trims and the pieces of joins of curved lanes on a ramp and of a lane whose trim is not a whole number of millimeters before the rounding.
+- In a hub, a pod still rounds the corner from an approach lane onto a hub lane, but the approach beam stays straight to the node.
+  The bridge does not know the hubs, because the page finds them.
 
 ## Cabin HUD and textures
 

@@ -993,3 +993,106 @@ test("the overlay has the racing layout", () => {
     assert.ok(html.includes(`id="${id}"`), id);
   }
 });
+
+// cornerTopology is the corner of internal/ride/fillet_test.go: a lane
+// east from a to b and a lane south from b to c, with the trims and the
+// piece that the topology gives.
+function cornerTopology() {
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 100, y: 0 }], ["c", { x: 100, y: 100 }]]);
+  const lanes = [{ id: "east", from: "a", to: "b", trimEnd: 8 }, { id: "south", from: "b", to: "c", trimStart: 8 }];
+  const pieces = [{ in: 0, out: 1, control: [100, 0] }];
+  return { nodes, lanes, pieces };
+}
+
+test("beamGeometry of a 90 degree join draws the trimmed lanes and one curved piece", () => {
+  const { nodes, lanes, pieces } = cornerTopology();
+  const plan = ride.filletPlan(lanes, pieces, new Set(), nodes);
+  assert.equal(plan.pieces.length, 1);
+  const lanesOnly = ride.beamGeometry(plan.lanes, nodes, null);
+  const both = ride.beamGeometry(plan.lanes, nodes, null, plan.pieces);
+  const profile = ride.pieceProfile(plan.pieces[0], nodes, null);
+  assert.equal(profile.length, 17, "a sharp turn gets the most segments");
+  // Each beam has 4 faces, with 2 vertices for each point of each face.
+  assert.equal(lanesOnly.positions.length / 3, 2 * 2 * 4 * 2);
+  assert.equal(both.positions.length / 3 - lanesOnly.positions.length / 3, profile.length * 4 * 2);
+  // The lane beams stop at the trims, and the piece meets them.
+  const east = ride.laneProfile(plan.lanes[0], nodes, null), south = ride.laneProfile(plan.lanes[1], nodes, null);
+  assert.equal(east.length, 2);
+  near(east.at(-1).x, 92, "east end");
+  near(south[0].y, 8, "south start");
+  near(south.at(-1).y, 100, "south end");
+  near(profile[0].x, 92, "piece start");
+  near(profile.at(-1).y, 8, "piece end");
+  // Half way, the piece is inside the corner, 2 * sqrt(2) m from the node.
+  near(profile[8].x, 98, "piece middle x");
+  near(profile[8].y, 2, "piece middle y");
+  // The lane beams have pillars only between the trims.
+  const long = new Map([["a", { x: 0, y: 0 }], ["b", { x: 200, y: 0 }]]);
+  assert.deepEqual(ride.pillarPoints([{ from: "a", to: "b", trimStart: 8 }], long).map(([x]) => x), [38, 98, 158]);
+});
+
+test("filletPlan draws no piece for a hub lane, and the other lane reaches the node", () => {
+  const { nodes, lanes, pieces } = cornerTopology();
+  const plan = ride.filletPlan(lanes, pieces, new Set(["south"]), nodes);
+  assert.equal(plan.pieces.length, 0);
+  assert.equal(plan.lanes[0].trimEnd, 0);
+  assert.equal(lanes[0].trimEnd, 8, "the topology lane does not change");
+  near(ride.laneProfile(plan.lanes[0], nodes, null).at(-1).x, 100, "east end");
+  assert.equal(ride.filletPlan(lanes, pieces, new Set(["east"]), nodes).pieces.length, 0);
+});
+
+test("a straight continuation gets a near-straight piece", () => {
+  const turn = 2 * Math.PI / 180;
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 100, y: 0 }], ["c", { x: 100 + 100 * Math.cos(turn), y: 100 * Math.sin(turn) }]]);
+  const lanes = [{ id: "in", from: "a", to: "b", trimEnd: 8 }, { id: "out", from: "b", to: "c", trimStart: 8 }];
+  const end = [100 + 8 * Math.cos(turn), 8 * Math.sin(turn)];
+  const plan = ride.filletPlan(lanes, [{ in: 0, out: 1, control: [100, 0] }], new Set(), nodes);
+  const profile = ride.pieceProfile(plan.pieces[0], nodes, null);
+  assert.ok(profile.length >= 2 && profile.length <= 4, `${profile.length} points`);
+  // Each point is within 10 cm of the line from the start to the end.
+  for (const point of profile) {
+    const gap = Math.abs((point.x - 92) * end[1] - point.y * (end[0] - 92)) / Math.hypot(end[0] - 92, end[1]);
+    assert.ok(gap < 0.1, `point ${point.x}, ${point.y} is ${gap} m off the line`);
+  }
+  // A join with no turn is one segment.
+  const line = new Map([...nodes, ["c", { x: 200, y: 0 }]]);
+  const straight = ride.filletPlan(lanes, [{ in: 0, out: 1, control: [100, 0] }], new Set(), line);
+  assert.equal(ride.pieceProfile(straight.pieces[0], line, null).length, 2);
+});
+
+test("a piece follows the height of the lane parts that it replaces", () => {
+  const nodes = new Map([["m", { x: 0, y: 0 }], ["s", { x: 100, y: 0 }], ["t", { x: 100, y: 100 }]]);
+  const lanes = [
+    { id: "down", from: "m", to: "s", fromDistance: 0, toDistance: 100, trimEnd: 8 },
+    { id: "turn", from: "s", to: "t", fromDistance: 100, toDistance: 120, trimStart: 8 },
+  ];
+  const plan = ride.filletPlan(lanes, [{ in: 0, out: 1, control: [100, 0] }], new Set(), nodes);
+  const profile = ride.pieceProfile(plan.pieces[0], nodes, LEVELS);
+  near(profile[0].h, ride.laneProfile(lanes[0], nodes, LEVELS).at(-1).h, "start height");
+  near(profile[0].h, ride.levelHeight(92, LEVELS), "start height on the curve");
+  near(profile.at(-1).h, ride.laneProfile(lanes[1], nodes, LEVELS)[0].h, "end height");
+  near(profile.at(-1).h, ride.levelHeight(101.6, LEVELS), "end height on the curve");
+  // Half way along the piece is half way along the two lane parts: the node.
+  near(profile[(profile.length - 1) / 2].h, ride.levelHeight(100, LEVELS), "middle height");
+});
+
+test("the beams of the lanes meet the pieces of internal/ride", () => {
+  const fixture = JSON.parse(require("node:fs").readFileSync(require("node:path").join(__dirname, "../internal/ride/testdata/fillets.json"), "utf8"));
+  const nodes = new Map(fixture.nodes.map((node) => [node.id, node.position]));
+  const plan = ride.filletPlan(fixture.lanes, fixture.pieces, new Set(), nodes);
+  assert.equal(plan.pieces.length, fixture.ends.length);
+  plan.pieces.forEach((piece, i) => {
+    const name = `${piece.from.id} to ${piece.to.id}`;
+    // The page finds the ends of the bridge pieces to float precision.
+    const [x0, y0, x1, y1] = fixture.ends[i];
+    assert.ok(Math.hypot(piece.start.x - x0, piece.start.y - y0) < 1e-9 && Math.hypot(piece.end.x - x1, piece.end.y - y1) < 1e-9, `${name}: ends ${JSON.stringify(piece)}`);
+    const before = ride.laneProfile(piece.from, nodes, fixture.levels).at(-1), after = ride.laneProfile(piece.to, nodes, fixture.levels)[0];
+    const profile = ride.pieceProfile(piece, nodes, fixture.levels);
+    for (const [got, want, end] of [[profile[0], before, "start"], [profile.at(-1), after, "end"]]) {
+      assert.ok(Math.hypot(got.x - want.x, got.y - want.y) < 1e-9, `${name} ${end}: ${got.x}, ${got.y} is not at ${want.x}, ${want.y}`);
+      assert.ok(Math.abs(got.h - want.h) < 1e-9, `${name} ${end} height: ${got.h} and ${want.h}`);
+    }
+  });
+  // The 10.0787 m lane has a trim of 40%, rounded to 1 mm.
+  assert.equal(fixture.lanes.find((lane) => lane.id === "odd").trimStart, 4.031);
+});

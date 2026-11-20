@@ -36,6 +36,8 @@ type Bridge struct {
 	motion   remote.Motion
 	revision revisionKey
 	lanes    laneTable
+	// pieces holds the round joins of the lanes. See addFillets.
+	pieces map[pieceKey]piece
 	// berths holds the direction of a pod at each berth.
 	berths map[string]float64
 	// distances holds the distance of each node from the mainline, and
@@ -56,10 +58,32 @@ type revisionKey struct {
 }
 
 // heading is the direction of a pod, and the position where the bridge
-// last set it.
+// last set it. lane is the lane of the pod in the frame, and previous is
+// the lane before it, or empty when the bridge does not know them. sharp is
+// true when the pod is in the trims of the join at the node position join
+// and the bridge did not put it on a piece there.
 type heading struct {
-	anchor sim.Point
-	angle  float64
+	anchor         sim.Point
+	angle          float64
+	lane, previous string
+	sharp          bool
+	join           sim.Point
+}
+
+// direction is a heading that the bridge knows when ok is true.
+type direction struct {
+	angle float64
+	ok    bool
+}
+
+// shown is a pod as the page draws it, with the state that the bridge keeps
+// for it. along is the direction of the piece under the pod.
+type shown struct {
+	pod      sim.Pod
+	previous string
+	sharp    bool
+	join     sim.Point
+	along    direction
 }
 
 // FrameInfo describes a frame that Frame wrote.
@@ -87,6 +111,7 @@ func (b *Bridge) Observe(state session.State, at time.Time) {
 	if key.serverStart != b.revision.serverStart || key.epoch != b.revision.epoch || key.generation != b.revision.generation {
 		b.lanes = newLaneTable(state.Network)
 		b.distances = b.lanes.addDistances(state.Network)
+		b.pieces = pieceIndex(b.lanes.addFillets(state.Network))
 		b.berths = b.lanes.berthHeadings(state.Network)
 		b.berthNodes = make(map[string]string)
 		for _, station := range state.Network.Stations {
@@ -118,9 +143,11 @@ func (b *Bridge) Frame(at time.Time, out []float64) ([]float64, FrameInfo) {
 		if !changed && b.ids[i] != pod.ID {
 			changed = true
 		}
-		next := b.heading(pod, previous)
+		view := b.show(vehicle, previous[pod.ID])
+		next := b.heading(view.pod, view.along, previous)
+		next.lane, next.previous, next.sharp, next.join = view.pod.LaneID, view.previous, view.sharp, view.join
 		b.headings[pod.ID] = next
-		out = append(out, pod.Position.X, pod.Position.Y, next.angle, pod.Speed, float64(classIndex(pod.Class)), b.podHeight(pod))
+		out = append(out, view.pod.Position.X, view.pod.Position.Y, next.angle, pod.Speed, float64(classIndex(pod.Class)), b.podHeight(view.pod))
 	}
 	if changed {
 		b.ids = b.ids[:0]
@@ -132,13 +159,67 @@ func (b *Bridge) Frame(at time.Time, out []float64) ([]float64, FrameInfo) {
 	return out, FrameInfo{Count: len(snapshot.Vehicles), Version: b.version, Generation: b.revision.generation, Session: b.session}
 }
 
+// show returns the pod of vehicle as the page draws it. The lane and the
+// lane distance match the sampled position. A pod in the trim of a round
+// join moves to its piece. A pod that is not on its route, or that has no
+// known lane on the other side of the join, keeps its sampled position.
+// last is the state of the pod in the previous frame. The previous lane is
+// the lane before the pod lane on the route, or else the lane that the
+// bridge remembers.
+//
+// A pod that keeps its sampled position in the trims of a join keeps it
+// until it leaves the trims of that join, also when the lane on the other
+// side becomes known. Thus the pod does not jump onto the piece.
+func (b *Bridge) show(vehicle sim.Vehicle, last heading) shown {
+	pod := vehicle.Pod
+	at, ok := b.lanes.locate(vehicle)
+	if !ok {
+		return shown{pod: pod, previous: rememberedLane(pod.LaneID, last)}
+	}
+	pod.LaneID, pod.LaneDistance = at.lane, at.distance
+	if at.previous == "" {
+		at.previous = rememberedLane(at.lane, last)
+	}
+	view := shown{pod: pod, previous: at.previous}
+	join, inTrim := b.lanes.trimJoin(at)
+	if !inTrim {
+		return view
+	}
+	if !last.sharp || last.join != join {
+		if position, angle, ok := b.filletPosition(at); ok {
+			view.pod.Position, view.along = position, direction{angle, true}
+			return view
+		}
+	}
+	view.sharp, view.join = true, join
+	return view
+}
+
+// rememberedLane returns the lane before lane from the state last of the
+// previous frame: the lane of that frame when the pod changed lanes since,
+// or else the lane before it.
+func rememberedLane(lane string, last heading) string {
+	if lane == "" {
+		return ""
+	}
+	if last.lane != "" && last.lane != lane {
+		return last.lane
+	}
+	if last.lane == lane {
+		return last.previous
+	}
+	return ""
+}
+
 // IDs returns the pod IDs in the order of the last frame.
 func (b *Bridge) IDs() []string { return slices.Clone(b.ids) }
 
 // heading returns the direction that the front of pod faces, in radians,
 // in world coordinates, where y points south. A pod on a reverse lane of a
-// bay faces against its direction of travel.
-func (b *Bridge) heading(pod sim.Pod, previous map[string]heading) heading {
+// bay faces against its direction of travel. along is the direction of the
+// piece under the pod, which a new pod, or a pod after a jump, takes in
+// place of the lane direction.
+func (b *Bridge) heading(pod sim.Pod, along direction, previous map[string]heading) heading {
 	turn := 0.0
 	if b.lanes[pod.LaneID].reverse {
 		turn = math.Pi
@@ -153,6 +234,9 @@ func (b *Bridge) heading(pod sim.Pod, previous map[string]heading) heading {
 		if moved <= maxStep {
 			return heading{anchor: pod.Position, angle: wrap(math.Atan2(dy, dx) + turn)}
 		}
+	}
+	if along.ok {
+		return heading{anchor: pod.Position, angle: wrap(along.angle + turn)}
 	}
 	if angle, ok := b.lanes.tangent(pod.LaneID, pod.LaneDistance); ok {
 		return heading{anchor: pod.Position, angle: wrap(angle + turn)}
@@ -190,13 +274,18 @@ const curveSamples = 65
 type laneShape struct {
 	from, to sim.Point
 	control  *sim.Point
-	// lengths holds the arc length at each sample of a curve.
+	// points holds the samples of a curve, and lengths holds the arc length
+	// at each sample. The simulation moves a pod on the same samples.
+	points  []sim.Point
 	lengths []float64
 	// reverse is true for a reverse lane of a maneuver group.
 	reverse bool
 	// fromDistance and toDistance are the distances of the two lane nodes
 	// from the mainline. See nodeDistances.
 	fromDistance, toDistance float64
+	// trimStart and trimEnd are the lengths at the two ends that a round
+	// join replaces. See addFillets.
+	trimStart, trimEnd float64
 }
 
 type laneTable map[string]laneShape
@@ -253,12 +342,14 @@ func newLaneTable(network sim.Network) laneTable {
 		if lane.Control != nil {
 			control := *lane.Control
 			shape.control = &control
+			shape.points = make([]sim.Point, curveSamples)
 			shape.lengths = make([]float64, curveSamples)
-			last := shape.from
+			shape.points[0] = shape.from
 			for i := 1; i < curveSamples; i++ {
 				point := shape.point(float64(i) / (curveSamples - 1))
+				last := shape.points[i-1]
+				shape.points[i] = point
 				shape.lengths[i] = shape.lengths[i-1] + math.Hypot(point.X-last.X, point.Y-last.Y)
-				last = point
 			}
 		}
 		table[lane.ID] = shape
@@ -285,29 +376,11 @@ func (t laneTable) tangent(id string, distance float64) (float64, bool) {
 		}
 		return math.Atan2(dy, dx), true
 	}
-	// Find the curve parameter of distance in the arc length table.
-	i, _ := slices.BinarySearch(shape.lengths, distance)
-	param := 1.0
-	switch {
-	case i == 0:
-		param = 0
-	case i < len(shape.lengths):
-		span := shape.lengths[i] - shape.lengths[i-1]
-		fraction := 0.0
-		if span > 0 {
-			fraction = (distance - shape.lengths[i-1]) / span
-		}
-		param = (float64(i-1) + fraction) / (curveSamples - 1)
-	}
-	// The derivative of a quadratic Bezier curve.
-	c := *shape.control
-	u := 1 - param
-	dx := 2*u*(c.X-shape.from.X) + 2*param*(shape.to.X-c.X)
-	dy := 2*u*(c.Y-shape.from.Y) + 2*param*(shape.to.Y-c.Y)
-	if dx == 0 && dy == 0 {
+	d := shape.direction(arcParam(shape.lengths, distance))
+	if d.X == 0 && d.Y == 0 {
 		return 0, false
 	}
-	return math.Atan2(dy, dx), true
+	return math.Atan2(d.Y, d.X), true
 }
 
 // Topology is the geometry that the ride page draws.
@@ -317,6 +390,7 @@ type Topology struct {
 	Generation  uint64            `json:"generation"`
 	Nodes       []sim.Node        `json:"nodes"`
 	Lanes       []TopologyLane    `json:"lanes"`
+	Pieces      []TopologyPiece   `json:"pieces"`
 	Stations    []TopologyStation `json:"stations"`
 	Classes     []TopologyClass   `json:"classes"`
 	Levels      Levels            `json:"levels"`
@@ -328,7 +402,8 @@ type Topology struct {
 
 // TopologyLane is one lane. Control is present on a curved lane.
 // FromDistance and ToDistance are the distances of the two lane nodes from
-// the mainline, for Levels.
+// the mainline, for Levels. TrimStart and TrimEnd are the lengths at the two
+// ends that a piece replaces, or zero.
 type TopologyLane struct {
 	ID           string     `json:"id"`
 	From         string     `json:"from"`
@@ -338,6 +413,19 @@ type TopologyLane struct {
 	StationID    string     `json:"stationID,omitempty"`
 	FromDistance float64    `json:"fromDistance"`
 	ToDistance   float64    `json:"toDistance"`
+	TrimStart    float64    `json:"trimStart,omitzero"`
+	TrimEnd      float64    `json:"trimEnd,omitzero"`
+}
+
+// TopologyPiece is a round join from the end of lane In to the start of
+// lane Out, as indexes of Topology.Lanes. It is a quadratic Bezier curve
+// from the point at TrimEnd before the end of In to the point at TrimStart
+// after the start of Out, on the sample lines of the lanes, with the control
+// point Control, x and y, rounded to 1 mm.
+type TopologyPiece struct {
+	In      int        `json:"in"`
+	Out     int        `json:"out"`
+	Control [2]float64 `json:"control"`
 }
 
 // TopologyStation is one station with the positions of its berths.
@@ -369,15 +457,22 @@ func NewTopology(state session.State) Topology {
 	}
 	lanes := newLaneTable(network)
 	distances := lanes.addDistances(network)
+	pieces := lanes.addFillets(network)
 	topology := Topology{
 		ServerStart: state.ServerStart, Epoch: state.Epoch, Generation: state.Generation, PartyLimit: sim.MaxNewPartySize, Levels: levels,
 		Nodes: slices.Clone(network.Nodes), Geo: state.Geo, Map: state.Map,
 		Lanes:    make([]TopologyLane, 0, len(network.Lanes)),
+		Pieces:   make([]TopologyPiece, 0, len(pieces)),
 		Stations: make([]TopologyStation, 0, len(network.Stations)),
 	}
-	for _, lane := range network.Lanes {
+	indexes := make(map[string]int, len(network.Lanes))
+	for i, lane := range network.Lanes {
 		shape := lanes[lane.ID]
-		topology.Lanes = append(topology.Lanes, TopologyLane{ID: lane.ID, From: lane.From, To: lane.To, Control: lane.Control, SpeedLimit: lane.SpeedLimit, StationID: lane.StationID, FromDistance: shape.fromDistance, ToDistance: shape.toDistance})
+		indexes[lane.ID] = i
+		topology.Lanes = append(topology.Lanes, TopologyLane{ID: lane.ID, From: lane.From, To: lane.To, Control: lane.Control, SpeedLimit: lane.SpeedLimit, StationID: lane.StationID, FromDistance: shape.fromDistance, ToDistance: shape.toDistance, TrimStart: shape.trimStart, TrimEnd: shape.trimEnd})
+	}
+	for _, p := range pieces {
+		topology.Pieces = append(topology.Pieces, TopologyPiece{In: indexes[p.key.in], Out: indexes[p.key.out], Control: [2]float64{millimeters(p.control.X), millimeters(p.control.Y)}})
 	}
 	for _, station := range network.Stations {
 		berths := make([]sim.Point, 0, len(station.Berths))
@@ -400,6 +495,12 @@ func NewTopology(state session.State) Topology {
 	}
 	return topology
 }
+
+// millimeters rounds meters to whole millimeters. The trims are whole
+// millimeters, and the control points of the pieces of a topology are
+// rounded, so the JSON text stays short. A rounded control point moves a
+// piece by at most half of its 0.7 mm rounding.
+func millimeters(meters float64) float64 { return math.Round(meters*1000) / 1000 }
 
 // PodSummary is one row of the pod list of the page. From and To are the
 // station names of the trip of the first rider aboard.

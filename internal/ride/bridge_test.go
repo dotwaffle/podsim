@@ -117,7 +117,7 @@ func TestHeading(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := bridge.heading(test.pod, test.previous)
+			got := bridge.heading(test.pod, direction{}, test.previous)
 			if !near(got.angle, test.want) || got.anchor != test.wantAnchor {
 				t.Fatalf("heading = %+v, want angle %v anchor %v", got, test.want, test.wantAnchor)
 			}

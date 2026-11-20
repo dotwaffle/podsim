@@ -28,6 +28,13 @@
   // A curved lane gets one sample at most every CURVE_STEP meters.
   const CURVE_STEP = 4;
   const MAX_CURVE_SAMPLES = 33;
+  // A piece of a round join gets enough beam segments that each is at most
+  // PIECE_SAG meters from the curve, and at most PIECE_SEGMENTS segments.
+  const PIECE_SAG = 0.01;
+  const PIECE_SEGMENTS = 16;
+  // BRIDGE_CURVE_SAMPLES is curveSamples of internal/ride: the bridge and
+  // the simulation move a pod on this many samples of a curve.
+  const BRIDGE_CURVE_SAMPLES = 65;
   const LANES_PER_CHUNK = 2000;
   // The pod body: height and width, in meters. The length comes from the class.
   const POD_HEIGHT = 2.1;
@@ -176,11 +183,12 @@
   }
 
   // laneSamples returns the world points along a lane: the two end points of
-  // a straight lane, or samples of a quadratic Bezier curve.
-  function laneSamples(from, to, control) {
+  // a straight lane, or samples of a quadratic Bezier curve at evenly spaced
+  // parameters. count sets the number of samples of a curve.
+  function laneSamples(from, to, control, count) {
     if (!control) return [from, to];
     const approx = Math.hypot(control.x - from.x, control.y - from.y) + Math.hypot(to.x - control.x, to.y - control.y);
-    const count = Math.max(3, Math.min(MAX_CURVE_SAMPLES, Math.ceil(approx / CURVE_STEP) + 1));
+    count ??= Math.max(3, Math.min(MAX_CURVE_SAMPLES, Math.ceil(approx / CURVE_STEP) + 1));
     const points = [];
     for (let i = 0; i < count; i++) {
       const t = i / (count - 1), u = 1 - t;
@@ -201,7 +209,10 @@
   // top h, or null when a node is missing. The height of a point uses the
   // fraction of the lane length before it, as the pod heights of
   // ride.frame do. A straight lane with two node heights gets more points,
-  // so the beam follows the ramp curve.
+  // so the beam follows the ramp curve. The profile starts trimStart
+  // meters after the start of the lane and stops trimEnd meters before its
+  // end, where the pieces of the round joins take over. Each cut is on the
+  // line that the bridge moves a pod on, so it meets the end of its piece.
   function laneProfile(lane, nodes, levels) {
     const from = nodes.get(lane.from), to = nodes.get(lane.to);
     if (!from || !to) return null;
@@ -214,7 +225,112 @@
     const lengths = [0];
     for (let i = 1; i < points.length; i++) lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
     const total = lengths[lengths.length - 1];
-    return points.map((point, i) => ({ x: point.x, y: point.y, h: levelHeight(a + (b - a) * (total > 0 ? lengths[i] / total : 0), levels) }));
+    const profile = points.map((point, i) => ({ x: point.x, y: point.y, h: levelHeight(a + (b - a) * (total > 0 ? lengths[i] / total : 0), levels) }));
+    const start = lane.trimStart || 0, end = lane.trimEnd || 0;
+    if (start <= 0 && end <= 0) return profile;
+    // The parameter of a profile point is its length fraction on a straight
+    // lane, and its curve parameter on a curve.
+    const params = lane.control ? points.map((_, i) => i / (points.length - 1)) : lengths.map((length) => (total > 0 ? length / total : 0));
+    const line = laneLine(lane, nodes);
+    const cut = (at) => ({ ...line.at(at), h: levelHeight(a + (b - a) * (line.length > 0 ? at / line.length : 0), levels) });
+    const first = cut(start), last = cut(line.length - end);
+    const inside = profile.filter((_, i) => params[i] > first.param && params[i] < last.param);
+    return [first, ...inside, last].map(({ x, y, h }) => ({ x, y, h }));
+  }
+
+  // laneLine returns the line that the bridge moves a pod on along a lane,
+  // or null when a node is missing: the length of the line, and at, which
+  // gives the point at a distance along it with its parameter. The
+  // parameter is the length fraction on a straight lane, and the curve
+  // parameter on a curve. It is laneShape.at of internal/ride.
+  function laneLine(lane, nodes) {
+    const from = nodes.get(lane.from), to = nodes.get(lane.to);
+    if (!from || !to) return null;
+    if (!lane.control) {
+      const length = Math.hypot(to.x - from.x, to.y - from.y);
+      return {
+        length,
+        at: (distance) => {
+          const f = length > 0 ? Math.min(Math.max(distance / length, 0), 1) : 0;
+          return { x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f, param: f };
+        },
+      };
+    }
+    const line = laneSamples(from, to, lane.control, BRIDGE_CURVE_SAMPLES);
+    const along = [0];
+    for (let i = 1; i < line.length; i++) along.push(along[i - 1] + Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y));
+    return {
+      length: along[along.length - 1],
+      at: (distance) => {
+        let i = 1;
+        while (i < along.length - 1 && along[i] < distance) i++;
+        const span = along[i] - along[i - 1], f = span > 0 ? Math.min(Math.max((distance - along[i - 1]) / span, 0), 1) : 0;
+        const p = line[i - 1], q = line[i];
+        return { x: p.x + (q.x - p.x) * f, y: p.y + (q.y - p.y) * f, param: (i - 1 + f) / (line.length - 1) };
+      },
+    };
+  }
+
+  // filletPlan returns the lanes with the trims that the page draws, and
+  // the pieces of the round joins as objects with their two lanes and their
+  // start, control, and end points. pieces comes from the topology, with
+  // lane indexes into lanes. A piece starts and stops where laneProfile
+  // cuts its two lanes, so the beams meet. A hub draws as a deck, so a
+  // piece to or from a hub lane does not draw, and the other lane keeps
+  // that end at full length, so its beam meets the deck.
+  function filletPlan(lanes, pieces, hubLanes, nodes) {
+    const fullEnd = new Set(), fullStart = new Set(), drawn = [];
+    for (const piece of pieces || []) {
+      const from = lanes[piece.in], to = lanes[piece.out];
+      if (!from || !to) continue;
+      if (hubLanes.has(from.id) || hubLanes.has(to.id)) {
+        fullEnd.add(piece.in);
+        fullStart.add(piece.out);
+        continue;
+      }
+      const before = laneLine(from, nodes), after = laneLine(to, nodes);
+      if (!before || !after) continue;
+      const { x: x0, y: y0 } = before.at(before.length - (from.trimEnd || 0)), { x: x1, y: y1 } = after.at(to.trimStart || 0);
+      drawn.push({ from, to, start: { x: x0, y: y0 }, control: { x: piece.control[0], y: piece.control[1] }, end: { x: x1, y: y1 } });
+    }
+    const planned = lanes.map((lane, i) => {
+      if (!fullEnd.has(i) && !fullStart.has(i)) return lane;
+      return { ...lane, trimStart: fullStart.has(i) ? 0 : lane.trimStart, trimEnd: fullEnd.has(i) ? 0 : lane.trimEnd };
+    });
+    return { lanes: planned, pieces: drawn };
+  }
+
+  // pieceProfile returns the world points along a piece of filletPlan,
+  // each with the beam top h, or null when a node is missing. A point at a
+  // fraction of the arc length of the piece has the height of the point at
+  // the same fraction of the two lane parts that the piece replaces, as
+  // the pod heights of ride.frame do.
+  function pieceProfile(piece, nodes, levels) {
+    const { from, to, start, control, end } = piece;
+    const fromLine = laneLine(from, nodes), toLine = laneLine(to, nodes);
+    if (!fromLine || !toLine) return null;
+    const fromLength = fromLine.length, toLength = toLine.length;
+    const before = from.trimEnd || 0, after = to.trimStart || 0;
+    // A segment of length l that turns by a is about l * a / 8 from the
+    // curve, so n segments over a length L that turns by A are L * A /
+    // (8 * n * n) from it.
+    const span = Math.hypot(control.x - start.x, control.y - start.y) + Math.hypot(end.x - control.x, end.y - control.y);
+    const turn = span > 0 ? Math.abs(wrapAngle(Math.atan2(end.y - control.y, end.x - control.x) - Math.atan2(control.y - start.y, control.x - start.x))) : 0;
+    const count = Math.min(PIECE_SEGMENTS, Math.max(1, Math.ceil(Math.sqrt(span * turn / (8 * PIECE_SAG))))) + 1;
+    const points = [];
+    for (let i = 0; i < count; i++) {
+      const t = i / (count - 1), u = 1 - t;
+      points.push({ x: u * u * start.x + 2 * u * t * control.x + t * t * end.x, y: u * u * start.y + 2 * u * t * control.y + t * t * end.y });
+    }
+    const lengths = [0];
+    for (let i = 1; i < count; i++) lengths.push(lengths[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+    const total = lengths[count - 1];
+    const distance = (lane, at, length) => (lane.fromDistance || 0) + ((lane.toDistance || 0) - (lane.fromDistance || 0)) * (length > 0 ? at / length : 0);
+    return points.map((point, i) => {
+      const done = (total > 0 ? lengths[i] / total : 0) * (before + after);
+      const d = done <= before ? distance(from, fromLength - before + done, fromLength) : distance(to, done - before, toLength);
+      return { x: point.x, y: point.y, h: levelHeight(d, levels) };
+    });
   }
 
   // uniqueLanes returns the lanes without a reverse twin of an earlier lane:
@@ -357,15 +473,16 @@
     return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
   }
 
-  // beamGeometry returns the vertex data of a box beam along each lane. Each
-  // face has its own vertices and normals, so the faces have flat shading.
-  // The texture coordinate u is the distance along the lane from its start,
-  // and v is the distance across the face, both over CONCRETE_TILE.
-  function beamGeometry(lanes, nodes, levels) {
+  // beamGeometry returns the vertex data of a box beam along each lane and
+  // each piece of filletPlan. Each face has its own vertices and normals, so
+  // the faces have flat shading. The texture coordinate u is the distance
+  // along the beam from its start, and v is the distance across the face,
+  // both over CONCRETE_TILE.
+  function beamGeometry(lanes, nodes, levels, pieces = []) {
     const positions = [], normals = [], colors = [], uvs = [], indices = [];
     const half = BEAM_WIDTH / 2;
-    for (const lane of lanes) {
-      const profile = laneProfile(lane, nodes, levels);
+    const profiles = [...lanes.map((lane) => laneProfile(lane, nodes, levels)), ...pieces.map((piece) => pieceProfile(piece, nodes, levels))];
+    for (const profile of profiles) {
       if (!profile) continue;
       const points = profile.map((point) => toScene(point.x, point.y));
       const sides = [];
@@ -425,7 +542,9 @@
   }
 
   // pillarPoints returns scene points [x, z, top] under the lanes, about
-  // one for each PILLAR_SPACING meters of lane, at most MAX_PILLARS. top is
+  // one for each PILLAR_SPACING meters of lane, at most MAX_PILLARS. They
+  // follow the beams of laneProfile, which stop at the trims, so the pieces
+  // of the round joins have no pillars. top is
   // the beam top. A point where the beam bottom is lower than
   // PILLAR_MIN_HEIGHT has no pillar.
   function pillarPoints(lanes, nodes, levels) {
@@ -1408,11 +1527,16 @@
     // as one deck in place of the beams of its crossing lanes.
     const hubs = findHubs(topology.lanes, nodes);
     const hubLanes = new Set(hubs.flatMap((hub) => [...hub.laneIDs]));
-    const lanes = uniqueLanes(topology.lanes).filter((lane) => !hubLanes.has(lane.id)), levels = topology.levels;
-    for (let start = 0; start < lanes.length; start += LANES_PER_CHUNK) {
-      const geometry = beamGeometry(lanes.slice(start, start + LANES_PER_CHUNK), nodes, levels);
+    // The round joins replace the lane ends at their nodes.
+    const plan = filletPlan(topology.lanes, topology.pieces, hubLanes, nodes);
+    const lanes = uniqueLanes(plan.lanes).filter((lane) => !hubLanes.has(lane.id)), levels = topology.levels;
+    const chunks = [];
+    for (let start = 0; start < lanes.length; start += LANES_PER_CHUNK) chunks.push([`beams${start}`, lanes.slice(start, start + LANES_PER_CHUNK), []]);
+    for (let start = 0; start < plan.pieces.length; start += LANES_PER_CHUNK) chunks.push([`joins${start}`, [], plan.pieces.slice(start, start + LANES_PER_CHUNK)]);
+    for (const [name, chunkLanes, chunkPieces] of chunks) {
+      const geometry = beamGeometry(chunkLanes, nodes, levels, chunkPieces);
       if (geometry.indices.length === 0) continue;
-      const mesh = new B.Mesh(`beams${start}`, scene);
+      const mesh = new B.Mesh(name, scene);
       const data = new B.VertexData();
       data.positions = geometry.positions; data.normals = geometry.normals; data.colors = geometry.colors; data.uvs = geometry.uvs; data.indices = geometry.indices;
       data.applyToMesh(mesh);
@@ -2246,7 +2370,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
