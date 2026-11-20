@@ -2152,6 +2152,10 @@ func TestSharedTrackStudyContainment(t *testing.T) {
 			c.origins(kind)
 			c.stationary(kind)
 		}
+		// Since the road fillets, the "wide" input fails the A1 minimum
+		// below with a count of 0. The fillet moves 940GZZLUBNK-road-in-08,
+		// which gave the A1 count with straight roads. This is an open item
+		// for the maintainer (london-fillets-proposal.md, section 8.1).
 		run(c, map[string]int{
 			"poses small":                                             1,
 			"poses large":                                             1,

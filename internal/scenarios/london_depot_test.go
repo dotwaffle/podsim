@@ -196,22 +196,18 @@ func londonReplacedRoad(lane sim.Lane, replaced []string) bool {
 }
 
 // sameLondonLane reports whether the lane got of a variant keeps the lane
-// of the reference. The lane passes when it equals the reference. A road
-// of a replaced station also passes when only its control point and its
-// speed limit differ, and when these are the values of the road in roads
-// (see londonRuleRoads). With no road in roads, the lane must equal the
-// reference.
+// of the reference. A road of a replaced station with a road in roads (see
+// londonRuleRoads) passes only when it differs from the reference in its
+// control point and its speed limit at most, and these are the values of
+// the road in roads. Each other lane must equal the reference.
 func sameLondonLane(reference, got sim.Lane, replaced []string, roads map[string]sim.Lane) bool {
-	if reflect.DeepEqual(got, reference) {
-		return true
-	}
-	if !londonReplacedRoad(reference, replaced) {
-		return false
+	want, ok := roads[reference.ID]
+	if !ok || !londonReplacedRoad(reference, replaced) {
+		return reflect.DeepEqual(got, reference)
 	}
 	shape := got
 	shape.Control, shape.SpeedLimit = reference.Control, reference.SpeedLimit
-	want, ok := roads[reference.ID]
-	return ok && reflect.DeepEqual(shape, reference) && reflect.DeepEqual(got, want)
+	return reflect.DeepEqual(shape, reference) && reflect.DeepEqual(got, want)
 }
 
 // londonFacilityIDs returns the IDs of the Parking facilities.
@@ -599,6 +595,8 @@ func TestSameLondonLane(t *testing.T) {
 		{name: "road of a replaced station with the rule shape", reference: road, got: curved, replaced: []string{"s"}, roads: roads, want: true},
 		{name: "road of a replaced station with another speed", reference: road, got: other, replaced: []string{"s"}, roads: map[string]sim.Lane{road.ID: curved}},
 		{name: "road of a replaced station with no rule shape", reference: road, got: curved, replaced: []string{"s"}},
+		{name: "road of a replaced station that keeps the reference against the rule shape", reference: road, got: road, replaced: []string{"s"}, roads: roads},
+		{name: "road of a replaced station that keeps the reference with no rule shape", reference: road, got: road, replaced: []string{"s"}, want: true},
 		{name: "road of another station", reference: road, got: curved, replaced: []string{"t"}, roads: roads},
 		{name: "road of a replaced station with other ends", reference: road, got: moved, replaced: []string{"s"}, roads: map[string]sim.Lane{road.ID: moved}},
 		{name: "lane that is not a road", reference: access, got: bent, replaced: []string{"s"}, roads: map[string]sim.Lane{access.ID: bent}},

@@ -133,7 +133,7 @@ func TestRunWarnsOfTheProjectFile(t *testing.T) {
 }
 
 // TestRunAppliesIndentedLondonFull applies the largest preset with the JSON
-// form of cmd/scenario, about 14.9 MB, with the request form of the editor.
+// form of cmd/scenario, about 15.0 MB, with the request form of the editor.
 func TestRunAppliesIndentedLondonFull(t *testing.T) {
 	if testing.Short() {
 		t.Skip("the test generates and applies the largest preset")

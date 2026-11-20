@@ -528,18 +528,20 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 
 // TestRunRoadFillets checks the -road-fillets flag on LondonFull, which
 // sets it: the flag keeps the preset, and false gives the straight roads
-// and a custom capacity name.
+// and a custom capacity name. On LondonCentral, which does not set it, the
+// flag gives the filleted roads and a custom capacity name.
 func TestRunRoadFillets(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		flag, network, name string
+		preset, flag, network, name string
 	}{
-		{flag: "-road-fillets", network: "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5", name: "LondonFull"},
-		{flag: "-road-fillets=false", network: "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225", name: "LondonFull (custom capacity)"},
+		{preset: "london-full", flag: "-road-fillets", network: "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5", name: "LondonFull"},
+		{preset: "london-full", flag: "-road-fillets=false", network: "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225", name: "LondonFull (custom capacity)"},
+		{preset: "london-central", flag: "-road-fillets", network: "822247d23bd7bbfb7efd3f910b8ed36b138c65f36d0fd11f3efc160e110839ed", name: "LondonCentral (custom capacity)"},
 	} {
-		t.Run(test.flag, func(t *testing.T) {
+		t.Run(test.preset+" "+test.flag, func(t *testing.T) {
 			t.Parallel()
-			config, summary := generate(t, "-preset", "london-full", test.flag)
+			config, summary := generate(t, "-preset", test.preset, test.flag)
 			if config.Name != test.name || !strings.Contains(summary, " network_sha256="+test.network+" ") {
 				t.Fatalf("name %q and summary %q, want %q and network SHA-256 %s", config.Name, summary, test.name, test.network)
 			}
