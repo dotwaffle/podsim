@@ -396,7 +396,8 @@ The network SHA-256 of the variant with tight stations is `1d65b3d547b3656355f3d
 | 1,000 | 120 | 0.977 | 0.613 | 4.012 | 6.673 | 827 |
 
 The variant starts from the preset options, so it has filleted station roads since November 20, 2026.
-The run of the qualification on the filleted roads is pending.
+`mise run qualify:london` passed on the filleted roads at `1188c43e`.
+The numbers above come from the earlier straight roads.
 
 Before two dispatch changes of the same day, the overloaded 1,000-pod case had a p99 of 15 to 20 ms on this variant and on the earlier variant with ordinary stations and 32-berth Parking sites.
 At 60 Hz, its slowest ticks fell each 30 ticks, which is each half second, when orders arrive.

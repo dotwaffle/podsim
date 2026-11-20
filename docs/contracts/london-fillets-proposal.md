@@ -689,7 +689,9 @@ A scratch run of the filleted LondonFull for 20 simulated minutes ran `Check`, t
 The run had 300 trips, 99,616 pod-ticks on curved roads, and 681,810 pod-ticks on lanes with a lateral pair.
 `go test ./...` also ran the D6 oracle and envelope runs of D and the preset, which did not change.
 
-`mise run qualify:london` and `mise run check` on the tip of slice 3 are pending.
+`mise run qualify:london` passed at `1188c43e`, the tip of slice 3, in 89 s.
+`mise run check` passed at `1188c43e` in 2,426 s.
+Stage 1 then waits for the maintainer to read this evidence (FL-D4 B).
 
 #### Findings that differ from the text
 
