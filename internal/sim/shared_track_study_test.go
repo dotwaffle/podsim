@@ -1311,9 +1311,11 @@ type sharedContainment struct {
 	plain, six     *Simulation
 	previous, gate *sharedOracle
 	// reference adds the parity of the oracle with the reference
-	// construction (see referenceVehicleSafetyLocations) at each pose. It
-	// scans the network, so only the tests of small networks set it.
+	// construction (see referenceVehicleSafetyLocations) at each pose.
+	// tables holds the tables of the reference construction of s, which
+	// the first parity check builds (see referenceLocations).
 	reference bool
+	tables    *envelopeReference
 	counts    map[string]int
 	examples  map[string][]string
 }
@@ -1395,6 +1397,15 @@ func newSharedContainment(t *testing.T, name string, n Network) *sharedContainme
 	}
 	c.behind = index.graph.behind
 	return c
+}
+
+// referenceLocations returns the reference construction of the envelope
+// of v. All the checks of c read the same tables of the reference.
+func (c *sharedContainment) referenceLocations(v *vehicle) []SafetyLocation {
+	if c.tables == nil {
+		c.tables = newEnvelopeReference(c.s)
+	}
+	return referenceSafetyLocationsWith(c.s, c.tables, v)
 }
 
 func (c *sharedContainment) record(key, example string) {
@@ -1568,7 +1579,7 @@ func (c *sharedContainment) pose(route []int, at int, position float64, referenc
 		if missing := slices.IndexFunc(e.main, func(location SafetyLocation) bool { return !c.held(c.main, span, location) }); missing >= 0 {
 			c.record("gate: the oracle holds a plane that its span does not hold", fmt.Sprintf("%s, published %s at %g m: plane %+v", where(), lanes[route[published.at]].ID, published.position, e.main[missing]))
 		}
-		if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v), e.main) {
+		if c.reference && !slices.Equal(c.referenceLocations(v), e.main) {
 			c.record("gate: the oracle differs from the reference construction", fmt.Sprintf("%s, published %s at %g m", where(), lanes[route[published.at]].ID, published.position))
 		}
 	}
@@ -1824,7 +1835,7 @@ func (c *sharedContainment) stationary(kind diskStudyKind) {
 			if copied := c.previous.envelope(v, 0); !sharedSameLocations(copied, envelope) {
 				c.record("gate: the oracle at a berth differs from the copy of the oracle of the first build of slice 1", where())
 			}
-			if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v), envelope) {
+			if c.reference && !slices.Equal(c.referenceLocations(v), envelope) {
 				c.record("gate: the oracle at a berth differs from the reference construction", where())
 			}
 			if missing := slices.IndexFunc(envelope, func(location SafetyLocation) bool {

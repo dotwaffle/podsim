@@ -572,6 +572,7 @@ func TestEnvelopeMatchesReference(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			s := diskStudyPrepare(t, n)
+			reference := newEnvelopeReference(s)
 			count := 0
 			driveEnvelopes(s, func(index int, lane Lane) bool {
 				// Each group lane, and each curved lane with no geometry
@@ -581,7 +582,7 @@ func TestEnvelopeMatchesReference(t *testing.T) {
 				return len(n.Lanes) < 1000 || index%every == 0 || small && index%(every/2) == 0
 			}, func(v *vehicle, distance float64) {
 				count++
-				got, want := s.appendVehicleSafetyLocations(nil, v), referenceVehicleSafetyLocations(s, v)
+				got, want := s.appendVehicleSafetyLocations(nil, v), referenceSafetyLocationsWith(s, reference, v)
 				if !slices.Equal(got, want) {
 					t.Fatalf("pod %s on %q at %g m: envelope %v, reference %v", v.Pod.Class, v.Pod.LaneID+v.Pod.BerthID, distance, got, want)
 				}
