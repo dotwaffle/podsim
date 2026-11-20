@@ -17,8 +17,8 @@ import (
 // lane "dest-alt" from the station entry to "dest-02-arrival", longer than
 // the chain of arrival links, with no station role. large spaces the
 // berth lanes of "dest" 50 m apart in place of 30 m, so that they are
-// long enough for a large class, and puts the origin berths in a column,
-// so that their lanes keep 20 m apart.
+// long enough for a large class, and spaces the column of origin berths
+// 200 m apart in place of 25 m, so that their lanes keep 20 m apart.
 type entryShape struct {
 	join, approach                        float64
 	crossing, third, explicit, alt, large bool
@@ -30,7 +30,10 @@ type entryShape struct {
 // The entry lane "dest-access-in" is 139 m long, as in LondonFull, so it
 // has five cells. After the station entry, a through lane and a chain of
 // three berth branches start. Each approach has a long upstream lane from
-// the origin station, and the station exit leads back to the origin.
+// the origin station, and the station exit leads back to the origin. The
+// origin exit is west of the origin entry, so that the lane back to the
+// origin does not cross the upstream lanes, and the origin berths are in a
+// column, so that their lanes keep 12 m from the other berths.
 func entryNetwork(shape entryShape, fleet int) Network {
 	join := shape.join * math.Pi / 180
 	// comb is the spacing in meters of the berth lanes.
@@ -42,8 +45,8 @@ func entryNetwork(shape entryShape, fleet int) Network {
 	p2 := Point{X: -shape.approach * cosine, Y: -shape.approach * sine}
 	network := Network{
 		Nodes: []Node{
-			{ID: "origin-entry", Position: Point{X: -5000, Y: 5000}},
-			{ID: "origin-exit", Position: Point{X: -4000, Y: 5000}},
+			{ID: "origin-entry", Position: Point{X: -4000, Y: 5000}},
+			{ID: "origin-exit", Position: Point{X: -5000, Y: 5000}},
 			{ID: "g1", Position: Point{X: -shape.approach - 1350}},
 			{ID: "g2", Position: Point{X: p2.X - 1300*cosine, Y: p2.Y - 1300*sine}},
 			{ID: "p1", Position: Point{X: -shape.approach}},
@@ -91,6 +94,17 @@ func entryNetwork(shape entryShape, fleet int) Network {
 			Lane{ID: "x-in", From: "x1", To: "p2", SpeedLimit: 14},
 			Lane{ID: "x-out", From: "p2", To: "x2", SpeedLimit: 14},
 			Lane{ID: "x-return", From: "x2", To: "origin-entry", SpeedLimit: 14})
+		// The lanes feed-x and x-out cross u1, u2, and dest-road-in-01 away
+		// from a node, so they are on another plane. Separation groups
+		// change only the safety checks, not the motion.
+		for index := range network.Lanes {
+			switch lane := &network.Lanes[index]; lane.ID {
+			case "feed-x", "x-out":
+				lane.SeparationGroup = "crossing"
+			case "u1", "u2", "dest-road-in-01":
+				lane.SeparationGroup = "approach"
+			}
+		}
 	}
 	arrival, departure := "dest-entry", "dest-exit"
 	for k := 1; k <= 3; k++ {
@@ -120,7 +134,7 @@ func entryNetwork(shape entryShape, fleet int) Network {
 	}
 	for index := range fleet {
 		node := fmt.Sprintf("origin-berth-%02d", index+1)
-		position := Point{X: -4960 + 25*float64(index), Y: 5060}
+		position := Point{X: -4500, Y: 5060 + 25*float64(index)}
 		if shape.large {
 			position = Point{X: -4500, Y: 5000 + 200*float64(index+1)}
 		}

@@ -17,8 +17,8 @@ type geometryLane struct {
 // with a destination station of one berth at the end of the path. The
 // first pod to arrive stays at the berth, so the pods after it queue on
 // the path. A small origin station, not connected to the path, holds the
-// fleet and gives the requests a passenger origin. All lanes have a
-// 14 m/s limit.
+// fleet in a column of berths 25 m apart, and gives the requests a
+// passenger origin. All lanes have a 14 m/s limit.
 func geometryNetwork(start Point, lanes []geometryLane, fleet int) Network {
 	return stationNetwork(start, lanes, fleet, Point{X: 60, Y: 60}, Point{Y: 120})
 }
@@ -49,7 +49,7 @@ func stationNetwork(start Point, lanes []geometryLane, fleet int, berth, exit Po
 	}
 	for index := range fleet {
 		node := fmt.Sprintf("origin-berth-%02d", index+1)
-		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: -4960 + 25*float64(index), Y: 5060}})
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: -4500, Y: 5060 + 25*float64(index)}})
 		network.Lanes = append(network.Lanes,
 			Lane{ID: node + "-in", From: "origin-entry", To: node, SpeedLimit: 14},
 			Lane{ID: node + "-out", From: node, To: "origin-exit", SpeedLimit: 14})

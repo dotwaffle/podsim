@@ -10,7 +10,9 @@ import (
 
 // longRoutes returns a project in which 200 pods at four stations share one
 // path of about 33,000 blocks to a fifth station. Each lane of the path goes
-// from one side of the coordinate square to the other.
+// from one side of the coordinate square to the other. The lanes cross, so
+// each lane and each berth is on its own plane. Separation groups change
+// only the safety checks, not the motion.
 func longRoutes() Config {
 	const (
 		stations = 4
@@ -58,6 +60,15 @@ func longRoutes() Config {
 	}
 	lane("long-far", previous, "far-entry", "", "")
 	lane("return", "far-exit", "s0-entry", "", "")
+	for index := range network.Lanes {
+		network.Lanes[index].SeparationGroup = network.Lanes[index].ID
+	}
+	for station := range network.Stations {
+		for index := range network.Stations[station].Berths {
+			berth := &network.Stations[station].Berths[index]
+			berth.SeparationGroup = berth.ID
+		}
+	}
 	for index := range stations * berths {
 		config.Fleet = append(config.Fleet, sim.Placement{
 			ID: fmt.Sprintf("%03d", index), StationID: fmt.Sprintf("s%d", index/berths), BerthID: fmt.Sprintf("s%d-berth-%d", index/berths, index%berths),

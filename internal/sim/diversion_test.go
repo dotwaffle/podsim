@@ -135,10 +135,20 @@ func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 }
 
 // The shared arrival lane leads to either parking berth. A diversion from
-// that lane can cross berth 1 even when the pod was going to berth 2.
+// that lane can cross berth 1 even when the pod was going to berth 2. The
+// arrival chain and the parking berths are south of the parking through
+// lane, where no other lane is, so that they keep clear of the example.
 func chainedParkingArrival() Network {
 	network := Example()
-	network.Nodes = append(network.Nodes, Node{ID: "parking-arrival", Position: Point{580, 150}}, Node{ID: "parking-arrival-branch", Position: Point{180, 150}})
+	for index := range network.Nodes {
+		switch node := &network.Nodes[index]; node.ID {
+		case "parking-berth-1":
+			node.Position = Point{480, 520}
+		case "parking-berth-2":
+			node.Position = Point{480, 575}
+		}
+	}
+	network.Nodes = append(network.Nodes, Node{ID: "parking-arrival", Position: Point{800, 650}}, Node{ID: "parking-arrival-branch", Position: Point{620, 560}})
 	for index := range network.Lanes {
 		lane := &network.Lanes[index]
 		if lane.ID == "parking-in-1" || lane.ID == "parking-in-2" {

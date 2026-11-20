@@ -219,7 +219,7 @@ func TestDeferredPassengerBerthClearingSettlesBothPods(t *testing.T) {
 func TestBerthClearingUsesFreePassengerBerthWhenParkingIsFull(t *testing.T) {
 	t.Parallel()
 	network := Example()
-	network.Nodes = append(network.Nodes, Node{ID: "market-berth-2", Position: Point{X: 760, Y: 250}})
+	network.Nodes = append(network.Nodes, Node{ID: "market-berth-2", Position: Point{X: 800, Y: 170}})
 	network.Lanes = append(network.Lanes,
 		Lane{ID: "market-in-2", From: "market-entry", To: "market-berth-2", SpeedLimit: 14},
 		Lane{ID: "market-out-2", From: "market-berth-2", To: "market-exit", SpeedLimit: 14},

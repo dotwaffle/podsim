@@ -1031,7 +1031,9 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 }
 
 // cycleNetwork joins station s, with a berth every 20 meters, to station t
-// through two long lanes. The lanes form a cycle of about 250 blocks.
+// through two long lanes. The lanes form a cycle of about 250 blocks. The
+// lanes to and from the berths of s cross, so the berths are on planes
+// (separateBerths).
 func cycleNetwork(berths int) Network {
 	network := Network{
 		Nodes: []Node{
@@ -1061,6 +1063,7 @@ func cycleNetwork(berths int) Network {
 		)
 		network.Stations[0].Berths = append(network.Stations[0].Berths, Berth{ID: fmt.Sprintf("s-%d", index), Node: node})
 	}
+	separateBerths(&network)
 	return network
 }
 
@@ -1332,7 +1335,9 @@ func TestRestoreBudgetHasALimit(t *testing.T) {
 		}
 	}
 	inbound := slices.IndexFunc(long.Lanes, func(lane Lane) bool { return lane.ID == "inbound" })
-	long.Lanes[inbound].Control = &Point{X: long.Lanes[inbound].Control.X + 150_000, Y: long.Lanes[inbound].Control.Y}
+	// The control point moves with the stations, so that inbound keeps
+	// clear of outbound.
+	long.Lanes[inbound].Control = &Point{X: long.Lanes[inbound].Control.X + 150_000, Y: long.Lanes[inbound].Control.Y * 100}
 	for _, tc := range []struct {
 		name    string
 		network Network

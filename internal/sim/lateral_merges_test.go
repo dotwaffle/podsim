@@ -1365,7 +1365,9 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 // a, a and b end at n, and lane "exit" leaves n. Otherwise lane "feed" runs
 // into n, a and b start at n, lane "d" continues a to node "m", and lane
 // "b2" joins b to m. A destination station is far after the pair, and a
-// small origin station, not connected, gives the requests an origin.
+// small origin station, not connected, gives the requests an origin. The
+// berths of the destination station are 200 m beyond its entry and 25 m
+// apart, so that each berth lane keeps 12 m from the next berth.
 func laneEndNetwork(converging bool, degrees, short float64) Network {
 	radians := degrees * math.Pi / 180
 	far := Point{X: 300 * math.Cos(radians), Y: 300 * math.Sin(radians)}
@@ -1402,7 +1404,7 @@ func laneEndNetwork(converging bool, degrees, short float64) Network {
 			Lane{ID: "b2", From: "b-end", To: "m", SpeedLimit: 14})
 	}
 	network.Nodes = append(network.Nodes,
-		Node{ID: "dest-entry", Position: Point{X: end + approach}}, Node{ID: "dest-exit", Position: Point{X: end + approach + 200}})
+		Node{ID: "dest-entry", Position: Point{X: end + approach}}, Node{ID: "dest-exit", Position: Point{X: end + approach + 400}})
 	network.Lanes = append(network.Lanes,
 		Lane{ID: "approach", From: "m", To: "dest-entry", SpeedLimit: 14}, Lane{ID: "dest-through", From: "dest-entry", To: "dest-exit", SpeedLimit: 14})
 	network.Stations = []Station{
@@ -1411,7 +1413,7 @@ func laneEndNetwork(converging bool, degrees, short float64) Network {
 	}
 	for index := range 8 {
 		node := fmt.Sprintf("dest-berth-%02d", index+1)
-		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: end + approach + 100, Y: 40 + 25*float64(index)}})
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: end + approach + 200, Y: 40 + 25*float64(index)}})
 		network.Lanes = append(network.Lanes,
 			Lane{ID: node + "-in", From: "dest-entry", To: node, SpeedLimit: 14},
 			Lane{ID: node + "-out", From: node, To: "dest-exit", SpeedLimit: 14})

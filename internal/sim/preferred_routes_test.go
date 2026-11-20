@@ -281,6 +281,7 @@ func TestGuardedRefillUsesPreferredReach(t *testing.T) {
 			// The second source has a longer unrestricted path but a preferred
 			// path within the reach limit. The first source exceeds that limit.
 			network.Lanes = append(network.Lanes, Lane{ID: "alternative", From: "s2-exit", To: "s1-entry", SpeedLimit: 5})
+			raiseLanes(&network, "alternative")
 			fleet := place("p-1")
 			if alternative {
 				fleet = place("p-1", "s2-1", "s2-2")
@@ -317,6 +318,7 @@ func TestGuardedBumpUsesPreferredReach(t *testing.T) {
 		}
 	}
 	network.Lanes = append(network.Lanes, Lane{ID: "alternative", From: "p-exit", To: "s2-entry", SpeedLimit: 6})
+	raiseLanes(&network, "alternative")
 	s, err := NewFleet(network, place("p-1", "s0-1"))
 	if err != nil {
 		t.Fatal(err)

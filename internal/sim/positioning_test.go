@@ -116,7 +116,59 @@ func lineNetwork(stations []lineStation) Network {
 	lane("return-down", stations[len(stations)-1].id+"-exit", "return-east")
 	lane("return", "return-east", "return-west")
 	lane("return-up", "return-west", stations[0].id+"-entry")
+	// With more than 10 berths, a side has more than 5, and the lane to the
+	// sixth passes within 12 m of the fifth.
+	var fans []string
+	for _, spec := range stations {
+		if spec.berths > 10 {
+			fans = append(fans, spec.id)
+		}
+	}
+	if len(fans) > 0 {
+		separateBerths(&network, fans...)
+	}
 	return network
+}
+
+// raiseLanes puts the lanes ids of network on the plane "upper", and each
+// other lane and each berth on the plane "ground". A lane that a test adds
+// along the line of stations then keeps clear of it. Separation groups
+// change only the safety checks, not the motion.
+func raiseLanes(network *Network, ids ...string) {
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		lane.SeparationGroup = "ground"
+		if slices.Contains(ids, lane.ID) {
+			lane.SeparationGroup = "upper"
+		}
+	}
+	for station := range network.Stations {
+		for index := range network.Stations[station].Berths {
+			network.Stations[station].Berths[index].SeparationGroup = "ground"
+		}
+	}
+}
+
+// separateBerths puts each berth of the given stations, or of each station
+// when no ID is given, with its two lanes on its own plane, and each other
+// lane on the plane "ground". In a fan of many berths, the lane to a far
+// berth passes within 12 m of the berth before it. Separation groups change
+// only the safety checks, not the motion.
+func separateBerths(network *Network, stations ...string) {
+	planes := map[string]string{}
+	for station := range network.Stations {
+		if len(stations) > 0 && !slices.Contains(stations, network.Stations[station].ID) {
+			continue
+		}
+		for index := range network.Stations[station].Berths {
+			berth := &network.Stations[station].Berths[index]
+			berth.SeparationGroup, planes[berth.Node] = berth.Node, berth.Node
+		}
+	}
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		lane.SeparationGroup = cmp.Or(planes[lane.To], planes[lane.From], "ground")
+	}
 }
 
 // lineStations returns a parking station p with the given berths, when it

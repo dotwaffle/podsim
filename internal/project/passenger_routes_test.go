@@ -66,7 +66,8 @@ func ComparePassengerRoutes(t *testing.T, network sim.Network) error {
 	return got
 }
 
-// berthRingNetwork returns a one-way ring of passenger stations. Each
+// berthRingNetwork returns a one-way ring of passenger stations in a line,
+// with a curved lane back to the first station (returnControl). Each
 // station has berths berths.
 func berthRingNetwork(stations, berths int) sim.Network {
 	var network sim.Network
@@ -80,7 +81,7 @@ func berthRingNetwork(stations, berths int) sim.Network {
 		)
 		network.Lanes = append(network.Lanes,
 			sim.Lane{ID: id + "-through", From: entry, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationThroughRole},
-			sim.Lane{ID: id + "-next", From: exit, To: fmt.Sprintf("s%03d-entry", (index+1)%stations), SpeedLimit: 14},
+			sim.Lane{ID: id + "-next", From: exit, To: fmt.Sprintf("s%03d-entry", (index+1)%stations), SpeedLimit: 14, Control: returnControl(index, stations, x+200)},
 		)
 		station := sim.Station{ID: id, Name: "Station " + id, Entry: entry, Exit: exit}
 		for berth := range berths {
@@ -134,9 +135,11 @@ func TestValidateReportsFirstUnreachablePassengerRoute(t *testing.T) {
 	disconnected.Nodes = append(append([]sim.Node(nil), ring.Nodes...), island.Nodes...)
 	disconnected.Lanes = append(append([]sim.Lane(nil), ring.Lanes...), island.Lanes...)
 	disconnected.Stations = append(append([]sim.Station(nil), ring.Stations...), island.Stations...)
-	// s003 feeds s000, but no lane goes to s003.
+	// s003 feeds s000, but no lane goes to s003. The lane back from s002,
+	// with its exit at x = 1000, curves below the line as the last lane of
+	// a ring of three stations.
 	source := withoutLane(ring, "s002-next")
-	source.Lanes = append(source.Lanes, sim.Lane{ID: "s002-back", From: "s002-exit", To: "s000-entry", SpeedLimit: 14})
+	source.Lanes = append(source.Lanes, sim.Lane{ID: "s002-back", From: "s002-exit", To: "s000-entry", SpeedLimit: 14, Control: returnControl(2, 3, 1000)})
 	for _, test := range []struct {
 		name    string
 		network sim.Network

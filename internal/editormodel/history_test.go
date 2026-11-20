@@ -396,7 +396,7 @@ func TestHistoryRebuildsGenericNetworkForEditsAndChecks(t *testing.T) {
 			}
 			switch op {
 			case "edit":
-				result, err := model.edit(jsontext.Value(`{"field":"geometry","value":{"action":"moveNode","id":"market-entry","point":{"x":1,"y":1}}}`))
+				result, err := model.edit(jsontext.Value(`{"field":"geometry","value":{"action":"moveNode","id":"market-entry","point":{"x":731,"y":261}}}`))
 				if err != nil || result.Change == nil {
 					t.Fatal("restored geometry cannot be edited", err)
 				}

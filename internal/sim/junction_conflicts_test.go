@@ -111,9 +111,11 @@ func TestAcuteJunctionLanesPreservePhysicalClearance(t *testing.T) {
 				entry, berth, exit Point
 			}{
 				{"a", Point{X: -40, Y: -100}, Point{Y: -100}, Point{Y: -60}},
-				{"b", Point{X: 190, Y: 30}, Point{X: 150, Y: 30}, Point{X: 100, Y: 30}},
-				{"c", Point{X: 100}, Point{X: 150}, Point{X: 190}},
-				{"d", Point{Y: 100}, Point{Y: 150}, Point{Y: 190}},
+				// The berths are 30 m off the through lanes, so that they keep
+				// clear of them.
+				{"b", Point{X: 190, Y: 30}, Point{X: 145, Y: 60}, Point{X: 100, Y: 30}},
+				{"c", Point{X: 100}, Point{X: 145, Y: -30}, Point{X: 190}},
+				{"d", Point{Y: 100}, Point{X: 30, Y: 145}, Point{Y: 190}},
 			} {
 				n.Nodes = append(n.Nodes, Node{ID: station.id + "-entry", Position: station.entry}, Node{ID: station.id, Position: station.berth}, Node{ID: station.id + "-exit", Position: station.exit})
 				n.Stations = append(n.Stations, Station{ID: station.id, Entry: station.id + "-entry", Exit: station.id + "-exit", Berths: []Berth{{ID: station.id, Node: station.id}}})

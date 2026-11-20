@@ -22,7 +22,9 @@ func bankConfig() Config {
 // islandGapConfig makes each station of config a passenger station, and adds
 // the parking station "island" with one berth. No lane enters the island, and
 // one lane goes from its exit to the first station. Each berth then has a
-// parking gap: a route from parking and no route to parking.
+// parking gap: a route from parking and no route to parking. The island is
+// on the side of the first station where no other lane is, so that the lane
+// from the island keeps clear of the other lanes.
 func islandGapConfig(config Config) Config {
 	network := config.Network
 	network.Nodes, network.Lanes, network.Stations = slices.Clone(network.Nodes), slices.Clone(network.Lanes), slices.Clone(network.Stations)
@@ -30,7 +32,7 @@ func islandGapConfig(config Config) Config {
 		network.Stations[index].ParkingOnly = false
 		network.Stations[index].Berths = slices.Clone(network.Stations[index].Berths)
 	}
-	network.Nodes = append(network.Nodes, sim.Node{ID: "island-entry", Position: sim.Point{X: 7000, Y: 7000}}, sim.Node{ID: "island-berth", Position: sim.Point{X: 7100, Y: 6940}}, sim.Node{ID: "island-exit", Position: sim.Point{X: 7200, Y: 7000}})
+	network.Nodes = append(network.Nodes, sim.Node{ID: "island-entry", Position: sim.Point{X: -7200, Y: -7000}}, sim.Node{ID: "island-berth", Position: sim.Point{X: -7100, Y: -7060}}, sim.Node{ID: "island-exit", Position: sim.Point{X: -7000, Y: -7000}})
 	network.Lanes = append(network.Lanes,
 		sim.Lane{ID: "island-through", From: "island-entry", To: "island-exit", SpeedLimit: 14, StationID: "island", StationRole: sim.StationThroughRole},
 		sim.Lane{ID: "island-in", From: "island-entry", To: "island-berth", SpeedLimit: 14, StationID: "island", StationRole: sim.StationBerthAccessRole},

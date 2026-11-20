@@ -204,29 +204,45 @@ func TestValidateRejectsMalformedProjects(t *testing.T) {
 }
 
 // TestValidateAcceptsNetworkLimits checks a project with the most nodes and
-// lanes that Validate allows. The added nodes are on a circle 40 meters
-// apart about the origin, away from the stations. With 2 lanes to and 2 lanes from almost
-// each added node, the network has the fewest lane pairs at nodes that
-// MaxNodes and MaxLanes allow.
+// lanes that Validate allows. The added nodes are on two circles about the
+// origin, 40 meters apart, away from the stations. Neighbor nodes on a
+// circle are 40 meters apart. Each circle is a one-way ring, a spoke joins
+// each node of the inner circle to the node beside it on the outer circle,
+// and spokes back from the outer circle add the lanes up to MaxLanes. Two
+// lanes that share no node are about 40 meters apart or more, so the
+// network audit accepts each pair. With 3 or 4 lanes at each added node,
+// the network has the fewest lane pairs at nodes that MaxNodes and
+// MaxLanes allow.
 func TestValidateAcceptsNetworkLimits(t *testing.T) {
 	t.Parallel()
 	config := Default()
 	count := MaxNodes - len(config.Network.Nodes)
-	radius := 40 * float64(count) / (2 * math.Pi)
-	for index := range count {
-		angle := 2 * math.Pi * float64(index) / float64(count)
-		config.Network.Nodes = append(config.Network.Nodes, sim.Node{
-			ID: fmt.Sprintf("far-%d", index), Position: sim.Point{X: radius * math.Cos(angle), Y: radius * math.Sin(angle)},
+	if count%2 != 0 {
+		t.Fatalf("%d added nodes do not make two circles", count)
+	}
+	half := count / 2
+	inner := 40 * float64(half) / (2 * math.Pi)
+	for ring := range 2 {
+		for index := range half {
+			angle := 2 * math.Pi * float64(index) / float64(half)
+			radius := inner + 40*float64(ring)
+			config.Network.Nodes = append(config.Network.Nodes, sim.Node{
+				ID: fmt.Sprintf("far-%d", ring*half+index), Position: sim.Point{X: radius * math.Cos(angle), Y: radius * math.Sin(angle)},
+			})
+		}
+	}
+	lane := func(from, to int) {
+		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{
+			ID: fmt.Sprintf("far-%d", len(config.Network.Lanes)), From: fmt.Sprintf("far-%d", from), To: fmt.Sprintf("far-%d", to), SpeedLimit: 12,
 		})
 	}
-	// Each added lane goes from an added node to one of the next added
-	// nodes, so that no node has many lanes and no two lanes are the same.
-	far := config.Network.Nodes[len(Default().Network.Nodes):]
-	for index := range MaxLanes - len(config.Network.Lanes) {
-		from, step := index%len(far), 1+index/len(far)
-		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{
-			ID: fmt.Sprintf("far-%d", index), From: far[from].ID, To: far[(from+step)%len(far)].ID, SpeedLimit: 12,
-		})
+	for index := range half {
+		lane(index, (index+1)%half)
+		lane(half+index, half+(index+1)%half)
+		lane(index, half+index)
+	}
+	for index := 0; len(config.Network.Lanes) < MaxLanes; index++ {
+		lane(half+index, index)
 	}
 	if err := Validate(config); err != nil {
 		t.Fatal(err)
@@ -539,7 +555,8 @@ func weightedProject() Config {
 	return config
 }
 
-// loopNetwork returns a one-way loop of passenger stations. Each station has
+// loopNetwork returns a one-way loop of passenger stations in a line, with a
+// curved lane back to the first station (returnControl). Each station has
 // one berth.
 func loopNetwork(stations int) sim.Network {
 	var network sim.Network
@@ -556,13 +573,25 @@ func loopNetwork(stations int) sim.Network {
 			sim.Lane{ID: id + "-through", From: entry, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationThroughRole},
 			sim.Lane{ID: id + "-in", From: entry, To: berth, SpeedLimit: 14, StationID: id, StationRole: sim.StationBerthAccessRole},
 			sim.Lane{ID: id + "-out", From: berth, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationDepartureRole},
-			sim.Lane{ID: id + "-next", From: exit, To: fmt.Sprintf("s%02d-entry", (index+1)%stations), SpeedLimit: 14},
+			sim.Lane{ID: id + "-next", From: exit, To: fmt.Sprintf("s%02d-entry", (index+1)%stations), SpeedLimit: 14, Control: returnControl(index, stations, x+100)},
 		)
 		network.Stations = append(network.Stations, sim.Station{
 			ID: id, Name: "Station " + id, Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: id + "-1", Node: berth}},
 		})
 	}
 	return network
+}
+
+// returnControl returns the control point of the lane from the last station
+// of a line of stations at y = 0, with its exit at x = end, back to the
+// entry of the first station at x = 0. The lane is a curve below the line,
+// so that it keeps clear of the stations. For the other lanes, it returns
+// nil.
+func returnControl(index, stations int, end float64) *sim.Point {
+	if index != stations-1 {
+		return nil
+	}
+	return &sim.Point{X: end / 2, Y: -end / 4}
 }
 
 // wideWeight has the longest canonical form of a weight, 24 bytes. A

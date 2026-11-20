@@ -191,7 +191,7 @@ func TestOnboardPickupsNewRiderDetour(t *testing.T) {
 	network := Example()
 	for index := range network.Nodes {
 		if network.Nodes[index].ID == "market-berth" {
-			network.Nodes[index].Position.Y = 900
+			network.Nodes[index].Position.Y = -380
 		}
 	}
 	s := newOccupiedPickupRideOnNetwork(t, network)

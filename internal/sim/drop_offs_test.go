@@ -202,7 +202,10 @@ func loopNetwork(y float64) Network {
 // node far from the station, and a direct lane from the market entry to
 // the second market berth. The station path from the entry to that berth
 // is the direct lane. A pod that keeps the lanes to the first arrival node
-// must go through the far node.
+// must go through the far node. The two lanes to and from the far node
+// cross the lane return-to-parking, and the direct lane passes near the
+// first arrival node, so these lanes are on other planes.
+// Separation groups change only the safety checks, not the motion.
 func directBerthNetwork() Network {
 	network := ladderNetwork()
 	for index := range network.Nodes {
@@ -211,6 +214,16 @@ func directBerthNetwork() Network {
 		}
 	}
 	network.Lanes = append(network.Lanes, Lane{ID: "market-in-direct", From: "market-entry", To: "market-berth-2", SpeedLimit: 14})
+	for index := range network.Lanes {
+		switch lane := &network.Lanes[index]; lane.ID {
+		case "market-arrival-next", "market-in-2":
+			lane.SeparationGroup = "upper"
+		case "market-in-direct":
+			lane.SeparationGroup = "direct"
+		case "return-to-parking", "market-in":
+			lane.SeparationGroup = "ground"
+		}
+	}
 	return network
 }
 
@@ -316,7 +329,7 @@ func twoHarborBerthNetwork() Network {
 	for index := range network.Nodes {
 		switch network.Nodes[index].ID {
 		case "harbor-berth":
-			network.Nodes[index].Position.Y = 600
+			network.Nodes[index].Position.Y = -80
 		case "garden-berth":
 			network.Nodes[index].Position.Y = -100
 		}

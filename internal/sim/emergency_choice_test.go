@@ -53,7 +53,8 @@ func addLineStation(network *Network, spec choiceStation, parking bool) {
 // lane to-<id> goes from fork to the entry of each candidate station, and
 // from-<id> from its exit to the node back. The lane home goes from back
 // to the entry of h, and the parking station p, with the given berths,
-// sits on a second road from back to h.
+// sits on a second road from back to h. The roads and the berths cross,
+// so separateChoicePlanes puts them on planes.
 func choiceNetwork(stations []choiceStation, parking int) Network {
 	var network Network
 	addLineStation(&network, choiceStation{id: "h", berths: 1}, false)
@@ -70,7 +71,34 @@ func choiceNetwork(stations []choiceStation, parking int) Network {
 		Lane{ID: "home", From: "back", To: "h-entry", SpeedLimit: 14},
 		Lane{ID: "to-p", From: "back", To: "p-entry", SpeedLimit: 14},
 		Lane{ID: "from-p", From: "p-exit", To: "h-entry", SpeedLimit: 14})
+	separateChoicePlanes(&network)
 	return network
+}
+
+// separateChoicePlanes puts each lane that is not a berth lane on its own
+// plane, and each berth with its two lanes on its own plane. The roads and
+// stations of choiceNetwork cross away from a node, and its tests check
+// the station choice, not the clearance. Separation groups change only the
+// safety checks, not the motion.
+func separateChoicePlanes(network *Network) {
+	berths := map[string]bool{}
+	for station := range network.Stations {
+		for index := range network.Stations[station].Berths {
+			berth := &network.Stations[station].Berths[index]
+			berth.SeparationGroup = berth.ID
+			berths[berth.Node] = true
+		}
+	}
+	for index := range network.Lanes {
+		switch lane := &network.Lanes[index]; {
+		case berths[lane.To]:
+			lane.SeparationGroup = lane.To
+		case berths[lane.From]:
+			lane.SeparationGroup = lane.From
+		default:
+			lane.SeparationGroup = lane.ID
+		}
+	}
 }
 
 // choiceFleet returns a simulation on the network with emergencies on. Pod

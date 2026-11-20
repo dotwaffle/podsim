@@ -659,6 +659,11 @@ func weightedProject() project.Config {
 			sim.Lane{ID: prefix + "-out", From: berth, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationDepartureRole},
 			sim.Lane{ID: prefix + "-next", From: exit, To: fmt.Sprintf("n%02d-entry", (index+1)%stations), SpeedLimit: 14},
 		)
+		if index == stations-1 {
+			// The lane back to the first station is a curve below the line
+			// of stations, so that it keeps clear of them.
+			config.Network.Lanes[len(config.Network.Lanes)-1].Control = &sim.Point{X: (x + 100) / 2, Y: -(x + 100) / 4}
+		}
 		config.Network.Stations = append(config.Network.Stations, sim.Station{
 			ID: id, Name: "Station", Entry: entry, Exit: exit, Berths: []sim.Berth{{ID: prefix + "-1", Node: berth}},
 		})

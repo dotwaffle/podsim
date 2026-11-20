@@ -272,6 +272,7 @@ func TestBlockedRouteSearches(t *testing.T) {
 				}
 			}
 			network.Lanes = append(network.Lanes, Lane{ID: "alternative", From: "p-exit", To: "s2-entry", SpeedLimit: 6})
+			raiseLanes(&network, "alternative")
 			s, err := NewFleet(network, place("p-1", "s0-1"))
 			if err != nil {
 				t.Fatal(err)

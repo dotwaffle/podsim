@@ -22,6 +22,11 @@ const (
 	// platoon. It is more than the largest link clearance of the corridor,
 	// 16.98 m at the 90 degree merge.
 	corridorPlatoonGap = 18.0
+	// corridorBerthOffset is the distance along the corridor from the
+	// destination entry to the column of destination berths, and from the
+	// column to the destination exit. The berths are 25 m apart, so each
+	// berth lane keeps 12 m from the next berth.
+	corridorBerthOffset = 700.0
 )
 
 // mergeCorridor returns a main lane, an exit lane and an approach lane in a
@@ -38,7 +43,7 @@ func mergeCorridor(side bool, sideDegrees float64) Network {
 			{ID: "merge"},
 			{ID: "exit-end", Position: Point{X: corridorExitLength}},
 			{ID: "dest-entry", Position: Point{X: corridorExitLength + corridorApproachLength}},
-			{ID: "dest-exit", Position: Point{X: corridorExitLength + corridorApproachLength + 200}},
+			{ID: "dest-exit", Position: Point{X: corridorExitLength + corridorApproachLength + 2*corridorBerthOffset}},
 			{ID: "origin-entry", Position: Point{X: -corridorFeedLength, Y: 1000}},
 			{ID: "origin-berth", Position: Point{X: -corridorFeedLength + 100, Y: 1060}},
 			{ID: "origin-exit", Position: Point{X: -corridorFeedLength + 200, Y: 1000}},
@@ -61,7 +66,7 @@ func mergeCorridor(side bool, sideDegrees float64) Network {
 	// pod to its queue, so no pod uses these berths during the test.
 	for index := range 2 * corridorStreamPods {
 		node := fmt.Sprintf("dest-berth-%02d", index+1)
-		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: corridorExitLength + corridorApproachLength + 100, Y: 40 + 25*float64(index)}})
+		network.Nodes = append(network.Nodes, Node{ID: node, Position: Point{X: corridorExitLength + corridorApproachLength + corridorBerthOffset, Y: 40 + 25*float64(index)}})
 		network.Lanes = append(network.Lanes,
 			Lane{ID: node + "-in", From: "dest-entry", To: node, SpeedLimit: 14},
 			Lane{ID: node + "-out", From: node, To: "dest-exit", SpeedLimit: 14})

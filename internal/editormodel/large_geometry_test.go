@@ -172,7 +172,9 @@ func TestLargeDraftBerthAudit(t *testing.T) {
 	t.Parallel()
 	for _, gap := range []float64{19, 40} {
 		network := largeDraftPaths(100, false)
-		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "berth-a", "position": map[string]any{"x": float64(50), "y": float64(200)}}, map[string]any{"id": "berth-b", "position": map[string]any{"x": float64(50) + gap, "y": float64(200)}})
+		// The berths are in a column below the lane first, so that the
+		// lanes to and from them do not cross.
+		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": "berth-a", "position": map[string]any{"x": float64(50), "y": float64(-30)}}, map[string]any{"id": "berth-b", "position": map[string]any{"x": float64(50), "y": -30 - gap}})
 		network["stations"] = []any{map[string]any{"id": "station", "entry": "a", "exit": "b", "vehicleClasses": []any{"legacy", "group"}, "berths": []any{map[string]any{"id": "first-berth", "node": "berth-a", "vehicleClasses": []any{"group"}}, map[string]any{"id": "second-berth", "node": "berth-b"}}}}
 		for _, berth := range []string{"berth-a", "berth-b"} {
 			network["lanes"] = append(items(network["lanes"]), map[string]any{"id": berth + "-in", "from": "a", "to": berth, "speedLimit": float64(14)}, map[string]any{"id": berth + "-out", "from": berth, "to": "b", "speedLimit": float64(14)})

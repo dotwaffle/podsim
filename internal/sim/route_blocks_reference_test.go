@@ -146,7 +146,8 @@ func checkRouteBlocks(t *testing.T, s *Simulation) {
 }
 
 // circleRing returns a one-way ring of stations on a circle. Each station
-// has berths berths. The network has stations*(2+berths) nodes.
+// has berths berths, on planes (separateBerths). The network has
+// stations*(2+berths) nodes.
 func circleRing(stations, berths int) Network {
 	var network Network
 	radius := 200 * float64(stations) / math.Pi
@@ -178,6 +179,7 @@ func circleRing(stations, berths int) Network {
 		}
 		network.Stations = append(network.Stations, station)
 	}
+	separateBerths(&network)
 	return network
 }
 
