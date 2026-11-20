@@ -161,6 +161,12 @@
   const HEAD_LIGHT = [0.92, 0.97, 1];
   const TAIL_LIGHT = [1, 0.12, 0.08];
   const ACCENT_LIGHT = [0.1, 0.39, 0.5];
+  // The image effects of the visual polish. With the default vignette
+  // field of view of Babylon, a weight of 0.5 darkens the corners of a
+  // 16:9 view by about 21% and the cabin screens by about 8%. The
+  // saturation is on the scale of Babylon color curves, from -100 to 100.
+  const FX_VIGNETTE = 0.5;
+  const FX_SATURATION = 12;
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
   // Textures: web/textures, which internal/cmd/texgen writes. One repeat of
   // the concrete covers CONCRETE_TILE meters.
@@ -176,7 +182,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights", "signs"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights", "signs", "fx"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -2217,6 +2223,16 @@
     // Bloom spread the bright map tiles into soft blotches on the dark cabin
     // pillars, so the pipeline has no bloom.
     pipeline.bloomEnabled = false;
+    if (look.fx) {
+      // The vignette and the color curves are part of the image processing
+      // pass that the pipeline has already, so they add no pass.
+      pipeline.imageProcessing.vignetteEnabled = true;
+      pipeline.imageProcessing.vignetteWeight = FX_VIGNETTE;
+      const curves = new B.ColorCurves();
+      curves.globalSaturation = FX_SATURATION;
+      pipeline.imageProcessing.colorCurvesEnabled = true;
+      pipeline.imageProcessing.colorCurves = curves;
+    }
     const signs = createSigns(B, scene, look.signs);
     const credit = document.getElementById("credit");
     let tileLayer = null, lastTiles = 0;
