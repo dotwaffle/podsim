@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -38,11 +39,31 @@ type screenPair struct {
 	Gates     []screenGate `json:"gates"`
 }
 
+// screenResult is the result of a screen.
+type screenResult string
+
+const (
+	// screenPassed: the screen has a pair of D, and each gate of each pair
+	// of D passes.
+	screenPassed screenResult = "pass"
+	// screenFailed: a gate of a pair of D fails.
+	screenFailed screenResult = "fail"
+	// screenUnevaluated: the screen has no pair of D, because it did not
+	// run LF or D.
+	screenUnevaluated screenResult = "unevaluated"
+)
+
 type screenReport struct {
 	SchemaVersion int          `json:"schema_version"`
 	Arms          []screenArm  `json:"arms"`
 	Pairs         []screenPair `json:"pairs"`
-	Pass          bool         `json:"pass"`
+	Result        screenResult `json:"result"`
+}
+
+// screenKey identifies the offered events of one band and seed.
+type screenKey struct {
+	band string
+	seed int64
 }
 
 // screenCompare returns the gates of candidate against reference. Both arms
@@ -114,9 +135,10 @@ func runScreen(args []string, stdout, stderr io.Writer) int {
 }
 
 // writeScreenResults writes the summary to stdout and the JSON report to
-// output, and returns the exit status. A write error gives status 1, also
-// when a deciding gate failed. A screen can run for hours, so the JSON
-// report is written also when the summary cannot be.
+// output, and returns the exit status: 0 for a pass, 3 for a fail, and 4
+// for an unevaluated screen. A write error gives status 1, also when the
+// screen did not pass. A screen can run for hours, so the JSON report is
+// written also when the summary cannot be.
 func writeScreenResults(report screenReport, output string, stdout, stderr io.Writer) int {
 	code := 0
 	if err := writeScreenSummary(stdout, report); err != nil {
@@ -133,10 +155,14 @@ func writeScreenResults(report screenReport, output string, stdout, stderr io.Wr
 			return 1
 		}
 	}
-	if code == 0 && !report.Pass {
+	switch {
+	case code != 0 || report.Result == screenPassed:
+		return code
+	case report.Result == screenUnevaluated:
+		return 4
+	default:
 		return 3
 	}
-	return code
 }
 
 // screen runs every arm and compares each candidate with LF.
@@ -151,11 +177,7 @@ func screen(opts screenOptions) (screenReport, error) {
 		perMinute = source.Demand.PerMinute
 	}
 	arrivalTicks, clearTicks := durationTicks(opts.arrivals), durationTicks(opts.clear)
-	type key struct {
-		band string
-		seed int64
-	}
-	events := map[key][]screenEvent{}
+	events := map[screenKey][]screenEvent{}
 	var inputs []screenArmInput
 	for _, name := range opts.bands {
 		band, bandErr := screenBand(name)
@@ -168,7 +190,7 @@ func screen(opts screenOptions) (screenReport, error) {
 			if eventsErr != nil {
 				return screenReport{}, eventsErr
 			}
-			events[key{bandID, seed}] = offered
+			events[screenKey{bandID, seed}] = offered
 			for _, config := range configs {
 				inputs = append(inputs, screenArmInput{config: config, band: band, bandID: bandID, seed: seed, events: offered,
 					arrivalTicks: arrivalTicks, clearTicks: clearTicks, queueLimit: opts.queueLimit, checkTicks: int64(opts.checkEverySeconds) * sim.TicksPerSecond})
@@ -179,7 +201,17 @@ func screen(opts screenOptions) (screenReport, error) {
 	if err != nil {
 		return screenReport{}, err
 	}
-	report := screenReport{SchemaVersion: 1, Arms: arms, Pass: true}
+	pairs, result := screenPairs(arms, events)
+	return screenReport{SchemaVersion: 2, Arms: arms, Pairs: pairs, Result: result}, nil
+}
+
+// screenPairs compares each candidate arm with the LF arm of the same band
+// and seed, and returns the pairs and the result. Only the pairs of D
+// decide. A screen with no pair of D is unevaluated, so that a run of the
+// diagnostic configurations alone cannot pass.
+func screenPairs(arms []screenArm, events map[screenKey][]screenEvent) ([]screenPair, screenResult) {
+	var pairs []screenPair
+	decided, failed := false, false
 	for _, reference := range arms {
 		if reference.Config != screenLondonFull {
 			continue
@@ -189,16 +221,22 @@ func screen(opts screenOptions) (screenReport, error) {
 				continue
 			}
 			pair := screenPair{Band: candidate.Band, Seed: candidate.Seed, Candidate: candidate.Config, Decides: candidate.Config == screenExpress,
-				Gates: screenCompare(candidate, reference, events[key{candidate.Band, candidate.Seed}])}
-			for _, gate := range pair.Gates {
-				if pair.Decides && !gate.Pass {
-					report.Pass = false
-				}
+				Gates: screenCompare(candidate, reference, events[screenKey{candidate.Band, candidate.Seed}])}
+			if pair.Decides {
+				decided = true
+				failed = failed || slices.ContainsFunc(pair.Gates, func(gate screenGate) bool { return !gate.Pass })
 			}
-			report.Pairs = append(report.Pairs, pair)
+			pairs = append(pairs, pair)
 		}
 	}
-	return report, nil
+	switch {
+	case failed:
+		return pairs, screenFailed
+	case decided:
+		return pairs, screenPassed
+	default:
+		return pairs, screenUnevaluated
+	}
 }
 
 // writeScreenSummary writes a line for each arm, a line for each gate of
@@ -220,7 +258,7 @@ func writeScreenSummary(w io.Writer, report screenReport) error {
 			printf("pair %s vs LF band=%s seed=%d decides=%t gate=%q pass=%t %s\n", pair.Candidate, pair.Band, pair.Seed, pair.Decides, gate.Name, gate.Pass, gate.Detail)
 		}
 	}
-	printf("screen pass=%t\n", report.Pass)
+	printf("screen result=%s\n", report.Result)
 	if err != nil {
 		return fmt.Errorf("write screen summary: %w", err)
 	}

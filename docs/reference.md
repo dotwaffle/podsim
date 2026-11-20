@@ -351,7 +351,10 @@ The wait of an event ends when its last order boards, and its journey when its l
 
 The command prints a line for each arm and a line for each gate of each pair against `LF`.
 Only the pairs of `D` decide the screen.
-The command exits with status 3 when a deciding gate fails.
+The last line and the `result` field of the JSON report give the result: `pass`, `fail`, or `unevaluated`.
+The screen passes when it has a pair of `D` and each gate of each pair of `D` passes.
+The screen fails when a deciding gate fails, and the command then exits with status 3.
+A screen without `LF` or without `D` has no pair of `D`, so it is unevaluated, and the command exits with status 4.
 
 ### Report columns
 

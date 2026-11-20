@@ -217,7 +217,7 @@ func TestScreenRun(t *testing.T) {
 		t.Fatalf("exit %d: %s", code, stderr.String())
 	}
 	out := stdout.String()
-	for _, want := range []string{"arm LF band=", "arm D band=", `pair D vs LF`, `gate="safety and accounting" pass=true`, "screen pass="} {
+	for _, want := range []string{"arm LF band=", "arm D band=", `pair D vs LF`, `gate="safety and accounting" pass=true`, "screen result="} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("no %q in:\n%s", want, out)
 		}
@@ -268,8 +268,8 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 // status 1, also when a deciding gate failed.
 func TestScreenSummaryWriteError(t *testing.T) {
 	t.Parallel()
-	report := screenReport{SchemaVersion: 1, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
-		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Decides: true, Gates: []screenGate{{Name: "g"}}}}}
+	report := screenReport{SchemaVersion: 2, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
+		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Decides: true, Gates: []screenGate{{Name: "g"}}}}, Result: screenFailed}
 	// The summary has an arm line, a gate line, and the result line.
 	for ok := range 3 {
 		err := writeScreenSummary(&failingWriter{ok: ok}, report)
@@ -293,6 +293,57 @@ func TestScreenSummaryWriteError(t *testing.T) {
 	}
 	if code := writeScreenResults(report, "", &bytes.Buffer{}, &bytes.Buffer{}); code != 3 {
 		t.Errorf("a failed deciding gate: exit %d, want 3", code)
+	}
+}
+
+// TestScreenResult checks that only a pair of D decides the screen, and
+// that a screen with no pair of D is unevaluated: it does not pass, and it
+// exits with status 4.
+func TestScreenResult(t *testing.T) {
+	t.Parallel()
+	events := map[screenKey][]screenEvent{{"b", 1}: {{Size: 1, Hub: true}}}
+	arm := func(config string, outstanding int, finished bool) screenArm {
+		outcome := screenOutcome{WaitTicks: -1, JourneyTicks: -1}
+		if finished {
+			outcome = screenOutcome{WaitTicks: 10, JourneyTicks: 10}
+		}
+		return screenArm{Config: config, Band: "b", Seed: 1, Outstanding: outstanding, Outcomes: []screenOutcome{outcome}}
+	}
+	reference := arm(screenLondonFull, 0, false)
+	passD, failD := arm(screenExpress, 0, true), arm(screenExpress, 1, true)
+	passD0, failD0 := arm(screenGeometry, 0, true), arm(screenGeometry, 1, true)
+	for _, test := range []struct {
+		name  string
+		arms  []screenArm
+		pairs int
+		want  screenResult
+		code  int
+	}{
+		{"LF and D", []screenArm{reference, passD}, 1, screenPassed, 0},
+		{"a failed D0 does not decide", []screenArm{reference, failD0, passD}, 2, screenPassed, 0},
+		{"D with orders still waiting", []screenArm{reference, passD0, failD}, 2, screenFailed, 3},
+		{"D alone", []screenArm{failD}, 0, screenUnevaluated, 4},
+		{"LF and D0", []screenArm{reference, passD0}, 1, screenUnevaluated, 4},
+		{"D0 and D", []screenArm{passD0, passD}, 0, screenUnevaluated, 4},
+	} {
+		pairs, result := screenPairs(test.arms, events)
+		if len(pairs) != test.pairs || result != test.want {
+			t.Errorf("%s: %d pairs, result %q; want %d, %q", test.name, len(pairs), result, test.pairs, test.want)
+			continue
+		}
+		var stdout bytes.Buffer
+		output := filepath.Join(t.TempDir(), "screen.json")
+		report := screenReport{SchemaVersion: 2, Arms: test.arms, Pairs: pairs, Result: result}
+		if code := writeScreenResults(report, output, &stdout, &bytes.Buffer{}); code != test.code {
+			t.Errorf("%s: exit %d, want %d", test.name, code, test.code)
+		}
+		if line := "screen result=" + string(test.want) + "\n"; !strings.HasSuffix(stdout.String(), line) {
+			t.Errorf("%s: summary does not end with %q:\n%s", test.name, line, stdout.String())
+		}
+		data, err := os.ReadFile(output)
+		if err != nil || !strings.Contains(string(data), `"result": "`+string(test.want)+`"`) {
+			t.Errorf("%s: JSON report %s, %v", test.name, data, err)
+		}
 	}
 }
 
