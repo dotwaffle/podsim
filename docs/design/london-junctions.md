@@ -7,7 +7,7 @@ The follow-up is the [lateral merge zones](lateral-merge-zones.md) design.
 The presets keep chords, and since 2026-11-15 they also have lateral merge pairs.
 Since 2026-11-20, the [shape clearance](shape-clearance.md) rule gives lateral merge pairs to each network, and the `lateralMerges` network field is removed.
 Since 2026-11-20, LondonFull fillets its station roads with the ramp speed of this design ([London road fillets proposal](../contracts/london-fillets-proposal.md)).
-The junction moves keep their chords, and LondonCentral, `london-full-express`, and the shared-track preset keep straight roads.
+The junction moves keep their chords, and LondonCentral, `london-full-express`, and the shared-track preset keep unfilleted roads.
 The maintainer made the decisions below on 2026-11-15.
 
 ## Goal

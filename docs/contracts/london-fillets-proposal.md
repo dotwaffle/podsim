@@ -3,7 +3,7 @@
 Status: APPROVED by the maintainer on 2026-11-20, with decisions FL-D1 to FL-D9 (section 9).
 The maintainer approved stage 1 of decision FL-D4: slices 0 to 3 and the evidence of LondonFull.
 Stage 2 waits until the maintainer reads the evidence of LondonFull.
-Slices 0 to 3 landed.
+Slice 0 ran, and slices 1 to 3 landed.
 Section 8.1 records the evidence of stage 1.
 An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.
@@ -696,8 +696,12 @@ Stage 1 then waits for the maintainer to read this evidence (FL-D4 B).
 #### Findings that differ from the text
 
 - Section 2.1 gives the check for rays behind an end before the check for a tangent end.
-  The code does the tangent check first, because only this order gives the rerun counts of 15 tangent roads and 132 roads with rays behind an end.
+  The code does the tangent check first, because only this order gives the rerun counts on the passenger station roads: 15 tangent roads and 132 roads with rays behind an end.
+  On all 1,456 roads, this order gives 15 tangent roads and 134 roads with rays behind an end, because 2 Parking roads also have rays behind an end.
+  With the check for rays behind an end first, the counts are 9 tangent roads and 140 roads with rays behind an end, because 6 of the 15 tangent roads also have `s` or `t` at most 1e-6.
   The two orders curve the same roads.
+- Section 2.1 gives 132 roads with rays behind an end; the code and its test give 134, which count the 2 Parking roads.
+  The text waits for the maintainer.
 - Sections 5.2 and 8 do not list four tests that slice 2 changed:
   - `checkLondonParity` (`london_depot_test.go`), which `TestLondonDepots` and `TestLondonCompactStations` use.
     The curve and the speed of a road come from the heading of its access lane, and a depot or Compact layout changes that heading.
@@ -712,6 +716,12 @@ Stage 1 then waits for the maintainer to read this evidence (FL-D4 B).
   With straight roads, the count was 624, from large pods on `940GZZLUBNK-road-in-08`, and the fillet moves that road.
   The study is opt-in, so CI does not run it.
   The maintainer chooses a minimum for each input, another A1 case on the "wide" input, or no change.
+- Section 5.2 says that a fillet adds under 100 bytes for each lane.
+  This is true only for compact JSON, where the 676 curved lanes add 49,696 bytes, about 73.5 bytes for each lane.
+  In the indented file of `cmd/scenario`, which `TestRunWritesImportableLondonFull` and `TestScenarioJSONFitsFileLimit` check, they add 78,764 bytes, about 117 bytes for each lane.
+  Both files stay far below the limit of 32 MiB.
+  The text waits for the maintainer.
+- Open item for the maintainer: the approved texts that say LondonFull and its hashes do not change (FL-A1, FL-A4, FL-A5, FL-A6) are now stale for LondonFull; slice 5 applies them, and the maintainer may want them before stage 2.
 
 ## 9. Decisions for the maintainer
 

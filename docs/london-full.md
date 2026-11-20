@@ -95,7 +95,8 @@ The hashes are for the build of November 20, 2026, when LondonFull began to fill
 The network of `london-full-express` did not change.
 
 A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide stations, the Compact stations in the heading search, and the Parking facilities.
-The study network differs from the default only at the three Parking facilities, because a pitch of 50 meters changes their shape.
+The study network differs from the default only at two of the three Parking facilities, `parking-east` and `parking-west`, because a pitch of 50 meters changes their shape.
+Their Parking roads also change, because the fillets follow the new headings of their access lanes.
 `-station-scale` sets only the wide stations and the Compact stations.
 `london-full-express` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
 
@@ -113,7 +114,7 @@ Of the 1,456 roads of LondonFull, 676 are curved: 320 road-in lanes, 340 road-ou
 The median speed of a curved road is about 11 m/s.
 280 of the 309 passenger stations have a road slower than 14 m/s.
 The movement lanes at the junctions keep their chords.
-LondonCentral, `london-full-express`, and `london-full-shared-express` keep straight roads.
+LondonCentral, `london-full-express`, and `london-full-shared-express` keep unfilleted roads.
 `-road-fillets=false` gives LondonFull with straight roads, with the network SHA-256 `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` (see [capacity flags](reference.md#capacity-flags)).
 
 A virtual platoon needs one speed limit on its route and on each lane of its destination station (see [virtual platoons](model.md#virtual-platoons)).

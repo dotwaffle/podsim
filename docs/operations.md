@@ -666,8 +666,8 @@ These values are from one server that runs the default project, with 20 MiB of r
 | Request | JSON | Time | Peak resident memory |
 | --- | --- | --- | --- |
 | `london-central` | 1.2 MB | 0.4 to 0.6 s | 35 to 43 MiB |
-| `london-full` | 5.6 MB | 2.2 to 3.7 s | 89 to 101 MiB |
-| `project` apply of `london-full` | 5.6 MB | 1.7 s | 120 MiB |
+| `london-full` | 5.7 MB | 2.2 to 3.7 s | 89 to 101 MiB |
+| `project` apply of `london-full` | 5.7 MB | 1.7 s | 120 MiB |
 
 On a quiet session, about 58 MiB of anonymous memory stayed resident for at least 60 s after a `london-full` reply, because no collection ran.
 The source data adds 7.2 MB to the server binary, and it does not change the resident memory at idle.
