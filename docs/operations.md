@@ -679,6 +679,8 @@ At its peak, the heap was about 310 MiB larger.
 The server applies one gzip command or one plain command of more than 1 MiB at a time, and other such commands wait.
 At most 4 such command bodies of 16 MiB or less are in memory, so they use at most 64 MiB, and the server replies 503 to more.
 Thus two editors that apply large projects at the same time do not double this memory.
+The server makes at most 2 HTTP states of `GET /api/state` at the same time, and replies 503 with `Retry-After` to more.
+An HTTP state has at most 128 MiB of JSON, so these replies hold at most 256 MiB of JSON.
 
 ## pprof
 

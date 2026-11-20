@@ -314,6 +314,10 @@ type Session struct {
 	// of a generation and its reply.
 	presets    map[string]PresetGenerator
 	presetSlot chan struct{}
+	// stateSlots holds the admission places of GET /api/state. It has
+	// space for maxStateRequests values. A request puts a value in it
+	// before it copies the state, and removes the value after its reply.
+	stateSlots chan struct{}
 	// places owns the native server geocoding limiter and cache.
 	places *placeSearch
 	// persist saves the session state. It is nil without a state store.
@@ -342,6 +346,7 @@ func newSession(persist *persistence, options []Option) *Session {
 		receipts: make(map[string]receipt), logger: slog.Default(), persist: persist,
 		serverStart: newServerStart(), largeCommands: make(chan struct{}, 1),
 		largeBodies: make(chan struct{}, maxLargeBodies), presetSlot: make(chan struct{}, 1),
+		stateSlots: make(chan struct{}, maxStateRequests),
 	}
 	for _, option := range options {
 		option(session)

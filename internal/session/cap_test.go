@@ -205,10 +205,10 @@ func TestStartupCancelDuringSave(t *testing.T) {
 }
 
 // TestStateHTTPCanceledRequest sends an HTTP state request of a plain
-// session after its context ends. The state endpoint only reads the
-// session, and it has no context check, so it gives the same complete
-// reply as a live request. The canceled request changes no session state
-// and releases the session lock.
+// session after its context ends. The state endpoint does not make the
+// state for an ended request, so the request gets HTTP 503. The canceled
+// request changes no session state, and it releases the session lock and
+// its place, so a live request then gets the complete state.
 func TestStateHTTPCanceledRequest(t *testing.T) {
 	t.Parallel()
 	s, _ := streamFixture(t)
@@ -229,11 +229,11 @@ func TestStateHTTPCanceledRequest(t *testing.T) {
 		t.Fatal("canceled state request changed the session")
 	}
 	live := get(t.Context())
-	if canceled.Code != http.StatusOK || live.Code != http.StatusOK || !bytes.Equal(canceled.Body.Bytes(), live.Body.Bytes()) {
-		t.Fatalf("canceled reply %d with %d bytes, live reply %d with %d bytes", canceled.Code, canceled.Body.Len(), live.Code, live.Body.Len())
+	if canceled.Code != http.StatusServiceUnavailable || canceled.Body.String() != stateEndedText+"\n" || live.Code != http.StatusOK {
+		t.Fatalf("canceled reply %d with %q, live reply %d, want 503 and 200", canceled.Code, canceled.Body.String(), live.Code)
 	}
-	state, err := DecodeStateJSON(canceled.Body.Bytes())
+	state, err := DecodeStateJSON(live.Body.Bytes())
 	if err != nil || state.Epoch != s.State().Epoch {
-		t.Fatal("canceled reply is not the session state", err)
+		t.Fatal("live reply is not the session state", err)
 	}
 }

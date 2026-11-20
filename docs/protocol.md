@@ -32,6 +32,12 @@ The `orderContract` marker of the project selects its kind.
 The request must name that media type in `Accept`, with no quality value or a quality value above zero.
 A wildcard such as `*/*` does not name the media type.
 Without the media type, the request gets HTTP 406.
+The server makes at most 2 HTTP states at the same time.
+When 2 requests are in progress, a request with the media type gets HTTP 503 at once, with `Retry-After: 1` and a plain text body.
+The media type check comes before this limit, so a request without the media type always gets HTTP 406.
+A request keeps its place until its reply ends.
+When the client ends the request before the server encodes the state, the server does not encode it, and the reply is HTTP 503 with no `Retry-After`.
+The server checks for an ended request before the limit, so such a request does not get `Retry-After`.
 The reply is an envelope with the root `orderContract` marker of the project, `topology`, and `frame`.
 The frame is a full stream frame, so the state values are in `frame.state`, and the routes are route windows (see "Shared state stream").
 The envelope has `orderContract` only when the project has it.

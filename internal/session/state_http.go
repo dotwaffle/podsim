@@ -19,6 +19,18 @@ const StateMediaType = "application/vnd.podsim.state-7+json"
 // MaxHTTPStateJSON limits an HTTP state, including its topology.
 const MaxHTTPStateJSON = 128 << 20
 
+const (
+	// maxStateRequests is the number of HTTP states that the server makes
+	// at the same time. Each one holds a copy of the frame and the
+	// topology, and up to MaxHTTPStateJSON of JSON until its reply ends.
+	// Thus 2 bound the JSON at 256 MiB. The editor and the debug capture
+	// are the clients of the endpoint, so each can have one request.
+	maxStateRequests = 2
+	// stateRetryAfter is the Retry-After value in seconds of a reply when
+	// all places are in use. The other busy replies use the same value.
+	stateRetryAfter = "1"
+)
+
 // StateEnvelope binds the stream frame of the HTTP state to its topology.
 // The contract markers are the markers of the topology and of the frame.
 type StateEnvelope struct {
@@ -109,20 +121,59 @@ func positiveQuality(q string) bool {
 }
 
 func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
-	s.mu.Lock()
+	s.serveState(w, r, stateSteps{capture: s.captureHTTPStateLocked, encode: EncodeStateJSON})
+}
+
+// stateSteps holds the steps of serveState that tests replace. capture
+// copies the topology and the frame while the caller holds the session
+// lock, and encode makes the JSON.
+type stateSteps struct {
+	capture func() (TopologySnapshot, StreamFrame, error)
+	encode  func(TopologySnapshot, StreamFrame) ([]byte, error)
+}
+
+// serveState replies with the HTTP state. A request that accepts the state
+// media type needs a place in s.stateSlots, and it keeps the place until
+// its reply ends. When all places are in use, the request gets HTTP 503
+// with Retry-After at once. A request that ends before the encoding gets
+// HTTP 503 with no Retry-After, and the server does not encode the state.
+// serveState checks for an ended request before the admission, so that
+// such a request does not get Retry-After. It checks again after it gets
+// the session lock, because that wait can be long, and after the copy.
+func (s *Session) serveState(w http.ResponseWriter, r *http.Request, steps stateSteps) {
 	if !acceptsMedia(r, StateMediaType) {
-		s.mu.Unlock()
 		writeError(w, "use the state media type", http.StatusNotAcceptable)
 		return
 	}
-	topology := s.topologyLocked()
-	frame, err := s.presentationFrameLocked()
+	if r.Context().Err() != nil {
+		writeError(w, stateEndedText, http.StatusServiceUnavailable)
+		return
+	}
+	select {
+	case s.stateSlots <- struct{}{}:
+		defer func() { <-s.stateSlots }()
+	default:
+		w.Header().Set("Retry-After", stateRetryAfter)
+		writeError(w, "the server is busy with other state requests, try again", http.StatusServiceUnavailable)
+		return
+	}
+	s.mu.Lock()
+	if r.Context().Err() != nil {
+		s.mu.Unlock()
+		writeError(w, stateEndedText, http.StatusServiceUnavailable)
+		return
+	}
+	topology, frame, err := steps.capture()
 	s.mu.Unlock()
 	if err != nil {
 		writeError(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	data, err := EncodeStateJSON(topology, frame)
+	if r.Context().Err() != nil {
+		writeError(w, stateEndedText, http.StatusServiceUnavailable)
+		return
+	}
+	data, err := steps.encode(topology, frame)
 	if err != nil {
 		writeError(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -130,4 +181,16 @@ func (s *Session) stateHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", StateMediaType)
 	w.Header().Add("Vary", "Accept")
 	_, _ = w.Write(data)
+}
+
+// stateEndedText is the reply text to a state request that ended
+// before the encoding.
+const stateEndedText = "the request ended before the server encoded the state"
+
+// captureHTTPStateLocked copies the topology and the frame of the HTTP
+// state. The caller holds the session lock.
+func (s *Session) captureHTTPStateLocked() (TopologySnapshot, StreamFrame, error) {
+	topology := s.topologyLocked()
+	frame, err := s.presentationFrameLocked()
+	return topology, frame, err
 }
