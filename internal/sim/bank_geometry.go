@@ -255,8 +255,24 @@ func (audit bankAudit) pieces(first, second bankAuditPath) []pairPiece {
 }
 
 // bankPathsClose reports whether two polylines come closer than clearance.
+// It skips a segment of first whose box is more than clearance from the box
+// of second on one axis. For such a segment, the first test of
+// bankSegmentGap gives +Inf with each segment of second, so the result does
+// not change. A NaN or infinite coordinate makes the skip test false.
 func bankPathsClose(first, second []Point, clearance float64) bool {
+	if len(first) < 2 || len(second) < 2 {
+		return false
+	}
+	low, high := second[0], second[0]
+	for _, point := range second[1:] {
+		low.X, low.Y = math.Min(low.X, point.X), math.Min(low.Y, point.Y)
+		high.X, high.Y = math.Max(high.X, point.X), math.Max(high.Y, point.Y)
+	}
 	for a := 1; a < len(first); a++ {
+		p, q := first[a-1], first[a]
+		if math.Max(p.X, q.X)+clearance < low.X || high.X+clearance < math.Min(p.X, q.X) || math.Max(p.Y, q.Y)+clearance < low.Y || high.Y+clearance < math.Min(p.Y, q.Y) {
+			continue
+		}
 		for b := 1; b < len(second); b++ {
 			if bankSegmentGap(first[a-1], first[a], second[b-1], second[b], clearance) < clearance-separationTolerance {
 				return true
