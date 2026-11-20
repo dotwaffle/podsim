@@ -148,6 +148,19 @@
   // side. Below the horizon, they reflect GROUND_SHINE.
   const SKY_CUBE_SIZE = 32;
   const GROUND_SHINE = [0.3, 0.32, 0.29];
+  // The lights of the pod model: a band across each nose and a thin
+  // accent line along each side, in the dark livery stripe. The shell
+  // texture coordinates of internal/cmd/podmodel have u = z in meters and
+  // the middle of the stripe at v = 0.5, with one repeat of v for the
+  // model height, POD_HEIGHT. The light texture spans POD_LIGHT_SPAN
+  // meters of z, the model length, so it does not repeat.
+  const POD_LIGHT_SPAN = 4;
+  const POD_LIGHT_NOSE = 1.55;
+  const POD_LIGHT_BAND = 0.05;
+  const POD_LIGHT_LINE = 0.012;
+  const HEAD_LIGHT = [0.92, 0.97, 1];
+  const TAIL_LIGHT = [1, 0.12, 0.08];
+  const ACCENT_LIGHT = [0.1, 0.39, 0.5];
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
   // Textures: web/textures, which internal/cmd/texgen writes. One repeat of
   // the concrete covers CONCRETE_TILE meters.
@@ -163,7 +176,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -1484,8 +1497,9 @@
   // merge into one mesh with one submesh for each material, so thin
   // instances draw a class in a few calls. With a sky cube texture, the
   // shell and the glass reflect the sky, most at a low angle, as paint and
-  // glass do.
-  function buildPodMesh(B, scene, cls, rgb, model, skyCube) {
+  // glass do. With a light texture of podLightTexels, the shell of the
+  // pod model shows its lights.
+  function buildPodMesh(B, scene, cls, rgb, model, skyCube, lights) {
     const [shell, glass, gear] = model
       ? ["shell", "glass", "gear"].map((name) => modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls, model))
       : proceduralPodParts(B, scene, cls);
@@ -1507,6 +1521,12 @@
       shellMaterial.reflectionFresnelParameters = fresnel(B, 0.3, 0.1);
       glassMaterial.reflectionTexture = skyCube;
       glassMaterial.reflectionFresnelParameters = fresnel(B, 0.85, 0.2);
+    }
+    if (model && lights) {
+      // The lights add to the lit color, so shade and the dark stripe do
+      // not dim them.
+      shellMaterial.emissiveTexture = lights;
+      shellMaterial.useEmissiveAsIllumination = true;
     }
 
     const gearMaterial = new B.StandardMaterial(`gear-${cls.name}`, scene);
@@ -1750,8 +1770,16 @@
     const textured = { shell: [], cabin: [], seat: [] };
     const skyCube = look.gloss ? new B.RawCubeTexture(scene, skyCubeFaces(SKY_CUBE_SIZE, sky, toSun), SKY_CUBE_SIZE, B.Engine.TEXTUREFORMAT_RGBA, B.Engine.TEXTURETYPE_UNSIGNED_BYTE, true, false, B.Texture.TRILINEAR_SAMPLINGMODE) : null;
     if (skyCube) skyCube.coordinatesMode = B.Texture.CUBIC_MODE;
+    const lights = look.lights ? new B.RawTexture(podLightTexels(64, 512), 64, 512, B.Engine.TEXTUREFORMAT_RGBA, scene, true, false, B.Texture.TRILINEAR_SAMPLINGMODE) : null;
+    if (lights) {
+      // u = z of the model, from -POD_LIGHT_SPAN / 2 to POD_LIGHT_SPAN / 2,
+      // goes to 0 to 1.
+      lights.uScale = 1 / POD_LIGHT_SPAN;
+      lights.uOffset = 0.5;
+      lights.wrapU = lights.wrapV = B.Texture.CLAMP_ADDRESSMODE;
+    }
     const pods = topology.classes.map((cls, index) => {
-      const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model, skyCube);
+      const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model, skyCube, lights);
       meshes.push(mesh); casters.push(mesh);
       const cabin = model ? buildModelCabin(B, scene, cls, model) : null;
       if (cabin) {
@@ -1770,7 +1798,7 @@
       attachTexture(B, scene, "textures/panel.png", textured.shell),
       attachTexture(B, scene, "textures/dash.png", textured.cabin),
       attachTexture(B, scene, "textures/fabric.png", textured.seat),
-      ...(skyCube ? [skyCube] : []),
+      ...[skyCube, lights].filter(Boolean),
     ];
     return { meshes, casters, receivers, pods, slabs, screens, textures };
   }
@@ -1862,6 +1890,30 @@
       }
       return data;
     });
+  }
+
+  // podLightTexels returns the RGBA bytes of the light texture of the pod
+  // shell, width by height, the first row first. Column c is at z = (c +
+  // 0.5) / width * POD_LIGHT_SPAN - POD_LIGHT_SPAN / 2 of the model, and
+  // row r is (r + 0.5) / height * POD_HEIGHT - POD_HEIGHT / 2 above the
+  // middle of the livery stripe. The front nose has a white band, the rear
+  // nose a red band, and the sides a thin accent line between them. The
+  // rows are symmetric, so the texture does not depend on the direction of
+  // v.
+  function podLightTexels(width, height) {
+    const data = new Uint8Array(width * height * 4);
+    for (let r = 0; r < height; r++) {
+      const dy = Math.abs((r + 0.5) / height - 0.5) * POD_HEIGHT;
+      for (let c = 0; c < width; c++) {
+        const z = ((c + 0.5) / width - 0.5) * POD_LIGHT_SPAN;
+        let rgb = [0, 0, 0];
+        if (z >= POD_LIGHT_NOSE && dy <= POD_LIGHT_BAND) rgb = HEAD_LIGHT;
+        else if (z <= -POD_LIGHT_NOSE && dy <= POD_LIGHT_BAND) rgb = TAIL_LIGHT;
+        else if (Math.abs(z) < POD_LIGHT_NOSE && dy <= POD_LIGHT_LINE) rgb = ACCENT_LIGHT;
+        data.set([...rgb.map((value) => Math.round(value * 255)), 255], (r * width + c) * 4);
+      }
+    }
+    return data;
   }
 
   // buildSky makes a sky dome with the colors of skyColor in vertex
@@ -2572,7 +2624,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

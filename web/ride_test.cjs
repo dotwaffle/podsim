@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1221,4 +1221,31 @@ test("skyCubeFaces puts the sky up and the ground down", () => {
     assert.ok(texel(face, 4, 0)[2] > 200, `sky at the top of face ${face}`);
     assert.deepEqual(texel(face, 4, size - 1), [...ground, 255], `ground at the bottom of face ${face}`);
   }
+});
+
+test("podLightTexels lights the noses and a side line in the livery stripe", () => {
+  const width = 64, height = 512, data = ride.podLightTexels(width, height);
+  assert.equal(data.length, width * height * 4);
+  // texel reads the color at z of the model and dy above the middle of the
+  // stripe, as the shell texture coordinates and the texture scale give it.
+  const texel = (z, dy) => {
+    const u = z / 4 + 0.5, v = 0.5 + dy / 2.1;
+    const c = Math.min(width - 1, Math.floor(u * width)), r = Math.min(height - 1, Math.floor(v * height));
+    return [...data.subarray((r * width + c) * 4, (r * width + c) * 4 + 3)];
+  };
+  assert.deepEqual(texel(1.9, 0), [235, 247, 255], "head light");
+  assert.deepEqual(texel(-1.9, 0.03), [255, 31, 20], "tail light");
+  assert.deepEqual(texel(0.5, 0), [26, 99, 128], "side line");
+  for (const [z, dy] of [[1.9, 0.08], [-1.9, -0.08], [0.5, 0.03], [1.2, 0.4], [0, -0.3]]) assert.deepEqual(texel(z, dy), [0, 0, 0], `dark at ${z}, ${dy}`);
+  // The rows are symmetric, so the direction of v does not matter.
+  for (let r = 0; r < height; r++) assert.deepEqual(data.subarray(r * width * 4, (r + 1) * width * 4), data.subarray((height - 1 - r) * width * 4, (height - r) * width * 4), `row ${r}`);
+  // The shell of the pod model has u = z, inside the span of the texture.
+  const glb = require("node:fs").readFileSync(require("node:path").join(__dirname, "pod.glb"));
+  const shell = ride.parsePodModel(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.length)).parts.shell;
+  // v is 0.5 at the middle of the stripe, 0.45 m below the body middle.
+  for (let i = 0; i < shell.uvs.length / 2; i++) {
+    near(shell.uvs[2 * i], shell.positions[3 * i + 2], `u of vertex ${i}`);
+    assert.ok(Math.abs(shell.uvs[2 * i + 1] - (0.5 + (shell.positions[3 * i + 1] + 0.45) / 2.1)) < 1e-6, `v of vertex ${i}`);
+  }
+  assert.ok(shell.uvs.every((value, i) => i % 2 === 1 || Math.abs(value) < 2), "u inside the span");
 });
