@@ -74,6 +74,9 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	if flags.NArg() != 0 {
 		return screenOptions{}, fmt.Errorf("unexpected screen argument %q", flags.Arg(0))
 	}
+	if strings.Count(*seeds, ",") >= maxSeeds {
+		return screenOptions{}, fmt.Errorf("seeds must contain at most %d values", maxSeeds)
+	}
 	for part := range strings.SplitSeq(*seeds, ",") {
 		seed, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64)
 		if err != nil || seed < 1 || slices.Contains(opts.seeds, seed) {

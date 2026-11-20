@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -246,6 +247,28 @@ func TestParseScreenOptions(t *testing.T) {
 	const want = "background-per-minute must be from 0 to 1800 and queue-limit from 1 to the queue cap"
 	if _, err := parseScreenOptions([]string{"-background-per-minute", "1801"}, &bytes.Buffer{}); err == nil || err.Error() != want {
 		t.Errorf("1801 a minute: got %v, want %q", err, want)
+	}
+}
+
+// TestParseScreenSeedCount checks the cap on the number of seeds. The count
+// comes before the values, as in the -seeds flag of a comparison.
+func TestParseScreenSeedCount(t *testing.T) {
+	t.Parallel()
+	seeds := func(count int) string {
+		parts := make([]string, count)
+		for index := range parts {
+			parts[index] = strconv.Itoa(index + 1)
+		}
+		return strings.Join(parts, ",")
+	}
+	if opts, err := parseScreenOptions([]string{"-seeds", seeds(maxSeeds)}, &bytes.Buffer{}); err != nil || len(opts.seeds) != maxSeeds {
+		t.Fatalf("%d seeds: %d seeds, %v", maxSeeds, len(opts.seeds), err)
+	}
+	const want = "seeds must contain at most 100 values"
+	for _, list := range []string{seeds(maxSeeds + 1), seeds(maxSeeds) + ",x", strings.Repeat(",", maxSeeds)} {
+		if _, err := parseScreenOptions([]string{"-seeds", list}, &bytes.Buffer{}); err == nil || err.Error() != want {
+			t.Errorf("%.20q: got %v, want %q", list, err, want)
+		}
 	}
 }
 

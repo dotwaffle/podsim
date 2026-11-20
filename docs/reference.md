@@ -372,7 +372,7 @@ It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express po
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `-seeds` | `1,2,3` | The seeds. |
+| `-seeds` | `1,2,3` | The seeds, at most 100. |
 | `-bands` | `busy,quiet` | The LondonFull bands. `busy` and `quiet` select the bands with the most and the fewest observed journeys a minute. |
 | `-configs` | `LF,D0,D` | The configurations. |
 | `-arrivals` | `2h` | The simulated time with offered events. |
