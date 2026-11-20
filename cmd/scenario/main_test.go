@@ -504,6 +504,12 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "wide stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
 		{name: "tight stations for a ring", arguments: []string{"-preset", "busy", "-wide-stations=false"}, err: "-wide-stations applies only to the London presets"},
 		{name: "tight stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations=false"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
+		{name: "road fillets for a ring", arguments: []string{"-preset", "busy", "-road-fillets"}, err: "-road-fillets applies only to the London presets"},
+		{name: "road fillets for the mesh", arguments: []string{"-preset", "scale100", "-road-fillets"}, err: "-road-fillets applies only to the London presets"},
+		{name: "road fillets for a fixture", arguments: []string{"-preset", "compact-station", "-road-fillets"}, err: "-road-fillets does not apply to the compact station fixture"},
+		{name: "road fillets for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
+		{name: "road fillets for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express preset"},
+		{name: "straight roads for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets=false"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -515,6 +521,27 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 			}
 			if output.Len() != 0 {
 				t.Fatalf("run wrote %d bytes after an error", output.Len())
+			}
+		})
+	}
+}
+
+// TestRunRoadFillets checks the -road-fillets flag on LondonFull: it gives
+// the network of the road fillets and a custom capacity name, and false
+// keeps the preset.
+func TestRunRoadFillets(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		flag, network, name string
+	}{
+		{flag: "-road-fillets", network: "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5", name: "LondonFull (custom capacity)"},
+		{flag: "-road-fillets=false", network: "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225", name: "LondonFull"},
+	} {
+		t.Run(test.flag, func(t *testing.T) {
+			t.Parallel()
+			config, summary := generate(t, "-preset", "london-full", test.flag)
+			if config.Name != test.name || !strings.Contains(summary, " network_sha256="+test.network+" ") {
+				t.Fatalf("name %q and summary %q, want %q and network SHA-256 %s", config.Name, summary, test.name, test.network)
 			}
 		})
 	}

@@ -44,6 +44,7 @@ type capacity struct {
 	compactStations              []string
 	junctions                    scenarios.LondonJunctions
 	wideStations                 bool
+	roadFillets                  bool
 }
 
 func run(arguments []string, stdout, stderr io.Writer) error {
@@ -63,6 +64,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	compactStations := flags.String("compact-stations", "", "London presets only: comma-separated IDs of at most 8 passenger stations with Compact bays, or none; each pod is then Compact")
 	junctions := flags.String("junctions", "", "London presets only: chords or ramps, the junctions that join the links of a station; omit to keep the preset value of chords")
 	flags.BoolVar(&options.wideStations, "wide-stations", false, "London presets only: give each passenger station that is not a Compact station the shape of -station-scale and -berth-pitch in place of the tight shape of 25 m parts; omit to keep the preset value of false")
+	flags.BoolVar(&options.roadFillets, "road-fillets", false, "London presets only: give each station road and Parking road a tangent curve with the speed limit of its smallest radius; no effect with -junctions ramps; omit to keep the preset value")
 	var incidents incidentFlags
 	incidents.register(flags)
 	if err := flags.Parse(arguments); err != nil {
@@ -162,7 +164,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset", "london-full-shared-express": "LondonFull Shared Express preset"}
 	if fixture, ok := fixtures[name]; ok {
-		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "wide-stations"} {
+		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "wide-stations", "road-fillets"} {
 			if options.set[key] {
 				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
 			}
@@ -186,7 +188,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if name == "london-central" || name == "london-full" {
 		return londonPresetConfig(name, options)
 	}
-	for _, flag := range []string{"station-pods", "parking-pods", "station-scale", "compact-stations", "junctions", "wide-stations"} {
+	for _, flag := range []string{"station-pods", "parking-pods", "station-scale", "compact-stations", "junctions", "wide-stations", "road-fillets"} {
 		if options.set[flag] {
 			return project.Config{}, fmt.Errorf("-%s applies only to the London presets", flag)
 		}
@@ -243,6 +245,9 @@ func londonPresetConfig(name string, options capacity) (project.Config, error) {
 	}
 	if options.set["wide-stations"] {
 		london.WideStations = options.wideStations
+	}
+	if options.set["road-fillets"] {
+		london.RoadFillets = options.roadFillets
 	}
 	// The preset gives each LondonFull station a berth count, so only the
 	// -berths flag tells an explicit count of a Compact station.

@@ -206,6 +206,13 @@ type LondonOptions struct {
 	// minimumBerthPitch. Compact stations and Parking facilities keep
 	// their shapes. See docs/studies/station-scale.md.
 	WideStations bool
+	// RoadFillets gives each station road and each Parking road a curve
+	// that is tangent to the lanes at its two ends, with the speed limit of
+	// its smallest radius. A road that the rule cannot curve, or with a
+	// smallest radius below 12.5 m, keeps its chord. The zero value keeps
+	// each road straight. With LondonRamps, the field has no effect. See
+	// docs/contracts/london-fillets-proposal.md.
+	RoadFillets bool
 }
 
 // LondonJunctions selects the junctions of the London stations.
@@ -282,6 +289,8 @@ type londonCapacity struct {
 	junctions LondonJunctions
 	// wide is the WideStations option.
 	wide bool
+	// roadFillets is the RoadFillets option.
+	roadFillets bool
 }
 
 // hasCompact reports whether a site is a Compact station.
@@ -341,11 +350,11 @@ func (capacity londonCapacity) sameLayout(other londonCapacity) bool {
 }
 
 // equal reports whether the capacity has the pitch, the scale, the berth and pod
-// counts, the station layouts, the junctions, and the station shapes of the
-// other capacity.
+// counts, the station layouts, the junctions, the station shapes, and the
+// road fillets of the other capacity.
 func (capacity londonCapacity) equal(other londonCapacity) bool {
 	return capacity.pitch == other.pitch && capacity.scale == other.scale && slices.Equal(capacity.berths, other.berths) && slices.Equal(capacity.pods, other.pods) && capacity.sameLayout(other) &&
-		capacity.junctions == other.junctions && capacity.wide == other.wide
+		capacity.junctions == other.junctions && capacity.wide == other.wide && capacity.roadFillets == other.roadFillets
 }
 
 // resolve returns the berth and pod counts of each site. It checks the
@@ -383,7 +392,7 @@ func (options LondonOptions) resolve(source londonSource) (londonCapacity, error
 	}
 	capacity := londonCapacity{
 		berths: make([]int, len(ids)), pods: make([]int, len(ids)), pitch: options.BerthPitch, scale: options.StationScale, lanes: options.ParkingLanes,
-		compact: make([]bool, len(ids)), junctions: options.Junctions, wide: options.WideStations,
+		compact: make([]bool, len(ids)), junctions: options.Junctions, wide: options.WideStations, roadFillets: options.RoadFillets,
 	}
 	for _, id := range options.CompactStations {
 		index := slices.Index(ids, id)
@@ -630,6 +639,9 @@ func londonNetworkWithHeadings(source londonSource, capacity londonCapacity, ove
 			id: parking.ID, name: parking.Name, portals: slips[site], parking: true,
 			shape: shapes[site], depot: depot,
 		})
+	}
+	if capacity.roadFillets && capacity.junctions == LondonChords {
+		filletLondonRoads(&network)
 	}
 	return network, nil
 }
