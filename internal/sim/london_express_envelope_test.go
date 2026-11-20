@@ -103,7 +103,9 @@ func TestLondonExpressEnvelopeRun(t *testing.T) {
 		t.Fatal("project D has no compiled envelope reach or no rule 2 cluster")
 	}
 	reference := newEnvelopeReference(s)
-	gate := &sharedOracle{s: s, fronts: sharedTrackFronts(s.network, s.tails, false)}
+	// The gate takes the fronts of the current rules, rule 1 included, as
+	// envelopeFront gives them.
+	gate := &sharedOracle{s: s, fronts: sharedTrackFronts(s.network, s.tails, true)}
 	services := map[string]string{}
 	for _, service := range p.ExpressServices {
 		services[service.From] = service.ID
