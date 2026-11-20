@@ -497,8 +497,8 @@ func TestProjectFileRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("saved project changed\n got: %#v\nwant: %#v", got, want)
+	if !reflect.DeepEqual(got.Config(), want) {
+		t.Fatalf("saved project changed\n got: %#v\nwant: %#v", got.Config(), want)
 	}
 	info, err := os.Stat(path)
 	if err != nil {
@@ -552,7 +552,7 @@ func TestProjectFileHoldsCanonicalEncoding(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !bytes.Equal(canonicalJSON(t, got), want) {
+			if !bytes.Equal(canonicalJSON(t, got.Config()), want) {
 				t.Fatal("loaded project is different from the saved project")
 			}
 		})

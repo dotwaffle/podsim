@@ -119,16 +119,16 @@ func TestRunWarnsOfTheProjectFile(t *testing.T) {
 	if status != http.StatusOK || header.Get("X-Podsim-Project-File") != "true" {
 		t.Fatalf("status %d, X-Podsim-Project-File %q", status, header.Get("X-Podsim-Project-File"))
 	}
-	if loaded, err := loadProject(path); err != nil || loaded.Name != project.Default().Name {
-		t.Fatalf("a generation changed the file: %q, %v", loaded.Name, err)
+	if loaded, err := loadProject(path); err != nil || loaded.Config().Name != project.Default().Name {
+		t.Fatalf("a generation changed the file: %q, %v", loaded.Config().Name, err)
 	}
 	applyPresetBody(t, client, address, body)
 	loaded, err := loadProject(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Name != "LondonCentral" {
-		t.Fatalf("the file has project %q after the apply", loaded.Name)
+	if name := loaded.Config().Name; name != "LondonCentral" {
+		t.Fatalf("the file has project %q after the apply", name)
 	}
 }
 

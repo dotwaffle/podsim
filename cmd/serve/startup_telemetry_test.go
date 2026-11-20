@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/telemetry"
 )
@@ -106,7 +105,7 @@ func TestRunTelemetryStartupCancellation(t *testing.T) {
 
 func TestRunTelemetryCancellationKeepsSavedState(t *testing.T) {
 	t.Parallel()
-	store := openInput{config: project.Default(), stateURL: fileURL(t.TempDir()), logger: slog.New(slog.DiscardHandler)}
+	store := openInput{stateURL: fileURL(t.TempDir()), logger: slog.New(slog.DiscardHandler)}
 	epoch := writeFinalState(t, store)
 	args := []string{"-addr", "127.0.0.1:0", "-dir", browserDirectory(t), "-state", store.stateURL}
 	for range 2 {

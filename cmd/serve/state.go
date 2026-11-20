@@ -27,20 +27,19 @@ const (
 // errFinalSaveTimeout is the cause when the final save takes too long.
 var errFinalSaveTimeout = errors.New("final save of the session state timed out")
 
-// openInput holds the settings of the shared session. config is the
-// project to use. projectSet is true when config comes from -project, which
-// validated it. stateURL is the bucket URL from -state, or empty. logger
-// gets the records about the store.
+// openInput holds the settings of the shared session. project is the
+// project of -project with the checks of its load, or nil for the example
+// project. stateURL is the bucket URL from -state, or empty. logger gets
+// the records about the store.
 type openInput struct {
-	config     project.Config
-	projectSet bool
-	stateURL   string
-	logger     *slog.Logger
-	options    []session.Option
+	project  *session.CheckedProject
+	stateURL string
+	logger   *slog.Logger
+	options  []session.Option
 }
 
 // openSession starts the shared session. Without a state URL, it starts a
-// new session with input.config and returns a close function that does
+// new session with input.project and returns a close function that does
 // nothing. With a state URL, it opens the store, removes the temporary
 // files of interrupted writes, and restores the saved session through
 // session.NewFromStore. Without -project, the session can restore the
@@ -49,7 +48,13 @@ type openInput struct {
 // store.
 func openSession(ctx context.Context, input openInput) (*session.Session, func() error, error) {
 	if input.stateURL == "" {
-		shared, err := session.NewWithProject(input.config, input.options...)
+		var shared *session.Session
+		var err error
+		if input.project != nil {
+			shared, err = session.NewWithCheckedProject(*input.project, input.options...)
+		} else {
+			shared, err = session.NewWithProject(project.Default(), input.options...)
+		}
 		if err != nil {
 			return nil, nil, err
 		}
@@ -68,11 +73,7 @@ func openSession(ctx context.Context, input openInput) (*session.Session, func()
 	case removed > 0:
 		input.logger.Info("Removed temporary state files", slog.Int("count", removed))
 	}
-	storeInput := session.StoreInput{Store: store, Options: input.options}
-	if input.projectSet {
-		storeInput.Project = new(input.config)
-	}
-	shared, err := session.NewFromStore(ctx, storeInput)
+	shared, err := session.NewFromStore(ctx, session.StoreInput{Store: store, Checked: input.project, Options: input.options})
 	if err != nil {
 		return nil, nil, errors.Join(err, store.Close())
 	}

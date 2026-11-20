@@ -100,12 +100,12 @@ func run(ctx context.Context, input runInput) error {
 	}
 	build := buildIDOrRandom(slog.Default(), files)
 	flags.options = append(flags.options, session.WithLogger(slog.Default()), session.WithBuildID(build), session.WithPresets(presetGenerators()))
-	config, options, err := loadStartProject(flags.projectPath, flags.options)
+	loaded, options, err := loadStartProject(flags.projectPath, flags.options)
 	if err != nil {
 		return err
 	}
 	shared, closeStore, err := openSession(ctx, openInput{
-		config: config, projectSet: flags.projectPath != "", stateURL: flags.stateURL, logger: slog.Default(), options: options,
+		project: loaded, stateURL: flags.stateURL, logger: slog.Default(), options: options,
 	})
 	if err != nil {
 		// NewFromStore stops when ctx ends during the read of the saved
@@ -206,16 +206,16 @@ func parseServeFlags(args []string) (serveFlags, error) {
 }
 
 // loadStartProject returns the project at path and options with a saver for
-// that path. An empty path gives the default project and options unchanged.
-func loadStartProject(path string, options []session.Option) (project.Config, []session.Option, error) {
+// that path. An empty path gives no project and options unchanged.
+func loadStartProject(path string, options []session.Option) (*session.CheckedProject, []session.Option, error) {
 	if path == "" {
-		return project.Default(), options, nil
+		return nil, options, nil
 	}
 	loaded, err := loadProject(path)
 	if err != nil {
-		return project.Config{}, nil, err
+		return nil, nil, err
 	}
-	return loaded, append(options, session.WithProjectSaver(func(config project.Config) error {
+	return &loaded, append(options, session.WithProjectSaver(func(config project.Config) error {
 		return saveProject(path, config)
 	})), nil
 }
@@ -440,10 +440,10 @@ func browserFiles(directory string) (fs.FS, error) {
 	return files, nil
 }
 
-func loadProject(path string) (project.Config, error) {
+func loadProject(path string) (session.CheckedProject, error) {
 	file, err := os.Open(path) // #nosec G304 -- The operator selects this local file with -project.
 	if err != nil {
-		return project.Config{}, fmt.Errorf("open project %s: %w", path, err)
+		return session.CheckedProject{}, fmt.Errorf("open project %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
 	return decodeProject(path, file)
@@ -453,11 +453,13 @@ func loadProject(path string) (project.Config, error) {
 // project.MaxFileBytes and refuses that byte, because a pipe or a growing
 // file has no size to check first. The decoder gets a read error after
 // the bytes read before it, so a JSON error before the failed read comes
-// first, as it does when the decoder reads r itself.
-func decodeProject(path string, r io.Reader) (project.Config, error) {
+// first, as it does when the decoder reads r itself. The result keeps the
+// checks of the validation, so that the session does not prepare the
+// network again.
+func decodeProject(path string, r io.Reader) (session.CheckedProject, error) {
 	data, readErr := io.ReadAll(io.LimitReader(r, project.MaxFileBytes+1))
 	if len(data) > project.MaxFileBytes {
-		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
+		return session.CheckedProject{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
 	}
 	var source io.Reader = bytes.NewReader(data)
 	if readErr != nil {
@@ -467,15 +469,16 @@ func decodeProject(path string, r io.Reader) (project.Config, error) {
 	decoder := jsontext.NewDecoder(source, json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
 	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
-		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
+		return session.CheckedProject{}, fmt.Errorf("read project %s: %w", path, err)
 	}
 	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
-		return project.Config{}, fmt.Errorf("read project %s: expected one JSON value", path)
+		return session.CheckedProject{}, fmt.Errorf("read project %s: expected one JSON value", path)
 	}
-	if err := project.Validate(config); err != nil {
-		return project.Config{}, fmt.Errorf("validate project %s: %w", path, err)
+	checked, err := session.CheckProject(config)
+	if err != nil {
+		return session.CheckedProject{}, fmt.Errorf("validate project %s: %w", path, err)
 	}
-	return config, nil
+	return checked, nil
 }
 
 // failedRead is a reader that gives err at each read.

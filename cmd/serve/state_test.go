@@ -98,47 +98,43 @@ func TestOpenSession(t *testing.T) {
 	changed.Demand = project.DemandConfig{Enabled: true, PerMinute: 7, Pattern: "balanced", Seed: 3}
 	renamed := changed
 	renamed.Name = "Other project"
-	invalid := project.Default()
-	invalid.Fleet = nil
 	defaultRate := project.Default().Demand.PerMinute
 	tests := []struct {
 		name string
 		// saved is the project of a saved state that the test makes first, or nil.
-		saved      *project.Config
-		config     project.Config
-		projectSet bool
-		noState    bool
+		saved *project.Config
+		// project is the project of -project, or nil.
+		project *project.Config
+		noState bool
 		// temporary is a temporary file of an earlier write, or empty.
 		temporary     string
-		wantErr       string
 		wantRestore   session.RestoreInfo
 		wantPerMinute int
 		wantLog       string
 	}{
-		{name: "no state option", config: changed, projectSet: true, noState: true, wantPerMinute: 7},
-		{name: "no state option and a project that is not valid", config: invalid, noState: true, wantErr: "fleet"},
-		{name: "no saved state", config: project.Default(), wantPerMinute: defaultRate, wantLog: "Opened session state store"},
+		{name: "no state option", project: &changed, noState: true, wantPerMinute: 7},
+		{name: "no saved state", wantPerMinute: defaultRate, wantLog: "Opened session state store"},
 		{
-			name: "temporary file", config: project.Default(), temporary: statestore.StateKey + ".1a2b.tmp",
+			name: "temporary file", temporary: statestore.StateKey + ".1a2b.tmp",
 			wantPerMinute: defaultRate, wantLog: "Removed temporary state files",
 		},
 		{
-			name: "saved project without -project", saved: &changed, config: project.Default(),
+			name: "saved project without -project", saved: &changed,
 			wantRestore: session.RestoreInfo{Tier: "physical"}, wantPerMinute: 7,
 		},
 		{
-			name: "other -project", saved: &changed, config: renamed, projectSet: true,
+			name: "other -project", saved: &changed, project: &renamed,
 			wantRestore: session.RestoreInfo{Tier: "empty", Reason: "project_changed"}, wantPerMinute: 7,
 		},
 		// A crash after a demand command can leave newer demand settings in
 		// the project file.
 		{
-			name: "-project with other demand settings", saved: &changed, config: project.Default(), projectSet: true,
+			name: "-project with other demand settings", saved: &changed, project: new(project.Default()),
 			wantRestore: session.RestoreInfo{Tier: "physical"}, wantPerMinute: defaultRate,
 			wantLog: "Applied demand settings of the project file",
 		},
 		{
-			name: "same -project", saved: &changed, config: changed, projectSet: true,
+			name: "same -project", saved: &changed, project: &changed,
 			wantRestore: session.RestoreInfo{Tier: "physical"}, wantPerMinute: 7,
 		},
 	}
@@ -146,15 +142,15 @@ func TestOpenSession(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			directory := t.TempDir()
-			input := openInput{
-				config: test.config, projectSet: test.projectSet, stateURL: fileURL(directory),
-				logger: slog.New(slog.DiscardHandler),
-			}
+			input := openInput{stateURL: fileURL(directory), logger: slog.New(slog.DiscardHandler)}
 			if test.noState {
 				input.stateURL = ""
 			}
+			if test.project != nil {
+				input.project = checkedProject(t, *test.project)
+			}
 			if test.saved != nil {
-				writeFinalState(t, openInput{config: *test.saved, projectSet: true, stateURL: input.stateURL, logger: input.logger})
+				writeFinalState(t, openInput{project: checkedProject(t, *test.saved), stateURL: input.stateURL, logger: input.logger})
 			}
 			if test.temporary != "" {
 				if err := os.WriteFile(filepath.Join(directory, test.temporary), []byte("partial"), 0o600); err != nil {
@@ -165,12 +161,6 @@ func TestOpenSession(t *testing.T) {
 			input.logger = slog.New(slog.NewJSONHandler(&logs, nil))
 			input.options = []session.Option{session.WithLogger(input.logger)}
 			shared, closeStore, err := openSession(t.Context(), input)
-			if test.wantErr != "" {
-				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
-					t.Fatalf("openSession error = %v, want %q", err, test.wantErr)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -205,6 +195,16 @@ func TestOpenSession(t *testing.T) {
 			assertStateFileMode(t, directory)
 		})
 	}
+}
+
+// checkedProject returns config after session.CheckProject.
+func checkedProject(t *testing.T, config project.Config) *session.CheckedProject {
+	t.Helper()
+	checked, err := session.CheckProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &checked
 }
 
 // writeFinalState starts a session through openSession, closes it and saves
@@ -464,7 +464,7 @@ func TestRunFailedStartKeepsSavedState(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			stateDirectory := t.TempDir()
-			input := openInput{config: project.Default(), stateURL: fileURL(stateDirectory), logger: slog.New(slog.DiscardHandler)}
+			input := openInput{stateURL: fileURL(stateDirectory), logger: slog.New(slog.DiscardHandler)}
 			epoch := writeFinalState(t, input)
 			args := slices.Concat(test.args, []string{"-dir", directory, "-state", input.stateURL})
 			for range 2 {
