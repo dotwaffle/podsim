@@ -261,6 +261,26 @@ func TestEnergyFleetValidation(t *testing.T) {
 	}
 }
 
+// TestEnergyErrorOrder checks that a model with two bad classes gives the
+// error of the first class in sorted order each time, in the file and in
+// the meter.
+func TestEnergyErrorOrder(t *testing.T) {
+	t.Parallel()
+	profile := `{"mass_kg":100,"constant_resistance_n":0,"quadratic_resistance_n_per_mps2":0,"drive_efficiency":1,"recovery_fraction":0,"auxiliary_watts":0}`
+	data := []byte(`{"model":"flat-v1","profiles":{"zz":` + profile + `,"aa":` + profile + `}}`)
+	model := &energyModel{Model: energyModelName, Profiles: map[sim.VehicleClass]energyProfile{
+		"zz": {MassKg: 100, DriveEfficiency: 1}, "aa": {MassKg: 100, DriveEfficiency: 1},
+	}}
+	for range 32 {
+		if _, err := decodeEnergyModel(data); err == nil || err.Error() != `energy class "aa" is not a normalized supported class` {
+			t.Fatalf("decode: %v", err)
+		}
+		if _, err := newEnergyMeter(model, nil, 0); err == nil || err.Error() != `unsupported energy class "aa"` {
+			t.Fatalf("meter: %v", err)
+		}
+	}
+}
+
 func TestEnergyDuplicateFrameValidation(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {

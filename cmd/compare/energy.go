@@ -69,7 +69,10 @@ func decodeEnergyModel(data []byte) (*energyModel, error) {
 		return nil, errors.New("energy file requires flat-v1 and authored profiles")
 	}
 	model := &energyModel{Model: *authored.Model, Profiles: make(map[sim.VehicleClass]energyProfile)}
-	for class, raw := range authored.Profiles {
+	// The classes go in sorted order, so that the first error does not
+	// depend on the map order.
+	for _, class := range slices.Sorted(maps.Keys(authored.Profiles)) {
+		raw := authored.Profiles[class]
 		registered, ok := sim.LookupVehicleClass(class)
 		if !ok || !registered.PhysicalSupported || class != registered.Class {
 			return nil, fmt.Errorf("energy class %q is not a normalized supported class", class)
@@ -135,7 +138,8 @@ func newEnergyMeter(model *energyModel, fleet []sim.Placement, tick int64) (*ene
 		Model: model.Model, Profiles: maps.Clone(model.Profiles), MassAssumption: "authored fixed effective mass includes assumed payload",
 		ClassCounts: make(map[sim.VehicleClass]int), WindowStartTick: tick, WindowEndTick: tick,
 	}}
-	for class, profile := range model.Profiles {
+	for _, class := range slices.Sorted(maps.Keys(model.Profiles)) {
+		profile := model.Profiles[class]
 		registered, ok := sim.LookupVehicleClass(class)
 		if !ok || !registered.PhysicalSupported || class != registered.Class {
 			return nil, fmt.Errorf("unsupported energy class %q", class)
