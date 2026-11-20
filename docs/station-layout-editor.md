@@ -44,7 +44,7 @@ Use matched demand studies before adopting a layout for a workload.
 
 Editor tests cover rotated and mirrored chains, one-row controls, atomic rejection, mutation ownership, and exact 24 m and 12 m boundaries.
 Chrome checks cover selection changes, combined preview, focus, undo/redo, and import/export.
-Native pilots use edited LondonCentral, LondonFull, and scale100 projects with buffers off and on.
+Native pilots use edited LondonCentral, LondonFull, and scale100 projects with buffers off and on (station buffers were removed on October 7, 2026).
 Each arm has 40 initial mixed station orders and 12 balanced offers per simulated minute.
 All six arms pass separation, lane-speed, and berth checks on every tick for 120 simulated seconds.
 Each arm also passes three physical restore checkpoints with no demotions, requeues, or drops.

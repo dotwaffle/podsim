@@ -49,7 +49,7 @@ The logs contain no independent source, runner, or binary hashes captured at exe
 
 The design is the last `codex` block of `/tmp/build/podsim/reviews/codex-xdesign.log`.
 The fixture history is the last `codex` block of `/tmp/build/podsim/reviews/codex-xfixture.log`.
-The measurements come from the 18 logs in `tools/study-express-fixture/results/`.
+The measurements come from the 18 logs in `tools/study-express-fixture/results/`, which this tree does not hold.
 `/tmp/build/podsim/cache-xfixture/arms.done` records exit 0 for every arm.
 Its wall seconds, seeds 1 / 2 / 3, are 127 / 120 / 127 for baseline off and 136 / 126 / 133 for baseline on.
 They are 128 / 131 / 124 for control off and 131 / 134 / 132 for control on.

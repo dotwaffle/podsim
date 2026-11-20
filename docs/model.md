@@ -405,7 +405,7 @@ A faulted or withdrawn pod keeps its slot, and the pods behind it wait.
 An operational target cannot be a depot station.
 
 The browser editor keeps the depots of a project, but it cannot make one, and it refuses each station action that changes the geometry or the berths of a depot station.
-A project with a depot gets the full network validation of the server in the editor, and the depot validation runs first, so an invalid depot draft gets the server depot error and not a lane gap or bank error.
+The editor runs the full network validation of the server on each draft, and the depot validation runs first, so an invalid depot draft gets the server depot error and not a lane gap or bank error.
 The London presets have depots by default, and the `-parking-lanes` flag of the scenario command sets the depot lanes of a ring or a London preset (see [generated scenarios](reference.md#generated-scenarios)).
 In a LondonFull run at 60 orders per minute, the depots served within four orders of ordinary parking stations, and empty pods stopped inside the depots for 1,225 more pod-seconds while other pods of the same depot moved.
 

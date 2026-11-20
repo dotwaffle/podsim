@@ -134,7 +134,8 @@ With tight stations, the empty distance is 2.5% shorter, and seed 1 has one unfi
 
 The study recommended tight stations.
 On November 16, 2026, the maintainer made tight stations the default of LondonCentral and LondonFull.
-The default LondonFull network SHA-256 is now `e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e`, with no hard and no soft layout conflicts.
+The default LondonFull network SHA-256 was then `e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e`, with no hard and no soft layout conflicts.
+Since November 20, 2026, it is `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225`, because the shape clearance rule applies to each network (see [LondonFull](../london-full.md#station-shape)).
 `london-full-express` keeps wide stations at scale 1.
 
 ## Method
