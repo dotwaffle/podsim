@@ -329,17 +329,47 @@ func New() (*Session, error) { return NewWithProject(project.Default()) }
 
 // NewWithProject validates and copies a project into a new session.
 func NewWithProject(config project.Config, options ...Option) (*Session, error) {
-	// The fleet takes the network preparation of the validation.
-	check := sim.NewNetworkCheck(config.Network, sim.LaneClearance{})
-	if err := project.ValidateWith(config, project.Checked{Network: check}); err != nil {
+	checked, err := CheckProject(config)
+	if err != nil {
 		return nil, err
 	}
+	return NewWithCheckedProject(checked, options...)
+}
+
+// NewWithCheckedProject copies a project that CheckProject accepted into a
+// new session. The fleet takes the network preparation of the checks.
+func NewWithCheckedProject(checked CheckedProject, options ...Option) (*Session, error) {
 	session := newSession(nil, options)
-	if err := session.startProject(config, check); err != nil {
+	if err := session.startProject(checked.config, checked.network); err != nil {
 		return nil, err
 	}
 	return session, nil
 }
+
+// CheckedProject is a valid project with the checks of its network, so that
+// a session that starts with it prepares the network one time. Only
+// CheckProject makes one, so the checks are always those of the network of
+// the project. The zero value holds no project. Use it from one goroutine
+// at a time.
+type CheckedProject struct {
+	config  project.Config
+	network *sim.NetworkCheck
+}
+
+// CheckProject validates a copy of config and keeps the copy with the
+// checks of its network. The refusals and their order are those of
+// project.Validate. A later change of config does not change the result.
+func CheckProject(config project.Config) (CheckedProject, error) {
+	owned := project.Clone(config)
+	check := sim.NewNetworkCheck(owned.Network, sim.LaneClearance{})
+	if err := project.ValidateWith(owned, project.Checked{Network: check}); err != nil {
+		return CheckedProject{}, err
+	}
+	return CheckedProject{config: owned, network: check}, nil
+}
+
+// Config returns a copy of the project.
+func (p CheckedProject) Config() project.Config { return project.Clone(p.config) }
 
 // newSession returns a session with persist and the options, and without a
 // simulation. persist is nil without a state store.
@@ -955,19 +985,19 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if command.Project == nil {
 		return false, errors.New("project command requires a project")
 	}
-	config := project.Clone(*command.Project)
 	// The fleet takes the network preparation of the validation.
-	check := sim.NewNetworkCheck(config.Network, sim.LaneClearance{})
-	if err := project.ValidateWith(config, project.Checked{Network: check}); err != nil {
-		return false, err
+	checked, checkErr := CheckProject(*command.Project)
+	if checkErr != nil {
+		return false, checkErr
 	}
+	config := checked.config
 	// sameProject compares the canonical JSON of the two projects, so a new
 	// project field is part of the comparison without a change here. An
 	// encoding error takes the full path.
 	if same, err := sameProject(s.project, config); err == nil && same {
 		return false, nil
 	}
-	candidate, err := newProjectFleet(config, check)
+	candidate, err := newProjectFleet(config, checked.network)
 	if err != nil {
 		return false, fmt.Errorf("create project fleet: %w", err)
 	}

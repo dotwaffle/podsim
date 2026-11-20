@@ -96,6 +96,11 @@ type StoreInput struct {
 	// restore the saved state, because the demand command refuses a change
 	// during the demo. With nil, NewFromStore restores the saved project.
 	Project *project.Config
+	// Checked is the project of the -project file after CheckProject, or
+	// nil. It is Project with the checks of its network: a new session
+	// then takes the network preparation of the checks. Set Project or
+	// Checked, not both.
+	Checked *CheckedProject
 	// Options configure the session, as in NewWithProject.
 	Options []Option
 }
@@ -277,6 +282,9 @@ func newFromStore(ctx context.Context, input StoreInput, steps restoreSteps) (*S
 	if input.Store == nil {
 		return nil, errors.New("start session: no state store")
 	}
+	if input.Project != nil && input.Checked != nil {
+		return nil, errors.New("start session: a project and a checked project")
+	}
 	started := time.Now()
 	s := newSession(newPersistence(input.Store), input.Options)
 	s.persist.started = s.persist.now()
@@ -284,7 +292,11 @@ func newFromStore(ctx context.Context, input StoreInput, steps restoreSteps) (*S
 	if ctx.Err() != nil {
 		return nil, fmt.Errorf("read saved session state: %w", context.Cause(ctx))
 	}
-	loaded, err := s.start(ctx, startInput{data: data, readErr: readErr, project: input.Project, steps: steps})
+	start := startInput{data: data, readErr: readErr, project: input.Project, steps: steps}
+	if input.Checked != nil {
+		start.project, start.check = &input.Checked.config, input.Checked.network
+	}
+	loaded, err := s.start(ctx, start)
 	if err != nil {
 		return nil, err
 	}
@@ -309,11 +321,13 @@ func newFromStore(ctx context.Context, input StoreInput, steps restoreSteps) (*S
 }
 
 // startInput holds the result of the read of the saved state, the project
-// of the caller or nil, and the restore steps.
+// of the caller or nil, and the restore steps. check is nil, or it holds
+// the checks of project.Network.
 type startInput struct {
 	data    []byte
 	readErr error
 	project *project.Config
+	check   *sim.NetworkCheck
 	steps   restoreSteps
 }
 
@@ -324,11 +338,12 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 	switch {
 	case errors.Is(input.readErr, fs.ErrNotExist):
 		s.logger.Info("No saved session state")
-		return nil, s.startProject(emptyProject(input.project, nil), nil)
+		return nil, s.startProject(emptyProject(input, nil))
 	case errors.Is(input.readErr, ErrStateTooLarge):
 		return nil, preserveStateError(input.readErr)
 	case input.readErr != nil:
-		return nil, s.startUnreadable(emptyProject(input.project, nil), input.readErr)
+		config, check := emptyProject(input, nil)
+		return nil, s.startUnreadable(config, check, input.readErr)
 	}
 	loaded, err := s.loadState(loadInput{data: input.data, project: input.project, steps: input.steps})
 	if _, protected := errors.AsType[*preservedStateError](err); protected {
@@ -337,8 +352,9 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 		return nil, err
 	}
 	if stateErr, ok := errors.AsType[*stateError](err); ok {
+		config, check := emptyProject(input, loaded.validProject)
 		return nil, s.startRejected(ctx, rejectInput{
-			err: stateErr.err, reason: stateErr.reason, project: emptyProject(input.project, loaded.validProject),
+			err: stateErr.err, reason: stateErr.reason, project: config, check: check,
 		})
 	}
 	if err != nil {
@@ -391,25 +407,27 @@ func callStore[T any](ctx context.Context, timeout error, call func(context.Cont
 }
 
 // emptyProject returns the project of a session that does not restore a
-// saved state. This is the project of the caller when there is one. Else it
+// saved state, and the checks of its network or nil. This is the project
+// of the caller when there is one, with the checks of the caller. Else it
 // is the saved project when that project is valid, and else the example
-// project.
-func emptyProject(input, saved *project.Config) project.Config {
+// project, both with no checks.
+func emptyProject(input startInput, saved *project.Config) (project.Config, *sim.NetworkCheck) {
 	switch {
-	case input != nil:
-		return *input
+	case input.project != nil:
+		return *input.project, input.check
 	case saved != nil:
-		return *saved
+		return *saved, nil
 	default:
-		return project.Default()
+		return project.Default(), nil
 	}
 }
 
 // startUnreadable starts an empty session with config after the read of
-// the saved state failed. The session does not save, so the saved state
-// stays for the next start.
-func (s *Session) startUnreadable(config project.Config, readErr error) error {
-	if err := s.startProject(config, nil); err != nil {
+// the saved state failed. check is nil, or it holds the checks of
+// config.Network. The session does not save, so the saved state stays for
+// the next start.
+func (s *Session) startUnreadable(config project.Config, check *sim.NetworkCheck, readErr error) error {
+	if err := s.startProject(config, check); err != nil {
 		return err
 	}
 	s.restore = RestoreInfo{Tier: restoreEmpty, Reason: reasonUnreadable}
@@ -420,18 +438,19 @@ func (s *Session) startUnreadable(config project.Config, readErr error) error {
 
 // rejectInput describes a saved state that the session cannot use. err
 // tells why, and reason is its code. project is the project of the empty
-// session.
+// session. check is nil, or it holds the checks of project.Network.
 type rejectInput struct {
 	err     error
 	reason  string
 	project project.Config
+	check   *sim.NetworkCheck
 }
 
 // startRejected starts an empty session in place of a saved state that the
 // session cannot use, and moves the saved state aside. When the move fails,
 // the session does not save, so the saved state stays.
 func (s *Session) startRejected(ctx context.Context, input rejectInput) error {
-	if err := s.startProject(input.project, nil); err != nil {
+	if err := s.startProject(input.project, input.check); err != nil {
 		return err
 	}
 	s.restore = RestoreInfo{Tier: restoreEmpty, Reason: input.reason}

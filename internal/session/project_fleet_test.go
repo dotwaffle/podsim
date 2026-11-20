@@ -6,6 +6,7 @@ import (
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 // TestProjectFleetTakesValidation checks that the fleet of a new session
@@ -46,5 +47,49 @@ func TestProjectFleetTakesValidation(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestProjectStartPreparesOneTime pins that a new session and a project
+// apply prepare the network one time: the fleet takes the preparation of
+// the validation. It does not run in parallel, because the count is for
+// the process.
+func TestProjectStartPreparesOneTime(t *testing.T) {
+	started, config := scenarios.Small(), scenarios.Busy()
+	before := sim.PreparationsForTest()
+	s, err := NewWithProject(started)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := sim.PreparationsForTest() - before; got != 1 {
+		t.Errorf("a new session prepares the network %d times, want 1", got)
+	}
+	s.simulation.SetPaused(true)
+	before = sim.PreparationsForTest()
+	if changed, err := s.applyProject(Command{ProjectRevision: s.projectRevision, Project: &config}); err != nil || !changed {
+		t.Fatalf("apply: changed %v, error %v", changed, err)
+	}
+	if got := sim.PreparationsForTest() - before; got != 1 {
+		t.Errorf("a project apply prepares the network %d times, want 1", got)
+	}
+}
+
+// TestCheckedProjectKeepsCopy checks that a checked project keeps a copy
+// of the project, so that its checks stay those of its network, and that
+// NewFromStore refuses a project and a checked project together.
+func TestCheckedProjectKeepsCopy(t *testing.T) {
+	t.Parallel()
+	config := project.Default()
+	checked, err := CheckProject(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.Network.Lanes[0].SpeedLimit++
+	if reflect.DeepEqual(checked.Config(), config) || !reflect.DeepEqual(checked.Config(), project.Default()) {
+		t.Fatal("a change of the project reaches the checked project")
+	}
+	_, err = NewFromStore(t.Context(), StoreInput{Store: &fakeStore{}, Project: &config, Checked: &checked})
+	if err == nil || err.Error() != "start session: a project and a checked project" {
+		t.Fatalf("error = %v, want the refusal of a project and a checked project", err)
 	}
 }
