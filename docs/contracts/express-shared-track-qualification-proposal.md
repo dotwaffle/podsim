@@ -3,6 +3,7 @@
 Status: approved by the maintainer on 2026-11-16, rows SX1 to SX13.
 The [shared-track amendment proposal](shared-track-amendment-proposal.md) gave the rows, and decision S6-A of the [shared-track](../design/shared-track-preset.md) design chose a new contract for them.
 The preset is not qualified while a row in the [Evidence](#evidence) section is open.
+On 2026-11-20, the maintainer passed the Chrome checks of rows SX6, SX7, and SX9 on the preset in desktop Chrome at `f5bf17a3`, so each row is closed and the preset is qualified.
 Amended 2026-11-16, by maintainer decision: SX3 compares the compiled envelope reach with an independent reference, in amendment ST22 of the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md).
 Amended 2026-11-17, by maintainer decision: the [Evidence](#evidence) section records the evidence, and the maintainer accepts that history rollover of SX8 is not reached on the preset.
 
@@ -120,10 +121,10 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | Row | Status |
 | --- | --- |
 | SX1, SX2, SX3, SX4, SX5, SX13 | Evidence complete on the preset. |
-| SX6 | Go client evidence complete. Open: the WASM client and the desktop Chrome check, which the maintainer does. |
+| SX6 | Evidence complete on the preset. The maintainer passed the WASM client in desktop Chrome on 2026-11-20. |
 | SX8 | Evidence complete. History rollover, which the preset geometry cannot reach, is an exception that the maintainer accepted on 2026-11-17 (see SX8). |
-| SX9 | Fault, Dwell, and Restore and stream evidence on the preset. Open: the browser game page, which the maintainer checks. |
-| SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
+| SX9 | Evidence complete on the preset. The maintainer passed the browser game page on 2026-11-20. |
+| SX7 | Evidence complete on the preset. The maintainer accepted the server measurement and found the browser responsive in Chrome on 2026-11-20. |
 | SX10 | Evidence complete on the preset. |
 | SX11 | Evidence complete on the preset. The release soak of amendment A19 passed on 2026-11-20 at `9cfadfe2`, with queue promotion (section 9.3.1 of the emergency contract) and no late record. The earlier run, before queue promotion, failed (see SX11). |
 | SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
@@ -286,7 +287,10 @@ The route caps of the proofs, `MaxSavedRouteLanes` and `MotionRouteLimit`, are 1
 - `TestLondonSharedExpressRemoteRecovery` runs the sequence recovery, the topology replacement of a new epoch, and the atomic rejection of the Go client on frames of the preset.
   The recovery replaces the topology of the preset (9,089 lanes) with the topology of D (9,399 lanes, 320 of them not in the preset).
   The test requires the network of the client to be the network of D, each pod to be the pod of the recovery frame, and each lane, berth, and station of a pod to be in the network of D.
-- Open: the WASM client and desktop Chrome, which the maintainer checks.
+- On 2026-11-20, the maintainer checked the WASM client in desktop Chrome on the preset, at `f5bf17a3`.
+  Parties of 12, 13, and 20 from Waterloo to Bank boarded Express pods.
+  A reload during a trip recovered the stream.
+  A party of 20 between two stations with no Express service was refused, and nothing else changed.
 
 #### SX8, Orders and registry, and Storage and recovery
 
@@ -325,7 +329,8 @@ The route caps of the proofs, `MaxSavedRouteLanes` and `MotionRouteLimit`, are 1
   At each of these states it encodes and decodes a full frame, and a delta from the frame of the state before, or from the frame of the session before its first tick for the first state.
   It requires the pod with its activity in the frame that each of the two gives, and it requires full frame and delta coverage of each activity apart.
   An Express pod has no Continuing activity on the preset, because it has no intermediate stop.
-- Open: the browser game page, which the maintainer checks.
+- On 2026-11-20, the maintainer checked the browser game page on the preset, at `f5bf17a3`.
+  An Express pod with standees boarded at Waterloo, traveled on link 100, and unloaded at Bank, with the correct activity in the page, and a reload during the trip restored it.
 
 #### SX7, Resource and consumer cost
 
@@ -353,7 +358,8 @@ The peak RSS of the preset is about 33 MiB above LondonFull and about 49 MiB abo
 The readings of LondonFull and D do not match the record of D of November 8, 2026: the CPU is about 35 percent lower, the GC count of LondonFull is 14 and not 57, and the peak RSS of LondonFull is about 55 MiB higher.
 The code changed after that record, and the harness is a new copy of the method, so compare these rows with each other and not with the record of D.
 The runs had no hub parties.
-Retained frames, decoded client memory, and browser responsiveness are the maintainer's Chrome check, and they stay open.
+On 2026-11-20, the maintainer found the browser responsive on the preset in Chrome, with the tab memory and CPU of the Chrome task manager, at `f5bf17a3`.
+As for D, this check gave no numbers, and retained frames and decoded client memory are not measured.
 
 #### SX10, the London soak row
 

@@ -523,7 +523,7 @@ The layout audit treats the comb as a Parking facility of Waterloo, for this pre
 The preset sets no capacity flag, and a capacity flag with it gives an error.
 The network has 5,790 nodes and 9,089 lanes.
 The project has 343 pods.
-The [shared-track qualification](contracts/express-shared-track-qualification-proposal.md) gives the rows, and no simulation evidence exists yet.
+The preset is opt-in, and the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md) gives its status: it qualified on 2026-11-20.
 
 ```sh
 mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
