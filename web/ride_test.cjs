@@ -1096,3 +1096,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
   // The 10.0787 m lane has a trim of 40%, rounded to 1 mm.
   assert.equal(fixture.lanes.find((lane) => lane.id === "odd").trimStart, 4.031);
 });
+
+test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
+  assert.deepEqual(ride.lookOptions(""), { tint: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false });
+  // Only 0 turns a switch off.
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false });
+});

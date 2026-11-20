@@ -143,6 +143,21 @@
   const LADDER_LATER = 3;
   const MODULE_GZIP_LIMIT = 16 * 1024 * 1024;
   const MODULE_LIMIT = 64 * 1024 * 1024;
+  // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
+  // each one, so the maintainer can compare the look with and without it.
+  const LOOK_SWITCHES = ["tint"];
+  // The map tiles get this color, so the guideway stands out over the
+  // bright map.
+  const TILE_TINT = [0.78, 0.81, 0.85];
+
+  // lookOptions reads the switches of the visual polish from a URL query.
+  // Each switch is on, unless the query has name=0. polish=0 turns all of
+  // them off and gives the look from before the polish.
+  function lookOptions(search) {
+    const params = new URLSearchParams(search);
+    const all = params.get("polish") !== "0";
+    return Object.fromEntries(LOOK_SWITCHES.map((name) => [name, all && params.get(name) !== "0"]));
+  }
 
   // toScene maps a world point to the scene ground plane. World y points
   // south, and the scene z points north.
@@ -1700,7 +1715,8 @@
   // createTileLayer drapes map tiles on the ground around the camera when the
   // project has a geographic reference. Unlike the 2D view, it does not need
   // a map background setting, but it refuses a map setting that is not valid.
-  function createTileLayer(B, scene, topology, credit) {
+  // With look.tint, the tiles get TILE_TINT.
+  function createTileLayer(B, scene, topology, credit, look) {
     const tiles = root.PodsimTiles;
     const enabled = !!(tiles && tiles.validGeo(topology.geo) && (!topology.map || tiles.validMap(topology.map, topology.geo)));
     credit.hidden = !enabled;
@@ -1729,6 +1745,7 @@
         material.diffuseTexture = new B.Texture(url, scene, false, true);
         material.diffuseTexture.wrapU = material.diffuseTexture.wrapV = B.Texture.CLAMP_ADDRESSMODE;
         material.diffuseTexture.anisotropicFilteringLevel = TILE_ANISOTROPY;
+        if (look.tint) material.diffuseColor = color(B, TILE_TINT);
         material.specularColor = new B.Color3(0, 0, 0);
         material.backFaceCulling = false;
         mesh.material = material;
@@ -1949,6 +1966,7 @@
     const picker = document.getElementById("pod");
     const diagnostics = document.getElementById("diagnostics");
     const params = new URLSearchParams(root.location.search);
+    const look = lookOptions(root.location.search);
     let requested = params.get("pod") || "", podList = [], ids = [], version = -1;
     let session = "", world = null, poses = new Float64Array(0), lastTime = performance.now();
     let bridgeTime = 0, connected = false, connectionError = "";
@@ -2128,7 +2146,7 @@
       sun.excludedMeshes = world.pods.flatMap((pod) => (pod.cabin ? [pod.cabin] : []));
       shadows.getShadowMap().renderList = world.casters;
       for (const mesh of world.receivers) mesh.receiveShadows = true;
-      tileLayer = createTileLayer(B, scene, topology, credit);
+      tileLayer = createTileLayer(B, scene, topology, credit, look);
       miniMap = createMiniMap(topology);
       screenKey = "";
       stops = stopPoints(topology.stations);
@@ -2370,7 +2388,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
