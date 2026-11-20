@@ -339,6 +339,129 @@ test("autoHop moves after the last rider leaves", () => {
   for (const { name, args, want } of cases) assert.equal(ride.autoHop(...args), want, name);
 });
 
+// fakeTimers keeps each callback, and clearTimeout only records the ID, so
+// a test can still run a callback after its timer was cleared.
+function fakeTimers() {
+  const callbacks = [], cleared = [];
+  return {
+    callbacks, cleared,
+    setTimeout(callback) { callbacks.push(callback); return callbacks.length; },
+    clearTimeout(id) { cleared.push(id); },
+  };
+}
+
+test("createFader fades to black, calls the change, and fades back", () => {
+  const timers = fakeTimers(), element = { style: { opacity: "0" } };
+  const fader = ride.createFader(timers, element, 400);
+  let changes = 0;
+  fader.fadeTo(() => { changes++; });
+  assert.equal(element.style.opacity, "1");
+  assert.ok(fader.busy());
+  timers.callbacks[0]();
+  assert.equal(changes, 1);
+  assert.equal(element.style.opacity, "0");
+  assert.ok(!fader.busy());
+});
+
+test("createFader cancel clears the pending fade and shows the view", () => {
+  const timers = fakeTimers(), element = { style: { opacity: "0" } };
+  const fader = ride.createFader(timers, element, 400);
+  let changes = 0;
+  fader.fadeTo(() => { changes++; });
+  fader.cancel();
+  assert.deepEqual(timers.cleared, [1], "the timer is cleared");
+  assert.equal(element.style.opacity, "0");
+  assert.ok(!fader.busy());
+  // The callback can still run, for example when it was already queued.
+  timers.callbacks[0]();
+  assert.equal(changes, 0, "the cancelled change does not run");
+});
+
+test("createFader ignores the callback of a cancelled fade", () => {
+  const timers = fakeTimers(), element = { style: { opacity: "0" } };
+  const fader = ride.createFader(timers, element, 400);
+  // A rebuild cancels the first fade, whose change reads the old topology.
+  let stale = 0, changes = 0;
+  fader.fadeTo(() => { stale++; });
+  fader.cancel();
+  fader.fadeTo(() => { changes++; });
+  timers.callbacks[0]();
+  assert.equal(stale, 0, "the cancelled change does not run");
+  assert.equal(element.style.opacity, "1", "the second fade stays black");
+  assert.ok(fader.busy());
+  timers.callbacks[1]();
+  assert.equal(changes, 1);
+  assert.equal(element.style.opacity, "0");
+  assert.ok(!fader.busy());
+});
+
+test("createFader shows the view again when the change throws", () => {
+  const timers = fakeTimers(), element = { style: { opacity: "0" } };
+  const fader = ride.createFader(timers, element, 400);
+  fader.fadeTo(() => { throw new TypeError("no station"); });
+  assert.throws(() => timers.callbacks[0](), TypeError);
+  assert.equal(element.style.opacity, "0");
+  assert.ok(!fader.busy());
+});
+
+test("createAutoMode hops again after a rebuild cancels its hop", () => {
+  const timers = fakeTimers(), element = { style: { opacity: "0" } };
+  const auto = ride.createAutoMode(ride.createFader(timers, element, 400), true);
+  const selected = [];
+  const select = (id) => selected.push(id);
+  // Auto mode is on, on an empty pod, and a HUD update starts a hop to B.
+  auto.update(true, 0, () => "B", select);
+  assert.equal(element.style.opacity, "1");
+  // A rebuild cancels the hop before the fade ends. The pod stays empty.
+  auto.cancel();
+  assert.equal(element.style.opacity, "0");
+  // The next HUD update chooses a pod of the new scene.
+  auto.update(true, 0, () => "C", select);
+  assert.equal(timers.callbacks.length, 2, "the next update hops again");
+  timers.callbacks[0]();
+  timers.callbacks[1]();
+  assert.deepEqual(selected, ["C"]);
+  assert.equal(element.style.opacity, "0");
+});
+
+test("createAutoMode does not arm again after a rebuild with no hop of its own", () => {
+  const choose = () => "B", select = () => {};
+  const setup = (armed) => {
+    const timers = fakeTimers(), fader = ride.createFader(timers, { style: { opacity: "0" } }, 400);
+    return { timers, fader, auto: ride.createAutoMode(fader, armed) };
+  };
+  // The pod is empty, and auto mode is on but not armed. A rebuild cancels
+  // a fade of the trip view, and auto mode does not hop.
+  const trip = setup(false);
+  trip.auto.update(true, 0, choose, select);
+  trip.fader.fadeTo(() => {});
+  trip.auto.cancel();
+  trip.auto.update(true, 0, choose, select);
+  assert.equal(trip.timers.callbacks.length, 1, "a rebuild during a trip fade");
+  // A hop that ended before the rebuild does not arm auto mode.
+  const ended = setup(true);
+  ended.auto.update(true, 0, choose, select);
+  ended.timers.callbacks[0]();
+  ended.auto.cancel();
+  ended.auto.update(true, 0, choose, select);
+  assert.equal(ended.timers.callbacks.length, 1, "a rebuild after a hop");
+  // A second rebuild after a cancelled hop does not arm auto mode again.
+  const twice = setup(true);
+  twice.auto.update(true, 0, choose, select);
+  twice.auto.cancel();
+  twice.auto.update(false, 0, choose, select);
+  twice.auto.cancel();
+  twice.auto.update(true, 0, choose, select);
+  assert.equal(twice.timers.callbacks.length, 1, "a second rebuild");
+});
+
+test("the ride page cancels the fades and the hops of auto mode when the scene rebuilds", () => {
+  const source = require("node:fs").readFileSync(require("node:path").join(__dirname, "ride.js"), "utf8");
+  const rebuild = source.slice(source.indexOf("    function rebuild() {"), source.indexOf("    function updatePods("));
+  assert.match(rebuild, /\n      autoMode\.cancel\(\);\n/);
+  assert.match(source, /autoMode\.update\(autoBox\.checked && !trip, riders, \(\) => ride\.nextPod\(requested\), selectPod\);/);
+});
+
 test("nearestStop finds the nearest passenger station", () => {
   const stations = [
     { id: "a", name: "Alpha", berths: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },

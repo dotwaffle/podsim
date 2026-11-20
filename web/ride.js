@@ -1152,6 +1152,77 @@
     return auto && riders === 0 && (armed || previousRiders > 0);
   }
 
+  // createFader fades element to black, calls a change after ms, and fades
+  // back. timers gives setTimeout and clearTimeout. busy is true from the
+  // start of a fade to its end. cancel ends a pending fade without its
+  // change, because a rebuild of the scene can remove what the change
+  // reads. A callback of a cancelled fade that still runs does nothing.
+  function createFader(timers, element, ms) {
+    let generation = 0, timer = null, busy = false;
+    function end() {
+      element.style.opacity = "0";
+      busy = false;
+      timer = null;
+    }
+    return {
+      busy: () => busy,
+      fadeTo(change) {
+        const current = ++generation;
+        busy = true;
+        element.style.opacity = "1";
+        timer = timers.setTimeout(() => {
+          if (current !== generation) return;
+          // A change that throws must not leave the view black.
+          try { change(); } finally { end(); }
+        }, ms);
+      },
+      cancel() {
+        generation++;
+        if (timer !== null) timers.clearTimeout(timer);
+        end();
+      },
+    };
+  }
+
+  // createAutoMode keeps the state of auto mode. armed is true from the
+  // moment the user turns on auto mode until the page reads the riders of
+  // the pod. lastRiders is -1 when not known. A hop of auto mode that a
+  // rebuild cancels arms auto mode again, so that the next update chooses
+  // a pod of the new scene.
+  function createAutoMode(fader, armed) {
+    let lastRiders = -1, pending = false;
+    return {
+      arm(on) { armed = on; },
+      // forget clears the riders of the last pod, after a change of pod.
+      forget() { lastRiders = -1; },
+      // update reads the riders of the pod, -1 when not known. When auto
+      // mode moves, choose gives the next pod, and select rides it after
+      // the fade. With no next pod, the page stays on the pod.
+      update(auto, riders, choose, select) {
+        if (!fader.busy() && autoHop(auto, armed, lastRiders, riders)) {
+          const next = choose();
+          if (next) {
+            pending = true;
+            fader.fadeTo(() => {
+              pending = false;
+              select(next);
+            });
+          }
+        }
+        if (riders >= 0) {
+          armed = false;
+          lastRiders = riders;
+        }
+      },
+      // cancel ends a pending fade when the scene rebuilds.
+      cancel() {
+        if (pending) armed = true;
+        pending = false;
+        fader.cancel();
+      },
+    };
+  }
+
   function formatSpeed(metersPerSecond) { return `${Math.round(metersPerSecond * 3.6)} km/h`; }
 
   function formatDistance(meters) {
@@ -2303,10 +2374,8 @@
     // focus is the world point that the view shows: the ridden pod, or the
     // station of the platform camera.
     let miniMap = null, lastMap = 0, stops = [], focus = { x: 0, y: 0, known: false };
-    // armed is true from the moment the user turns on auto mode until the
-    // page reads the riders of the pod. lastRiders is -1 when not known.
     autoBox.checked = params.get("auto") === "1";
-    let armed = autoBox.checked, lastRiders = -1, hopping = false;
+    const fader = createFader(root, fade, FADE_MS), autoMode = createAutoMode(fader, autoBox.checked);
     // The passenger flow. trip is the tripView of the last HUD update, and
     // platform is the station of the platform camera, or null.
     const tripButton = document.getElementById("tripButton"), tripMenu = document.getElementById("tripMenu");
@@ -2346,7 +2415,7 @@
       picker.value = id;
       setParam("pod", id);
       resetTurns();
-      lastRiders = -1;
+      autoMode.forget();
     }
 
     // The seat view draws the cabin frame of the procedural pods. The chase
@@ -2354,20 +2423,6 @@
     function showCabin() {
       for (const part of cabin) part.setEnabled(!chase && !platform);
     }
-
-    // fadeTo fades to black, calls change, and fades back.
-    function fadeTo(change) {
-      hopping = true;
-      fade.style.opacity = "1";
-      root.setTimeout(() => {
-        change();
-        fade.style.opacity = "0";
-        hopping = false;
-      }, FADE_MS);
-    }
-
-    // hop fades to black, rides the pod id, and fades back.
-    function hop(id) { fadeTo(() => selectPod(id)); }
 
     // openTripMenu fills the trip menu and shows it. The origin is the
     // nearest stop to the view.
@@ -2422,14 +2477,14 @@
       const nextPlatform = station && stationBerths.has(station) ? station : null;
       const nextPod = trip && trip.podID ? trip.podID : requested;
       // A fade takes longer than one HUD update, so the next change waits.
-      if (!hopping && ((platform && platform.id) !== nextPlatform || nextPod !== requested)) {
+      if (!fader.busy() && ((platform && platform.id) !== nextPlatform || nextPod !== requested)) {
         const change = () => {
           platform = nextPlatform ? { id: nextPlatform, ...platformView(stationBerths.get(nextPlatform).berths, stationBerths.get(nextPlatform).height) } : null;
           if (nextPod !== requested) selectPod(nextPod);
           showCabin();
         };
         // A move of the camera fades. A new pod for the platform view does not.
-        if ((platform && platform.id) !== nextPlatform || !platform) fadeTo(change); else change();
+        if ((platform && platform.id) !== nextPlatform || !platform) fader.fadeTo(change); else change();
       }
       tripButton.textContent = trip ? (trip.active ? "Leave trip" : "Close trip") : "Trip…";
       picker.disabled = autoBox.disabled = Boolean(trip);
@@ -2438,7 +2493,7 @@
 
     picker.addEventListener("change", () => selectPod(picker.value));
     autoBox.addEventListener("change", () => {
-      armed = autoBox.checked;
+      autoMode.arm(autoBox.checked);
       setParam("auto", autoBox.checked ? "1" : null);
     });
     picker.addEventListener("focus", () => refreshPods());
@@ -2446,7 +2501,7 @@
     function refreshPods() {
       podList = JSON.parse(ride.pods() || "[]");
       const chosen = choosePod(podList, requested);
-      if (chosen !== requested) { resetTurns(); lastRiders = -1; }
+      if (chosen !== requested) { resetTurns(); autoMode.forget(); }
       requested = chosen;
       picker.replaceChildren(...podList.map((pod) => new Option(podLabel(pod), pod.id, false, pod.id === requested)));
     }
@@ -2472,6 +2527,8 @@
       stationNames = new Map(topology.stations.map((station) => [station.id, station.name || station.id]));
       stationBerths = new Map(topology.stations.filter((station) => station.berths.length > 0).map((station) => [station.id, station]));
       partyLimit = topology.partyLimit || 8;
+      // A pending fade can read a station of the old topology.
+      autoMode.cancel();
       platform = null;
       lastTiles = 0;
       session = `${topology.serverStart}/${topology.epoch}/${topology.generation}`;
@@ -2571,12 +2628,7 @@
       // While the party waits for an assignment, the HUD shows no pod.
       const hud = JSON.parse(ride.hud(trip && !trip.podID && trip.active ? "" : requested) || "{}");
       const riders = hud.found ? hud.riders.length : -1;
-      if (!trip && !hopping && autoHop(autoBox.checked, armed, lastRiders, riders)) {
-        // With no pod to move to, the page stays on the pod.
-        const next = ride.nextPod(requested);
-        if (next) hop(next);
-      }
-      if (riders >= 0) { armed = false; lastRiders = riders; }
+      autoMode.update(autoBox.checked && !trip, riders, () => ride.nextPod(requested), selectPod);
       const view = hudView(hud);
       if (!hud.found && trip) view.state = "No pod is assigned yet";
       const ladder = stopLadder(hud, view.progress);
@@ -2711,7 +2763,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, seatFov, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, createSigns, start };
+  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, createFader, createAutoMode, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, seatFov, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, createSigns, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
