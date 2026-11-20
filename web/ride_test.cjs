@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false, signs: false });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1248,4 +1248,20 @@ test("podLightTexels lights the noses and a side line in the livery stripe", () 
     assert.ok(Math.abs(shell.uvs[2 * i + 1] - (0.5 + (shell.positions[3 * i + 1] + 0.45) / 2.1)) < 1e-6, `v of vertex ${i}`);
   }
   assert.ok(shell.uvs.every((value, i) => i % 2 === 1 || Math.abs(value) < 2), "u inside the span");
+});
+
+test("drawStationSign fits the name beside the stop mark", () => {
+  const width = 768, height = 128;
+  const short = fakeContext();
+  ride.drawStationSign(short, width, height, "Canary Wharf");
+  assert.deepEqual(textsInside(short, width, height), ["Canary Wharf"]);
+  const [text] = short.calls.filter((call) => call.name === "fillText");
+  assert.ok(text.args[1] >= height, "the name starts after the stop mark");
+  assert.ok(short.calls.some((call) => call.name === "stroke"), "the stop mark");
+  assert.ok(short.calls.some((call) => call.name === "fillRect" && call.style === "#35c8ff" && call.args[1] >= height * 0.85), "the accent bar");
+  // A long name loses the part in brackets, then words at its end.
+  const long = fakeContext();
+  ride.drawStationSign(long, width, height, "Heathrow Terminals 2 and 3 Underground Station (Bus Station)");
+  const [cut] = textsInside(long, width, height);
+  assert.ok(!cut.includes("(") && cut.startsWith("Heathrow"), `cut name ${cut}`);
 });

@@ -176,7 +176,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights", "signs"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -1402,6 +1402,23 @@
     drawText(context, view.time, right, height * 0.76, width - split - slant, size, HUD_COLORS.accent, "right", 800);
   }
 
+  // drawStationSign draws the station sign of the visual polish on a
+  // canvas of width by height: the panel of the cabin screens, an accent
+  // bar along the bottom, a stop mark, and the name. A name that does not
+  // fit loses the part in brackets, then words at its end.
+  function drawStationSign(context, width, height, name) {
+    drawPanel(context, width, height);
+    context.fillStyle = HUD_COLORS.accent;
+    context.fillRect(0, height * 0.9, width, height * 0.1);
+    const radius = height * 0.24;
+    context.beginPath();
+    context.arc(height * 0.5, height * 0.45, radius, 0, 2 * Math.PI);
+    context.lineWidth = radius * 0.4;
+    context.strokeStyle = HUD_COLORS.accent;
+    context.stroke();
+    drawText(context, nameChoices(name), height, height * 0.64, width - height * 1.15, height * 0.48, HUD_COLORS.text, "left", 700);
+  }
+
   // attachTexture loads the image at url as a tiling texture and gives it
   // to each material when it loads. Until then, and for good when it does
   // not load, the materials keep their flat colors.
@@ -1994,8 +2011,9 @@
   }
 
   // createSigns makes a pool of station name signs. update gives them to the
-  // stations nearest the camera.
-  function createSigns(B, scene) {
+  // stations nearest the camera. With polished, the signs have the style of
+  // drawStationSign.
+  function createSigns(B, scene, polished) {
     const signs = [];
     for (let i = 0; i < SIGN_COUNT; i++) {
       const mesh = B.MeshBuilder.CreatePlane(`sign${i}`, { width: 9, height: 1.5 }, scene);
@@ -2021,6 +2039,11 @@
         if (sign.station === slab.id) return;
         sign.station = slab.id;
         const context = sign.texture.getContext();
+        if (polished) {
+          drawStationSign(context, 768, 128, slab.name || slab.id);
+          sign.texture.update();
+          return;
+        }
         context.fillStyle = "#123a5e"; context.fillRect(0, 0, 768, 128);
         context.fillStyle = "#ffffff"; context.font = "bold 64px system-ui, sans-serif";
         context.textAlign = "center"; context.textBaseline = "middle";
@@ -2194,7 +2217,7 @@
     // Bloom spread the bright map tiles into soft blotches on the dark cabin
     // pillars, so the pipeline has no bloom.
     pipeline.bloomEnabled = false;
-    const signs = createSigns(B, scene);
+    const signs = createSigns(B, scene, look.signs);
     const credit = document.getElementById("credit");
     let tileLayer = null, lastTiles = 0;
     const instrumentation = new B.SceneInstrumentation(scene);
@@ -2624,7 +2647,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
