@@ -105,7 +105,11 @@
         "id": "lane-8",
         "from": "station-2-exit-1",
         "to": "station-1-entry-1",
-        "speedLimit": 12
+        "speedLimit": 12,
+        "control": {
+          "x": 220,
+          "y": -120
+        }
       }
     ],
     "stations": [

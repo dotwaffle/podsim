@@ -14,6 +14,11 @@ import (
 	"github.com/dotwaffle/podsim/internal/project"
 )
 
+// TestGeometryMatchesExistingEditor checks the transform of each geometry
+// edit against the existing editor. The server checks refuse most of the
+// fixture drafts, so the transform runs through geometryDraft.change with no
+// server check. The engine paths must agree with each other on the change or
+// on the refusal.
 func TestGeometryMatchesExistingEditor(t *testing.T) {
 	t.Parallel()
 	data, err := os.ReadFile("testdata/geometry.json")
@@ -33,21 +38,28 @@ func TestGeometryMatchesExistingEditor(t *testing.T) {
 		t.Run(fixture.Name, func(t *testing.T) {
 			t.Parallel()
 			before := cloneEditValue(fixture.Before)
-			command, err := json.Marshal(map[string]any{"field": "geometry", "value": fixture.Command})
-			if err != nil {
-				t.Fatal(err)
-			}
-			change, err := editProject(fixture.Before, command)
+			patch, err := transformGeometry(fixture.Before, fixture.Command)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if !reflect.DeepEqual(fixture.Before, before) {
-				t.Fatal("geometry proposal changed caller state")
+				t.Fatal("geometry transform changed caller state")
 			}
 			actual := object(cloneEditValue(fixture.Before))
-			maps.Copy(actual, change.Patch)
+			maps.Copy(actual, patch)
 			if !sameGeometry(actual, fixture.After) {
 				t.Fatalf("geometry differs from the existing editor: actual=%v expected=%v", actual, fixture.After)
+			}
+			command, err := json.Marshal(map[string]any{"field": "geometry", "value": fixture.Command})
+			if err != nil {
+				t.Fatal(err)
+			}
+			change, editErr := editProject(fixture.Before, command)
+			if !reflect.DeepEqual(fixture.Before, before) {
+				t.Fatal("geometry proposal changed caller state")
+			}
+			if editErr == nil && !reflect.DeepEqual(change.Patch, patch) {
+				t.Fatal("the accepted edit differs from the transform")
 			}
 			model := new(engine)
 			keys := slices.Sorted(maps.Keys(fixture.Before))
@@ -59,16 +71,25 @@ func TestGeometryMatchesExistingEditor(t *testing.T) {
 				t.Fatal(syncErr)
 			}
 			cached, err := model.handle(`{"op":"edit","edit":` + string(command) + `}`)
-			if err != nil || !reflect.DeepEqual(cached.Change, &change) {
-				t.Fatal("cached geometry response differs", err)
+			if !sameRefusal(err, editErr) || editErr == nil && !reflect.DeepEqual(cached.Change, &change) {
+				t.Fatal("cached geometry response differs", err, editErr)
 			}
 			projectData, err := json.Marshal(fixture.Before)
 			if err != nil {
 				t.Fatal(err)
 			}
 			var explicit response
-			if err := json.Unmarshal([]byte(Call(`{"op":"edit","project":`+string(projectData)+`,"edit":`+string(command)+`}`)), &explicit); err != nil || explicit.Error != "" || !reflect.DeepEqual(explicit.Change, &change) {
-				t.Fatal("stateless geometry response differs", err, explicit.Error)
+			if err := json.Unmarshal([]byte(Call(`{"op":"edit","project":`+string(projectData)+`,"edit":`+string(command)+`}`)), &explicit); err != nil {
+				t.Fatal(err)
+			}
+			if editErr != nil {
+				if explicit.Error != editErr.Error() {
+					t.Fatal("stateless geometry refusal differs", explicit.Error, editErr)
+				}
+				return
+			}
+			if explicit.Error != "" || !reflect.DeepEqual(explicit.Change, &change) {
+				t.Fatal("stateless geometry response differs", explicit.Error)
 			}
 			if network := object(change.Patch["network"]); network != nil {
 				object(items(network["nodes"])[0])["id"] = "mutated"
@@ -82,6 +103,37 @@ func TestGeometryMatchesExistingEditor(t *testing.T) {
 			}
 		})
 	}
+}
+
+// transformGeometry applies a geometry command to a draft as
+// editGeometryKept does, with no server check, and returns the patch.
+func transformGeometry(draft map[string]any, raw jsontext.Value) (map[string]any, error) {
+	command, err := decodeGeometryEdit(raw)
+	if err != nil {
+		return nil, err
+	}
+	original := object(draft["network"])
+	if err := checkDepotEdit(original, command); err != nil {
+		return nil, err
+	}
+	patch := make(map[string]any)
+	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: patch}
+	if err := geometry.change(command); err != nil {
+		return nil, err
+	}
+	if !reflect.DeepEqual(original, geometry.network) {
+		patch["network"] = geometry.network
+	}
+	return patch, nil
+}
+
+// sameRefusal reports whether two errors are both nil or have the same
+// text.
+func sameRefusal(first, second error) bool {
+	if first == nil || second == nil {
+		return (first == nil) == (second == nil)
+	}
+	return first.Error() == second.Error()
 }
 
 func sameGeometry(actual, expected any) bool {
@@ -118,6 +170,11 @@ func sameGeometry(actual, expected any) bool {
 
 func TestGeometryRejectsInvalidAndStaleCommands(t *testing.T) {
 	t.Parallel()
+	// The server checks accept an edit of the draft, so each refusal comes
+	// from the command.
+	if _, err := editGeometry(stationsDraft(t), jsontext.Value(`{"action":"moveStation","id":"alpha","delta":{"x":1,"y":1}}`)); err != nil {
+		t.Fatal(err)
+	}
 	for _, raw := range []string{
 		`{}`, `{"action":"unknown"}`, `{"action":"addNode"}`,
 		`{"action":"addNode","point":{"x":1}}`,
@@ -133,7 +190,7 @@ func TestGeometryRejectsInvalidAndStaleCommands(t *testing.T) {
 		`{"action":"stationBearing","id":"alpha","value":""}`,
 		`{"action":"addLane","id":"same","to":"same"}`,
 	} {
-		draft := fleetDraft()
+		draft := stationsDraft(t)
 		before := cloneEditValue(draft)
 		if _, err := editGeometry(draft, jsontext.Value(raw)); err == nil || !reflect.DeepEqual(draft, before) {
 			t.Errorf("invalid geometry accepted or changed its source: %s", raw)
@@ -160,10 +217,27 @@ func TestMalformedStationMovementRetainsWorkerState(t *testing.T) {
 	if !reflect.DeepEqual(model.branches["network"].raw, before) {
 		t.Fatal("failed movement changed synchronized state")
 	}
-	result, err := model.handle(`{"op":"edit","edit":{"field":"geometry","value":{"action":"stationName","id":"s","value":"Repaired name"}}}`)
-	if err != nil || member(items(member(result.Change.Patch["network"], "stations"))[0], "name") != "Repaired name" {
+	// The server checks refuse each geometry edit of this draft. A later
+	// geometry edit gets the refusal of a new engine, and a project field
+	// edit is accepted.
+	const rename = `{"field":"geometry","value":{"action":"stationName","id":"s","value":"Repaired name"}}`
+	var fresh response
+	if err := json.Unmarshal([]byte(Call(`{"op":"edit","project":`+draft+`,"edit":`+rename+`}`)), &fresh); err != nil || fresh.Error == "" {
+		t.Fatal("a new engine accepted the station name edit", err)
+	}
+	if _, err := model.handle(`{"op":"edit","edit":` + rename + `}`); err == nil || err.Error() != fresh.Error {
+		t.Fatalf("station name edit error = %v, want %s", err, fresh.Error)
+	}
+	result, err := model.handle(`{"op":"edit","edit":{"field":"name","value":"Repaired name"}}`)
+	if err != nil || result.Change.Patch["name"] != "Repaired name" {
 		t.Fatal("rejected movement prevented subsequent editing", err)
 	}
+}
+
+// serverRejections holds the refusal of each legacy rejection fixture that
+// only the server checks refuse.
+var serverRejections = map[string]string{
+	"new row crosses unrelated lane": `validate shape clearance: station "station-2" needs entry, exit, and through lanes`,
 }
 
 func TestGeometryRetainsExistingRejections(t *testing.T) {
@@ -189,8 +263,20 @@ func TestGeometryRetainsExistingRejections(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if _, editErr := editProject(fixture.Before, command); editErr == nil {
+			_, editErr := editProject(fixture.Before, command)
+			if editErr == nil {
 				t.Fatal("geometry accepted a rejected legacy edit", fixture.Error)
+			}
+			// The transform refuses each edit by itself, except the edit
+			// that the dropped local lane check refused. The server checks
+			// refuse that edit, and its draft has a station defect too.
+			_, transformErr := transformGeometry(fixture.Before, fixture.Command)
+			if want, server := serverRejections[fixture.Name]; server {
+				if transformErr != nil || editErr.Error() != want {
+					t.Fatalf("transform error %v, edit error %v, want %s", transformErr, editErr, want)
+				}
+			} else if transformErr == nil {
+				t.Fatal("the transform accepted a rejected legacy edit", fixture.Error)
 			}
 			if !reflect.DeepEqual(fixture.Before, before) {
 				t.Fatal("rejected edit changed caller state")

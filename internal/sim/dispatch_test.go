@@ -39,7 +39,7 @@ func TestStationRequestDispatch(t *testing.T) {
 			pickupSeen := false
 			for range 400 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				if pod.RelocatingTo != "" {
 					pickupSeen = true
 					if pod.Pod.Occupied || s.completed != 0 {
@@ -154,7 +154,7 @@ func TestQueuedRequestsReusePod(t *testing.T) {
 	s.SetPaused(false)
 	for range 900 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 2 {
 			break
 		}
@@ -252,7 +252,7 @@ func TestStationRequestsAfterExpandedDemo(t *testing.T) {
 	for range 900 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if !state.Demo {
 			break
 		}
@@ -267,7 +267,7 @@ func TestStationRequestsAfterExpandedDemo(t *testing.T) {
 	}
 	for range 900 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == demoJourneys+2 {
 			break
 		}
@@ -300,7 +300,7 @@ func TestPickupWaitsForIncomingPassengerPod(t *testing.T) {
 	}
 	for range 360 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 2 {
 			break
 		}
@@ -335,7 +335,7 @@ func TestPassengerAndPickupShareBerthAdmission(t *testing.T) {
 	}
 	for range 600 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 3 {
 			break
 		}
@@ -368,7 +368,7 @@ func TestPickupDepartsBeforeBerthClears(t *testing.T) {
 	queued := false
 	for range 700 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if pickup.Pod.LaneID == "garden-in" && pickup.Pod.Speed < 0.1 && pickup.Pod.WaitReason == BerthOccupied {
 			queued = true
 			if pickup.Pod.Occupied {
@@ -403,7 +403,7 @@ func TestPickupArrivalOrderDoesNotReorderPassengers(t *testing.T) {
 	boarded := make(map[int]bool)
 	for range 800 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		for _, v := range s.vehicles {
 			if v.Pod.Activity != Boarding || len(v.Riders) == 0 {
 				continue

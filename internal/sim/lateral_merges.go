@@ -5,24 +5,20 @@ import (
 	"slices"
 )
 
-// The lateral merge pairs of docs/design/lateral-merge-zones.md. When a
-// network sets LateralMerges, two lanes form a lateral merge pair at a node
-// when both end at the node or both start at it, neither is a loop, they do
-// not share both endpoints, both are small with no geometry tail, neither
-// is in a maneuver group or a depot, and on neither lane does the body
-// range reach the far end of the lane. The junction extent of such a pair
-// is the body range and the node range, and its pods keep
-// lateralClearance(0). The junction resource of the node orders the two
-// pods, so a pod in its extent owns the junction, and a pod outside its
-// extent has a body that clears each body position of the other lane.
-//
-// When a network sets ShapeClearance, the rule applies to each class
-// (part 3 of docs/design/shape-clearance.md). A lane that admits a large
-// class or has a geometry tail can form a pair. The body of each lane is
-// the union of the grown bodies of the classes that the lane admits
-// (laneShapeBody), so it changes only the body range. The node range stays
-// Clearance. The pods of a pair keep the side-by-side distance of their
-// classes (shapeClassClearance).
+// The lateral merge pairs of docs/design/lateral-merge-zones.md, with part
+// 3 of docs/design/shape-clearance.md, in each network. Two lanes form a
+// lateral merge pair at a node when both end at the node or both start at
+// it, neither is a loop, they do not share both endpoints, neither is in a
+// maneuver group or a depot, and on neither lane does the body range reach
+// the far end of the lane. A lane that admits a large class or has a
+// geometry tail can form a pair. The body of each lane is the union of the
+// grown bodies of the classes that the lane admits (laneShapeBody). The
+// junction extent of a pair is the body range and the node range, and the
+// node range is Clearance. The pods of a pair keep the side-by-side
+// distance of their classes (shapeClassClearance). The junction resource
+// of the node orders the two pods, so a pod in its extent owns the
+// junction, and a pod outside its extent has a body that clears each body
+// position of the other lane.
 //
 // A pod releases the junction at the end of its extent, and the extent
 // stops at the lane end. Where the body range reaches the far end of a
@@ -35,28 +31,19 @@ var mergeOptions = sweepOptions{tolerance: 1e-3, visits: 1 << 12}
 
 // newMergeLateral returns the lateral merge pairs of a network, with the
 // clearance of each pair and the extent of each lane of a pair, or nil
-// when the network sets neither LateralMerges nor ShapeClearance, or has
-// no pair. With LateralMerges, the clearance is lateralClearance(0). With
-// ShapeClearance, it is the side-by-side distance of the bodies of the two
-// lanes, and the pods of a pair keep the side-by-side distance of their
-// classes (see classClearance).
-// tails, maneuvers and depots are the indexes of the network. Only lane
+// when the network has no pair. The clearance is the side-by-side distance
+// of the bodies of the two lanes, and the pods of a pair keep the
+// side-by-side distance of their classes (see classClearance).
+// maneuvers and depots are the indexes of the network. Only lane
 // keys are in the result, and each lane with a partner has its polyline in
 // points. The junction conflicts, the safety observation, the restore, and
 // the debris footprint all read this one table.
-func newMergeLateral(network Network, tails map[string]geometryTails, maneuvers *maneuverIndex, depots *depotIndex) *depotLateral {
-	if !network.LateralMerges && !network.ShapeClearance {
-		return nil
-	}
+func newMergeLateral(network Network, maneuvers *maneuverIndex, depots *depotIndex) *depotLateral {
 	lanes := newMergeLanes(network)
 	// eligible checks clause 4: a lane outside the maneuver groups and the
-	// depots. Without ShapeClearance, it also checks clause 3: a small lane
-	// with no geometry tail.
+	// depots. Clause 3 does not apply.
 	eligible := func(lane Lane) bool {
-		if maneuvers.groupLane(lane.ID) || depots.depotLane(lane.ID) {
-			return false
-		}
-		return network.ShapeClearance || !largeClassSet(lane.VehicleClasses) && tails[lane.ID] == (geometryTails{})
+		return !maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
 	}
 	// Each candidate pair gives both of its sides at its node, in
 	// forEachJunctionPair order. reaches holds the candidate pairs that fail
@@ -78,7 +65,7 @@ func newMergeLateral(network Network, tails map[string]geometryTails, maneuvers 
 		}
 		sides = append(sides, mergeSide{a: a, b: b, start: start, end: end})
 	})
-	l := &depotLateral{pairs: make(map[[2]separationKey]float64), neighbors: make(map[int][]int), points: make(map[int][]Point), extents: make(map[[2]int][2]float64), classes: network.ShapeClearance}
+	l := &depotLateral{pairs: make(map[[2]separationKey]float64), neighbors: make(map[int][]int), points: make(map[int][]Point), extents: make(map[[2]int][2]float64), classes: true}
 	for _, side := range sides {
 		key := keyPair(laneKey(side.a), laneKey(side.b))
 		if reaches[key] {
@@ -135,23 +122,15 @@ func (m *mergeLanes) extent(a, b int, node string) (float64, float64, bool) {
 	return lateralMergeExtent(m.laneSteps(a), others, bodies, m.lengths[a], m.builder.network.Lanes[a].To == node)
 }
 
-// body returns the grown body of a lane of a candidate pair: with
-// ShapeClearance, the union of the bodies of the classes that the lane
-// admits, and otherwise the small body lateralBody(0).
+// body returns the grown body of a lane of a candidate pair: the union of
+// the bodies of the classes that the lane admits.
 func (m *mergeLanes) body(index int) sweepBody {
-	if !m.builder.network.ShapeClearance {
-		return lateralBody(0)
-	}
 	return laneShapeBody(m.builder.network.Lanes[index].VehicleClasses).sweep()
 }
 
-// clearance returns the clearance of a pair of lanes in the table: with
-// ShapeClearance, the side-by-side distance of the bodies of the two
-// lanes, and otherwise lateralClearance(0).
+// clearance returns the clearance of a pair of lanes in the table: the
+// side-by-side distance of the bodies of the two lanes.
 func (m *mergeLanes) clearance(a, b int) float64 {
-	if !m.builder.network.ShapeClearance {
-		return lateralClearance(0)
-	}
 	lanes := m.builder.network.Lanes
 	return laneShapeBody(lanes[a].VehicleClasses).halfWidth + laneShapeBody(lanes[b].VehicleClasses).halfWidth
 }

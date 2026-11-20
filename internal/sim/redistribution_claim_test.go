@@ -15,7 +15,7 @@ func TestRedistributionYieldsRemoteClaimToPickup(t *testing.T) {
 	for range 5 * 60 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Completed == 1 {
 			break
 		}
@@ -34,7 +34,7 @@ func TestRedistributionYieldsRemoteClaimToPassengerArrival(t *testing.T) {
 	for range 5 * 60 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Completed == 1 {
 			break
 		}
@@ -48,7 +48,7 @@ func TestRedistributionYieldsRemoteClaimToPassengerArrival(t *testing.T) {
 	for range 5 * 60 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Completed == 2 {
 			break
 		}

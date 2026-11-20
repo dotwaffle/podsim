@@ -57,9 +57,9 @@ type depotLateral struct {
 	// lateral merge pair, by the indexes of a and b. A depot index has
 	// none.
 	extents map[[2]int][2]float64
-	// classes is true for the lateral merge pairs of a network that sets
-	// ShapeClearance: the pods of a pair keep the side-by-side distance of
-	// their classes, and not the clearance of the pair.
+	// classes is true for the lateral merge pairs: the pods of a pair keep
+	// the side-by-side distance of their classes, and not the clearance of
+	// the pair.
 	classes bool
 	// visits and unresolved count the sweep work and the pairs whose
 	// sweep ran out of work.

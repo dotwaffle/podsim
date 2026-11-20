@@ -78,7 +78,7 @@ func TestPickupSwapCrossedAssignments(t *testing.T) {
 	for _, simulation := range []*Simulation{control, s} {
 		for range 600 * TicksPerSecond {
 			simulation.Step()
-			checkTraffic(t, simulation.Snapshot())
+			checkTraffic(t, simulation)
 			if _, safetyErr := simulation.SafetyObservation().Check(); safetyErr != nil {
 				t.Fatal(safetyErr)
 			}
@@ -211,7 +211,7 @@ func TestPickupSwapImmediateRestoreKeepsAssignments(t *testing.T) {
 	}
 	for range 600 * TicksPerSecond {
 		restored.Step()
-		checkTraffic(t, restored.Snapshot())
+		checkTraffic(t, restored)
 		if _, safetyErr := restored.SafetyObservation().Check(); safetyErr != nil {
 			t.Fatal(safetyErr)
 		}

@@ -140,10 +140,10 @@ func TestAcuteJunctionLanesPreservePhysicalClearance(t *testing.T) {
 			if err := s.RequestJourney(b, "d"); err != nil {
 				t.Fatal(err)
 			}
-			checkTraffic(t, s.Snapshot())
+			checkTraffic(t, s)
 			for range 120 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				if s.completed == 2 {
 					return
 				}

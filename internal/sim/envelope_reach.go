@@ -6,40 +6,23 @@ import (
 	"slices"
 )
 
-// envelopeReachSlack widens each bound of the envelope reach. When the
-// network does not set ShapeClearance, the oracle compares route distances
-// that it sums from the start of the route, and the index sums the same
-// lane lengths in a different order. When the network sets
-// ShapeClearance, the slack is the half width u of the interval of the
-// possible anchors of a pod about its published lane position (see
-// localItems). The route distance of a pod can differ from that position by
-// two restoreTolerance steps after a restore (see restoredDistance), and by
-// the rounding of the route sums. The slack is much larger than both.
+// envelopeReachSlack widens each bound of the envelope reach. The slack is
+// the half width u of the interval of the possible anchors of a pod about
+// its published lane position (see localItems). The route distance of a
+// pod can differ from that position by two restoreTolerance steps after a
+// restore (see restoredDistance), and by the rounding of the route sums.
+// The slack is much larger than both.
 const envelopeReachSlack = 1e-3
 
 // envelopeReach holds the planes that the envelope of a pod can hold (see
 // appendVehicleSafetyLocations), by position on each lane. It is the
 // envelope reach of decision D1-B of the shape clearance design.
 //
-// When the network does not set ShapeClearance, it holds each plane of the
-// envelope of each route through the lane, and it can hold more. A
-// position on a lane then has these planes:
-//   - The lane.
-//   - Each lane behind it on a route, up to the retained tail of that
-//     lane: max(largeClearance, its geometry tail).
-//   - Each lane ahead of it on a route, up to the front bound. The oracle
-//     takes the largest front bound of the lanes of the whole route, and a
-//     route can hold each lane that connects to the lane. So the index
-//     takes the largest front bound of the network (see reachFront).
-//   - Before the origin release, each berth from which a route can start
-//     behind the position, and the lanes at the node of the berth. The
-//     origin tail is max(largeClearance, the from tail of the first lane).
-//
-// When the network sets ShapeClearance, the spans are the envelope itself:
-// the oracle selects its planes from the span at the published lane
-// position of the pod (see appendSpanEnvelope). Each lane takes its own
-// anchor front (see anchorItems), and a position also holds the envelopes
-// of the possible anchors on the lanes next to it (see localItems).
+// The spans are the envelope itself: the oracle selects its planes from
+// the span at the published lane position of the pod (see
+// appendSpanEnvelope). Each lane takes its own anchor front (see
+// anchorItems), and a position also holds the envelopes of the possible
+// anchors on the lanes next to it (see localItems).
 // Each item of an origin keeps the node of its origin, so that the oracle
 // can select the origin of the pod. Rule 2 adds the clusters of the
 // maneuver group lanes of each span (see closure).
@@ -79,8 +62,7 @@ type envelopeReach struct {
 	// clusterOf holds the cluster of rule 2 of each location number whose
 	// plane is the plane of a maneuver group lane, and -1 for each other
 	// location. clusterLanes holds the lanes of each cluster (see
-	// maneuverClusters). clusterOf is nil when the network does not set
-	// ShapeClearance or has no group.
+	// maneuverClusters). clusterOf is nil when the network has no group.
 	clusterOf    []int
 	clusterLanes [][]int
 	// walk, near, between, marks, items, anchor, sorted, window, and
@@ -189,18 +171,15 @@ type reachGraph struct {
 	berthNode []int
 	// nodes holds the number of each node by ID.
 	nodes map[string]int
-	// front is the front bound of reachFront. behind is the longest
-	// distance behind a lane at which a route can hold a lane or an origin.
-	front, behind float64
-	// local is true when the network sets ShapeClearance. Each lane then
-	// takes its own anchor front (see anchorItems) in place of front.
-	local bool
+	// behind is the longest distance behind a lane at which a route can
+	// hold a lane or an origin.
+	behind float64
 }
 
 // newReachGraph numbers the nodes of a network and indexes its lanes and
 // berths by node.
 func newReachGraph(n Network, tails map[string]geometryTails) reachGraph {
-	g := reachGraph{local: n.ShapeClearance, nodes: make(map[string]int, len(n.Nodes))}
+	g := reachGraph{nodes: make(map[string]int, len(n.Nodes))}
 	number := func(id string) int {
 		value, found := g.nodes[id]
 		if !found {
@@ -220,9 +199,8 @@ func newReachGraph(n Network, tails map[string]geometryTails) reachGraph {
 		}
 		g.lengths = append(g.lengths, length)
 		g.tails = append(g.tails, max(largeClearance, tails[lane.ID].tail))
-		g.fronts = append(g.fronts, envelopeFront(lane, tails[lane.ID], n.ShapeClearance, func() []Point { return points }))
+		g.fronts = append(g.fronts, envelopeFront(lane, tails[lane.ID], func() []Point { return points }))
 	}
-	g.front = reachFront(g.fronts)
 	for _, station := range n.Stations {
 		for _, berth := range station.Berths {
 			g.berthNode = append(g.berthNode, number(berth.Node))
@@ -254,25 +232,9 @@ func newReachGraph(n Network, tails map[string]geometryTails) reachGraph {
 	return g
 }
 
-// reachFront returns the largest front bound of the lanes of a network,
-// and at least largeEnvelopeRadius. fronts holds the front bound of each
-// lane (see envelopeFront). When the network does not set ShapeClearance,
-// the oracle takes the largest front bound of the lanes of the route. A
-// route through a lane can hold each lane that the lane reaches or that
-// reaches the lane, which in a strongly connected network is each lane.
-// When the network sets it, the anchor front of each lane is at most this
-// bound.
-func reachFront(fronts []float64) float64 {
-	front := largeEnvelopeRadius
-	for _, value := range fronts {
-		front = max(front, value)
-	}
-	return front
-}
-
-// anchorFront returns the anchor front B(L) of a lane L when the network
-// sets ShapeClearance: max(largeEnvelopeRadius, the front bound of L). It
-// takes no front of another lane.
+// anchorFront returns the anchor front B(L) of a lane L:
+// max(largeEnvelopeRadius, the front bound of L). It takes no front of
+// another lane.
 func (g reachGraph) anchorFront(lane int) float64 {
 	return max(largeEnvelopeRadius, g.fronts[lane])
 }
@@ -296,16 +258,14 @@ func newEnvelopeReach(n Network, tails map[string]geometryTails) *envelopeReach 
 			reach.locations = append(reach.locations, SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node})
 		}
 	}
-	if g.local {
-		reach.clusterOf, reach.clusterLanes = locationClusters(n, reach.locations)
-		reach.originKeys = make(map[[2]int]int)
-		for node, berths := range g.berthsAt {
-			for _, location := range slices.Concat(berths, g.incident[node]) {
-				pair := [2]int{location, node}
-				if _, found := reach.originKeys[pair]; !found {
-					reach.originKeys[pair] = len(reach.locations) + len(reach.origins)
-					reach.origins = append(reach.origins, pair)
-				}
+	reach.clusterOf, reach.clusterLanes = locationClusters(n, reach.locations)
+	reach.originKeys = make(map[[2]int]int)
+	for node, berths := range g.berthsAt {
+		for _, location := range slices.Concat(berths, g.incident[node]) {
+			pair := [2]int{location, node}
+			if _, found := reach.originKeys[pair]; !found {
+				reach.originKeys[pair] = len(reach.locations) + len(reach.origins)
+				reach.origins = append(reach.origins, pair)
 			}
 		}
 	}
@@ -319,8 +279,8 @@ func newEnvelopeReach(n Network, tails map[string]geometryTails) *envelopeReach 
 	return reach
 }
 
-// compileEnvelopeReach returns the envelope reach of a network that sets
-// ShapeClearance, with the spans of each lane. No code writes to it after
+// compileEnvelopeReach returns the envelope reach of a network, with the
+// spans of each lane. No code writes to it after
 // that, so it is safe for concurrent use. It returns nil when a bound of
 // the tails is not finite (see finiteReachTails): preparation refuses
 // such a network.
@@ -384,7 +344,7 @@ func locationClusters(n Network, locations []SafetyLocation) ([]int, [][]int) {
 
 // key returns the key of an item (see envelopeReach.keys).
 func (r *envelopeReach) key(item reachItem) int {
-	if !r.graph.local || item.origin < 0 {
+	if item.origin < 0 {
 		return item.location
 	}
 	return r.originKeys[[2]int{item.location, item.origin}]
@@ -401,8 +361,8 @@ func (r *envelopeReach) keyOrigin(key int) int {
 
 // closure returns the location numbers of a span and the lanes that rule 2
 // adds to them: each lane of the cluster of each location of a maneuver
-// group plane. It returns the locations of the span when the network does
-// not set ShapeClearance or has no group. The result can share storage
+// group plane. It returns the locations of the span when the network has
+// no group. The result can share storage
 // with the next call.
 func (r *envelopeReach) closure(numbers []int) []int {
 	if r.clusterOf == nil {
@@ -427,11 +387,7 @@ func (r *envelopeReach) laneSpans(lane int) []reachSpan {
 	if spans := r.lanes[lane]; spans != nil {
 		return spans
 	}
-	if r.graph.local {
-		r.items = r.localItems(lane)
-	} else {
-		r.items = r.graph.laneItems(&r.walk, lane, r.items[:0])
-	}
+	r.items = r.localItems(lane)
 	r.lanes[lane] = r.spans(r.items, r.graph.lengths[lane])
 	r.built++
 	return r.lanes[lane]
@@ -439,58 +395,23 @@ func (r *envelopeReach) laneSpans(lane int) []reachSpan {
 
 // reachItem is a location and the positions of a lane at which an
 // envelope can hold it, from from to to. The bounds include the slack.
-// When the network sets ShapeClearance, to is the next float64 after the
-// last position of the item, so that the item holds that position (see
-// anchorItems). origin is the node of the origin of an item of nodeItems
-// when the network sets ShapeClearance, and -1 for each other item.
+// to is the next float64 after the last position of the item, so that the
+// item holds that position (see anchorItems). origin is the node of the
+// origin of an item of nodeItems, and -1 for each other item.
 type reachItem struct {
 	location int
 	from, to float64
 	origin   int
 }
 
-// laneItems appends the items of a lane to items, when the network does
-// not set ShapeClearance.
-func (g reachGraph) laneItems(walk *reachWalk, lane int, items []reachItem) []reachItem {
-	length := g.lengths[lane]
-	items = append(items, reachItem{location: lane, from: math.Inf(-1), to: math.Inf(1), origin: -1})
-	// Behind: a lane that ends a distance before the From node is in the
-	// envelope while the pod is within its tail of that end.
-	walk.run(g.from[lane], g.behind, g.in, g.from, g.lengths)
-	for _, node := range walk.reached {
-		distance := walk.distance[node]
-		for _, previous := range g.in[node] {
-			if to := g.tails[previous] - distance + envelopeReachSlack; to > 0 {
-				items = append(items, reachItem{location: previous, from: math.Inf(-1), to: to, origin: -1})
-			}
-		}
-		if len(g.berthsAt[node]) > 0 {
-			if to := g.originAt[node] - distance + envelopeReachSlack; to > 0 {
-				items = g.nodeItems(items, node, to)
-			}
-		}
-	}
-	// Ahead: a lane that starts a distance after the To node is in the
-	// envelope from the front bound before its start.
-	walk.run(g.to[lane], g.front, g.out, g.to, g.lengths)
-	for _, node := range walk.reached {
-		from := length + walk.distance[node] - g.front - envelopeReachSlack
-		for _, next := range g.out[node] {
-			items = append(items, reachItem{location: next, from: from, to: math.Inf(1), origin: -1})
-		}
-	}
-	return items
-}
-
-// inclusiveLimit returns the walk limit of a budget when the network sets
-// ShapeClearance: the walk reaches each node at budget plus the slack or
-// less.
+// inclusiveLimit returns the walk limit of a budget: the walk reaches each node
+// at budget plus the slack or less.
 func inclusiveLimit(budget float64) float64 {
 	return math.Nextafter(budget+envelopeReachSlack, math.Inf(1))
 }
 
 // anchorItems appends to items the items of the envelope of an anchor on a
-// lane A, when the network sets ShapeClearance. An item holds the
+// lane A. An item holds the
 // positions p of A, from 0 to the length of A, at which an anchor within
 // the slack u of p has the plane:
 //   - A, at each position.
@@ -608,12 +529,11 @@ func (g reachGraph) betweenLanes(marks []bool, near []reachVisit, between []int)
 	return between
 }
 
-// localItems returns the items of a lane L when the network sets
-// ShapeClearance. A pod at the published position p of L can have its
-// anchor at each position within the slack u of p along lanes, also on
-// the lanes before and after L, through any number of short lanes. The
-// items are the union of the envelopes of these anchors, each with the
-// anchor front and the distances of its own lane:
+// localItems returns the items of a lane L. A pod at the published position p
+// of L can have its anchor at each position within the slack u of p along
+// lanes, also on the lanes before and after L, through any number of short
+// lanes. The items are the union of the envelopes of these anchors, each with
+// the anchor front and the distances of its own lane:
 //   - The items of an anchor on L (see anchorItems).
 //   - For each lane A into a node at the walk distance d <= u behind the
 //     From node of L: while p <= u - d, each item of A along the paths
@@ -675,13 +595,9 @@ func (r *envelopeReach) neighborItems(items []reachItem, lo, hi, from, to float6
 }
 
 // nodeItems appends the berths and the lanes at a node, which the envelope
-// holds up to the position to. When the network sets ShapeClearance, the
-// node is their origin.
+// holds up to the position to. The node is their origin.
 func (g reachGraph) nodeItems(items []reachItem, node int, to float64) []reachItem {
-	origin := -1
-	if g.local {
-		origin = node
-	}
+	origin := node
 	for _, berth := range g.berthsAt[node] {
 		items = append(items, reachItem{location: berth, from: math.Inf(-1), to: to, origin: origin})
 	}
@@ -705,17 +621,15 @@ func (g reachGraph) nodeItems(items []reachItem, node int, to float64) []reachIt
 // of one array of location numbers, so the spans of a lane use storage in
 // proportion to the items, and not to the spans times the items.
 //
-// When the network sets ShapeClearance, an item holds the closed interval
-// from its start up to the float64 before its end. A bound at the length
-// of the lane is then a cut too, and the last span is the one position of
-// the length when an item starts there. Its window holds each item that
-// starts at the length or before.
+// An item holds the closed interval from its start up to the float64 before its
+// end. A bound at the length of the lane is then a cut too, and the last span
+// is the one position of the length when an item starts there. Its window holds
+// each item that starts at the length or before.
 func (r *envelopeReach) spans(items []reachItem, length float64) []reachSpan {
-	local := r.graph.local
 	cuts := []float64{0}
 	for _, item := range items {
 		for _, bound := range []float64{item.from, item.to} {
-			if bound > 0 && (bound < length || local && bound == length) {
+			if bound > 0 && bound <= length {
 				cuts = append(cuts, bound)
 			}
 		}
@@ -744,11 +658,9 @@ func (r *envelopeReach) spans(items []reachItem, length float64) []reachSpan {
 	spans := make([]reachSpan, 0, len(cuts))
 	lo, hi := 0, 0
 	for index, from := range cuts {
-		to, join := length, length
+		to, join := length, math.Nextafter(length, math.Inf(1))
 		if index+1 < len(cuts) {
 			to, join = cuts[index+1], cuts[index+1]
-		} else if local {
-			join = math.Nextafter(length, math.Inf(1))
 		}
 		// An item joins the window when it starts before join. An item
 		// that starts at -Inf leaves it when it ends at or before from.
@@ -885,16 +797,10 @@ type reachWalk struct {
 	queue            reachQueue
 }
 
-// run walks from start along the lanes of each node in lanes, to the node
+// runTo walks from start along the lanes of each node in lanes, to the node
 // that next gives for each lane. It reaches each node whose distance is
-// less than budget plus the slack.
-func (w *reachWalk) run(start int, budget float64, lanes [][]int, next []int, lengths []float64) {
-	w.runTo(start, budget+envelopeReachSlack, lanes, next, lengths)
-}
-
-// runTo is run with a limit in place of the budget: it reaches each node
-// whose distance is less than limit. The distance of a node is the least
-// sum of lane lengths along a walk to it, added from the start.
+// less than limit. The distance of a node is the least sum of lane lengths
+// along a walk to it, added from the start.
 func (w *reachWalk) runTo(start int, limit float64, lanes [][]int, next []int, lengths []float64) {
 	if len(w.distance) < len(lanes) {
 		w.distance, w.settled = make([]float64, len(lanes)), make([]bool, len(lanes))

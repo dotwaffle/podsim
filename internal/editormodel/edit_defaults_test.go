@@ -23,7 +23,7 @@ func TestEditorDefaultsSelectAnExistingPassengerDestination(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			draft := fleetDraft()
+			draft := stationsDraft(t)
 			maps.Copy(draft, editFixture())
 			demand := object(draft["demand"])
 			demand["destination"] = test.destination

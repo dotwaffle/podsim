@@ -125,7 +125,7 @@ func TestBankGeometryRefreshesNodePositions(t *testing.T) {
 	if err := n.ValidateBankGeometry(); err != nil {
 		t.Fatal(err)
 	}
-	n.Nodes[2].Position.Y, n.Nodes[3].Position.Y = 15, 15
+	n.Nodes[2].Position.Y, n.Nodes[3].Position.Y = 3, 3
 	const refusal = `nonincident paths "first" and "second" are less than 20 meters apart`
 	if err := n.ValidateBankGeometry(); err == nil || err.Error() != refusal {
 		t.Fatalf("edited geometry = %v, want %s", err, refusal)

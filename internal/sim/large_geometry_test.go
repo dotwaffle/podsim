@@ -91,14 +91,16 @@ func TestLargeGeometryNonincidentLaneAudit(t *testing.T) {
 		firstPlane, secondPlane string
 		valid                   bool
 	}{
-		{"old ordinary overlap", false, false, false, 1, "", "", true},
-		{"large first near", true, false, false, 15, "", "", false},
-		{"large second near", false, true, false, 15, "", "", false},
-		{"large vertical near", true, false, true, 15, "", "", false},
+		// The near lanes are closer than the side-by-side distance, so
+		// they are not a shape pair.
+		{"ordinary overlap", false, false, false, 1, "", "", false},
+		{"large first near", true, false, false, 3, "", "", false},
+		{"large second near", false, true, false, 3, "", "", false},
+		{"large vertical near", true, false, true, 3, "", "", false},
 		{"large boundary", true, true, false, 20, "", "", true},
 		{"large separate planes", true, false, false, 1, "upper", "lower", true},
-		{"large unknown plane", true, false, false, 15, "upper", "", false},
-		{"large same plane", true, false, false, 15, "upper", "upper", false},
+		{"large unknown plane", true, false, false, 3, "upper", "", false},
+		{"large same plane", true, false, false, 3, "upper", "upper", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -122,12 +124,15 @@ func TestLargeGeometryNonincidentLaneAudit(t *testing.T) {
 			}
 		})
 	}
-	// A small pair cannot end the X scan before a later large path is checked.
+	// A small pair cannot end the X scan before a later large path is
+	// checked. The large path is 15 m from the first path, so the scan
+	// makes them a shape pair.
 	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{Y: 100}}, {ID: "c", Position: Point{X: 13}}, {ID: "d", Position: Point{X: 13, Y: 100}}, {ID: "e", Position: Point{X: 15}}, {ID: "f", Position: Point{X: 15, Y: 100}}},
 		Lanes: []Lane{{ID: "first", From: "a", To: "b", SpeedLimit: 14}, {ID: "middle", From: "c", To: "d", SpeedLimit: 14}, {ID: "large", From: "e", To: "f", SpeedLimit: 14, VehicleClasses: largeGeometryClasses(t, "group")}}}
 	n.Lanes[1].SeparationGroup, n.Lanes[2].SeparationGroup = "upper", "lower"
-	if err := n.ValidateBankGeometry(); err == nil {
-		t.Fatal("X scan skipped a later large interaction")
+	table, err := shapeAudit(n, nil)
+	if _, ok := shapePair(n, table, "first", "large"); err != nil || !ok {
+		t.Fatalf("X scan skipped a later large interaction: audit %v, shape pair %v", err, ok)
 	}
 }
 
@@ -308,7 +313,9 @@ func TestLargeGeometryNeighborTails(t *testing.T) {
 			t.Fatalf("ordinary geometry gained a tail at %s", id)
 		}
 	}
-	curve := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{Y: 35}}, {ID: "d", Position: Point{X: 100, Y: 35}}},
+	// The top of the curve is 2 m from the neighbor, closer than the
+	// side-by-side distance.
+	curve := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{Y: 22}}, {ID: "d", Position: Point{X: 100, Y: 22}}},
 		Lanes: []Lane{{ID: "curve", From: "a", To: "b", SpeedLimit: 14, Control: &Point{X: 50, Y: 40}, VehicleClasses: largeGeometryClasses(t, "group")}, {ID: "neighbor", From: "c", To: "d", SpeedLimit: 14}}}
 	if _, err := PrepareNetwork(curve); err == nil {
 		t.Fatal("curved nonincident large path escaped the audit")

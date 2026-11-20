@@ -565,7 +565,7 @@ func (d *diskStudy) envelope(route []int, at int, position float64, kind diskStu
 	d.s.setVehicleRoute(v, lanes)
 	v.distance = v.blocks.lanes[at].start + position
 	v.originReleased = true
-	return d.s.appendVehicleSafetyLocations(nil, v, v.distance)
+	return d.s.appendVehicleSafetyLocations(nil, v)
 }
 
 // holds reports whether an envelope holds the plane of a location.
@@ -1147,7 +1147,7 @@ func TestEnvelopeDiskStudy(t *testing.T) {
 		for _, key := range keys {
 			t.Logf("%s %s: %d", name, key, result.counts.classes[key])
 		}
-		t.Logf("%s: front bound of the network %.2f m, large lanes under 40 m %d", name, reachFront(sharedTrackFronts(d.s.network, d.tails, false)), len(shortStudyLanes(n)))
+		t.Logf("%s: front bound of the network %.2f m, large lanes under 40 m %d", name, sharedNetworkFront(sharedTrackFronts(d.s.network, d.tails, false)), len(shortStudyLanes(n)))
 		tests := make([]string, 0, len(result.nearest))
 		for test := range result.nearest {
 			tests = append(tests, test)

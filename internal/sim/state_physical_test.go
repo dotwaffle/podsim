@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"math"
 	"reflect"
 	"slices"
 	"strings"
@@ -543,36 +542,48 @@ func TestRidersAtOrigin(t *testing.T) {
 	}
 }
 
+// movedBerthFleet returns a newFleet function for restorePhysical that
+// moves the node of a berth of a fixture after preparation. No valid
+// network has a berth closer than the clearance to a path that shares no
+// node with it, because the bank audit refuses it.
+func movedBerthFleet(f restoreFixture, berth string, at Point) func() (*Simulation, error) {
+	return func() (*Simulation, error) {
+		s, err := NewFleet(f.network, f.fleet)
+		if err != nil {
+			return nil, err
+		}
+		node := ""
+		for _, station := range s.network.Stations {
+			for _, candidate := range station.Berths {
+				if candidate.ID == berth {
+					node = candidate.Node
+				}
+			}
+		}
+		s.network.Nodes = slices.Clone(s.network.Nodes)
+		s.network.Nodes[slices.IndexFunc(s.network.Nodes, func(n Node) bool { return n.ID == node })].Position = at
+		return s, nil
+	}
+}
+
+// TestRestoreSeparatesTravelingPods checks that the physical restore
+// demotes a traveling pod that is closer than the clearance to another pod
+// on a path that shares no resource with it. The node of berth parking-2
+// moves 6 m east of pod 05 on lane bypass-in, and pod 04 is at that berth.
 func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	t.Parallel()
-	// Move the bypass node next to the second parking berth. The lanes to the
-	// two nodes then share no resource.
-	network := Example()
-	network.Nodes[slices.IndexFunc(network.Nodes, func(node Node) bool { return node.ID == "bypass" })].Position = Point{480, 372}
-	f := newRestoreFixture(t, network)
-	parker := relocating(f.traveling(t, travelInput{id: "03", from: "market-1", to: "parking-2", lane: "parking-in-2", distance: 164}))
+	f := newRestoreFixture(t, Example())
 	bypass := f.carrying(t, f.traveling(t, travelInput{id: "05", from: "harbor-1", to: "market-1", lane: "bypass-in", distance: 207}), 1, 1)
-	idle := []SavedPod{f.idle(t, "01", "garden-1"), f.idle(t, "02", "market-1"), f.idle(t, "04", "parking-1")}
-	// Restore each pod with the other pod at Harbor to find the resources and
-	// the position that it needs.
-	alone := make(map[string]*Simulation)
-	for _, pods := range [][2]SavedPod{{parker, f.idle(t, "05", "harbor-1")}, {bypass, f.idle(t, "03", "harbor-1")}} {
-		s, result, err := f.restore(f.state(append(slices.Clone(idle), pods[:]...)...))
-		if err != nil || len(result.Demoted) > 0 {
-			t.Fatalf("restore pod %s alone: %v, %+v", pods[0].ID, err, result)
-		}
-		alone[pods[0].ID] = s
+	// Berth harbor-1 is free, so the restore can demote pod 05 to its
+	// origin.
+	state := f.state(f.idle(t, "01", "garden-1"), f.idle(t, "02", "market-1"), bypass)
+	alone, result, err := f.restore(state)
+	if err != nil || len(result.Demoted) > 0 {
+		t.Fatalf("restore without the move: %v, %+v", err, result)
 	}
-	for r, owner := range alone["03"].owners {
-		if owner == podResourceOwner("03") && alone["05"].owners[r] == podResourceOwner("05") {
-			t.Fatalf("pods 03 and 05 both need %+v", r)
-		}
-	}
-	first, second := findVehicle(t, alone["03"], "03").Pod.Position, findVehicle(t, alone["05"], "05").Pod.Position
-	if gap := math.Hypot(first.X-second.X, first.Y-second.Y); gap >= Clearance {
-		t.Fatalf("the pods are %v meters apart", gap)
-	}
-	s, result, err := f.restore(f.state(append(slices.Clone(idle), parker, bypass)...))
+	at := findVehicle(t, alone, "05").Pod.Position
+	at.X += 6
+	s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}, movedBerthFleet(f, "parking-2", at))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -580,8 +591,8 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 		t.Fatalf("demoted %v, want [05]", result.Demoted)
 	}
 	checkAtBerth(t, s, "05", Boarding, "harbor-1")
-	if v := findVehicle(t, s, "03"); v.Pod.Activity != Traveling || v.Pod.LaneID != "parking-in-2" {
-		t.Fatalf("pod 03 is %q on %q", v.Pod.Activity, v.Pod.LaneID)
+	if v := findVehicle(t, s, "04"); v.Pod.BerthID != "parking-2" || v.Pod.Position != at {
+		t.Fatalf("pod 04 is at %q, %v", v.Pod.BerthID, v.Pod.Position)
 	}
 }
 
@@ -865,10 +876,15 @@ func TestRestoreDropsInvalidTrips(t *testing.T) {
 func TestRestoreFailsForInvalidState(t *testing.T) {
 	t.Parallel()
 	example := newRestoreFixture(t, Example())
-	// Move the second parking berth within Clearance of the first.
-	near := Example()
-	near.Nodes[slices.IndexFunc(near.Nodes, func(node Node) bool { return node.ID == "parking-berth-2" })].Position = Point{480, 412}
-	crowded := newRestoreFixture(t, near)
+	// Move the second parking berth within Clearance of the first, after
+	// preparation.
+	t.Run("two pods at berths within clearance", func(t *testing.T) {
+		t.Parallel()
+		_, _, err := restorePhysical(RestoreStateInput{Network: example.network, Fleet: example.fleet, State: example.state()}, movedBerthFleet(example, "parking-2", Point{480, 412}))
+		if want := "check the restored pods at berths: tick 600: pods 03 and 04 are 8.00000 meters apart"; err == nil || err.Error() != want {
+			t.Fatalf("error %v, want %q", err, want)
+		}
+	})
 	// Pod 01 has just left Harbor and claims the second parking berth. With
 	// the other berths taken, the demoted pod 04 finds no berth.
 	departing := relocating(example.traveling(t, travelInput{id: "01", from: "harbor-1", to: "parking-2", lane: "harbor-out", distance: 5}))
@@ -901,7 +917,6 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 			name: "two pods at one berth", fixture: example, want: "are at berth", logical: true,
 			edit: func(state *SavedState) { state.Pods[0] = example.idle(t, "01", "garden-1") },
 		},
-		{name: "two pods at berths within clearance", fixture: crowded, edit: func(*SavedState) {}, want: "restored pods at berths"},
 		{
 			name: "unknown berth", fixture: example, want: "unknown berth", logical: true,
 			edit: func(state *SavedState) { state.Pods[2].BerthID = "parking-9" },

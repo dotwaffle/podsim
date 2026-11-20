@@ -454,7 +454,7 @@ func TestPlatoonForkRules(t *testing.T) {
 			linked, released := false, false
 			for range 900 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				monitor.check(t)
 				follower := &s.vehicles[1]
 				if follower.link.leader != 0 {
@@ -555,7 +555,7 @@ func TestPlatoonOffEndsLinks(t *testing.T) {
 			links = s.platoonLinks
 		}
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		monitor.check(t)
 		if tick >= 10*TicksPerSecond {
 			if s.platoonLinks > links {
@@ -661,7 +661,7 @@ func TestPlatoonRestore(t *testing.T) {
 	monitor := newPlatoonMonitor(restored)
 	for range 60 * TicksPerSecond {
 		restored.Step()
-		checkTraffic(t, restored.Snapshot())
+		checkTraffic(t, restored)
 		monitor.check(t)
 	}
 	unlinked := s.ExportState()
@@ -1024,7 +1024,7 @@ func TestPlatoonFollowerStaysBehind(t *testing.T) {
 			monitor := newPlatoonMonitor(s)
 			for range 900 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				monitor.check(t)
 				if s.completed == len(test.pods) {
 					return
@@ -1067,7 +1067,7 @@ func TestPlatoonRestoreBeforeATurn(t *testing.T) {
 	monitor := newPlatoonMonitor(s)
 	for range TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		monitor.check(t)
 	}
 	if follower.link.leader != 2 || follower.Pod.LaneID != "exit" {
@@ -1217,7 +1217,7 @@ func TestPlatoonBraking(t *testing.T) {
 		speed := leader.Pod.Speed
 		s.Step()
 		braking = max(braking, speed-leader.Pod.Speed)
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		monitor.check(t)
 		if tick == 3*TicksPerSecond && follower.link.leader != 1 {
 			t.Fatal("the follower did not link")
@@ -1264,7 +1264,7 @@ func TestPlatoonLongJunctionRun(t *testing.T) {
 	monitor := newPlatoonMonitor(s)
 	for tick := range 120 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		monitor.check(t)
 		if tick%10 == 0 {
 			roundTripUsing(t, roundTripUsing(t, s, restore), restore)

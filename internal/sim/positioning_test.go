@@ -894,7 +894,7 @@ func stepWithoutBumps(t *testing.T, s *Simulation, done func() bool) {
 		}
 		idle := idleSet(s)
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		for id := range idle {
 			if v := s.findVehicle(id); v.Pod.Activity != Idle && !s.assigned(id) {
 				t.Fatalf("tick %d: idle pod %s was bumped: %+v", s.tick, id, v.Vehicle)
@@ -1088,7 +1088,7 @@ func TestGuardedInvariants(t *testing.T) {
 			t.Fatalf("tick %d: %d moves for %d boardings", s.tick, s.rebalanceMoves, s.boarded)
 		}
 		claims := checkNewClaimsLeaveABerth(t, s, before, scratch.after)
-		checkTraffic(t, s.snapshot(false))
+		checkTraffic(t, s)
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}

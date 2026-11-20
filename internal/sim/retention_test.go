@@ -285,11 +285,12 @@ func TestRetentionBankAuditByPosition(t *testing.T) {
 	if err := depotChainNetwork(true, 7, true).ValidateBankGeometry(); err == nil || !strings.Contains(err.Error(), "are less than 12 meters apart") {
 		t.Fatalf("parallel slot berths: %v", err)
 	}
-	// Two parallel chains share no window, so their pairs keep Clearance.
+	// Two parallel chains share no window. At 11.9 m, their lanes are shape
+	// pairs. At 7 m, the audit refuses their through lanes.
 	for _, test := range []struct {
 		offset float64
 		refuse bool
-	}{{7, true}, {11.9, true}, {12.5, false}} {
+	}{{7, true}, {11.9, false}, {12.5, false}} {
 		_, err := PrepareNetwork(depotChainNetwork(true, test.offset, false))
 		if refused := err != nil && strings.Contains(err.Error(), "are less than 12 meters apart"); refused != test.refuse {
 			t.Fatalf("parallel chains %g m apart: %v", test.offset, err)
@@ -415,7 +416,8 @@ func corridorRestore(t *testing.T, network Network, pods []corridorPod) RestoreR
 // exit lane. Two pods on one chain, 9.5 m apart across a cell boundary,
 // restore in place: the retention releases the cell at its end plus 8.5 m,
 // and the observation certifies them. Two pods on parallel chains 7 m apart
-// share no window, so the later ID is demoted.
+// share no window, but their lanes are a shape pair, so both restore in
+// place.
 func TestRetentionRestoreAgreement(t *testing.T) {
 	t.Parallel()
 	network := setSpeed(mergeCorridor(false, 0), 2.5, "exit")
@@ -454,7 +456,7 @@ func TestRetentionRestoreAgreement(t *testing.T) {
 		{route: route, station: "dest", distance: 100},
 		{route: []string{"other-exit", "other-approach"}, station: "dest", distance: 100},
 	})
-	if len(result.Demoted) != 1 || result.Demoted[0] != "p02" {
+	if len(result.Demoted) != 0 {
 		t.Fatalf("parallel chains: %+v", result)
 	}
 }

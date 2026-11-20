@@ -130,7 +130,7 @@ func TestCompetingArrivalsCompleteOnSeparateTerminalBranches(t *testing.T) {
 	for range 240 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Completed == 2 {
 			break
 		}
@@ -350,7 +350,7 @@ func TestBerthChoiceOnShortFinalLane(t *testing.T) {
 			v := &s.vehicles[0]
 			for range 60 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				checkIncrementalOwners(t, s)
 				if v.Pod.Activity != Traveling {
 					break

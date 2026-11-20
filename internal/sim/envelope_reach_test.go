@@ -162,8 +162,8 @@ func (p *envelopeReachProbe) positions(v *vehicle, at int) []float64 {
 	}
 	for index := range v.Route {
 		positions = append(positions, blocks[index+1].start+max(largeClearance, blocks[index].cells.tail)-start, blocks[index].start-front-start)
-		// The local front of a network with ShapeClearance is one of the
-		// front bounds of the route.
+		// The local front of a lane is one of the front bounds of the
+		// route.
 		for _, local := range fronts {
 			positions = append(positions, blocks[index].start-local-start)
 		}
@@ -181,10 +181,9 @@ func (p *envelopeReachProbe) positions(v *vehicle, at int) []float64 {
 
 // check drives a large pod on a route, at each position of the lane at a
 // route index, and requires each plane of its envelope in the reach. After
-// a restore, the route distance and the published position can each
-// differ by up to two restoreTolerance steps, so it checks each shift of
-// both. Without ShapeClearance, the envelope reads the route distance, and
-// with it, the published position.
+// a restore, the published position can differ by up to two
+// restoreTolerance steps, so it checks each shift of it. The envelope reads
+// the published position.
 func (p *envelopeReachProbe) check(t *testing.T, route []int, at int) {
 	t.Helper()
 	lanes := make([]Lane, len(route))
@@ -198,21 +197,19 @@ func (p *envelopeReachProbe) check(t *testing.T, route []int, at int) {
 	for _, position := range p.positions(v, at) {
 		v.distance = v.blocks.lanes[at].start + position
 		v.originReleased = v.origin.ID == "" || v.distance >= v.originTail()
-		for _, moved := range shifts {
-			for _, shift := range shifts {
-				published := min(p.lengths[route[at]], max(0, position+shift))
-				v.Pod.LaneDistance = published
-				got := p.s.appendVehicleSafetyLocations(nil, v, v.distance+moved)
-				held := p.spanLocations(p.reach.laneAt(route[at], published))
-				for _, location := range got {
-					if !slices.Contains(held, location) {
-						p.fail(t, fmt.Sprintf("lane %q at %g m (route distance moved %g m, published %g m), origin released %v, route %s: plane %+v is not in the reach %s", lanes[at].ID, position, moved, published, v.originReleased, strings.Join(routeIDs(lanes), " "), location, planesText(held)))
-						return
-					}
+		for _, shift := range shifts {
+			published := min(p.lengths[route[at]], max(0, position+shift))
+			v.Pod.LaneDistance = published
+			got := p.s.appendVehicleSafetyLocations(nil, v)
+			held := p.spanLocations(p.reach.laneAt(route[at], published))
+			for _, location := range got {
+				if !slices.Contains(held, location) {
+					p.fail(t, fmt.Sprintf("lane %q at %g m (published %g m), origin released %v, route %s: plane %+v is not in the reach %s", lanes[at].ID, position, published, v.originReleased, strings.Join(routeIDs(lanes), " "), location, planesText(held)))
+					return
 				}
-				if shift == 0 && moved == 0 {
-					p.count(len(held) - len(got))
-				}
+			}
+			if shift == 0 {
+				p.count(len(held) - len(got))
 			}
 		}
 	}
@@ -293,7 +290,7 @@ func (p *envelopeReachProbe) checkBerths(t *testing.T) {
 	for _, station := range p.s.network.Stations {
 		for _, berth := range station.Berths {
 			v := &vehicle{Pod: Pod{ID: "probe", Class: GroupClass, Activity: Idle, StationID: station.ID, BerthID: berth.ID}}
-			got := p.s.appendVehicleSafetyLocations(nil, v, 0)
+			got := p.s.appendVehicleSafetyLocations(nil, v)
 			held := p.spanLocations(&p.reach.berths[index])
 			for _, location := range got {
 				if !slices.Contains(held, location) {
@@ -425,13 +422,7 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 		}
 		cases[name] = c
 	}
-	// With ShapeClearance, the oracle takes the local front and the
-	// small-pod rules, and the index the reach bound of each lane.
-	for name, c := range maps.Clone(cases) {
-		c.network = withShapeClearance(c.network, true)
-		cases[name+", shapeClearance"] = c
-	}
-	// The shared-track preset sets ShapeClearance (row SX3).
+	// The shared-track preset (row SX3).
 	cases["london-full-shared-express"] = envelopeReachCase{network: sharedExpressNetwork(t), lanes: sampled, routes: 12}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -490,13 +481,17 @@ type eagerReachSpan struct {
 }
 
 // eagerReachSpans is reachSpans before the spans of a lane shared one
-// array (commit 29af1248), with the plane test of reachPart. It is the
-// reference of TestEnvelopeReachLazySpans.
-func eagerReachSpans(items []reachItem, length float64, locations []SafetyLocation, members *eagerReachMembers) []eagerReachSpan {
+// array (commit 29af1248), with the plane test of reachPart, and with the
+// bounds of the envelope of each network: an item holds the closed
+// interval from its start up to the float64 before its end, and two spans
+// next to each other with the same keys become one. key gives the key of
+// an item, and closure adds the lanes of rule 2 to the locations of a
+// span. It is the reference of TestEnvelopeReachLazySpans.
+func eagerReachSpans(items []reachItem, length float64, locations []SafetyLocation, members *eagerReachMembers, key func(reachItem) int, closure func([]int) []int) []eagerReachSpan {
 	cuts := []float64{0}
 	for _, item := range items {
 		for _, bound := range []float64{item.from, item.to} {
-			if bound > 0 && bound < length {
+			if bound > 0 && bound <= length {
 				cuts = append(cuts, bound)
 			}
 		}
@@ -504,24 +499,29 @@ func eagerReachSpans(items []reachItem, length float64, locations []SafetyLocati
 	slices.Sort(cuts)
 	cuts = slices.Compact(cuts)
 	spans := make([]eagerReachSpan, 0, len(cuts))
+	var last []int
 	for index, from := range cuts {
-		to := length
+		to, join := length, math.Nextafter(length, math.Inf(1))
 		if index+1 < len(cuts) {
-			to = cuts[index+1]
+			to, join = cuts[index+1], cuts[index+1]
 		}
-		var numbers []int
+		var numbers, keys []int
 		for _, item := range items {
-			if item.from < to && item.to > from {
-				numbers = append(numbers, item.location)
+			if item.from < join && item.to > from {
+				numbers, keys = append(numbers, item.location), append(keys, key(item))
 			}
 		}
 		slices.Sort(numbers)
 		numbers = slices.Clip(slices.Compact(numbers))
-		if last := len(spans) - 1; last >= 0 && slices.Equal(spans[last].locations, numbers) {
-			spans[last].to = to
+		slices.Sort(keys)
+		keys = slices.Compact(keys)
+		if len(spans) > 0 && slices.Equal(last, keys) {
+			spans[len(spans)-1].to = to
 			continue
 		}
-		spans = append(spans, eagerReachSpan{from: from, to: to, locations: numbers, part: members.part(numbers, locations)})
+		last = keys
+		closed := slices.Compact(slices.Sorted(slices.Values(closure(numbers))))
+		spans = append(spans, eagerReachSpan{from: from, to: to, locations: numbers, part: members.part(closed, locations)})
 	}
 	return spans
 }
@@ -630,8 +630,11 @@ func TestEnvelopeReachLazySpans(t *testing.T) {
 				}
 				lanes = kept
 			}
-			// The eager build of commit 29af1248, in lane order.
-			g := newReachGraph(network, tails)
+			// The eager build of commit 29af1248, in lane order, on a
+			// second index.
+			eager := newEnvelopeReach(network, tails)
+			g := eager.graph
+			closure := func(numbers []int) []int { return slices.Clone(eager.closure(numbers)) }
 			var locations []SafetyLocation
 			for _, lane := range network.Lanes {
 				locations = append(locations, SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To})
@@ -642,17 +645,16 @@ func TestEnvelopeReachLazySpans(t *testing.T) {
 				}
 			}
 			members := &eagerReachMembers{numbers: make(map[reachMember]int)}
-			var walk reachWalk
 			var items []reachItem
 			want := make(map[int][]eagerReachSpan, len(lanes))
 			for _, lane := range lanes {
-				items = g.laneItems(&walk, lane, items[:0])
-				want[lane] = eagerReachSpans(items, g.lengths[lane], locations, members)
+				items = slices.Clone(eager.localItems(lane))
+				want[lane] = eagerReachSpans(items, g.lengths[lane], locations, members, eager.key, closure)
 			}
 			var wantBerths []eagerReachSpan
 			for _, node := range g.berthNode {
 				items = g.nodeItems(items[:0], node, math.Inf(1))
-				wantBerths = append(wantBerths, eagerReachSpans(items, 0, locations, members)...)
+				wantBerths = append(wantBerths, eagerReachSpans(items, 0, locations, members, eager.key, closure)...)
 			}
 			for _, spans := range want {
 				for index := range spans {
@@ -688,7 +690,7 @@ func TestEnvelopeReachLazySpans(t *testing.T) {
 						t.Fatalf("%s span %d: [%g, %g) locations %v blank %v, want [%g, %g) locations %v blank %v", what, index, g.from, g.to, locations, g.planes.blank, w.from, w.to, w.locations, w.part.blank)
 					}
 					var planes []int
-					for _, number := range locations {
+					for _, number := range reach.closure(locations) {
 						planes = append(planes, reach.members.of[number]...)
 					}
 					slices.Sort(planes)

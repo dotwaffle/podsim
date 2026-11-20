@@ -87,10 +87,11 @@ func TestPresetWithCapacity(t *testing.T) {
 		{
 			// A 7th berth row at the 75-meter pitch puts the departure chain
 			// of Station 19 within the clearance of the arrival chain of
-			// Station 13.
+			// Station 13. The bank audit of the project refuses the pair
+			// before the layout audit.
 			name: "Station 19 with 7 berths", preset: "scale100",
 			change: func(parameters *Parameters) { parameters.StationBerths = map[string]int{"station-19": 7} },
-			err:    `Station 19 lane "s19-departure-link-07"`,
+			err:    `validate scale scenario: invalid project scenario: nonincident paths "s13-arrival-link-06" and "s19-departure-link-07" are less than 12 meters apart`,
 		},
 		{
 			// 68 meters is the largest pitch, in steps of 0.5 meters, that
@@ -106,11 +107,12 @@ func TestPresetWithCapacity(t *testing.T) {
 			change: func(parameters *Parameters) {
 				parameters.StationBerths, parameters.BerthPitch = map[string]int{"station-19": 8}, 68.5
 			},
-			err: `Station 19 lane "s19-departure-link-08"`,
+			err: `validate scale scenario: invalid project scenario: nonincident paths "s13-in-06" and "station-19-08" are less than 12 meters apart`,
 		},
 		{
 			// The curves of these lanes are 12.3 meters apart as 12 parts,
-			// but 7.5 meters apart on the 64-part paths of the pods.
+			// but 7.5 meters apart on the 64-part paths of the pods. The
+			// project is valid, so only the layout audit refuses it.
 			name: "curves nearer on the pod paths", preset: "busy",
 			change: func(parameters *Parameters) {
 				parameters.StationBerths = map[string]int{"station-01": 30, "station-02": 30}

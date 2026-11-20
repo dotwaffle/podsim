@@ -208,7 +208,7 @@ func indexLaneCells(input laneCellsIndexInput) map[string]*laneCells {
 			continue
 		}
 		retention, length := input.retention.of(lane.ID), indexedLaneLength(lane, positions[lane.From], positions[lane.To])
-		front := envelopeFront(lane, tails[lane.ID], network.ShapeClearance, func() []Point {
+		front := envelopeFront(lane, tails[lane.ID], func() []Point {
 			return lanePointsBetween(lane, positions[lane.From], positions[lane.To], make([]Point, 0, 65))
 		})
 		cells[lane.ID] = newLaneCells(laneCellsInput{
@@ -494,7 +494,7 @@ func (s *Simulation) routeBlocks(route []Lane) (blockList, []float64) {
 			if fallbackTails == nil {
 				fallbackTails = indexGeometryTails(s.network)
 			}
-			front := envelopeFront(lane, fallbackTails[lane.ID], s.network.ShapeClearance, func() []Point {
+			front := envelopeFront(lane, fallbackTails[lane.ID], func() []Point {
 				if positions == nil {
 					positions = indexNodePositions(s.network.Nodes)
 				}

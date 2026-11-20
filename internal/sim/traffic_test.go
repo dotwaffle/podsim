@@ -298,19 +298,23 @@ func checkIncrementalOwners(t *testing.T, s *Simulation) {
 	}
 }
 
-// checkTraffic measures visible positions, independently of controller ownership.
-func checkTraffic(t *testing.T, state Snapshot) {
+// checkTraffic checks the visible state of a simulation, independently of
+// controller ownership: finite positions, speeds, and berth use. It checks
+// the separation of the pods with Check, and the bodies of the pods of
+// each merge, split, and shape pair with the oriented body oracle (D6).
+func checkTraffic(t *testing.T, s *Simulation) {
 	t.Helper()
-	for i, a := range state.Vehicles {
+	state := s.snapshot(false)
+	for _, a := range state.Vehicles {
 		if !finite(a.Pod.Position.X) || !finite(a.Pod.Position.Y) || a.Pod.Speed < 0 || a.Pod.Speed > 14 {
 			t.Fatalf("invalid pod at tick %d: %+v", state.Tick, a.Pod)
 		}
-		for _, b := range state.Vehicles[i+1:] {
-			gap := math.Hypot(a.Pod.Position.X-b.Pod.Position.X, a.Pod.Position.Y-b.Pod.Position.Y)
-			if gap < Clearance-1e-6 {
-				t.Fatalf("tick %d: pods %s and %s only %.5fm apart: %+v %+v", state.Tick, a.Pod.ID, b.Pod.ID, gap, a.Pod, b.Pod)
-			}
-		}
+	}
+	if _, err := s.SafetyObservation().Check(); err != nil {
+		t.Fatalf("tick %d: %v", state.Tick, err)
+	}
+	if err := s.lateralBodyCheck(); err != nil {
+		t.Fatalf("tick %d: %v", state.Tick, err)
 	}
 	for _, b := range state.Berths {
 		occupants := 0
@@ -341,7 +345,7 @@ func TestTrafficDemoSafetyAndProgress(t *testing.T) {
 	for range 900 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		checkIncrementalOwners(t, s)
 		for _, v := range state.Vehicles {
 			if v.Pod.WaitReason != NoWait {
@@ -392,7 +396,7 @@ func TestFullBerthWaitAndClearance(t *testing.T) {
 	blockPassengerClearingRoutes(s)
 	advance(s, 180*TicksPerSecond)
 	state := s.Snapshot()
-	checkTraffic(t, state)
+	checkTraffic(t, s)
 	waiting := state.Vehicles[0].Pod
 	if waiting.WaitReason != ParkingUnavailable || waiting.Speed > 0.01 || waiting.LaneID != "market-in" || waiting.BerthID != "" ||
 		waiting.StationPhase != AccessingBerth || waiting.ManeuverStationID != "market" {
@@ -408,7 +412,7 @@ func TestFullBerthWaitAndClearance(t *testing.T) {
 	for range 360 * TicksPerSecond {
 		s.Step()
 		state = s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Completed == 2 {
 			break
 		}
@@ -526,7 +530,7 @@ func TestQueueBehindStoppedPod(t *testing.T) {
 	for range 240 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		for _, v := range state.Vehicles {
 			if v.Pod.WaitReason == TrackOccupied {
 				followed = true
@@ -586,7 +590,7 @@ func checkThroughTraffic(t *testing.T, network Network) {
 	for range 360 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if state.Vehicles[2].Pod.LaneID == "market-through" {
 			passed = true
 		}

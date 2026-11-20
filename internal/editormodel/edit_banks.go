@@ -117,8 +117,8 @@ func (d *serverDraft) validate() error {
 		return nil
 	}
 	// A draft with banks keeps the bank audit below, which audits each
-	// pair when the draft sets shapeClearance.
-	if hasShapeClearance(network) && !hasBanks(network) {
+	// pair.
+	if !hasBanks(network) {
 		if err := d.check.Err(); err != nil {
 			return fmt.Errorf("validate shape clearance: %w", err)
 		}
@@ -246,7 +246,7 @@ func (g geometryDraft) addBankBerth(stationID, bankID string) error {
 	if len(rows) == 0 {
 		return errors.New("bank berth growth requires a berth chain")
 	}
-	if _, err := g.addChainBerth(selected, rows); err != nil {
+	if err := g.addChainBerth(selected, rows); err != nil {
 		return err
 	}
 	berths := items(selected["berths"])

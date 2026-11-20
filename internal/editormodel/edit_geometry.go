@@ -72,8 +72,7 @@ func editGeometryKept(draft any, raw jsontext.Value, kept *editKept) (projectCha
 	}
 	change := projectChange{Patch: make(map[string]any)}
 	geometry := geometryDraft{network: object(cloneEditValue(original)), draft: draft, patch: change.Patch, kept: kept}
-	var held *heldConflictError
-	if err := geometry.change(command); err != nil && !errors.As(err, &held) {
+	if err := geometry.change(command); err != nil {
 		return projectChange{}, err
 	}
 	for key, limit := range map[string]int{"nodes": project.MaxNodes, "lanes": project.MaxLanes, "stations": project.MaxStations} {
@@ -81,12 +80,8 @@ func editGeometryKept(draft any, raw jsontext.Value, kept *editKept) (projectCha
 			return projectChange{}, fmt.Errorf("the edit exceeds the %s count limit", key)
 		}
 	}
-	var planeReach *sim.PlaneReachError
-	if err := geometry.serverChecks(original); err != nil && (held == nil || !errors.As(err, &planeReach)) {
+	if err := geometry.serverChecks(original); err != nil {
 		return projectChange{}, err
-	}
-	if held != nil {
-		return projectChange{}, held
 	}
 	if !reflect.DeepEqual(original, geometry.network) {
 		change.Patch["network"] = geometry.network
@@ -94,24 +89,20 @@ func editGeometryKept(draft any, raw jsontext.Value, kept *editKept) (projectCha
 	return change, nil
 }
 
-// serverChecks runs the server checks of an edit of a draft with banks,
-// large geometry, maneuver groups, depots or shape clearance. The lane
-// checks and the server validation share one decode of the edited network.
+// serverChecks runs the server checks of an edit of a draft. The server
+// audits each pair of lanes, so the editor uses its network check for the
+// lane gaps. The lane checks and the server validation share one decode of
+// the edited network.
 func (g geometryDraft) serverChecks(original map[string]any) error {
 	server := &serverDraft{network: g.network}
-	if hasBanks(original) || hasBanks(g.network) || hasLargeGeometry(original) || hasLargeGeometry(g.network) || hasManeuverGroups(original) || hasManeuverGroups(g.network) || hasDepots(original) || hasDepots(g.network) || hasShapeClearance(original) || hasShapeClearance(g.network) {
-		if err := g.validateBankChanges(original, server); err != nil {
-			return err
-		}
-	}
-	if hasBanks(g.network) || hasLargeGeometry(g.network) || hasManeuverGroups(g.network) || hasDepots(g.network) || hasShapeClearance(g.network) {
-		err := server.validate()
-		if g.kept != nil && server.check != nil {
-			g.kept.edited = &keptNetwork{clearance: draftClearance{index: server.clearance, grouped: draftManeuverLanes(g.network)}, typed: server.typed, check: server.check}
-		}
+	if err := g.validateBankChanges(original, server); err != nil {
 		return err
 	}
-	return nil
+	err := server.validate()
+	if g.kept != nil && server.check != nil {
+		g.kept.edited = &keptNetwork{clearance: draftClearance{index: server.clearance, grouped: draftManeuverLanes(g.network)}, typed: server.typed, check: server.check}
+	}
+	return err
 }
 
 // originalClearance returns the clearance index of the network before the

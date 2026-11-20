@@ -27,13 +27,11 @@ type bankAudit struct {
 	certified certifiedPairs
 	depots    *depotIndex
 	lateral   *depotLateral
-	// tails is the tail index of the network. Only a network that sets
-	// ShapeClearance and has a large path reads it, for the envelope
-	// reach.
+	// tails is the tail index of the network. Only a network with a large
+	// path reads it, for the envelope reach.
 	tails map[string]geometryTails
 	// reach, envelope, and shapes are set by the audit: the whole-lane plane
-	// reach, the envelope reach of a network that sets ShapeClearance, and
-	// its shape pairs (see shapePairs).
+	// reach, the envelope reach, and the shape pairs (see shapePairs).
 	reach    *lazyPlaneReach
 	envelope *lazyEnvelopeReach
 	shapes   *depotLateral
@@ -43,8 +41,8 @@ type bankAudit struct {
 	certifier *shapeCertifier
 }
 
-// ValidateBankGeometry audits nonincident paths affected by banks, large
-// classes, maneuver groups or depots. Shared endpoints remain subject to
+// ValidateBankGeometry audits each pair of nonincident paths of the
+// network (see auditBankGeometry). Shared endpoints remain subject to
 // ordinary junction resource control.
 func (n Network) ValidateBankGeometry() error {
 	audit, err := n.newBankAudit()
@@ -54,9 +52,9 @@ func (n Network) ValidateBankGeometry() error {
 	return n.validateBankGeometry(audit)
 }
 
-// BankGeometryShapePairs is ValidateBankGeometry that also returns the
-// number of shape pairs of a network that sets ShapeClearance (see
-// shapePairs). The count is zero when the audit returns an error.
+// BankGeometryShapePairs is ValidateBankGeometry that also returns the number
+// of shape pairs of the network (see shapePairs). The count is zero when the
+// audit returns an error.
 func (n Network) BankGeometryShapePairs() (int, error) {
 	audit, err := n.newBankAudit()
 	if err != nil {
@@ -73,12 +71,9 @@ func (n Network) BankGeometryShapePairs() (int, error) {
 // reads.
 func (n Network) newBankAudit() (bankAudit, error) {
 	var audit bankAudit
-	var tails map[string]geometryTails
-	if n.ShapeClearance || n.hasStationBanks() || len(n.ManeuverGroups) > 0 || len(n.Depots) > 0 {
-		tails = indexGeometryTails(n)
-		audit.retention = newLaneRetention(n, tails)
-		audit.tails = tails
-	}
+	tails := indexGeometryTails(n)
+	audit.retention = newLaneRetention(n, tails)
+	audit.tails = tails
 	if len(n.Depots) > 0 {
 		nodes, err := n.validateNodes()
 		if err != nil {
@@ -112,35 +107,26 @@ func (n Network) validateBankGeometry(audit bankAudit) error {
 }
 
 // auditBankGeometry is ValidateBankGeometry with the indexes of the
-// network. It returns the shape pairs of a network that sets
-// ShapeClearance (see shapePairs). Each pair of positions needs the
-// clearance that pairPieces gives, so a piece that the safety observation
-// certifies needs less than Clearance. With a maneuver group, the audit
-// checks each pair, as with banks. It skips the certified pairs, two lanes of one group, which one
-// pod at a time uses, and a lane of a closed bay chain with its own berth,
-// which the chain cells hold. With a depot and no bank or group, it checks
-// each pair with a depot lane or a slot. A lateral pair of the depot
-// lanes (see depotLateral) needs its lateral clearance along its whole
-// length.
+// network. It returns the shape pairs of the network (see shapePairs). The
+// audit checks each pair, small pairs included (decision D12-A of the
+// shape clearance design). Each pair of positions needs the clearance that
+// pairPieces gives, so a piece that the safety observation certifies needs
+// less than Clearance. With a maneuver group, it skips the certified
+// pairs, two lanes of one group, which one pod at a time uses, and a lane
+// of a closed bay chain with its own berth, which the chain cells hold. A
+// lateral pair of the depot lanes (see depotLateral) needs its lateral
+// clearance along its whole length. A large pair on separated planes takes
+// the planes of each path by position from the envelope reach, and it
+// needs its clearance only at the parts that are not separated. A shape
+// pair needs the side-by-side distance of the bodies of its lanes.
 //
 // A pair that only reach denies the plane exemption reports its refusal
 // after the scan, so that the first refusal of a pair without an exemption
 // stays the first refusal of the audit. The refusal is a PlaneReachError, so
 // that a caller can report it after its own later checks.
-//
-// When the network sets ShapeClearance (decision D12-A of the shape
-// clearance design), the audit checks each pair, small pairs included. A
-// large pair on separated planes takes the planes of each path by position
-// from the envelope reach, and it needs its clearance only at the parts
-// that are not separated. A shape pair needs the side-by-side distance of
-// the bodies of its lanes. The rules that come first and the refusals do
-// not change.
 func (n Network) auditBankGeometry(audit bankAudit) (*depotLateral, error) {
 	retention, maneuvers := audit.retention, audit.maneuvers
-	banks, large, groups, field := n.hasStationBanks(), n.hasLargeGeometry(), maneuvers != nil, n.ShapeClearance
-	if !field && !banks && !large && !groups && audit.depots == nil {
-		return nil, nil
-	}
+	large, groups := n.hasLargeGeometry(), maneuvers != nil
 	positions := indexNodePositions(n.Nodes)
 	var incident map[string][]Lane
 	if large {
@@ -202,9 +188,6 @@ func (n Network) auditBankGeometry(audit bankAudit) (*depotLateral, error) {
 		for _, second := range paths[i+1:] {
 			if second.min.X-first.max.X >= scanClearance {
 				break
-			}
-			if !field && !banks && !groups && !first.large && !second.large && !audit.depots.auditPath(first) && !audit.depots.auditPath(second) {
-				continue
 			}
 			clearance := Clearance
 			if first.large || second.large {

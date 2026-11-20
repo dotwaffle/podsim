@@ -3,7 +3,6 @@ package sim
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"math"
 	"math/rand/v2"
 	"slices"
@@ -38,11 +37,10 @@ type shapeLane struct {
 }
 
 // shapeNetwork returns a network of straight lanes with their own nodes, so
-// that no two lanes share a node, and the field set as given. joins adds a
-// lane from the end of the lane with each key, at the heading of the
-// value, 50 m long.
-func shapeNetwork(field bool, lanes []shapeLane, joins map[string]float64) Network {
-	n := Network{ShapeClearance: field}
+// that no two lanes share a node. joins adds a lane from the end of the
+// lane with each key, at the heading of the value, 50 m long.
+func shapeNetwork(lanes []shapeLane, joins map[string]float64) Network {
+	var n Network
 	add := func(lane shapeLane) {
 		s, c := math.Sincos(lane.degrees * math.Pi / 180)
 		end := Point{X: lane.start.X + lane.length*c, Y: lane.start.Y + lane.length*s}
@@ -141,7 +139,7 @@ func TestShapePairsSideBySide(t *testing.T) {
 				for _, gap := range []float64{0, 0.01} {
 					name := fmt.Sprintf("%v below %v at %g degrees, %g m", below, above, degrees, gap)
 					lower, upper := laneShapeBody(below), laneShapeBody(above)
-					n := shapeNetwork(true, []shapeLane{
+					n := shapeNetwork([]shapeLane{
 						{id: "below", classes: below, length: 100},
 						{id: "above", classes: above, start: shapeAbove(lower, upper, degrees, gap), degrees: degrees, length: 100},
 					}, nil)
@@ -214,7 +212,7 @@ func TestShapePairsUnionBody(t *testing.T) {
 							if joins != nil && test.name == "large side" {
 								continue
 							}
-							n := shapeNetwork(true, lanes, joins)
+							n := shapeNetwork(lanes, joins)
 							table, _ := shapeAudit(n, nil)
 							_, ok := shapePair(n, table, "mixed", "other")
 							if want := classes != mixed; ok != want {
@@ -240,7 +238,7 @@ func TestShapePairsJoinTurns(t *testing.T) {
 		if joined {
 			joins["first"] = 90
 		}
-		n := shapeNetwork(true, []shapeLane{
+		n := shapeNetwork([]shapeLane{
 			{id: "first", classes: shapeSmallClasses, length: 100},
 			{id: "second", classes: shapeSmallClasses, start: Point{X: 60, Y: -4.05}, length: 100},
 		}, joins)
@@ -271,7 +269,7 @@ func TestShapePairsJoinTurns(t *testing.T) {
 // unresolved, and neither is a shape pair.
 func TestShapePairsSweepResults(t *testing.T) {
 	t.Parallel()
-	n := shapeNetwork(true, []shapeLane{
+	n := shapeNetwork([]shapeLane{
 		{id: "first", classes: shapeSmallClasses, length: 100},
 		{id: "second", classes: shapeSmallClasses, start: Point{X: 102 + 1.55, Y: -3.2 - 3}, degrees: 270, length: 50},
 	}, map[string]float64{"first": 90})
@@ -324,7 +322,7 @@ func TestShapeDiskBound(t *testing.T) {
 				direction := rng.Float64() * 2 * math.Pi
 				lanes[1].start = Point{X: 60 + 200*math.Cos(direction), Y: 200 * math.Sin(direction)}
 				for range 200 {
-					n := shapeNetwork(true, lanes, joins)
+					n := shapeNetwork(lanes, joins)
 					gap := polylineGap(n.Polyline(n.Lanes[0]), n.Polyline(n.Lanes[1]))
 					if math.Abs(gap-distance) < 1e-9 {
 						break
@@ -332,7 +330,7 @@ func TestShapeDiskBound(t *testing.T) {
 					lanes[1].start.X -= (gap - distance) * math.Cos(direction)
 					lanes[1].start.Y -= (gap - distance) * math.Sin(direction)
 				}
-				n := shapeNetwork(true, lanes, joins)
+				n := shapeNetwork(lanes, joins)
 				gap := polylineGap(n.Polyline(n.Lanes[0]), n.Polyline(n.Lanes[1]))
 				if gap < bound {
 					// The search can stop a little short of the bound.
@@ -351,7 +349,7 @@ func TestShapeDiskBound(t *testing.T) {
 				checked++
 				lanes[1].start.X -= 0.5 * math.Cos(direction)
 				lanes[1].start.Y -= 0.5 * math.Sin(direction)
-				closer := shapeNetwork(true, lanes, joins)
+				closer := shapeNetwork(lanes, joins)
 				near := newShapeCertifier(closer, shapeOptions)
 				near.certify(0, 1, nil)
 				if gap := polylineGap(closer.Polyline(closer.Lanes[0]), closer.Polyline(closer.Lanes[1])); gap < bound {
@@ -387,7 +385,6 @@ func polylineGap(first, second []Point) float64 {
 func TestShapePairsKeepWindows(t *testing.T) {
 	t.Parallel()
 	n := straightChain(chainSpec{30, 2}, chainSpec{30, 2}, chainSpec{11, 2}, chainSpec{30, 2}, chainSpec{30, 2})
-	n.ShapeClearance = true
 	r := newLaneRetention(n, indexGeometryTails(n))
 	member := func(id string) auditMember { return auditMember{spans: r.laneSpans(id), length: 30, speed: 2} }
 	if !slices.ContainsFunc(r.pairPieces(member("l1"), member("l3")), func(piece pairPiece) bool { return piece.clearance < Clearance }) {
@@ -399,63 +396,42 @@ func TestShapePairsKeepWindows(t *testing.T) {
 	}
 }
 
-// TestShapeClearanceKeepsMerges checks that the field keeps the lateral
-// merge pairs of LateralMerges for small lanes: a 6 degree merge has the
-// same pairs and extents with either field. When the side lane admits
-// Express, it forms a merge pair with the field (decision D5), and no pair
-// with LateralMerges alone.
+// TestShapeClearanceKeepsMerges checks that the rule keeps the lateral
+// merge pairs for small lanes: a 6 degree merge has a merge pair. When the
+// side lane admits Express, it also forms a merge pair (decision D5).
 func TestShapeClearanceKeepsMerges(t *testing.T) {
 	t.Parallel()
-	merges := func(network Network) *depotLateral {
-		return newMergeLateral(network, indexGeometryTails(network), nil, nil)
-	}
-	lateral, shape := mergeCorridor(true, 6), mergeCorridor(true, 6)
-	lateral.LateralMerges, shape.ShapeClearance = true, true
-	want, got := merges(lateral), merges(shape)
-	if got == nil {
-		t.Fatal("no merge pairs with the field")
-	}
-	if !want.any() || !maps.Equal(got.pairs, want.pairs) || !maps.Equal(got.extents, want.extents) {
-		t.Fatalf("%d merge pairs with the field, %d with LateralMerges", len(got.pairs), len(want.pairs))
-	}
+	shape := mergeCorridor(true, 6)
 	main, side := slices.IndexFunc(shape.Lanes, func(lane Lane) bool { return lane.ID == "main" }), slices.IndexFunc(shape.Lanes, func(lane Lane) bool { return lane.ID == "side" })
-	if !got.mergePartner(main, side) {
+	if got := newMergeLateral(shape, nil, nil); got == nil || !got.any() || !got.mergePartner(main, side) {
 		t.Fatal("the main lane and the side lane are not a merge pair")
 	}
-	shape.Lanes[side].VehicleClasses, lateral.Lanes[side].VehicleClasses = shapeUnionClasses, shapeUnionClasses
-	if !merges(shape).mergePartner(main, side) {
-		t.Error("with the field, an Express side lane forms no merge pair")
-	}
-	if merges(lateral).mergePartner(main, side) {
-		t.Error("with LateralMerges alone, an Express side lane forms a merge pair")
+	shape.Lanes[side].VehicleClasses = shapeUnionClasses
+	if !newMergeLateral(shape, nil, nil).mergePartner(main, side) {
+		t.Error("an Express side lane forms no merge pair")
 	}
 }
 
-// TestShapeAuditCoverage checks decision D12-A: a network that sets the
-// field and has no bank, large class, maneuver group, or depot gets the
-// audit of each pair. Two small lanes 3.0 m apart, closer than the
-// side-by-side distance, are refused with the field and accepted without
-// it. Two small lanes 5 m apart are a shape pair and accepted with the
-// field.
+// TestShapeAuditCoverage checks decision D12-A: a network with no bank,
+// large class, maneuver group, or depot gets the audit of each pair. Two
+// small lanes 3.0 m apart, closer than the side-by-side distance, are
+// refused. Two small lanes 5 m apart are a shape pair and accepted.
 func TestShapeAuditCoverage(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
-		gap   float64
-		field bool
-		want  string
+		gap  float64
+		want string
 	}{
-		{3, true, planeGapText("first", "second", Clearance)},
-		{3, false, ""},
-		{5, true, ""},
-		{5, false, ""},
+		{3, planeGapText("first", "second", Clearance)},
+		{5, ""},
 	} {
-		n := shapeNetwork(test.field, []shapeLane{
+		n := shapeNetwork([]shapeLane{
 			{id: "first", classes: shapeSmallClasses, length: 100},
 			{id: "second", classes: shapeSmallClasses, start: Point{Y: test.gap}, length: 100},
 		}, nil)
 		err := n.ValidateBankGeometry()
 		if got := fmt.Sprint(err); test.want == "" && err != nil || test.want != "" && got != test.want {
-			t.Errorf("%g m apart, field %v: audit %v, want %q", test.gap, test.field, err, test.want)
+			t.Errorf("%g m apart: audit %v, want %q", test.gap, err, test.want)
 		}
 	}
 }
@@ -467,9 +443,8 @@ func TestShapeAuditCoverage(t *testing.T) {
 // are on different planes, so only the envelope of a large pod denies the
 // plane exemption. extra adds a lane 10 m long, which preparation refuses
 // after the audit.
-func shapeEnvelopeNetwork(field bool, at float64, extra bool) Network {
+func shapeEnvelopeNetwork(at float64, extra bool) Network {
 	n := Network{
-		ShapeClearance: field,
 		Nodes: []Node{
 			{ID: "behind", Position: Point{X: -100}}, {ID: "start"}, {ID: "end", Position: Point{X: 100}},
 			{ID: "cross-from", Position: Point{X: at, Y: -50}}, {ID: "cross-to", Position: Point{X: at, Y: 50}},
@@ -489,50 +464,45 @@ func shapeEnvelopeNetwork(field bool, at float64, extra bool) Network {
 
 // TestShapeEnvelopePlanes checks the planes of a large path by position
 // (decision D1-B). A lane that crosses an Express lane 15 m after its start
-// meets the envelope of a pod there, which holds the lane behind, so the
-// audit refuses the pair with and without the field. A lane that crosses
-// it 60 m after its start, outside the reach of the lanes at its ends, is
-// refused only without the field, which takes the whole-lane reach.
-// The refusal stays a PlaneReachError, so preparation reports a short lane
-// first.
+// meets the envelope of a pod there, which holds the lane behind, so the audit
+// refuses the pair. A lane that crosses it 60 m after its start, outside the
+// reach of the lanes at its ends, is accepted. The refusal stays a
+// PlaneReachError, so preparation reports a short lane first.
 func TestShapeEnvelopePlanes(t *testing.T) {
 	t.Parallel()
 	want := planeGapText("express", "cross", largeClearance)
 	for _, test := range []struct {
 		at      float64
-		field   bool
 		refused bool
 	}{
-		{15, true, true}, {15, false, true}, {60, true, false}, {60, false, true},
+		{15, true}, {60, false},
 	} {
-		n := shapeEnvelopeNetwork(test.field, test.at, false)
+		n := shapeEnvelopeNetwork(test.at, false)
 		err := n.ValidateBankGeometry()
 		var reach *PlaneReachError
 		if test.refused != (err != nil) || err != nil && (!errors.As(err, &reach) || err.Error() != want) {
-			t.Errorf("crossing at %g m, field %v: audit %v, want refused %v as %q", test.at, test.field, err, test.refused, want)
+			t.Errorf("crossing at %g m: audit %v, want refused %v as %q", test.at, err, test.refused, want)
 		}
 		if err := ValidateNetwork(n); test.refused != (err != nil) || err != nil && err.Error() != want {
-			t.Errorf("crossing at %g m, field %v: preparation %v, want refused %v as %q", test.at, test.field, err, test.refused, want)
+			t.Errorf("crossing at %g m: preparation %v, want refused %v as %q", test.at, err, test.refused, want)
 		}
-		if err := ValidateNetwork(shapeEnvelopeNetwork(test.field, test.at, true)); err == nil || err.Error() != `lane "short" must be at least 24 meters long` {
-			t.Errorf("crossing at %g m, field %v, short lane: preparation %v", test.at, test.field, err)
+		if err := ValidateNetwork(shapeEnvelopeNetwork(test.at, true)); err == nil || err.Error() != `lane "short" must be at least 24 meters long` {
+			t.Errorf("crossing at %g m, short lane: preparation %v", test.at, err)
 		}
 	}
 }
 
-// TestShapeFoldedTail checks a network that sets the field and has a
-// large lane whose tail is not finite. A small lane on the plane of the
-// lane behind the Express lane runs beside the Express lane, 5 m from it.
-// With finite tails, the envelope reach denies the plane exemption only in
-// the first 20 m, and the two lanes are a shape pair. With a folded large
-// lane elsewhere, the audit builds no envelope reach. It takes the
-// whole-lane reach, as without the field, and it certifies no pair with a
-// large lane, so it refuses the pair. Preparation reports the folded lane
-// first.
+// TestShapeFoldedTail checks a network with a large lane whose tail is not
+// finite. A small lane on the plane of the lane behind the Express lane runs
+// beside the Express lane, 5 m from it. With finite tails, the envelope reach
+// denies the plane exemption only in the first 20 m, and the two lanes are a
+// shape pair. With a folded large lane elsewhere, the audit builds no envelope
+// reach. It takes the whole-lane reach, and it certifies no pair with a large
+// lane, so it refuses the pair. Preparation reports the folded lane first.
 func TestShapeFoldedTail(t *testing.T) {
 	t.Parallel()
 	for _, folded := range []bool{false, true} {
-		n := shapeEnvelopeNetwork(true, 500, false)
+		n := shapeEnvelopeNetwork(500, false)
 		n.Nodes = append(n.Nodes, Node{ID: "beside-from", Position: Point{X: 14, Y: 5}}, Node{ID: "beside-to", Position: Point{X: 90, Y: 5}})
 		n.Lanes = append(n.Lanes, Lane{ID: "beside", From: "beside-from", To: "beside-to", SpeedLimit: 14, SeparationGroup: "low"})
 		if folded {
@@ -556,29 +526,24 @@ func TestShapeFoldedTail(t *testing.T) {
 	}
 }
 
-// TestShapeRefusalOrder checks that the field keeps the order and the text
-// of the refusals of the audit on a network that both rules audit: an
-// Express lane makes the audit check each pair. A small lane crosses the
+// TestShapeRefusalOrder checks the order and the text of the refusals of
+// the audit on a network with an Express lane. A small lane crosses the
 // Express lane, and two small lanes cross each other. None of the three
 // pairs is a shape pair.
 func TestShapeRefusalOrder(t *testing.T) {
 	t.Parallel()
-	results := make(map[bool]string)
-	for _, field := range []bool{false, true} {
-		n := shapeNetwork(field, []shapeLane{
-			{id: "a-cross", classes: shapeSmallClasses, start: Point{X: 300, Y: -50}, degrees: 90, length: 100},
-			{id: "b-cross", classes: shapeSmallClasses, start: Point{X: 250}, length: 100},
-			{id: "express", classes: shapeExpressClasses, length: 100},
-			{id: "small", classes: shapeSmallClasses, start: Point{X: 50, Y: -50}, degrees: 90, length: 100},
-		}, nil)
-		results[field] = fmt.Sprint(n.ValidateBankGeometry())
-		table, _ := shapeAudit(n, nil)
-		if table.any() {
-			t.Errorf("field %v: shape pairs %v", field, table.pairs)
-		}
+	n := shapeNetwork([]shapeLane{
+		{id: "a-cross", classes: shapeSmallClasses, start: Point{X: 300, Y: -50}, degrees: 90, length: 100},
+		{id: "b-cross", classes: shapeSmallClasses, start: Point{X: 250}, length: 100},
+		{id: "express", classes: shapeExpressClasses, length: 100},
+		{id: "small", classes: shapeSmallClasses, start: Point{X: 50, Y: -50}, degrees: 90, length: 100},
+	}, nil)
+	table, _ := shapeAudit(n, nil)
+	if table.any() {
+		t.Errorf("shape pairs %v", table.pairs)
 	}
-	if want := planeGapText("express", "small", largeClearance); results[false] != want || results[true] != want {
-		t.Errorf("refusal %q without the field and %q with it, want %q", results[false], results[true], want)
+	if got, want := fmt.Sprint(n.ValidateBankGeometry()), planeGapText("express", "small", largeClearance); got != want {
+		t.Errorf("refusal %q, want %q", got, want)
 	}
 }
 
@@ -589,7 +554,7 @@ func TestShapeRefusalOrder(t *testing.T) {
 // Express pod, also when the network has a shape pair.
 func TestShapeOracle(t *testing.T) {
 	t.Parallel()
-	n := shapeNetwork(true, []shapeLane{
+	n := shapeNetwork([]shapeLane{
 		{id: "first", classes: shapeUnionClasses, length: 100},
 		{id: "second", classes: shapeUnionClasses, start: Point{X: 40, Y: 5}, length: 100},
 	}, map[string]float64{"first": 0})
@@ -629,17 +594,12 @@ func TestShapeOracle(t *testing.T) {
 }
 
 // shapeDebrisNetwork returns a station with one berth and two lanes 5 m
-// apart, far from the station. With the field, each lane admits Compact
-// and Express, and the two lanes form a shape pair at 4.0 m. Only lanes of
-// the station form merge pairs. Without it, the lanes are small lanes, which
-// the audit of a plain network does not check.
-func shapeDebrisNetwork(field bool) Network {
-	classes := shapeSmallClasses
-	if field {
-		classes = shapeUnionClasses
-	}
+// apart, far from the station. Each lane admits Compact and Express, and
+// the two lanes form a shape pair at 4.0 m. Only lanes of the station form
+// merge pairs.
+func shapeDebrisNetwork() Network {
+	classes := shapeUnionClasses
 	n := Network{
-		ShapeClearance: field,
 		Nodes: []Node{
 			{ID: "entry"}, {ID: "exit", Position: Point{X: 200}}, {ID: "berth", Position: Point{X: 100, Y: 40}},
 		},
@@ -659,47 +619,43 @@ func shapeDebrisNetwork(field bool) Network {
 	return n
 }
 
-// TestShapeDebrisBlocksPartner checks the debris footprint of a lane of a
-// shape pair (section 7.2 of the incident suspension contract). With the
-// field, the footprint of debris on the upper lane holds each cell of the
-// lower lane that comes closer than Clearance to the debris, and no other
-// cell of the lower lane. Without it, it holds no cell of the lower lane.
-// The table holds the pair at the union distance, though the fleet holds
-// only small pods.
+// TestShapeDebrisBlocksPartner checks the debris footprint of a lane of a shape
+// pair (section 7.2 of the incident suspension contract). The footprint of
+// debris on the upper lane holds each cell of the lower lane that comes closer
+// than Clearance to the debris, and no other cell of the lower lane. The table
+// holds the pair at the union distance, though the fleet holds only small pods.
 func TestShapeDebrisBlocksPartner(t *testing.T) {
 	t.Parallel()
-	for _, field := range []bool{true, false} {
-		network := shapeDebrisNetwork(field)
-		s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		upper, lower := s.graph.lanes["upper"], s.graph.lanes["lower"]
-		if side, ok := s.shapes.clearance(laneKey(upper), laneKey(lower)); ok != field || field && side != 4 {
-			t.Fatalf("field %v: shape pair %v at %g", field, ok, side)
-		}
-		if observation := s.SafetyObservation(); observation.shapes != s.shapes || field && (len(observation.keys) == 0 || len(s.merges.neighborLanes(upper)) > 0 || len(s.merges.neighborLanes(lower)) > 0) {
-			t.Fatalf("field %v: the safety observation does not hold the shape pairs", field)
-		}
-		const from, to = 300, 303
-		footprint := s.debrisFootprint(upper, from, to)
-		debris := polylinePiece(network.Polyline(network.Lanes[upper]), from, to)
-		cells, length := s.laneCells["lower"], s.graph.lengths[lower]
-		near := 0
-		for cell := range cells.count() {
-			piece := polylinePiece(network.Polyline(network.Lanes[lower]), cellOffset(cell, cells.count(), length), cellOffset(cell+1, cells.count(), length))
-			nearby := field && bankPathsClose(debris, piece, Clearance)
-			for _, r := range cells.cell(cell) {
-				if held := slices.Contains(footprint, r); held != nearby && r.kind == trackResource {
-					t.Errorf("field %v: lower cell %d resource %v in the footprint %v, want %v", field, cell, r, held, nearby)
-				}
-			}
-			if nearby {
-				near++
+	network := shapeDebrisNetwork()
+	s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	upper, lower := s.graph.lanes["upper"], s.graph.lanes["lower"]
+	if side, ok := s.shapes.clearance(laneKey(upper), laneKey(lower)); !ok || side != 4 {
+		t.Fatalf("shape pair %v at %g", ok, side)
+	}
+	if observation := s.SafetyObservation(); observation.shapes != s.shapes || len(observation.keys) == 0 || len(s.merges.neighborLanes(upper)) > 0 || len(s.merges.neighborLanes(lower)) > 0 {
+		t.Fatal("the safety observation does not hold the shape pairs")
+	}
+	const from, to = 300, 303
+	footprint := s.debrisFootprint(upper, from, to)
+	debris := polylinePiece(network.Polyline(network.Lanes[upper]), from, to)
+	cells, length := s.laneCells["lower"], s.graph.lengths[lower]
+	near := 0
+	for cell := range cells.count() {
+		piece := polylinePiece(network.Polyline(network.Lanes[lower]), cellOffset(cell, cells.count(), length), cellOffset(cell+1, cells.count(), length))
+		nearby := bankPathsClose(debris, piece, Clearance)
+		for _, r := range cells.cell(cell) {
+			if held := slices.Contains(footprint, r); held != nearby && r.kind == trackResource {
+				t.Errorf("lower cell %d resource %v in the footprint %v, want %v", cell, r, held, nearby)
 			}
 		}
-		if field && near == 0 {
-			t.Fatal("no cell of the lower lane is near the debris")
+		if nearby {
+			near++
 		}
+	}
+	if near == 0 {
+		t.Fatal("no cell of the lower lane is near the debris")
 	}
 }

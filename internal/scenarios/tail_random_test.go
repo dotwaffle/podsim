@@ -129,7 +129,7 @@ var tailRandomSeeds = []uint64{1, 2, 3, 5, 8, 13, 21, 34}
 
 // TestTailRandomCurvedNetworks runs rings with changed links and fan curves,
 // with all classes and about 70 percent Group pods, for 8 simulated minutes.
-// An independent loop checks 20 m between centers at each tick.
+// The observer check and the D6 lateral body check run at each tick.
 func TestTailRandomCurvedNetworks(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
@@ -202,26 +202,12 @@ func runRandomNetwork(t *testing.T, generator tailGenerator, seed uint64) bool {
 		if _, err := observation.Check(); err != nil {
 			t.Fatalf("seed %d tick %d: %v", seed, tick, err)
 		}
-		checkLargeCenters(t, observation.Pods, tick)
+		if err := s.LateralBodyCheckForTest(); err != nil {
+			t.Fatalf("seed %d tick %d: D6: %v", seed, tick, err)
+		}
 	}
 	if s.Snapshot().Completed == 0 {
 		t.Fatalf("seed %d completed no trip", seed)
 	}
 	return true
-}
-
-// checkLargeCenters checks 20 m between each pair with a large pod, less the 1
-// micrometer that the observer permits.
-func checkLargeCenters(t *testing.T, pods []sim.Pod, tick int) {
-	t.Helper()
-	for index, first := range pods {
-		for _, second := range pods[index+1:] {
-			if first.Class != sim.GroupClass && second.Class != sim.GroupClass {
-				continue
-			}
-			if gap := math.Hypot(first.Position.X-second.Position.X, first.Position.Y-second.Position.Y); gap < 20-1e-6 {
-				t.Fatalf("tick %d: pods %s and %s are %v m apart", tick, first.ID, second.ID, gap)
-			}
-		}
-	}
 }

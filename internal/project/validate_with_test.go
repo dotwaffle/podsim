@@ -22,7 +22,7 @@ func islandConfig(t *testing.T) Config {
 	config.Network.Nodes, config.Network.Lanes = slices.Clone(config.Network.Nodes), slices.Clone(config.Network.Lanes)
 	config.Network.Nodes = append(config.Network.Nodes, []sim.Node{
 		{ID: "island-mid", Position: sim.Point{X: 5000, Y: 100}}, {ID: "island-join", Position: sim.Point{X: 5000}}, {ID: "island-east", Position: sim.Point{X: 5400}},
-		{ID: "island-cross-east", Position: sim.Point{X: 5140, Y: 24}}, {ID: "island-cross-west", Position: sim.Point{X: 4860, Y: 24}},
+		{ID: "island-cross-east", Position: sim.Point{X: 5140, Y: 10}}, {ID: "island-cross-west", Position: sim.Point{X: 4860, Y: 10}},
 	}...)
 	for _, row := range [][4]string{{"island-near", "island-mid", "island-join", "A"}, {"island-main", "island-join", "island-east", "Q"}, {"island-cross", "island-cross-east", "island-cross-west", "Q"}} {
 		config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: row[0], From: row[1], To: row[2], SpeedLimit: 14, VehicleClasses: classes, SeparationGroup: row[3]})

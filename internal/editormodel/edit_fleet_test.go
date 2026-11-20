@@ -2,11 +2,13 @@ package editormodel
 
 import (
 	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"reflect"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
+	"github.com/dotwaffle/podsim/internal/sim"
 )
 
 func fleetDraft() map[string]any {
@@ -21,6 +23,49 @@ func fleetDraft() map[string]any {
 			map[string]any{"id": "07", "stationID": "alpha", "berthID": "missing"},
 		},
 	}
+}
+
+// stationsDraft is fleetDraft with a network that the server accepts:
+// stations alpha and beta with the berths of fleetDraft, joined in a ring.
+// The server checks of a geometry edit refuse a draft whose stations have
+// no entry, exit, or berth nodes.
+func stationsDraft(t *testing.T) map[string]any {
+	t.Helper()
+	var network sim.Network
+	station := func(id string, x float64, berths ...string) {
+		entry, exit := id+"-entry", id+"-exit"
+		network.Nodes = append(network.Nodes, sim.Node{ID: entry, Position: sim.Point{X: x}}, sim.Node{ID: exit, Position: sim.Point{X: x + 200}})
+		network.Lanes = append(network.Lanes, sim.Lane{ID: id + "-through", From: entry, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationThroughRole})
+		stop := sim.Station{ID: id, Name: id, Entry: entry, Exit: exit}
+		for index, berth := range berths {
+			node := id + "-berth-" + berth
+			network.Nodes = append(network.Nodes, sim.Node{ID: node, Position: sim.Point{X: x + 100, Y: 40 * float64(index+1)}})
+			network.Lanes = append(network.Lanes,
+				sim.Lane{ID: id + "-in-" + berth, From: entry, To: node, SpeedLimit: 14, StationID: id, StationRole: sim.StationBerthAccessRole},
+				sim.Lane{ID: id + "-out-" + berth, From: node, To: exit, SpeedLimit: 14, StationID: id, StationRole: sim.StationDepartureRole})
+			stop.Berths = append(stop.Berths, sim.Berth{ID: berth, Node: node})
+		}
+		network.Stations = append(network.Stations, stop)
+	}
+	station("alpha", 0, "a1", "a2", "a3")
+	station("beta", 1000, "b1")
+	network.Lanes = append(network.Lanes,
+		sim.Lane{ID: "outbound", From: "alpha-exit", To: "beta-entry", SpeedLimit: 14},
+		sim.Lane{ID: "inbound", From: "beta-exit", To: "alpha-entry", SpeedLimit: 14, Control: &sim.Point{X: 600, Y: -800}})
+	raw, err := json.Marshal(network)
+	if err != nil {
+		t.Fatal(err)
+	}
+	draft := fleetDraft()
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	if err := sim.ValidateNetwork(network); err != nil {
+		t.Fatal(err)
+	}
+	draft["network"] = value
+	return draft
 }
 
 func TestFleetEditPreservesPodsAndAllocatesFreeIDs(t *testing.T) {

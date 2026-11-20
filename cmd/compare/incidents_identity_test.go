@@ -63,15 +63,15 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 			}},
 		{"busy", new(scenarios.Busy()), []string{"-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot"},
 			map[string]string{
-				"json":  "be1c6972e30bca083ab0fe538cff7222cb467290512254c6d4f15b908758b8b5",
-				"csv":   "400de19fdff448ffaf963f663bd956f370b18edae4fbbcb4d885391dffcbcae4",
-				"table": "10c1bf353d094dd818ba2d2a62037bf76da46c7dc8479e8d5c6f0d20f60a72f6",
+				"json":  "675ae22017089f46633cb431f7681100842a5ddb8a746b27b83e7b458a96dc93",
+				"csv":   "ce934ea37f249ab30152d27f2028196cbc260d857c10873d08672a1ed6e930fe",
+				"table": "208650f500351d533f0f980a8f450dd4484876ebeb9bfd3a88dcda0b77f788c9",
 			}},
 		{"rail hub", new(scenarios.RailHub()), []string{"-duration", "10m", "-arrivals-for", "5m", "-request-every", "5s", "-burst-size", "12", "-seed", "1", "-pattern", "hub-burst"},
 			map[string]string{
-				"json":  "c7c56dc763ecf3f1cb555d8b10f8355c79e82f2c41cd613f5e525789f6d12fa1",
-				"csv":   "026c50984a86c00401ca3bbc91f72cb8c42b4e7d5734a2478fd784e68b432da5",
-				"table": "95866d50239924532b994808887f84bafd5d06daa421492748dbfb33994dc5f0",
+				"json":  "e180844b57296d1631445eb40e03bccae9a3f107a8dbf3e5d1995c040306b745",
+				"csv":   "85fe6c77b586732c1e713d424bb32420a8cbe7539a056ec277f424445419f889",
+				"table": "5d6499387c64bf9a2c8e92009e1b72d9d55312cba7e76180e6856a280015fd5b",
 			}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -94,7 +94,7 @@ func TestNoRateOutputIsPinned(t *testing.T) {
 func TestNoRateFormsArePinned(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
-	const want = "400de19fdff448ffaf963f663bd956f370b18edae4fbbcb4d885391dffcbcae4"
+	const want = "ce934ea37f249ab30152d27f2028196cbc260d857c10873d08672a1ed6e930fe"
 	args := []string{"-redistribution-policies", "off,on", "-pickup-reassignment", "off", "-duration", "5m", "-arrivals-for", "3m", "-request-every", "5s", "-seed", "1", "-pattern", "hotspot", "-format", "csv"}
 	negativeZero := math.Copysign(0, -1)
 	for name, test := range map[string]struct {

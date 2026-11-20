@@ -6,8 +6,8 @@ import (
 	"sync"
 )
 
-// The shape pairs of docs/design/shape-clearance.md, part 4. When a network
-// sets ShapeClearance, two lanes that share no node form a shape pair when
+// The shape pairs of docs/design/shape-clearance.md, part 4. In each
+// network, two lanes that share no node form a shape pair when
 // the grown body of each lane, swept over the lane and over the join turns
 // at both of its ends, stays clear of the grown body of the other lane at
 // each pair of positions that are not separated. Two pods on a shape pair
@@ -184,8 +184,7 @@ func clipShapeSteps(steps []mergeStep, bounds [2]float64) []sweepStep {
 	return clipped
 }
 
-// shapePairs returns the shape pairs of a network that sets
-// ShapeClearance, or nil when the network does not set it. paths are the
+// shapePairs returns the shape pairs of a network. paths are the
 // paths of the audit, sorted by the least X. The table holds the pairs
 // that the audit would otherwise test: two lanes that share no node, come
 // closer than the clearance of their classes at positions that are not
@@ -199,9 +198,6 @@ func clipShapeSteps(steps []mergeStep, bounds [2]float64) []sweepStep {
 // clearance. A pair with a large lane needs the envelope reach, so a
 // network whose geometry tails are not finite has no such pair.
 func (audit bankAudit) shapePairs(n Network, paths []bankAuditPath, scanClearance float64) *depotLateral {
-	if !n.ShapeClearance {
-		return nil
-	}
 	shapes := &depotLateral{pairs: make(map[[2]separationKey]float64), neighbors: make(map[int][]int), points: make(map[int][]Point)}
 	certifier := audit.certifier
 	for i, first := range paths {
@@ -275,11 +271,13 @@ type pairPlanes struct {
 }
 
 // planes returns the plane result of a pair of paths. Two paths whose own
-// planes are not separated are not separated at any position. Without
-// ShapeClearance, or when the envelope reach cannot be built, a large pair
-// on separated planes is exempt only when the whole-lane plane reach is
-// separated. With ShapeClearance, it is not separated at the parts where
-// the envelope reach of the two paths overlap.
+// planes are not separated are not separated at any position. A large pair
+// on separated planes is not separated at the parts where the envelope
+// reach of the two paths overlap. When the envelope reach cannot be built,
+// because a tail bound is not finite, such a pair is exempt only when the
+// whole-lane plane reach is separated. Preparation then refuses the
+// network after the audit, so this fallback keeps the order of the
+// refusals.
 func (audit bankAudit) planes(first, second bankAuditPath) pairPlanes {
 	if !first.separated(second) {
 		return pairPlanes{}
@@ -357,11 +355,11 @@ func (r *envelopeReach) pathSpans(key separationKey) []reachSpan {
 	return r.laneSpans(key.index)
 }
 
-// lazyEnvelopeReach builds the envelope reach of a network that sets
-// ShapeClearance when a pair first needs it. It builds no index when a
-// bound of the tails is not finite: preparation refuses such a network
-// after the audit (see prepareNetworkTails), and a walk with no bound is
-// slow and large. A nil value has no index.
+// lazyEnvelopeReach builds the envelope reach of a network when a pair
+// first needs it. It builds no index when a bound of the tails is not
+// finite: preparation refuses such a network after the audit (see
+// prepareNetworkTails), and a walk with no bound is slow and large. A nil
+// value has no index.
 type lazyEnvelopeReach struct {
 	once    sync.Once
 	network Network
@@ -370,9 +368,6 @@ type lazyEnvelopeReach struct {
 }
 
 func newLazyEnvelopeReach(n Network, tails map[string]geometryTails) *lazyEnvelopeReach {
-	if !n.ShapeClearance {
-		return nil
-	}
 	return &lazyEnvelopeReach{network: n, tails: tails}
 }
 

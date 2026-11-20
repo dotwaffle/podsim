@@ -9,7 +9,7 @@ import "testing"
 func TestEngineEditReadsOriginalClearance(t *testing.T) {
 	t.Parallel()
 	config := bankEditorConfig()
-	config.Network, _ = depotDraft(t, 0)
+	config.Network, _ = depotDraft(t)
 	k := newKeptEngine(t, config)
 	const refusal = `{"valid":false,"error":"lane depot-c1 would be shorter than 12 meters"}`
 	for _, validated := range []bool{false, true} {

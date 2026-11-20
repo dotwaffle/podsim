@@ -41,7 +41,7 @@ func finishContinuationTrips(t *testing.T, s *Simulation, want int) {
 	for range 1800 * TicksPerSecond {
 		s.Step()
 		if s.Tick()%TicksPerSecond == 0 {
-			checkTraffic(t, s.Snapshot())
+			checkTraffic(t, s)
 		}
 		if s.completed == want {
 			if err := s.CheckContract(); err != nil {

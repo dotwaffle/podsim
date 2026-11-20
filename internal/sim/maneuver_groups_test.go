@@ -110,7 +110,9 @@ func TestManeuverGroupRefusalOrder(t *testing.T) {
 }
 
 // TestManeuverGroupShortLane checks that a group lane needs only a positive
-// length, and that the same lane outside a group keeps its minimum.
+// length, and that the same lane outside a group keeps its minimum. Without
+// the group, the audit refuses the close lanes of the bays first, so the
+// minimum is checked with each lane on its own plane.
 func TestManeuverGroupShortLane(t *testing.T) {
 	t.Parallel()
 	network := tallBayNetwork(1, 0.1)
@@ -118,8 +120,14 @@ func TestManeuverGroupShortLane(t *testing.T) {
 		t.Fatal(err)
 	}
 	network.ManeuverGroups = nil
-	if _, err := PrepareNetwork(network); err == nil || err.Error() != `lane "bay-1-in-inner-1" must be at least 24 meters long` {
+	if _, err := PrepareNetwork(network); err == nil || err.Error() != `nonincident paths "aisle-1" and "bay-1-in-berth-1" are less than 12 meters apart` {
 		t.Fatalf("error %v", err)
+	}
+	for index := range network.Lanes {
+		network.Lanes[index].SeparationGroup = "plane-" + network.Lanes[index].ID
+	}
+	if _, err := PrepareNetwork(network); err == nil || err.Error() != `lane "bay-1-in-inner-1" must be at least 24 meters long` {
+		t.Fatalf("error with a plane for each lane %v", err)
 	}
 }
 
@@ -295,13 +303,12 @@ func TestManeuverGroupBankAudit(t *testing.T) {
 			t.Errorf("ValidateBankGeometry at %g m: error %v, want %q", test.x, err, test.want)
 		}
 	}
-	// Without the group, the audit does not run.
+	// Without the group, the audit still checks each pair, and it no
+	// longer skips two lanes of the group.
 	network := tallBayNetwork(1, 7)
 	network.ManeuverGroups = nil
-	network.Nodes = append(network.Nodes, Node{ID: "side-a", Position: Point{-11.9, 13}}, Node{ID: "side-b", Position: Point{-11.9, 40}})
-	network.Lanes = append(network.Lanes, Lane{ID: "side", From: "side-a", To: "side-b", SpeedLimit: 14})
-	if err := network.ValidateBankGeometry(); err != nil {
-		t.Fatal(err)
+	if err := network.ValidateBankGeometry(); err == nil || err.Error() != `nonincident paths "aisle-1" and "bay-1-in-berth-1" are less than 12 meters apart` {
+		t.Fatalf("audit without the group: %v", err)
 	}
 }
 

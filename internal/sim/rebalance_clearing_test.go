@@ -16,7 +16,7 @@ func TestRebalancingArrivalClearsIdleBerth(t *testing.T) {
 	}
 	for range 300 * TicksPerSecond {
 		simulation.Step()
-		checkTraffic(t, simulation.Snapshot())
+		checkTraffic(t, simulation)
 		if arrival.Pod.Activity == Idle && arrival.Pod.StationID == "market" && simulation.findVehicle("02").Pod.StationID == "parking" {
 			if simulation.completed != 0 || simulation.requestID != 0 {
 				t.Fatal("empty moves changed passenger counts")

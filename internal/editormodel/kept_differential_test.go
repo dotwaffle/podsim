@@ -254,7 +254,7 @@ func (s *keptSequence) patches(config project.Config, start jsontext.Value) {
 	s.patch(map[string]any{"network": moved})
 	s.check("parking gap, moved")
 	back("parking gap")
-	reach := planeJoinDraft(24, []any{"legacy", "group"}, nil, "Q")
+	reach := planeJoinDraft(10, []any{"legacy", "group"}, nil, "Q")
 	s.patch(map[string]any{"network": reach})
 	s.check("plane reach")
 	reach["nodes"] = append(items(reach["nodes"]), map[string]any{"id": "short-a", "position": map[string]any{"x": 2000.0, "y": 0.0}}, map[string]any{"id": "short-b", "position": map[string]any{"x": 2010.0, "y": 0.0}})

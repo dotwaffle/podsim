@@ -36,25 +36,17 @@ type networkIndexes struct {
 	resourceLanes map[resource][]int32
 	laneSafety    map[string]SafetyLocation
 	berthSafety   map[string]SafetyLocation
-	// berthNodes holds the node of each station berth. nodeSafety holds
-	// the safety locations of the lanes that start or end at each node, in
-	// network lane order, one entry for each lane. The safety envelopes
-	// read both.
+	// berthNodes holds the node of each station berth.
 	berthNodes map[string]string
-	nodeSafety map[string][]SafetyLocation
-	// berthEnvelopes holds the safety envelope of a pod that is at each
-	// station berth and does not travel: the location of the berth, then
-	// the locations of its node that differ. No code changes an entry. It
-	// is not used when the network sets ShapeClearance.
-	berthEnvelopes map[string][]SafetyLocation
 	// clusterSafety holds the planes of rule 2 by the plane of each
 	// maneuver group lane: the planes of the lanes at the nodes of its
 	// cluster (see maneuverClusters), each plane one time, in lane order.
-	// It is nil when the network does not set ShapeClearance.
+	// It is nil when the network has no maneuver group.
 	clusterSafety map[SafetyLocation][]SafetyLocation
 	// envelopes holds the envelope reach of the network with the spans of
 	// each lane, which the safety envelopes read (see appendSpanEnvelope).
-	// It is nil when the network does not set ShapeClearance.
+	// It is nil only for a network that preparation refuses (see
+	// compileEnvelopeReach).
 	envelopes *envelopeReach
 	// tails holds the one tail index of the network. The lane cells and the
 	// retention index read it.
@@ -76,14 +68,12 @@ type networkIndexes struct {
 	// lateral holds the lateral pairs of the depot lanes. The bank audit,
 	// the safety observation, and the debris footprint read it.
 	lateral *depotLateral
-	// merges holds the lateral merge pairs (see newMergeLateral), or nil
-	// when the network sets neither LateralMerges nor ShapeClearance. The
-	// junction conflicts, the safety observation, and the debris footprint
-	// read it.
+	// merges holds the lateral merge pairs (see newMergeLateral), or nil when
+	// the network has none. The junction conflicts, the safety observation, and
+	// the debris footprint read it.
 	merges *depotLateral
-	// shapes holds the shape pairs (see shapePairs), or nil when the
-	// network does not set ShapeClearance. The safety observation and the
-	// debris footprint read it.
+	// shapes holds the shape pairs (see shapePairs). The safety
+	// observation and the debris footprint read it.
 	shapes *depotLateral
 	// platoonData holds the network data that links read.
 	platoonData platoonIndexData
@@ -220,7 +210,7 @@ func validateLargeLaneCells(id string, length float64, count int) error {
 
 func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	owned := prepared.network
-	merges := newMergeLateral(owned, prepared.tails, prepared.maneuvers, prepared.depots)
+	merges := newMergeLateral(owned, prepared.maneuvers, prepared.depots)
 	p := &PreparedNetwork{
 		network: owned, graph: prepared.graph, tails: prepared.tails, retention: prepared.retention, maneuvers: prepared.maneuvers, certified: prepared.certified, depots: prepared.depots,
 		berthKeys: prepared.berthKeys, lateral: prepared.lateral, merges: merges, shapes: prepared.shapes,
@@ -229,9 +219,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 		berthResources: indexBerthResources(owned),
 	}
 	p.indexSafety()
-	if owned.ShapeClearance {
-		p.envelopes = compileEnvelopeReach(owned, prepared.tails)
-	}
+	p.envelopes = compileEnvelopeReach(owned, prepared.tails)
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
@@ -240,19 +228,14 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 }
 
 // indexSafety builds the safety locations of the lanes and the berths of
-// the network, and the berth and node indexes of the safety envelopes.
+// the network, the berth index, and the planes of rule 2 of the safety
+// envelopes.
 func (n *networkIndexes) indexSafety() {
 	n.laneSafety = make(map[string]SafetyLocation, len(n.network.Lanes))
 	n.berthSafety = make(map[string]SafetyLocation)
 	n.berthNodes = make(map[string]string)
-	n.nodeSafety = make(map[string][]SafetyLocation)
 	for _, lane := range n.network.Lanes {
-		location := SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
-		n.laneSafety[lane.ID] = location
-		n.nodeSafety[lane.From] = append(n.nodeSafety[lane.From], location)
-		if lane.To != lane.From {
-			n.nodeSafety[lane.To] = append(n.nodeSafety[lane.To], location)
-		}
+		n.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
 	}
 	for _, station := range n.network.Stations {
 		for _, berth := range station.Berths {
@@ -261,38 +244,26 @@ func (n *networkIndexes) indexSafety() {
 		}
 	}
 	n.clusterSafety = nil
-	if n.network.ShapeClearance {
-		// The group lanes of one cluster share one slice of planes.
-		shared := make(map[*int][]SafetyLocation)
-		for index, cluster := range maneuverClusters(n.network) {
-			if cluster == nil {
-				continue
-			}
-			planes, done := shared[&cluster[0]]
-			if !done {
-				planes = make([]SafetyLocation, 0, len(cluster))
-				for _, lane := range cluster {
-					if location := n.laneSafety[n.network.Lanes[lane].ID]; !slices.Contains(planes, location) {
-						planes = append(planes, location)
-					}
+	// The group lanes of one cluster share one slice of planes.
+	shared := make(map[*int][]SafetyLocation)
+	for index, cluster := range maneuverClusters(n.network) {
+		if cluster == nil {
+			continue
+		}
+		planes, done := shared[&cluster[0]]
+		if !done {
+			planes = make([]SafetyLocation, 0, len(cluster))
+			for _, lane := range cluster {
+				if location := n.laneSafety[n.network.Lanes[lane].ID]; !slices.Contains(planes, location) {
+					planes = append(planes, location)
 				}
-				shared[&cluster[0]] = planes
 			}
-			if n.clusterSafety == nil {
-				n.clusterSafety = make(map[SafetyLocation][]SafetyLocation)
-			}
-			n.clusterSafety[n.laneSafety[n.network.Lanes[index].ID]] = planes
+			shared[&cluster[0]] = planes
 		}
-	}
-	n.berthEnvelopes = make(map[string][]SafetyLocation, len(n.berthNodes))
-	for id, node := range n.berthNodes {
-		envelope := []SafetyLocation{n.berthSafety[id]}
-		for _, location := range n.nodeSafety[node] {
-			if !slices.Contains(envelope, location) {
-				envelope = append(envelope, location)
-			}
+		if n.clusterSafety == nil {
+			n.clusterSafety = make(map[SafetyLocation][]SafetyLocation)
 		}
-		n.berthEnvelopes[id] = envelope
+		n.clusterSafety[n.laneSafety[n.network.Lanes[index].ID]] = planes
 	}
 }
 

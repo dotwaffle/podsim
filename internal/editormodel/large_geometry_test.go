@@ -56,43 +56,22 @@ func largeDraftPaths(gap float64, large bool) map[string]any {
 	return network
 }
 
-func TestLargeDraftPairClearance(t *testing.T) {
-	t.Parallel()
-	for _, test := range []struct {
-		name            string
-		gap             float64
-		large, conflict bool
-	}{
-		{"ordinary twelve", 12, false, false}, {"ordinary eleven", 11, false, true},
-		{"mixed nineteen", 19, true, true}, {"mixed twenty", 20, true, false},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			geometry := geometryDraft{network: largeDraftPaths(test.gap, test.large)}
-			conflict := geometry.laneConflict([]string{"second"}, true)
-			if (conflict != nil) != test.conflict {
-				t.Fatalf("conflict = %+v", conflict)
-			}
-			if conflict != nil && conflict.minimum != max(draftClassMinimum(items(geometry.network["lanes"])[0]), draftClassMinimum(items(geometry.network["lanes"])[1]))/2 {
-				t.Fatal("wrong reported minimum")
-			}
-		})
-	}
-}
-
+// TestLargeDraftNoBankAudit checks a Group lane and a small lane that
+// share no node, at each side of their side-by-side distance of 3.55 m.
+// The draft checks and an edit refuse them only below it.
 func TestLargeDraftNoBankAudit(t *testing.T) {
 	t.Parallel()
-	for _, gap := range []float64{19, 20} {
+	for _, gap := range []float64{3.54, 3.56} {
 		network := largeDraftPaths(gap, true)
 		var report checkList
 		checkNetwork(network, &report)
-		if (len(report.items) != 0) != (gap < 20) {
+		if (len(report.items) != 0) != (gap < 3.55) {
 			t.Fatalf("gap %g checks: %+v", gap, report.items)
 		}
 		draft := map[string]any{"network": network}
 		before := cloneEditValue(draft)
 		change, err := editGeometry(draft, jsontext.Value(`{"action":"laneSpeed","id":"second","value":15}`))
-		if (err != nil) != (gap < 20) {
+		if (err != nil) != (gap < 3.55) {
 			t.Fatalf("gap %g edit error: %v", gap, err)
 		}
 		if err != nil && len(change.Patch) != 0 {
@@ -197,6 +176,10 @@ func TestLargeDraftBerthAudit(t *testing.T) {
 	}
 }
 
+// TestLargeDraftMaskHistoryChecks checks the cached checks through a
+// history of a class mask. The lanes "first" and "second" are 3.3 m apart:
+// more than the side-by-side distance of two small lanes, 3.1 m, and less
+// than that of a small lane and a lane that admits Group, 3.55 m.
 func TestLargeDraftMaskHistoryChecks(t *testing.T) {
 	t.Parallel()
 	raw, err := os.ReadFile("../project/testdata/group_public.json")
@@ -208,7 +191,7 @@ func TestLargeDraftMaskHistoryChecks(t *testing.T) {
 		t.Fatal(decodeErr)
 	}
 	config.Fleet[0].Class = sim.LegacyClass
-	config.Network.Nodes = append(config.Network.Nodes, sim.Node{ID: "a", Position: sim.Point{X: 2000, Y: 2000}}, sim.Node{ID: "b", Position: sim.Point{X: 2100, Y: 2000}}, sim.Node{ID: "c", Position: sim.Point{X: 2000, Y: 2019}}, sim.Node{ID: "d", Position: sim.Point{X: 2100, Y: 2019}})
+	config.Network.Nodes = append(config.Network.Nodes, sim.Node{ID: "a", Position: sim.Point{X: 2000, Y: 2000}}, sim.Node{ID: "b", Position: sim.Point{X: 2100, Y: 2000}}, sim.Node{ID: "c", Position: sim.Point{X: 2000, Y: 2003.3}}, sim.Node{ID: "d", Position: sim.Point{X: 2100, Y: 2003.3}})
 	config.Network.Lanes = append(config.Network.Lanes, sim.Lane{ID: "first", From: "a", To: "b", SpeedLimit: 14}, sim.Lane{ID: "second", From: "c", To: "d", SpeedLimit: 14})
 	model := new(engine)
 	keys := synchronize(t, model, config)
@@ -285,9 +268,8 @@ func TestLargeDraftBankChainMaskPreservation(t *testing.T) {
 
 // depotDraft returns BankExample with a straight chain of 1 m/s lanes, as a
 // draft network. The slot nodes are 11 m apart, so the two middle lanes
-// qualify with a minimum of 10.5 m. A positive offset adds a parallel chain
-// that far beside it.
-func depotDraft(t *testing.T, offset float64) (sim.Network, map[string]any) {
+// qualify with a minimum of 10.5 m.
+func depotDraft(t *testing.T) (sim.Network, map[string]any) {
 	t.Helper()
 	network := sim.BankExample()
 	add := func(prefix string, y, side float64) {
@@ -301,9 +283,6 @@ func depotDraft(t *testing.T, offset float64) (sim.Network, map[string]any) {
 		network.Lanes = append(network.Lanes, sim.Lane{ID: prefix + "-through", From: node(0), To: node(4), SpeedLimit: 14, Control: &sim.Point{X: 11, Y: y + side*150}})
 	}
 	add("depot", 5000, -1)
-	if offset > 0 {
-		add("other", 5000+offset, 1)
-	}
 	raw, err := json.Marshal(network)
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +296,7 @@ func depotDraft(t *testing.T, offset float64) (sim.Network, map[string]any) {
 
 func TestDraftClearanceMatchesServer(t *testing.T) {
 	t.Parallel()
-	network, draft := depotDraft(t, 0)
+	network, draft := depotDraft(t)
 	server, clearance := sim.NewLaneClearance(network), newDraftClearance(draft)
 	for index, lane := range items(draft["lanes"]) {
 		want := server.LaneMinimum(network.Lanes[index])
@@ -355,28 +334,13 @@ func TestDraftClearanceMatchesServer(t *testing.T) {
 	}
 }
 
-func TestDraftClearanceLaneConflictByPosition(t *testing.T) {
-	t.Parallel()
-	// The lane before the slots is 11 m from the lead-out lane. Both slot
-	// windows certify the first 24 m of the lead-out lane.
-	_, draft := depotDraft(t, 0)
-	if conflict := (geometryDraft{network: draft}).laneConflict([]string{"depot-c3", "depot-c1"}, true); conflict != nil {
-		t.Fatalf("one chain: %+v", conflict)
-	}
-	_, parallel := depotDraft(t, 7)
-	conflict := (geometryDraft{network: parallel}).laneConflict([]string{"other-c1"}, true)
-	if conflict == nil || conflict.minimum != sim.Clearance {
-		t.Fatalf("parallel chains: %+v", conflict)
-	}
-}
-
 func TestDraftClearanceBankEdit(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		x     float64
 		error string
 	}{{10.6, ""}, {10.4, "lane depot-c1 would be shorter than 10.5 meters"}} {
-		_, network := depotDraft(t, 0)
+		_, network := depotDraft(t)
 		draft := map[string]any{"network": network}
 		_, err := editGeometry(draft, jsontext.Value(`{"action":"moveNode","id":"depot-d2","point":{"x":`+strconv.FormatFloat(test.x, 'g', -1, 64)+`,"y":5000}}`))
 		if test.error == "" && err != nil || test.error != "" && (err == nil || err.Error() != test.error) {
@@ -385,7 +349,7 @@ func TestDraftClearanceBankEdit(t *testing.T) {
 	}
 	// A faster lane before the chain raises the minimum of the unchanged
 	// lane after it.
-	_, network := depotDraft(t, 0)
+	_, network := depotDraft(t)
 	_, err := editGeometry(map[string]any{"network": network}, jsontext.Value(`{"action":"laneSpeed","id":"depot-c0","value":7.2}`))
 	if err == nil || err.Error() != "lane depot-c1 would be shorter than 12 meters" {
 		t.Fatalf("speed edit: %v", err)
@@ -412,6 +376,8 @@ func planeJoinDraft(offset float64, classes []any, control map[string]any, joine
 	return network
 }
 
+// TestLargeDraftLaneReachConflict checks the reach refusals of the server
+// audit on the plane joins of a draft.
 func TestLargeDraftLaneReachConflict(t *testing.T) {
 	t.Parallel()
 	large, small := []any{"legacy", "group"}, []any{"legacy"}
@@ -431,23 +397,20 @@ func TestLargeDraftLaneReachConflict(t *testing.T) {
 		network  map[string]any
 		conflict bool
 	}{
-		{"straight 24", planeJoinDraft(24, large, nil, "Q"), true},
-		{"straight 20", planeJoinDraft(20, large, nil, "Q"), true},
-		{"quadratic 24", planeJoinDraft(24, large, curve, "Q"), true},
-		{"quadratic 20", planeJoinDraft(20, large, curve, "Q"), true},
-		{"rear 34", reversed(planeJoinDraft(34, large, nil, "Q")), true},
+		{"straight 10", planeJoinDraft(10, large, nil, "Q"), true},
+		{"straight 8", planeJoinDraft(8, large, nil, "Q"), true},
+		{"quadratic 10", planeJoinDraft(10, large, curve, "Q"), true},
+		{"quadratic 12", planeJoinDraft(12, large, curve, "Q"), true},
+		{"rear 20", reversed(planeJoinDraft(20, large, nil, "Q")), true},
 		{"flyover two lanes from a join", planeJoinDraft(200, large, nil, "Q"), false},
 		{"flyover with no shared plane", planeJoinDraft(24, large, nil, "B"), false},
 		{"small classes", planeJoinDraft(24, small, nil, "Q"), false},
-		{"berth at the From node", berth("mid", planeJoinDraft(24, large, nil, "A")), true},
+		// The cross lane is 20 m from the berth node.
+		{"berth at the From node", berth("mid", planeJoinDraft(80, large, nil, "A")), true},
 		{"berth at the To node", berth("join", planeJoinDraft(24, large, nil, "A")), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			conflict := (geometryDraft{network: test.network}).laneConflict([]string{"cross"}, true)
-			if (conflict != nil) != test.conflict {
-				t.Fatalf("conflict = %+v", conflict)
-			}
 			typed, ok := draftClearanceNetwork(test.network)
 			if !ok {
 				t.Fatal("draft has an invalid class set")
@@ -463,20 +426,23 @@ func TestLargeDraftLaneReachConflict(t *testing.T) {
 // exemption, as in the bank audit of the server.
 func TestLargeDraftLaneReachConflictOrder(t *testing.T) {
 	t.Parallel()
-	network := planeJoinDraft(24, []any{"legacy", "group"}, nil, "Q")
-	for id, at := range map[string][2]float64{"late-a": {2000, 0}, "late-b": {2100, 0}, "late-c": {2000, 10}, "late-d": {2100, 10}} {
+	const edit = `{"action":"laneSpeed","id":"cross","value":15}`
+	network := planeJoinDraft(10, []any{"legacy", "group"}, nil, "Q")
+	const reach = `validate large geometry: nonincident paths "cross" and "near" are less than 20 meters apart`
+	if _, err := editGeometry(map[string]any{"network": cloneEditValue(network)}, jsontext.Value(edit)); err == nil || err.Error() != reach {
+		t.Fatalf("reach error = %v, want %s", err, reach)
+	}
+	// The late lanes admit Group and are 2 m apart, less than their
+	// side-by-side distance of 4.0 m.
+	for id, at := range map[string][2]float64{"late-a": {2000, 0}, "late-b": {2100, 0}, "late-c": {2000, 2}, "late-d": {2100, 2}} {
 		network["nodes"] = append(items(network["nodes"]), map[string]any{"id": id, "position": map[string]any{"x": at[0], "y": at[1]}})
 	}
 	for _, row := range [][3]string{{"late-first", "late-a", "late-b"}, {"late-second", "late-c", "late-d"}} {
 		network["lanes"] = append(items(network["lanes"]), map[string]any{"id": row[0], "from": row[1], "to": row[2], "speedLimit": float64(14), "vehicleClasses": []any{"group"}})
 	}
-	conflict := (geometryDraft{network: network}).laneConflict([]string{"cross", "late-first"}, true)
-	if conflict == nil || conflict.lane != "late-first" || conflict.other != "late-second" {
-		t.Fatalf("conflict = %+v", conflict)
-	}
-	conflict = (geometryDraft{network: network}).laneConflict([]string{"cross"}, true)
-	if conflict == nil || conflict.lane != "cross" || conflict.other != "near" {
-		t.Fatalf("reach conflict = %+v", conflict)
+	const late = `validate large geometry: nonincident paths "late-first" and "late-second" are less than 20 meters apart`
+	if _, err := editGeometry(map[string]any{"network": network}, jsontext.Value(edit)); err == nil || err.Error() != late {
+		t.Fatalf("error = %v, want %s", err, late)
 	}
 }
 
@@ -507,13 +473,24 @@ func reachLayoutDraft() map[string]any {
 	return network
 }
 
-// A layout edit reports a conflict that only the reach gives after the server
-// checks of the edit, so that it does not hide a refusal of the server.
+// A layout edit reports a conflict that only the reach gives after the other
+// server checks of the edit, so that it does not hide another refusal. The
+// lane "over" moves to 10 m from the entry, where the envelope reach of
+// "link-in" meets it.
 func TestLargeDraftLayoutReachConflictComesLast(t *testing.T) {
 	t.Parallel()
 	const edit = `{"action":"stationLayout","id":"station","value":{"spacing":260}}`
-	const want = "lane link-in would come within 20 meters of lane over"
-	if _, err := editGeometry(map[string]any{"network": reachLayoutDraft()}, jsontext.Value(edit)); err == nil || err.Error() != want {
+	draft := func() map[string]any {
+		network := reachLayoutDraft()
+		for _, node := range items(network["nodes"]) {
+			if id := member(node, "id"); id == "over-west" || id == "over-east" {
+				object(member(node, "position"))["y"] = 10.0
+			}
+		}
+		return network
+	}
+	const want = `validate large geometry: nonincident paths "over" and "link-in" are less than 20 meters apart`
+	if _, err := editGeometry(map[string]any{"network": draft()}, jsontext.Value(edit)); err == nil || err.Error() != want {
 		t.Fatalf("error = %v, want %s", err, want)
 	}
 	withShort := func(network map[string]any) map[string]any {
@@ -522,11 +499,12 @@ func TestLargeDraftLayoutReachConflictComesLast(t *testing.T) {
 		return network
 	}
 	const server = `validate large geometry: lane "short" must be at least 24 meters long`
-	if _, err := editGeometry(map[string]any{"network": withShort(reachLayoutDraft())}, jsontext.Value(edit)); err == nil || err.Error() != server {
+	if _, err := editGeometry(map[string]any{"network": withShort(draft())}, jsontext.Value(edit)); err == nil || err.Error() != server {
 		t.Fatalf("error = %v, want %s", err, server)
 	}
-	// A conflict without a plane exemption reports at its old place.
-	network := reachLayoutDraft()
+	// A conflict without a plane exemption reports at its old place, before
+	// the short lane.
+	network := draft()
 	object(items(network["lanes"])[0])["separationGroup"] = "Q"
 	if _, err := editGeometry(map[string]any{"network": withShort(network)}, jsontext.Value(edit)); err == nil || err.Error() != want {
 		t.Fatalf("error = %v, want %s", err, want)
@@ -537,7 +515,7 @@ func TestLargeDraftLayoutReachConflictComesLast(t *testing.T) {
 // the reach refusal, and the editor checks of a draft with banks read it.
 func TestLargeDraftServerReachRefusalComesLast(t *testing.T) {
 	t.Parallel()
-	network := planeJoinDraft(24, []any{"legacy", "group"}, nil, "Q")
+	network := planeJoinDraft(10, []any{"legacy", "group"}, nil, "Q")
 	const reach = `validate large geometry: nonincident paths "cross" and "near" are less than 20 meters apart`
 	if err := validateBankDraft(network); err == nil || err.Error() != reach {
 		t.Fatalf("error = %v, want %s", err, reach)

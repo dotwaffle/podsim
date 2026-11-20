@@ -265,6 +265,34 @@ func restoreEntryAt(t *testing.T, network Network, tick int64, pods []entryPod) 
 	return s
 }
 
+// restoreEntryIsotropic is restoreEntry on a network prepared with the
+// isotropic junction extents in place of the extents of its merge pairs.
+func restoreEntryIsotropic(t *testing.T, network Network, pods []entryPod) *Simulation {
+	t.Helper()
+	state, fleet := savedEntry(network, 0, pods)
+	newFleet := func() (*Simulation, error) {
+		p, err := PrepareNetwork(network)
+		if err != nil {
+			return nil, err
+		}
+		p.junctionConflicts = isotropicConflictsOf(p.network)
+		p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, tails: p.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
+		p.resourceLanes = indexResourceLanes(p.network, p.laneCells)
+		return p.NewFleet(fleet)
+	}
+	s, result, err := restoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state}, newFleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+		t.Fatalf("the pods did not restore in place: %+v", result)
+	}
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 // approachQueue returns count pods at rest on the upstream lane of approach,
 // gap meters apart, with the first pod at head.
 func approachQueue(approach, count int, head, gap float64) []entryPod {

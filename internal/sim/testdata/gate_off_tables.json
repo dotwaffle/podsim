@@ -1,25 +1,5 @@
 {
-	"London, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 342,
-			"sha256": "a7fc3b48b8ae1066f3b001774be9198e12f62cc34c9508bf63b0907bbf210ad7"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 21132,
-			"sha256": "df55186b889aabbb9c5ac2175b93325557066aa5c9a2903869d93f4fadc52b3f"
-		}
-	},
-	"London, lateralMerges true": {
+	"London": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -41,17 +21,25 @@
 	},
 	"audit probe, Express and small lanes 11.99 m apart": {
 		"audit": "not prepared",
-		"bankAudit": "nonincident paths \"first\" and \"second\" are less than 20 meters apart"
+		"bankAudit": "accepted"
 	},
 	"audit probe, Express and small lanes 12.01 m apart": {
 		"audit": "not prepared",
-		"bankAudit": "nonincident paths \"first\" and \"second\" are less than 20 meters apart"
+		"bankAudit": "accepted"
 	},
 	"audit probe, Express and small lanes 19.99 m apart": {
 		"audit": "not prepared",
-		"bankAudit": "nonincident paths \"first\" and \"second\" are less than 20 meters apart"
+		"bankAudit": "accepted"
 	},
 	"audit probe, Express and small lanes 20.01 m apart": {
+		"audit": "not prepared",
+		"bankAudit": "accepted"
+	},
+	"audit probe, Express and small lanes 3.54 m apart": {
+		"audit": "not prepared",
+		"bankAudit": "nonincident paths \"first\" and \"second\" are less than 20 meters apart"
+	},
+	"audit probe, Express and small lanes 3.56 m apart": {
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
@@ -59,15 +47,7 @@
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
-	"audit probe, small lanes 11.99 m apart, lateralMerges true": {
-		"audit": "not prepared",
-		"bankAudit": "accepted"
-	},
 	"audit probe, small lanes 12.01 m apart": {
-		"audit": "not prepared",
-		"bankAudit": "accepted"
-	},
-	"audit probe, small lanes 12.01 m apart, lateralMerges true": {
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
@@ -75,39 +55,19 @@
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
-	"audit probe, small lanes 19.99 m apart, lateralMerges true": {
-		"audit": "not prepared",
-		"bankAudit": "accepted"
-	},
 	"audit probe, small lanes 20.01 m apart": {
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
-	"audit probe, small lanes 20.01 m apart, lateralMerges true": {
+	"audit probe, small lanes 3.09 m apart": {
+		"audit": "not prepared",
+		"bankAudit": "nonincident paths \"first\" and \"second\" are less than 12 meters apart"
+	},
+	"audit probe, small lanes 3.11 m apart": {
 		"audit": "not prepared",
 		"bankAudit": "accepted"
 	},
-	"busy, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 942,
-			"sha256": "eefa070b477bb9ecad858bbaa7b554bb1a90a53339786a973c2ee9be39ebfbeb"
-		}
-	},
-	"busy, lateralMerges true": {
+	"busy": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -127,75 +87,35 @@
 			"sha256": "fa01f72251038880968922d6dc8a675db55562197d3c66b2b90656c6045e4ed1"
 		}
 	},
+	"london-full-express": {
+		"audit": "accepted",
+		"bankAudit": "accepted",
+		"depotLateral": {
+			"count": 342,
+			"sha256": "377a7396c48cdd72b82094b7ede10ec2c87694c434b406b4c14cd42d924999d2"
+		},
+		"mergePairs": {
+			"count": 11493,
+			"sha256": "a2f332c56ced5c94eb28240744d1c1dff024d7bbeca2b9680ecb13e982e965fd"
+		},
+		"mergeExtents": {
+			"count": 22986,
+			"sha256": "6c27ec7baaa52cdb998f6d5c403f8afa1d932c0096042d80a5916395b24155ec"
+		},
+		"junctionConflicts": {
+			"count": 50284,
+			"sha256": "834898b8c150feb9edd6992251a86c42237fbf3ab92aeaaaeb2d10e96db26360"
+		}
+	},
 	"london-full-express, Express on all lanes of Bank": {
-		"audit": "nonincident paths \"london-link-100-ab-1\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart",
-		"bankAudit": "nonincident paths \"london-link-100-ab-1\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart"
+		"audit": "nonincident paths \"london-link-098-ba-2\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart",
+		"bankAudit": "nonincident paths \"london-link-098-ba-2\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart"
 	},
 	"london-full-express, Express on the Waterloo and Bank routes": {
-		"audit": "nonincident paths \"940GZZLUEMB-move-01-02\" and \"940GZZLUEMB-move-02-03\" are less than 20 meters apart",
-		"bankAudit": "nonincident paths \"940GZZLUEMB-move-01-02\" and \"940GZZLUEMB-move-02-03\" are less than 20 meters apart"
+		"audit": "nonincident paths \"940GZZLUEMB-road-in-01\" and \"london-link-182-ab-1\" are less than 20 meters apart",
+		"bankAudit": "nonincident paths \"940GZZLUEMB-road-in-01\" and \"london-link-182-ab-1\" are less than 20 meters apart"
 	},
-	"london-full-express, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 342,
-			"sha256": "377a7396c48cdd72b82094b7ede10ec2c87694c434b406b4c14cd42d924999d2"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 50284,
-			"sha256": "e357f1e437c98213d826bd561a80ac7e8ae3fc8b0a74e7c4a31c0bc6a0f59478"
-		}
-	},
-	"london-full-express, lateralMerges true": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 342,
-			"sha256": "377a7396c48cdd72b82094b7ede10ec2c87694c434b406b4c14cd42d924999d2"
-		},
-		"mergePairs": {
-			"count": 11419,
-			"sha256": "53f8deb52f84847072cd186688c17046f51652c2d270d3410b06ae2588fad501"
-		},
-		"mergeExtents": {
-			"count": 22838,
-			"sha256": "bbaf68b534e0a40707f68c96f718d4eddbc993aabdc464b15e67c8237a0dd3a3"
-		},
-		"junctionConflicts": {
-			"count": 50284,
-			"sha256": "d1cb4ffa1649e9fafd1eaed48606a3f5f493bd097b3b1f28ad847329253fd85b"
-		}
-	},
-	"parking constrained, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 354,
-			"sha256": "e465348d7ce082dd34a4272cf93e3797a77d976dac9a9a58c78b020e83befdf3"
-		}
-	},
-	"parking constrained, lateralMerges true": {
+	"parking constrained": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -215,27 +135,7 @@
 			"sha256": "20c22e4c2bf6a37333d90b780621ddd6d5c55aee4234da265ade7665692c463c"
 		}
 	},
-	"rail hub, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 1132,
-			"sha256": "f3f8d6949627e73499023960333ded28e9ceaba4f924a847c4e545afd95bff02"
-		}
-	},
-	"rail hub, lateralMerges true": {
+	"rail hub": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -255,27 +155,7 @@
 			"sha256": "5ef2daa79c9ba76edd64319eaa67f9c4a96912d8c86bdfc945dbc764b7b76b8b"
 		}
 	},
-	"ring 100x3, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 4600,
-			"sha256": "861541cd7ee0a166b4de3af7982e6e6d1dec888c4cac55e34b0a436a255bd1bb"
-		}
-	},
-	"ring 100x3, lateralMerges true": {
+	"ring 100x3": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -295,27 +175,7 @@
 			"sha256": "e24dc8c24dcbbed50cd73a8453c4794248d93fc6681a09051e7870f2f84bc609"
 		}
 	},
-	"ring 3x16, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 1932,
-			"sha256": "54612fa70cb9df319f1db80b4fa5dd1844900eb5acf23e82d18d5a0e79f5581b"
-		}
-	},
-	"ring 3x16, lateralMerges true": {
+	"ring 3x16": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -335,27 +195,7 @@
 			"sha256": "9cf6840630332c1ffbcc882e930ff4442fbf36287df2b8bdf44c9b17f779b9d3"
 		}
 	},
-	"ring 4x12, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 1552,
-			"sha256": "c0bb8d5ff3d480e4ea4864e61d1e6ddb4b807047973514f4dda2368c526341f9"
-		}
-	},
-	"ring 4x12, lateralMerges true": {
+	"ring 4x12": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -375,27 +215,7 @@
 			"sha256": "53f2e4a1a86bfca4c2adf15f5a75cb7af47fc8ed947132f1cbc07cc71ea55a17"
 		}
 	},
-	"scale 100, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 2454,
-			"sha256": "867f7b15c63416fc8c2c19a16baed111abda5c1a207d786ac2c21b69365bdba6"
-		}
-	},
-	"scale 100, lateralMerges true": {
+	"scale 100": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -415,27 +235,7 @@
 			"sha256": "849bbb2f9f743eec7238125af87d0b77a5d1e81ec9f93ad0e77546353d344065"
 		}
 	},
-	"small, lateralMerges false": {
-		"audit": "accepted",
-		"bankAudit": "accepted",
-		"depotLateral": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergePairs": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"mergeExtents": {
-			"count": 0,
-			"sha256": "nil"
-		},
-		"junctionConflicts": {
-			"count": 340,
-			"sha256": "424ac9130d61d645eec33a86e81ec9461bef780a3f62bb7a6a4b6eb3b0cee6c7"
-		}
-	},
-	"small, lateralMerges true": {
+	"small": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {

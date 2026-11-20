@@ -9,15 +9,14 @@ import (
 	"testing"
 )
 
-// The tests of the merge and split pairs of a network that sets
-// ShapeClearance (part 3 and decision D5 of docs/design/shape-clearance.md):
+// The tests of the merge and split pairs of a network (part 3 and decision
+// D5 of docs/design/shape-clearance.md):
 // a lane that admits a large class or has a geometry tail can form a pair,
 // with the union body of the classes that it admits.
 
-// withShapeClasses returns a copy of a network with ShapeClearance in place
-// of LateralMerges, and with the classes of the lanes that classes names.
+// withShapeClasses returns a copy of a network with the classes of the
+// lanes that classes names.
 func withShapeClasses(network Network, classes map[string]ClassSet) Network {
-	network.LateralMerges, network.ShapeClearance = false, true
 	network.Lanes = slices.Clone(network.Lanes)
 	for index := range network.Lanes {
 		if set, ok := classes[network.Lanes[index].ID]; ok {
@@ -33,7 +32,7 @@ func shapeMergeHasLarge(network Network) bool {
 	positions := indexNodePositions(network.Nodes)
 	maneuvers, _ := newManeuverIndex(network, positions)
 	depots, _ := newDepotIndex(network, positions)
-	merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+	merges := newMergeLateral(network, maneuvers, depots)
 	if merges == nil {
 		return false
 	}
@@ -112,7 +111,7 @@ func TestShapeMergesMatchBodyReference(t *testing.T) {
 // shapeGrownHalfWidth returns the grown half width of the reference body of
 // a lane that admits classes (see mergeLaneShape).
 func shapeGrownHalfWidth(classes ClassSet) float64 {
-	return mergeLaneShape(Network{ShapeClearance: true}, Lane{VehicleClasses: classes}).halfWidth + 0.5
+	return mergeLaneShape(Lane{VehicleClasses: classes}).halfWidth + 0.5
 }
 
 // shapeUnionReach is a case of TestShapeMergesUnionBody: a pair of
@@ -231,8 +230,8 @@ func TestShapeMergesUnionBody(t *testing.T) {
 
 // TestShapeMergesExcludeLaneEndPairs checks clause 5 for large lanes: the
 // 24 m lane a of TestLateralMergeExcludesLaneEndPairs meets lane b at 3
-// degrees, so the body range of a reaches its far end. With Express lanes
-// and the field, the pair is not a merge pair, the lanes have no merge
+// degrees, so the body range of a reaches its far end. With Express lanes,
+// the pair is not a merge pair, the lanes have no merge
 // partner, and their extents are the isotropic extents of 20 m.
 func TestShapeMergesExcludeLaneEndPairs(t *testing.T) {
 	t.Parallel()
@@ -243,9 +242,7 @@ func TestShapeMergesExcludeLaneEndPairs(t *testing.T) {
 			if mergePairOf(network) {
 				t.Error("lanes a and b form a merge pair")
 			}
-			on := junctionConflictsOf(network)
-			network.ShapeClearance = false
-			off := junctionConflictsOf(network)
+			on, off := junctionConflictsOf(network), isotropicConflictsOf(network)
 			for _, lane := range []string{"a", "b"} {
 				if fmt.Sprint(on[lane]) != fmt.Sprint(off[lane]) {
 					t.Errorf("lane %s extents %v, want the isotropic extents %v", lane, on[lane], off[lane])
@@ -261,9 +258,9 @@ func TestShapeMergesExcludeLaneEndPairs(t *testing.T) {
 }
 
 // TestShapeMergesKeepFollowingRules checks part 2 of the rule on
-// largeOracleNetwork, with the field and without it: the geometry tails,
-// the retention, and the cells of each lane do not change, except for the
-// junction resources of the lanes of the merge or split pair. Each extent
+// largeOracleNetwork against the isotropic extents: the cells of each lane
+// do not change, except for the junction resources of the lanes of the
+// merge or split pair. Each extent
 // of a pair that is not a merge or split pair is the same bit for bit, and
 // each extent of the pair lies inside its isotropic extent of 20 m, and is
 // shorter.
@@ -277,17 +274,12 @@ func TestShapeMergesKeepFollowingRules(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			network.ShapeClearance = false
-			off, err := PrepareNetwork(network)
-			if err != nil {
-				t.Fatal(err)
+			if on.merges == nil {
+				t.Fatal("the network has no merge pair")
 			}
-			if off.merges != nil {
-				t.Fatal("the network has merge pairs without the field")
-			}
-			if !maps.Equal(on.tails, off.tails) {
-				t.Error("the geometry tails differ")
-			}
+			off := *on
+			off.junctionConflicts = isotropicConflictsOf(on.network)
+			off.laneCells = indexLaneCells(laneCellsIndexInput{network: on.network, tails: on.tails, geometry: on.geometry, conflicts: off.junctionConflicts, berths: on.berthResources, retention: on.retention, maneuvers: on.maneuvers, depots: on.depots})
 			for _, lane := range network.Lanes {
 				checkShapeMergeCells(t, lane.ID, on.laneCells[lane.ID], off.laneCells[lane.ID])
 			}
@@ -324,8 +316,8 @@ func TestShapeMergesKeepFollowingRules(t *testing.T) {
 	}
 }
 
-// checkShapeMergeCells fails the test when the cells of a lane with the
-// field differ from the cells without it, other than by fewer junction
+// checkShapeMergeCells fails the test when the cells of a lane differ from
+// the cells with the isotropic extents, other than by fewer junction
 // resources.
 func checkShapeMergeCells(t *testing.T, lane string, on, off *laneCells) {
 	t.Helper()
@@ -344,7 +336,7 @@ func checkShapeMergeCells(t *testing.T, lane string, on, off *laneCells) {
 		}
 		for _, r := range got {
 			if r.kind == junctionResource && !slices.Contains(want, r) {
-				t.Errorf("lane %s cell %d: junction %s that the cell does not hold without the field", lane, cell, r.id)
+				t.Errorf("lane %s cell %d: junction %s that the cell does not hold with the isotropic extents", lane, cell, r.id)
 			}
 		}
 	}
@@ -355,8 +347,7 @@ func checkShapeMergeCells(t *testing.T, lane string, on, off *laneCells) {
 // classes of the two pods, less separationTolerance, for each pairing of
 // classes, in both orders, with Group in place of Express. A following
 // pair on one lane, and a through pair, keep 12 m, or 20 m with a large
-// pod. With LateralMerges alone, the large lanes form no merge pair, so a
-// small pair on them keeps 12 m and a large pair 20 m.
+// pod.
 func TestShapeMergesCheck(t *testing.T) {
 	t.Parallel()
 	network := largeOracleNetwork(t, true)
@@ -400,66 +391,47 @@ func TestShapeMergesCheck(t *testing.T) {
 			t.Errorf("%s and %s on %v at %g m: no error", test.first, test.second, test.keys, test.want-0.01)
 		}
 	}
-	network.LateralMerges, network.ShapeClearance = true, false
-	lateral, err := PrepareNetwork(network)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if lateral.merges.mergePartner(a.index, b.index) {
-		t.Fatal("with LateralMerges alone, the large lanes a and b form a merge pair")
-	}
-	for _, classes := range [][2]VehicleClass{{CompactClass, LegacyClass}, {ExpressClass, CompactClass}, {GroupClass, ExpressClass}} {
-		want := classPairClearance(classes[0], classes[1])
-		if failure := observe(lateral.merges, classes[0], classes[1], [2]separationKey{a, b}, want-0.01); failure == nil {
-			t.Errorf("LateralMerges alone: %s and %s on lanes a and b at %g m: no error", classes[0], classes[1], want-0.01)
-		}
-	}
 }
 
 // TestShapeMergesDebrisBlocksPartner checks the debris footprint of a lane
 // of a large merge pair (section 7.2 of the incident suspension contract),
 // on the merge of largeOracleNetwork. Debris on lane a, 100 m before the
 // node, is about 10.5 m from lane b, outside the junction zone of the
-// pair. With the field, the footprint holds each cell of lane b that comes
-// closer than Clearance to the debris, and no other cell of lane b.
-// Without it, the pair is not a merge pair, and the footprint holds no
-// cell of lane b.
+// pair. The footprint holds each cell of lane b that comes closer than
+// Clearance to the debris, and no other cell of lane b.
 func TestShapeMergesDebrisBlocksPartner(t *testing.T) {
 	t.Parallel()
-	for _, field := range []bool{true, false} {
-		network := largeOracleNetwork(t, true)
-		network.ShapeClearance = field
-		s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		const from, to = oracleLaneLength - 100, oracleLaneLength - 97
-		a, b := s.graph.lanes["a"], s.graph.lanes["b"]
-		if s.merges.mergePartner(a, b) != field {
-			t.Fatalf("field %v: lanes a and b form a merge pair %v", field, !field)
-		}
-		footprint := s.debrisFootprint(a, from, to)
-		if field && slices.ContainsFunc(footprint, func(r resource) bool { return r.kind == junctionResource }) {
-			t.Fatal("the footprint holds a junction, so the test does not need the partner")
-		}
-		debris := polylinePiece(network.Polyline(network.Lanes[a]), from, to)
-		cells, length := s.laneCells["b"], s.graph.lengths[b]
-		near := 0
-		for cell := range cells.count() {
-			piece := polylinePiece(network.Polyline(network.Lanes[b]), cellOffset(cell, cells.count(), length), cellOffset(cell+1, cells.count(), length))
-			nearby := field && bankPathsClose(debris, piece, Clearance)
-			for _, r := range cells.cell(cell) {
-				if held := slices.Contains(footprint, r); held != nearby && r.kind == trackResource {
-					t.Errorf("field %v: cell %d of lane b resource %v in the footprint %v, want %v", field, cell, r, held, nearby)
-				}
-			}
-			if nearby {
-				near++
+	network := largeOracleNetwork(t, true)
+	s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const from, to = oracleLaneLength - 100, oracleLaneLength - 97
+	a, b := s.graph.lanes["a"], s.graph.lanes["b"]
+	if !s.merges.mergePartner(a, b) {
+		t.Fatal("lanes a and b form no merge pair")
+	}
+	footprint := s.debrisFootprint(a, from, to)
+	if slices.ContainsFunc(footprint, func(r resource) bool { return r.kind == junctionResource }) {
+		t.Fatal("the footprint holds a junction, so the test does not need the partner")
+	}
+	debris := polylinePiece(network.Polyline(network.Lanes[a]), from, to)
+	cells, length := s.laneCells["b"], s.graph.lengths[b]
+	near := 0
+	for cell := range cells.count() {
+		piece := polylinePiece(network.Polyline(network.Lanes[b]), cellOffset(cell, cells.count(), length), cellOffset(cell+1, cells.count(), length))
+		nearby := bankPathsClose(debris, piece, Clearance)
+		for _, r := range cells.cell(cell) {
+			if held := slices.Contains(footprint, r); held != nearby && r.kind == trackResource {
+				t.Errorf("cell %d of lane b resource %v in the footprint %v, want %v", cell, r, held, nearby)
 			}
 		}
-		if field && near == 0 {
-			t.Fatal("no cell of lane b is near the debris")
+		if nearby {
+			near++
 		}
+	}
+	if near == 0 {
+		t.Fatal("no cell of lane b is near the debris")
 	}
 }
 

@@ -26,7 +26,6 @@ func lateralPairNetwork(degrees, length float64, converging bool) Network {
 			{ID: "b-end", Position: Point{X: sign * length * math.Cos(radians), Y: sign * length * math.Sin(radians)}},
 			{ID: "c-end", Position: Point{X: -sign * length}},
 		},
-		LateralMerges: true,
 	}
 	if converging {
 		network.Lanes = []Lane{
@@ -74,9 +73,7 @@ func TestLateralMergeStraightExtents(t *testing.T) {
 			t.Run(fmt.Sprintf("%v degrees converging %v", degrees, converging), func(t *testing.T) {
 				t.Parallel()
 				network := lateralPairNetwork(degrees, length, converging)
-				on := junctionConflictsOf(network)
-				network.LateralMerges = false
-				off := junctionConflictsOf(network)
+				on, off := junctionConflictsOf(network), isotropicConflictsOf(network)
 				cot := 1 / math.Tan(degrees*math.Pi/360)
 				reach := rear + halfWidth*cot
 				if converging {
@@ -124,13 +121,9 @@ var (
 	mergeLargeShape = mergeShape{rear: 3.5, front: 3.5, halfWidth: 1.5}
 )
 
-// mergeLaneShape returns the body of a lane in the reference: the small
-// body for a network without ShapeClearance, and otherwise the union of
+// mergeLaneShape returns the body of a lane in the reference: the union of
 // the bodies of the classes that the lane admits.
-func mergeLaneShape(network Network, lane Lane) mergeShape {
-	if !network.ShapeClearance {
-		return mergeSmallShape
-	}
+func mergeLaneShape(lane Lane) mergeShape {
 	var union mergeShape
 	add := func(body mergeShape) {
 		union = mergeShape{rear: max(union.rear, body.rear), front: max(union.front, body.front), halfWidth: max(union.halfWidth, body.halfWidth)}
@@ -305,7 +298,7 @@ func TestLateralMergeTwoStreams(t *testing.T) {
 			t.Parallel()
 			got := runMergeCorridor(t, corridorCase{
 				name: "two streams, shallow merge", side: true, sideDegrees: degrees, streams: []string{"main", "side"},
-				queueHead: corridorFeedLength - 100, lateral: true, whole: true,
+				queueHead: corridorFeedLength - 100, whole: true,
 			})
 			t.Logf("headway %.3f s, smallest lateral pair gap %.3f m", got.headway, got.lateralGap)
 			if !(got.lateralGap < Clearance) {
@@ -395,7 +388,6 @@ func rampNetwork(control, start Point, mainControl *Point, converging bool) Netw
 			{ID: "ramp-end", Position: mirror(start)},
 			{ID: "c-end", Position: mirror(Point{X: 300})},
 		},
-		LateralMerges: true,
 	}
 	main := Lane{ID: "a", From: "main-end", To: "n", SpeedLimit: 14}
 	ramp := Lane{ID: "b", From: "ramp-end", To: "n", SpeedLimit: 10, Control: new(mirror(control))}
@@ -465,39 +457,27 @@ func TestLateralMergeRampsMatchBodyReference(t *testing.T) {
 }
 
 // TestLateralMergeExcludedPairsKeepExtent checks that each pair that is
-// not a lateral merge pair keeps the isotropic extent with LateralMerges
-// set: a through pair, a loop, two lanes with the same endpoints, a pair
-// with a large lane, a lane with a geometry tail, and the lanes of a
-// maneuver group and of a depot.
+// not a lateral merge pair keeps the isotropic extent: a through pair, a
+// loop, two lanes with the same endpoints, and the lanes of a maneuver
+// group and of a depot. A pair with a large lane, or with a lane with a
+// geometry tail, is a lateral merge pair (decision D5).
 func TestLateralMergeExcludedPairsKeepExtent(t *testing.T) {
 	t.Parallel()
 	radians := 6 * math.Pi / 180
 	shallow := Point{X: -200 * math.Cos(radians), Y: -200 * math.Sin(radians)}
-	group, err := NewClassSet(string(GroupClass))
-	if err != nil {
-		t.Fatal(err)
-	}
-	nodes := []Node{{ID: "n"}, {ID: "a-end", Position: Point{X: -200}}, {ID: "b-end", Position: shallow}, {ID: "m", Position: Point{X: -150, Y: 10}}, {ID: "far", Position: Point{X: -200, Y: -200}}}
+	nodes := []Node{{ID: "n"}, {ID: "a-end", Position: Point{X: -200}}, {ID: "b-end", Position: shallow}, {ID: "m", Position: Point{X: -150, Y: 10}}}
 	a := Lane{ID: "a", From: "a-end", To: "n", SpeedLimit: 14}
 	for _, test := range []struct {
 		name  string
 		lanes []Lane
-		// tail names a lane that must have a geometry tail.
-		tail string
 	}{
 		{name: "through pair", lanes: []Lane{a, {ID: "c", From: "n", To: "b-end", SpeedLimit: 14}}},
 		{name: "loop", lanes: []Lane{a, {ID: "loop", From: "n", To: "n", SpeedLimit: 14, Control: &Point{X: -100, Y: -8}}}},
 		{name: "same endpoints", lanes: []Lane{{ID: "s1", From: "m", To: "n", SpeedLimit: 14}, {ID: "s2", From: "m", To: "n", SpeedLimit: 14, Control: &Point{X: -75, Y: 9}}}},
-		{name: "large lane", lanes: []Lane{a, {ID: "b", From: "b-end", To: "n", SpeedLimit: 14, VehicleClasses: group}}},
-		{name: "tail", tail: "a", lanes: []Lane{a, {ID: "b", From: "b-end", To: "n", SpeedLimit: 14}, {ID: "g", From: "far", To: "a-end", SpeedLimit: 14, VehicleClasses: group}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			network := Network{Nodes: nodes, Lanes: test.lanes, LateralMerges: true}
-			if test.tail != "" && indexGeometryTails(network)[test.tail] == (geometryTails{}) {
-				t.Fatalf("lane %s has no geometry tail", test.tail)
-			}
-			checkSameExtents(t, network, nil)
+			checkSameExtents(t, Network{Nodes: nodes, Lanes: test.lanes}, nil)
 		})
 	}
 	for name, network := range map[string]Network{"maneuver group": compactStationNetwork(6, 28.40), "depot": testDepotNetwork()} {
@@ -518,29 +498,26 @@ func TestLateralMergeExcludedPairsKeepExtent(t *testing.T) {
 			if candidates == 0 {
 				t.Fatal("no lane of the network meets clauses 1 and 2")
 			}
-			network.LateralMerges = true
 			checkSameExtents(t, network, excluded)
 		})
 	}
 }
 
-// checkSameExtents fails the test when the extents of a lane differ with
-// and without LateralMerges, or when the lane is in a lateral merge pair.
+// checkSameExtents fails the test when the extents of a lane differ from
+// the isotropic extents, or when the lane is in a lateral merge pair.
 // With a nil filter, it checks each lane.
 func checkSameExtents(t *testing.T, network Network, filter func(Lane) bool) {
 	t.Helper()
 	positions := indexNodePositions(network.Nodes)
 	maneuvers, _ := newManeuverIndex(network, positions)
 	depots, _ := newDepotIndex(network, positions)
-	merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+	merges := newMergeLateral(network, maneuvers, depots)
 	for index, lane := range network.Lanes {
 		if (filter == nil || filter(lane)) && len(merges.neighborLanes(index)) > 0 {
 			t.Errorf("lane %s is in a lateral merge pair with lanes %v", lane.ID, merges.neighborLanes(index))
 		}
 	}
-	on := junctionConflictsOf(network)
-	network.LateralMerges = false
-	off := junctionConflictsOf(network)
+	on, off := junctionConflictsOf(network), isotropicConflictsOf(network)
 	checked := 0
 	for _, lane := range network.Lanes {
 		if filter != nil && !filter(lane) {
@@ -558,8 +535,7 @@ func checkSameExtents(t *testing.T, network Network, filter func(Lane) bool) {
 
 // TestLateralMergeCheck checks the separation of a lateral merge pair:
 // two pods on the lanes of a 6 degree merge pass at lateralClearance(0)
-// and fail just below it. A through pair at the same distance fails, and so
-// does the merge pair without LateralMerges.
+// and fail just below it. A through pair at the same distance fails.
 func TestLateralMergeCheck(t *testing.T) {
 	t.Parallel()
 	radians := 6 * math.Pi / 180
@@ -572,20 +548,17 @@ func TestLateralMergeCheck(t *testing.T) {
 	clearance := lateralClearance(0)
 	for _, test := range []struct {
 		name                  string
-		lateral               bool
 		first, second         Point
 		firstLane, secondLane string
 		fail                  bool
 	}{
-		{name: "lateral pair at the clearance", lateral: true, first: mainAt(clearance), second: side, firstLane: "main", secondLane: "side"},
-		{name: "lateral pair below the clearance", lateral: true, first: mainAt(3.09), second: side, firstLane: "main", secondLane: "side", fail: true},
-		{name: "through pair at the clearance", lateral: true, first: Point{X: -clearance / 2}, second: Point{X: clearance / 2}, firstLane: "main", secondLane: "exit", fail: true},
-		{name: "lateral pair without the field", first: mainAt(clearance), second: side, firstLane: "main", secondLane: "side", fail: true},
+		{name: "lateral pair at the clearance", first: mainAt(clearance), second: side, firstLane: "main", secondLane: "side"},
+		{name: "lateral pair below the clearance", first: mainAt(3.09), second: side, firstLane: "main", secondLane: "side", fail: true},
+		{name: "through pair at the clearance", first: Point{X: -clearance / 2}, second: Point{X: clearance / 2}, firstLane: "main", secondLane: "exit", fail: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			network := mergeCorridor(true, 6)
-			network.LateralMerges = test.lateral
 			s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}, {ID: "p2", StationID: "dest", BerthID: "dest-02"}})
 			if err != nil {
 				t.Fatal(err)
@@ -617,7 +590,6 @@ func TestLateralMergeCheck(t *testing.T) {
 func TestLateralMergeDebrisBlocksPartner(t *testing.T) {
 	t.Parallel()
 	network := mergeCorridor(true, 6)
-	network.LateralMerges = true
 	s, err := NewFleet(network, []Placement{{ID: "p1", StationID: "dest", BerthID: "dest-01"}})
 	if err != nil {
 		t.Fatal(err)
@@ -658,14 +630,11 @@ func TestLateralMergeDebrisBlocksPartner(t *testing.T) {
 
 // TestLateralMergeRestoresInPlace restores two traveling pods 100 m before
 // a 6 degree merge node, one on each lane of the lateral merge pair, about
-// 10.5 m apart. With LateralMerges, the physical restore keeps both in
-// place. Without it, the pair needs Clearance, and the restore demotes a
-// pod.
+// 10.5 m apart. The physical restore keeps both in place.
 func TestLateralMergeRestoresInPlace(t *testing.T) {
 	t.Parallel()
-	for _, lateral := range []bool{true, false} {
+	{
 		network := mergeCorridor(true, 6)
-		network.LateralMerges = lateral
 		laneIndex := make(map[string]int, len(network.Lanes))
 		for index, lane := range network.Lanes {
 			laneIndex[lane.ID] = index
@@ -690,8 +659,8 @@ func TestLateralMergeRestoresInPlace(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if inPlace := result.Tier == RestorePhysical && len(result.Demoted) == 0; inPlace != lateral {
-			t.Errorf("LateralMerges %v: restore %+v, want in place %v", lateral, result, lateral)
+		if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+			t.Errorf("restore %+v, want in place", result)
 		}
 	}
 }
@@ -1055,8 +1024,8 @@ type mergeSide struct {
 
 // newMergeSide samples the other lane in a box about lane.
 func newMergeSide(network Network, joins mergeJoins, lane, other Lane, node string, step float64) *mergeSide {
-	s := &mergeSide{network: network, joins: joins, lane: lane, other: other, shape: mergeLaneShape(network, lane), points: network.Polyline(lane), length: network.Length(lane), converging: lane.To == node, step: step}
-	otherShape := mergeLaneShape(network, other)
+	s := &mergeSide{network: network, joins: joins, lane: lane, other: other, shape: mergeLaneShape(lane), points: network.Polyline(lane), length: network.Length(lane), converging: lane.To == node, step: step}
+	otherShape := mergeLaneShape(other)
 	// The sweep bisects a step of the other lane to a corner travel of
 	// 1e-3 m, or to a depth of 20 on a long step.
 	otherPoints, longest := network.Polyline(other), 0.0
@@ -1284,9 +1253,9 @@ func (s *mergeSide) scan(step, more, from, limit float64, exact bool) (grown, in
 	return grown, inner
 }
 
-// TestScenarioLateralMergesShortenExtents compares each network of
-// testdata/scenario_networks.json.gz with LateralMerges set and with it
-// cleared. With the field set, some extent is shorter, and each extent
+// TestScenarioLateralMergesShortenExtents compares the extents of each
+// network of testdata/scenario_networks.json.gz with the isotropic
+// extents. Some extent is shorter, and each extent
 // lies inside the isotropic extent of the same pair, up to the rounding of
 // the samples of the isotropic extent. Each extent at a node where both
 // lanes end or both start holds the node range. For each lateral merge
@@ -1301,10 +1270,7 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			network := networks[name]
-			network.LateralMerges = false
-			off := junctionConflictsOf(network)
-			network.LateralMerges = true
-			on := junctionConflictsOf(network)
+			off, on := isotropicConflictsOf(network), junctionConflictsOf(network)
 			lengths := make(map[string]float64, len(network.Lanes))
 			for _, lane := range network.Lanes {
 				lengths[lane.ID] = network.Length(lane)
@@ -1332,7 +1298,7 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 			positions := indexNodePositions(network.Nodes)
 			maneuvers, _ := newManeuverIndex(network, positions)
 			depots, _ := newDepotIndex(network, positions)
-			merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+			merges := newMergeLateral(network, maneuvers, depots)
 			lanes := make(map[string]int, len(network.Lanes))
 			for index, lane := range network.Lanes {
 				lanes[lane.ID] = index
@@ -1353,7 +1319,7 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 			})
 			t.Logf("%d shorter extents, %d lateral merge pair sides", shorter, sides)
 			if shorter == 0 {
-				t.Error("no extent is shorter with LateralMerges set")
+				t.Error("no extent is shorter than the isotropic extent")
 			}
 		})
 	}
@@ -1388,7 +1354,6 @@ func laneEndNetwork(converging bool, degrees, short float64) Network {
 			{ID: "origin-in", From: "origin-entry", To: "origin-berth", SpeedLimit: 14},
 			{ID: "origin-out", From: "origin-berth", To: "origin-exit", SpeedLimit: 14},
 		},
-		LateralMerges: true,
 	}
 	if converging {
 		network.Nodes = append(network.Nodes,
@@ -1431,7 +1396,7 @@ func mergePairOf(network Network) bool {
 	positions := indexNodePositions(network.Nodes)
 	maneuvers, _ := newManeuverIndex(network, positions)
 	depots, _ := newDepotIndex(network, positions)
-	merges := newMergeLateral(network, indexGeometryTails(network), maneuvers, depots)
+	merges := newMergeLateral(network, maneuvers, depots)
 	lanes := make(map[string]int, len(network.Lanes))
 	for index, lane := range network.Lanes {
 		lanes[lane.ID] = index
@@ -1507,9 +1472,7 @@ func TestLateralMergeShortLaneStaysLateral(t *testing.T) {
 			if !mergePairOf(network) {
 				t.Fatal("lanes a and b do not form a lateral merge pair")
 			}
-			on := junctionConflictsOf(network)
-			network.LateralMerges = false
-			off := junctionConflictsOf(network)
+			on, off := junctionConflictsOf(network), isotropicConflictsOf(network)
 			index := slices.IndexFunc(network.Lanes, func(lane Lane) bool { return lane.ID == "a" })
 			length := network.Length(network.Lanes[index])
 			if got := conflictWith(t, on, "a"); got.start != 0 || got.end != length {
@@ -1537,7 +1500,6 @@ func TestLateralMergeLaneEndJoin(t *testing.T) {
 			{ID: "a", From: "n", To: "a-end", SpeedLimit: 14},
 			{ID: "b", From: "n", To: "b-end", SpeedLimit: 14},
 		},
-		LateralMerges: true,
 	}
 	if !mergePairOf(network) {
 		t.Fatal("without d, lanes a and b do not form a lateral merge pair")

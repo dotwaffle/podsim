@@ -23,7 +23,7 @@ func TestPassengerDispatchUsesFreeReachableBerth(t *testing.T) {
 	for range 240 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		if v.destination.ID != "" && assigned == "" {
 			assigned = v.destination.ID
 		}
@@ -56,7 +56,7 @@ func TestPassengerDispatchSpreadsConcurrentArrivals(t *testing.T) {
 	for range 240 * TicksPerSecond {
 		s.Step()
 		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		for _, v := range s.vehicles {
 			if assigned[v.Pod.ID] == "" && v.destination.ID != "" {
 				assigned[v.Pod.ID] = v.destination.ID

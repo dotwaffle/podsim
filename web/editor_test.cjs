@@ -4769,8 +4769,18 @@ test("a loaded project with settings keeps them through normalization and an unr
   assert.equal(editor.serializeDocument(page.config), baseline, "an unrelated edit changed the settings");
 });
 
+test("the native model refuses the fallback draft only for its empty fleet", needsGo, () => {
+  const go = goEditorOperations(), project = editor.fallbackConfig();
+  const result = go.handle({ id: 1, op: "validate", keys: Object.keys(project), patch: project });
+  assert.deepEqual(result.errors.filter((row) => !/fleet must contain/i.test(row.text)), []);
+});
+
 test("the native model refuses incident settings with the refusals of the server", needsGo, () => {
-  const go = goEditorOperations(), base = connectedScenario(), reply = (project) => go.handle({ id: 1, op: "validate", keys: Object.keys(project), patch: project });
+  const go = goEditorOperations(), base = connectedScenario();
+  // The straight return lane of the draft meets the station lanes, which
+  // the all-pairs audit refuses. A control point takes it clear.
+  base.network.lanes.find((lane) => lane.id === "lane-8").control = { x: 220, y: -120 };
+  const reply = (project) => go.handle({ id: 1, op: "validate", keys: Object.keys(project), patch: project });
   const refused = (project, text) => { const result = reply(project); assert.equal(result.valid, false, text); assert.ok(result.errors.some((row) => row.text.includes(text)), `${text}: ${JSON.stringify(result.errors)}`); };
   refused({ ...base, faults: { perHour: 61, duration: { kind: "fixed", seconds: 600 } } }, "faults perHour must be 0 to 60");
   refused({ ...base, faults: { perHour: 1 } }, "faults perHour above 0 needs a duration");

@@ -17,7 +17,7 @@ func reachIsland(t *testing.T, network Network) Network {
 	network.Nodes, network.Lanes = slices.Clone(network.Nodes), slices.Clone(network.Lanes)
 	network.Nodes = append(network.Nodes, []Node{
 		{ID: "island-mid", Position: Point{X: 5000, Y: 100}}, {ID: "island-join", Position: Point{X: 5000}}, {ID: "island-east", Position: Point{X: 5400}},
-		{ID: "island-cross-east", Position: Point{X: 5140, Y: 24}}, {ID: "island-cross-west", Position: Point{X: 4860, Y: 24}},
+		{ID: "island-cross-east", Position: Point{X: 5140, Y: 10}}, {ID: "island-cross-west", Position: Point{X: 4860, Y: 10}},
 	}...)
 	for _, row := range [][4]string{{"island-near", "island-mid", "island-join", "A"}, {"island-main", "island-join", "island-east", "Q"}, {"island-cross", "island-cross-east", "island-cross-west", "Q"}} {
 		network.Lanes = append(network.Lanes, Lane{ID: row[0], From: row[1], To: row[2], SpeedLimit: 14, VehicleClasses: classes, SeparationGroup: row[3]})

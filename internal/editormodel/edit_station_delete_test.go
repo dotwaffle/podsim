@@ -11,7 +11,7 @@ import (
 
 func TestStationDeletionPreservesMalformedReferencesAndOwnsProposals(t *testing.T) {
 	t.Parallel()
-	draft := fleetDraft()
+	draft := stationsDraft(t)
 	draft["demandProfiles"] = []any{nil, map[string]any{
 		"id": "profile", "custom": map[string]any{"keep": true},
 		"stations": []any{"alpha", "beta", "gamma"},
@@ -76,7 +76,7 @@ func TestStationDeletionPreservesMalformedReferencesAndOwnsProposals(t *testing.
 
 func TestStationDeletionNeedsNoProfileBranch(t *testing.T) {
 	t.Parallel()
-	change, err := editProject(fleetDraft(), jsontext.Value(`{"field":"geometry","value":{"action":"deleteStation","id":"alpha"}}`))
+	change, err := editProject(stationsDraft(t), jsontext.Value(`{"field":"geometry","value":{"action":"deleteStation","id":"alpha"}}`))
 	if err != nil {
 		t.Fatal(err)
 	}

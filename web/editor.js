@@ -126,7 +126,7 @@
         {"id":"lane-5","from":"station-2-berth-node-1","to":"station-2-exit-1","speedLimit":12,"stationID":"station-2","stationRole":"departure"},
         {"id":"lane-6","from":"station-2-entry-1","to":"station-2-exit-1","speedLimit":12,"stationID":"station-2","stationRole":"through"},
         {"id":"lane-7","from":"station-1-exit-1","to":"station-2-entry-1","speedLimit":12},
-        {"id":"lane-8","from":"station-2-exit-1","to":"station-1-entry-1","speedLimit":12},
+        {"id":"lane-8","from":"station-2-exit-1","to":"station-1-entry-1","speedLimit":12,"control":{"x":220,"y":-120}},
       ],
       stations: [
         {"id":"station-1","name":"Origin","entry":"station-1-entry-1","exit":"station-1-exit-1","berths":[{"id":"station-1-berth-1","node":"station-1-berth-node-1"}],"parkingOnly":false},

@@ -181,15 +181,14 @@ func chordProjection(points []Point) float64 {
 // is at most this long (B2 of section 3.1 of the shared-track design).
 const smallFrontCap = 16.2
 
-// envelopeFront returns the front bound of a lane for the envelope of a
-// pod: the front of the tail index. When the network sets ShapeClearance,
-// rule 1 gives a curved lane with no geometry tail the front
-// min(6 / (c (1 - conflictSlack)), smallFrontCap), where c is the chord
-// projection of the lane, and smallFrontCap when c is 0. The front then
-// holds the next lane of the route while the body of a small pod can reach
-// it. points returns the polyline of the lane. Only rule 1 calls it.
-func envelopeFront(lane Lane, bounds geometryTails, shapeClearance bool, points func() []Point) float64 {
-	if !shapeClearance || bounds != (geometryTails{}) || lane.Control == nil {
+// envelopeFront returns the front bound of a lane for the envelope of a pod:
+// the front of the tail index. Rule 1 gives a curved lane with no geometry tail
+// the front min(6 / (c (1 - conflictSlack)), smallFrontCap), where c is the
+// chord projection of the lane, and smallFrontCap when c is 0. The front then
+// holds the next lane of the route while the body of a small pod can reach it.
+// points returns the polyline of the lane. Only rule 1 calls it.
+func envelopeFront(lane Lane, bounds geometryTails, points func() []Point) float64 {
+	if bounds != (geometryTails{}) || lane.Control == nil {
 		return bounds.front
 	}
 	c := chordProjection(points())

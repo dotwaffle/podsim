@@ -440,9 +440,6 @@ func TestSoakLondonSharedExpressDriver(t *testing.T) {
 	}
 	input := soakInput{preset: soakLondonSharedExpressPreset, arm: soakArms["reference"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
 	d := newSoakDriver(t, input)
-	if !d.config.Network.ShapeClearance || !d.lateral {
-		t.Fatalf("the preset sets ShapeClearance %t, and the driver runs the D6 oracle %t", d.config.Network.ShapeClearance, d.lateral)
-	}
 	d.nextSave = 40 * sim.TicksPerSecond
 	d.parties.next = 1
 	d.runHours()

@@ -149,13 +149,14 @@ func TestLargeGeometryLaneReachAudit(t *testing.T) {
 		network func(*testing.T) Network
 		want    string
 	}{
-		{"straight 24", join(24, false, false), nearRefusal},
-		{"straight 20", join(20, false, false), nearRefusal},
-		{"quadratic 24", join(24, true, false), nearRefusal},
-		{"quadratic 20", join(20, true, false), nearRefusal},
-		{"rear 34", join(34, false, true), nearRefusal},
-		// The rule is for the whole lane, not only for its end.
-		{"same lane far from the join", join(80, false, false), nearRefusal},
+		{"straight 10", join(10, false, false), nearRefusal},
+		{"straight 8", join(8, false, false), nearRefusal},
+		{"quadratic 10", join(10, true, false), nearRefusal},
+		{"quadratic 12", join(12, true, false), nearRefusal},
+		{"rear 20", join(20, false, true), nearRefusal},
+		// The envelope reach of a pod on the near lane ends before this
+		// point of the lane, so the planes separate the pair.
+		{"same lane far from the join", join(80, false, false), ""},
 		{"control on one plane", func(t *testing.T) Network {
 			t.Helper()
 			return planeJoinNetwork(t, planeJoinCase{cross: 30, crossEnd: 321, approach: "Q", joined: "Q", crossing: "Q"})
@@ -213,13 +214,13 @@ func prepareError(n Network) error {
 // exemption, even when the scan reaches it first.
 func TestLargeGeometryReachRefusalOrder(t *testing.T) {
 	t.Parallel()
-	n := planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
+	n := planeJoinNetwork(t, planeJoinCase{cross: 10, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
 	const reach = `nonincident paths "cross" and "near" are less than 20 meters apart`
 	if err := n.ValidateBankGeometry(); err == nil || err.Error() != reach {
 		t.Fatalf("reach refusal = %v", err)
 	}
 	classes := n.Lanes[0].VehicleClasses
-	n.Nodes = append(n.Nodes, Node{ID: "late-a", Position: Point{X: 2000}}, Node{ID: "late-b", Position: Point{X: 2100}}, Node{ID: "late-c", Position: Point{X: 2000, Y: 10}}, Node{ID: "late-d", Position: Point{X: 2100, Y: 10}})
+	n.Nodes = append(n.Nodes, Node{ID: "late-a", Position: Point{X: 2000}}, Node{ID: "late-b", Position: Point{X: 2100}}, Node{ID: "late-c", Position: Point{X: 2000, Y: 2}}, Node{ID: "late-d", Position: Point{X: 2100, Y: 2}})
 	n.Lanes = append(n.Lanes, Lane{ID: "late-first", From: "late-a", To: "late-b", SpeedLimit: 14, VehicleClasses: classes}, Lane{ID: "late-second", From: "late-c", To: "late-d", SpeedLimit: 14, VehicleClasses: classes})
 	const plain = `nonincident paths "late-first" and "late-second" are less than 20 meters apart`
 	if err := n.ValidateBankGeometry(); err == nil || err.Error() != plain {
@@ -270,20 +271,31 @@ func planeJoinReports(t *testing.T, p *PreparedNetwork, offsets []int) (report *
 
 // The audit refuses the join because a real run breaks the 20 meter rule. The
 // run uses a network that the audit accepts, with the observer planes of the
-// refused network.
+// refused network: the lanes and the envelope locations of plane Z move to
+// plane Q.
 func TestLargeGeometryJoinRefusalMatchesObserver(t *testing.T) {
 	t.Parallel()
-	offsets := []int{14, 15, 16, 17, 18}
-	p, err := PrepareNetwork(planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Z"}))
+	offsets := []int{20, 21, 22, 23, 24}
+	p, err := PrepareNetwork(planeJoinNetwork(t, planeJoinCase{cross: 10, crossEnd: 160, approach: "A", joined: "Q", crossing: "Z"}))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if report, _ := planeJoinReports(t, p, offsets); report != nil {
 		t.Fatalf("accepted planes reported %v", report)
 	}
-	location := p.laneSafety["cross"]
-	location.SeparationGroup = "Q"
-	p.laneSafety["cross"] = location
+	from := p.laneSafety["cross"]
+	to := from
+	to.SeparationGroup = "Q"
+	for id, location := range p.laneSafety {
+		if location == from {
+			p.laneSafety[id] = to
+		}
+	}
+	for index, location := range p.envelopes.locations {
+		if location == from {
+			p.envelopes.locations[index] = to
+		}
+	}
 	report, smallest := planeJoinReports(t, p, offsets)
 	if report == nil {
 		t.Fatal("the refused planes gave no report")
@@ -304,7 +316,7 @@ func TestLargeGeometryJoinRefusalMatchesObserver(t *testing.T) {
 // more lane, far from the others, that adds another defect.
 func planeJoinWithDefect(t *testing.T, lane Lane, end Point) Network {
 	t.Helper()
-	n := planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
+	n := planeJoinNetwork(t, planeJoinCase{cross: 10, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
 	start := Point{X: 2000}
 	n.Nodes = append(n.Nodes, Node{ID: "defect-a", Position: start}, Node{ID: "defect-b", Position: Point{X: start.X + end.X, Y: end.Y}})
 	lane.From, lane.To, lane.SpeedLimit = "defect-a", "defect-b", 14
@@ -370,7 +382,7 @@ func TestLargeGeometryReachRefusalComesLast(t *testing.T) {
 			}
 		})
 	}
-	n := planeJoinNetwork(t, planeJoinCase{cross: 24, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
+	n := planeJoinNetwork(t, planeJoinCase{cross: 10, crossEnd: 160, approach: "A", joined: "Q", crossing: "Q"})
 	for name, entry := range entries {
 		if err := entry(n, placements); err == nil || err.Error() != reach {
 			t.Errorf("%s: error = %v, want %s", name, err, reach)

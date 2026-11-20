@@ -28,7 +28,7 @@ func (s *Simulation) ensureNetworkIndexes() {
 	p.depots, _ = newDepotIndex(p.network, indexNodePositions(p.network.Nodes))
 	p.berthKeys = indexBerthKeys(p.network)
 	p.lateral = newDepotLateral(p.network, p.depots, tails, p.berthKeys)
-	p.merges = newMergeLateral(p.network, tails, p.maneuvers, p.depots)
+	p.merges = newMergeLateral(p.network, p.maneuvers, p.depots)
 	p.junctionConflicts = buildJunctionConflicts(p.network, p.merges)
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: p.network, tails: tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
 	p.resourceLanes = indexResourceLanes(p.network, p.laneCells)

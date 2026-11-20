@@ -32,7 +32,7 @@ func TestAutomaticBerthClearing(t *testing.T) {
 			for range 240 * TicksPerSecond {
 				s.Step()
 				state := s.Snapshot()
-				checkTraffic(t, state)
+				checkTraffic(t, s)
 				if blocker.RelocatingTo != "" {
 					relocated = true
 					if blocker.Pod.Occupied {
@@ -95,7 +95,7 @@ func TestUnavailableParking(t *testing.T) {
 	}
 	for range 180 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 	}
 	state := s.Snapshot()
 	if state.Completed != 0 || state.Vehicles[0].Pod.WaitReason != ParkingUnavailable || state.Vehicles[0].Pod.Speed != 0 || state.Vehicles[1].Pod.BerthID != "market-1" {
@@ -206,7 +206,7 @@ func TestDeferredPassengerBerthClearingSettlesBothPods(t *testing.T) {
 			for range 15 * 60 * TicksPerSecond {
 				s.Step()
 				state := s.Snapshot()
-				checkTraffic(t, state)
+				checkTraffic(t, s)
 				if state.Completed == 1 && state.Vehicles[0].Pod.Activity == Idle && state.Vehicles[1].Pod.Activity == Idle {
 					return
 				}
@@ -260,7 +260,7 @@ func TestBerthClearingUsesFreePassengerBerthWhenParkingIsFull(t *testing.T) {
 	blocker.Pod.Position = Point{X: 800, Y: 350}
 	for range 300 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 1 && blocker.Pod.BerthID == "market-2" {
 			break
 		}
@@ -309,8 +309,7 @@ func TestParkingReservationsDoNotCollide(t *testing.T) {
 	sharedRun := false
 	for range 300 * TicksPerSecond {
 		s.Step()
-		state := s.Snapshot()
-		checkTraffic(t, state)
+		checkTraffic(t, s)
 		moving := 0
 		claims := make(map[string]bool)
 		for _, v := range s.vehicles {

@@ -23,7 +23,14 @@ func junctionConflictsOf(network Network) map[string][]laneConflict {
 	positions := indexNodePositions(network.Nodes)
 	maneuvers, _ := newManeuverIndex(network, positions)
 	depots, _ := newDepotIndex(network, positions)
-	return buildJunctionConflicts(network, newMergeLateral(network, indexGeometryTails(network), maneuvers, depots))
+	return buildJunctionConflicts(network, newMergeLateral(network, maneuvers, depots))
+}
+
+// isotropicConflictsOf returns the junction conflicts of a network with
+// the isotropic extent for each pair, as if the network had no lateral
+// merge pair.
+func isotropicConflictsOf(network Network) map[string][]laneConflict {
+	return buildJunctionConflicts(network, nil)
 }
 
 // referenceJunctionConflicts is the junction conflict table before the
@@ -112,10 +119,11 @@ func encodeJunctionConflicts(conflicts map[string][]laneConflict) string {
 }
 
 // checkJunctionConflictsMatchReference fails the test at the first line that
-// differs from the reference table.
+// differs from the reference table. It checks the table with the isotropic
+// extent for each pair, which each pair that is not lateral keeps.
 func checkJunctionConflictsMatchReference(t *testing.T, network Network) {
 	t.Helper()
-	got := encodeJunctionConflicts(junctionConflictsOf(network))
+	got := encodeJunctionConflicts(isotropicConflictsOf(network))
 	want := encodeJunctionConflicts(referenceJunctionConflicts(network))
 	if want == "" {
 		t.Fatal("network has no junction conflicts")
@@ -167,23 +175,19 @@ func TestJunctionConflictsMatchReference(t *testing.T) {
 // TestScenarioJunctionConflictsMatchReference compares the table on each
 // preset network and on rings with many berths, where many long lanes meet
 // at one node. TestWriteConflictFixture in package scenarios writes the
-// networks. Each network runs with LateralMerges cleared, against the
-// isotropic reference, and with LateralMerges set, against the lateral
-// merge reference.
+// networks. Each network runs with the isotropic extent for each pair,
+// against the isotropic reference, and with the lateral merge pairs,
+// against the lateral merge reference.
 func TestScenarioJunctionConflictsMatchReference(t *testing.T) {
 	t.Parallel()
 	skipLong(t)
 	networks := scenarioNetworks(t)
-	if !networks["London"].LateralMerges {
-		t.Fatal("the London network of the fixture does not set LateralMerges")
-	}
 	networks["far London"] = translateNetwork(networks["London"], Point{X: 3e7, Y: -2e7})
 	for _, name := range slices.Sorted(maps.Keys(networks)) {
 		for _, lateral := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s lateral %v", name, lateral), func(t *testing.T) {
 				t.Parallel()
 				network := networks[name]
-				network.LateralMerges = lateral
 				if !lateral {
 					checkJunctionConflictsMatchReference(t, network)
 					return
@@ -223,11 +227,10 @@ type mergeCounts struct {
 	undecided         []string
 }
 
-// referenceMergeConflicts returns the junction conflict table of a network
-// that sets LateralMerges or ShapeClearance. It decides clauses 1 to 4 from
-// the lanes, the geometry tails, the maneuver groups, and the depots. With
-// ShapeClearance, clause 3 does not apply, and each lane has the union of
-// the bodies of the classes that it admits (mergeLaneShape). It decides
+// referenceMergeConflicts returns the junction conflict table of a network.
+// It decides clauses 1, 2, and 4 from the lanes, the maneuver groups, and
+// the depots. Clause 3 does not apply, and each lane has the union of the
+// bodies of the classes that it admits (mergeLaneShape). It decides
 // clause 5 and the body range against the other lane sampled every
 // mergeReferenceStep meters (mergeSide).
 //
@@ -256,11 +259,9 @@ func referenceMergeConflicts(network Network, step float64) (map[string][]mergeE
 	positions := indexNodePositions(network.Nodes)
 	maneuvers, _ := newManeuverIndex(network, positions)
 	depots, _ := newDepotIndex(network, positions)
-	tails := indexGeometryTails(network)
 	group, express := string(GroupClass), string(ExpressClass)
 	eligible := func(lane Lane) bool {
-		small := !lane.VehicleClasses.Allows(group) && !lane.VehicleClasses.Allows(express) && tails[lane.ID] == (geometryTails{})
-		return (network.ShapeClearance || small) && !maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
+		return !maneuvers.groupLane(lane.ID) && !depots.depotLane(lane.ID)
 	}
 	candidate := func(node string, lane, other Lane) bool {
 		if lane.From == lane.To || other.From == other.To ||
@@ -344,8 +345,8 @@ func (s *mergeSide) expected(node string) mergeExpected {
 	}
 }
 
-// checkMergeConflictsMatchReference compares the table of a network that
-// sets LateralMerges with referenceMergeConflicts. The bounds of a lateral
+// checkMergeConflictsMatchReference compares the table of a network with
+// referenceMergeConflicts. The bounds of a lateral
 // extent have a slack of 1e-9 m for the rounding of the distances along a
 // lane.
 func checkMergeConflictsMatchReference(t *testing.T, network Network) mergeCounts {

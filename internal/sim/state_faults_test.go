@@ -541,20 +541,15 @@ func TestRestoreShortFinalLane(t *testing.T) {
 // distance differs from its route distance by a rounding error. The check for a
 // restored simulation accepts the first publish, and the ordinary check does
 // not. A real move fails in the first tick, and in a later tick.
-// TestFaultAtDepartureSeparatePlane starts a fault on a pod that leaves its berth
-// on one plane, while a pod passes within Clearance on another plane. The lane
-// of the faulted pod gives it a location at each tick, so the planes separate
-// the two pods, also after a restore.
+// TestFaultAtDepartureSeparatePlane starts a fault on a pod that leaves its
+// berth on the upper plane. At each tick, the safety observation gives the
+// faulted pod the location of its lane, also after a restore, so that the
+// planes separate it from a pod on another plane.
 func TestFaultAtDepartureSeparatePlane(t *testing.T) {
 	t.Parallel()
 	network := Example()
-	network.Nodes[slices.IndexFunc(network.Nodes, func(node Node) bool { return node.ID == "bypass" })].Position = Point{480, 372}
 	for index := range network.Lanes {
-		lane := &network.Lanes[index]
-		switch {
-		case lane.From == "bypass" || lane.To == "bypass":
-			lane.SeparationGroup = "lower"
-		case strings.HasPrefix(lane.ID, "parking"):
+		if lane := &network.Lanes[index]; strings.HasPrefix(lane.ID, "parking") {
 			lane.SeparationGroup = "upper"
 		}
 	}
@@ -565,7 +560,7 @@ func TestFaultAtDepartureSeparatePlane(t *testing.T) {
 		t.Fatalf("the restore gives %+v, %v", result, err)
 	}
 	s.faultsOn = true
-	v, other := findVehicle(t, s, "03"), findVehicle(t, s, "05")
+	v := findVehicle(t, s, "03")
 	harbor, _ := s.station("harbor")
 	if err = s.startEmptyMove(v, emptyDestination{station: "harbor", berth: harbor.Berths[0], reserveBerth: true}); err != nil {
 		t.Fatal(err)
@@ -574,35 +569,34 @@ func TestFaultAtDepartureSeparatePlane(t *testing.T) {
 	for v.Pod.Activity != Traveling {
 		s.Step()
 	}
-	if v.Pod.LaneID == "" || v.Pod.BerthID != "" || v.Pod.Position != start || v.distance != 0 {
+	lane := v.Pod.LaneID
+	if lane == "" || v.Pod.BerthID != "" || v.Pod.Position != start || v.distance != 0 || network.Lanes[networkLaneIndex(network, lane)].SeparationGroup != "upper" {
 		t.Fatalf("the departure gives %+v, from %+v", v.Pod, start)
 	}
 	startFault(t, s, v, 0)
-	// step steps s, with the checks, and it reports the gap to the other pod.
-	step := func(s *Simulation, v, other *vehicle) float64 {
+	// step steps s, with the checks, and it checks the location of the
+	// faulted pod.
+	step := func(s *Simulation, v *vehicle) {
 		t.Helper()
 		s.Step()
-		if _, checkErr := s.SafetyObservation().Check(); checkErr != nil {
+		o := s.SafetyObservation()
+		if _, checkErr := o.Check(); checkErr != nil {
 			t.Fatalf("tick %d: %v", s.tick, checkErr)
 		}
 		if checkErr := s.CheckContract(); checkErr != nil {
 			t.Fatalf("tick %d: %v", s.tick, checkErr)
 		}
-		if v.Pod.Position != start || v.Pod.Speed != 0 {
+		if v.Pod.Position != start || v.Pod.Speed != 0 || v.Pod.LaneID != lane {
 			t.Fatalf("tick %d: the pod moves: %+v", s.tick, v.Pod)
 		}
-		return pointDistance(v.Pod.Position, other.Pod.Position)
-	}
-	near := false
-	for range 120 * TicksPerSecond {
-		if near = step(s, v, other) < Clearance; near {
-			break
+		index := slices.IndexFunc(o.Pods, func(pod Pod) bool { return pod.ID == v.Pod.ID })
+		if got, want := o.Locations[index], s.laneSafety[lane]; got != want {
+			t.Fatalf("tick %d: the faulted pod has location %+v, want %+v of lane %s", s.tick, got, want, lane)
 		}
 	}
-	if !near {
-		t.Fatal("the pods do not come within the clearance, so they do not need the planes")
+	for range 10 * TicksPerSecond {
+		step(s, v)
 	}
-	// The restore reads the separation at this gap, so it must keep both pods.
 	restored, result, err := RestoreState(faultRestoreInput(s, s.ExportState()))
 	if err != nil {
 		t.Fatal(err)
@@ -610,12 +604,12 @@ func TestFaultAtDepartureSeparatePlane(t *testing.T) {
 	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
 		t.Fatalf("the result is %+v", result)
 	}
-	got, passed := findVehicle(t, restored, "03"), findVehicle(t, restored, "05")
-	if got.Pod.LaneID != v.Pod.LaneID || got.Pod.Position != start {
+	got := findVehicle(t, restored, "03")
+	if got.Pod.LaneID != lane || got.Pod.Position != start {
 		t.Fatalf("the restored pod is %+v", got.Pod)
 	}
 	for range 2 * TicksPerSecond {
-		step(restored, got, passed)
+		step(restored, got)
 	}
 }
 

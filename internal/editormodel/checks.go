@@ -230,7 +230,7 @@ func (kept *keptNetwork) checkNetwork(value any, errors *checkList) *draftNetwor
 	g.checkStations(ids, pairs, errors)
 	g.checkBerthRoutes(errors)
 	g.checkStationRoles(errors)
-	if hasBanks(value) || (hasLargeGeometry(value) || hasManeuverGroups(value) || hasDepots(value) || hasShapeClearance(value)) && draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
+	if hasBanks(value) || draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
 		server := &serverDraft{network: value, clearance: clearance.index}
 		if kept != nil && kept.check != nil {
 			server.typed, server.decoded, server.check = kept.typed, true, kept.check

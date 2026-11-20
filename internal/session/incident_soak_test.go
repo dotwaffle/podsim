@@ -231,10 +231,8 @@ type soakDriver struct {
 	events     sim.IncidentEvents
 	fullChecks int
 	lastFull   int64
-	// lateral runs the D6 oracle of the shape clearance design with the
-	// Safety observation, on a project that sets ShapeClearance.
-	// lateralChecks counts its runs.
-	lateral       bool
+	// lateralChecks counts the runs of the D6 oracle of the shape clearance
+	// design, which runs with the Safety observation.
 	lateralChecks int
 	// fail reports a failed gate. It stops the test, and only a test of the
 	// driver replaces it. breakExport, when set, changes the state that the
@@ -292,7 +290,7 @@ func newSoakDriver(t *testing.T, input soakInput) *soakDriver {
 		client = fmt.Sprintf("soak-branch-%d", input.branch)
 	}
 	d := &soakDriver{t: t, input: input, config: config, s: s, client: newTestClient(s, client), rng: rng, open: map[string]*soakOpenRecord{}, lastWatch: -1,
-		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64, lateral: config.Network.ShapeClearance}
+		nextFault: math.MaxInt64, nextEmergency: math.MaxInt64, nextSave: math.MaxInt64, nextRewind: math.MaxInt64}
 	d.result.queue = soakRange{low: math.MaxInt, high: 0}
 	d.result.refusals = map[string]int{}
 	input.warm.resume(d)
@@ -462,11 +460,9 @@ func (d *soakDriver) check(command bool) {
 	if _, err := simulation.SafetyObservation().Check(); err != nil {
 		d.failf("the safety observation: %v", err)
 	}
-	if d.lateral {
-		d.lateralChecks++
-		if err := simulation.LateralBodyCheckForTest(); err != nil {
-			d.failf("the D6 oracle: %v", err)
-		}
+	d.lateralChecks++
+	if err := simulation.LateralBodyCheckForTest(); err != nil {
+		d.failf("the D6 oracle: %v", err)
 	}
 	events := simulation.IncidentEventsForTest()
 	if command || events != d.events || d.input.everyTick || simulation.Tick()%soakViewTicks == 0 {
@@ -1470,7 +1466,7 @@ func TestIncidentSoakCI(t *testing.T) {
 			if ticks := int(run.ticks); run.fullChecks < ticks {
 				t.Errorf("%d ticks have %d full checks", ticks, run.fullChecks)
 			}
-			if ticks := int(run.ticks); preset == soakLondonSharedExpressPreset && run.lateralChecks < ticks {
+			if ticks := int(run.ticks); run.lateralChecks < ticks {
 				t.Errorf("%d ticks have %d runs of the D6 oracle", ticks, run.lateralChecks)
 			}
 			if counters := run.state.Faults.Counters; counters.Sampled == 0 || run.state.Emergencies.Counters.Sampled == 0 {

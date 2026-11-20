@@ -74,9 +74,8 @@ func (g geometryDraft) addBerth(id string) error {
 		return fmt.Errorf("the station already has %d berths", project.MaxBerths)
 	}
 	oldCounts, _ := g.nodeLaneCounts()
-	var newLanes []string
 	if rows := g.berthChain(station); len(rows) != 0 {
-		newLanes, err = g.addChainBerth(station, rows)
+		err = g.addChainBerth(station, rows)
 	} else {
 		err = g.addStarBerth(station)
 	}
@@ -88,9 +87,6 @@ func (g geometryDraft) addBerth(id string) error {
 		if counts[node] > project.MaxNodeLanes && counts[node] > oldCounts[node] {
 			return fmt.Errorf("node %s would exceed the %d-lane limit", node, project.MaxNodeLanes)
 		}
-	}
-	if conflict := g.laneConflict(newLanes, false); conflict != nil {
-		return fmt.Errorf("new lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
 	}
 	return nil
 }
@@ -185,11 +181,11 @@ func chainID(ids map[string]bool, old, prefix string) string {
 	return id
 }
 
-func (g geometryDraft) addChainBerth(station map[string]any, rows []berthRow) ([]string, error) {
+func (g geometryDraft) addChainBerth(station map[string]any, rows []berthRow) error {
 	last := rows[len(rows)-1]
 	end, err := g.point(text(last.berth["node"]))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	var start geometryPoint
 	if len(rows) > 1 {
@@ -197,16 +193,16 @@ func (g geometryDraft) addChainBerth(station map[string]any, rows []berthRow) ([
 	} else {
 		entry, entryErr := g.point(text(station["entry"]))
 		if entryErr != nil {
-			return nil, entryErr
+			return entryErr
 		}
 		exit, exitErr := g.point(text(station["exit"]))
 		if exitErr != nil {
-			return nil, exitErr
+			return exitErr
 		}
 		start, _, _ = geometryAxes(entry, exit)
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
 	delta := geometryPoint{end.X - start.X, end.Y - start.Y}
 	shift := func(p geometryPoint) (map[string]any, error) {
@@ -217,15 +213,15 @@ func (g geometryDraft) addChainBerth(station map[string]any, rows []berthRow) ([
 	for index, id := range []string{last.arrival, text(last.berth["node"]), last.departure} {
 		old, err := g.find("nodes", id)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		point, err := g.point(id)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		position, err := shift(point)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		prefix := "node"
 		if index == 1 {
@@ -243,28 +239,26 @@ func (g geometryDraft) addChainBerth(station map[string]any, rows []berthRow) ([
 		{last.arrivalLink, last.arrival, nodes[0], "berth-access"}, {last.departureLink, nodes[2], last.departure, "departure"},
 		{last.inlet, nodes[0], nodes[1], "berth-access"}, {last.outlet, nodes[1], nodes[2], "departure"},
 	}
-	created := []string{}
 	for _, lane := range lanes {
 		owned := object(cloneEditValue(lane.old))
 		id := chainID(ids, text(owned["id"]), "lane")
 		owned["id"], owned["from"], owned["to"], owned["stationID"], owned["stationRole"] = id, lane.from, lane.to, stationID, lane.role
 		if control := owned["control"]; control != nil {
 			if !finite(member(control, "x")) || !finite(member(control, "y")) {
-				return nil, errors.New("the lane needs a finite control point")
+				return errors.New("the lane needs a finite control point")
 			}
 			position, err := shift(geometryPoint{number(member(control, "x")), number(member(control, "y"))})
 			if err != nil {
-				return nil, err
+				return err
 			}
 			owned["control"] = position
 		}
 		g.network["lanes"] = append(items(g.network["lanes"]), owned)
-		created = append(created, id)
 	}
 	berth := object(cloneEditValue(last.berth))
 	berth["id"], berth["node"] = chainID(ids, text(berth["id"]), stationID+"-berth"), nodes[1]
 	station["berths"] = append(items(station["berths"]), berth)
-	return created, nil
+	return nil
 }
 
 func (g geometryDraft) removeBerth(stationID, berthID string) error {

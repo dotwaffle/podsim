@@ -266,7 +266,7 @@ func TestPlatoonGeometry(t *testing.T) {
 			for range 150 * TicksPerSecond {
 				s.Step()
 				if !test.close {
-					checkTraffic(t, s.Snapshot())
+					checkTraffic(t, s)
 				}
 				ancestors += checkSharing(t, s)
 				monitor.check(t)

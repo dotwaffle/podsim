@@ -256,11 +256,10 @@ func (index *separationIndex) skip(squared, ceiling, smallestSquared float64) bo
 // too close. A pair whose bound keys form a certified pair of the maneuver
 // certification is skipped. A small pair that a window certifies needs
 // compactClearance at the speed of the follower (see certifiedClearance). A
-// small pair whose bound keys form a lateral pair, or a lateral merge pair
-// of a network without ShapeClearance, needs the clearance of that pair
-// (see lateralClearance). A pair of any classes whose bound keys form a
-// shape pair, or a lateral merge pair of a network with ShapeClearance,
-// needs the side-by-side distance of its classes (see
+// small pair whose bound keys form a lateral pair of the depot lanes needs
+// the clearance of that pair (see lateralClearance). A pair of any classes
+// whose bound keys form a shape pair or a lateral merge pair needs the
+// side-by-side distance of its classes (see
 // shapeClassClearance). Every other small pair needs Clearance, and every
 // other large pair largeClearance.
 func (index *separationIndex) pair(pods []Pod, i, j int, gapSquared float64) (counted, violates bool) {

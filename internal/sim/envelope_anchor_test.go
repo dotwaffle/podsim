@@ -46,8 +46,8 @@ func anchorMove(v *vehicle, at int, position float64) {
 // published position to hold each of its planes.
 func anchorEnvelope(t *testing.T, s *Simulation, v *vehicle) []SafetyLocation {
 	t.Helper()
-	got := s.appendVehicleSafetyLocations(nil, v, v.distance)
-	if want := referenceVehicleSafetyLocations(s, v, v.distance); !slices.Equal(got, want) {
+	got := s.appendVehicleSafetyLocations(nil, v)
+	if want := referenceVehicleSafetyLocations(s, v); !slices.Equal(got, want) {
 		t.Errorf("pod on %s at %v m: envelope %v, reference %v", v.Pod.LaneID, v.Pod.LaneDistance, got, want)
 	}
 	r := s.envelopes
@@ -92,7 +92,7 @@ func around(value float64) []float64 {
 // that anchor, short2 among them.
 func TestEnvelopeAnchorFront(t *testing.T) {
 	t.Parallel()
-	s := diskStudyPrepare(t, withShapeClearance(envelopeReachCurves(t), true))
+	s := diskStudyPrepare(t, envelopeReachCurves(t))
 	g := &s.envelopes.graph
 	bend := s.tails["bend"].front
 	if bend <= 24+envelopeReachSlack {
@@ -124,7 +124,7 @@ func TestEnvelopeAnchorFront(t *testing.T) {
 // starts 24 m past the start of short.
 func envelopeReachSubSlackCurves(t *testing.T, length float64) Network {
 	t.Helper()
-	n := withShapeClearance(envelopeReachCurves(t), true)
+	n := envelopeReachCurves(t)
 	n.Nodes = append(n.Nodes, Node{ID: "b2", Position: Point{X: 90}})
 	n.Nodes[slices.IndexFunc(n.Nodes, func(node Node) bool { return node.ID == "b" })].Position.X -= length
 	short := n.Lanes[networkLaneIndex(n, "short")]
@@ -231,7 +231,7 @@ func TestEnvelopeAnchorShortChain(t *testing.T) {
 		t.Run(strconv.Itoa(count), func(t *testing.T) {
 			t.Parallel()
 			const step = 1e-5
-			n := withShapeClearance(envelopeReachCurves(t), true)
+			n := envelopeReachCurves(t)
 			b := slices.IndexFunc(n.Nodes, func(node Node) bool { return node.ID == "b" })
 			n.Nodes[b].Position.X -= float64(count) * step
 			short := networkLaneIndex(n, "short")
@@ -289,7 +289,7 @@ func TestEnvelopeAnchorRepeatedLane(t *testing.T) {
 // published position.
 func TestEnvelopeAnchorRestoreNode(t *testing.T) {
 	t.Parallel()
-	s := diskStudyPrepare(t, withShapeClearance(envelopeReachCurves(t), true))
+	s := diskStudyPrepare(t, envelopeReachCurves(t))
 	v := anchorPod(t, s, []string{"out", "bend", "short", "short2", "far"}, 2, 0)
 	start := v.blocks.lanes[2].start
 	want := anchorEnvelope(t, s, v)
@@ -334,7 +334,7 @@ func TestEnvelopeAnchorRoutePrefix(t *testing.T) {
 // berth and the lanes at its node.
 func TestEnvelopeAnchorSelection(t *testing.T) {
 	t.Parallel()
-	s := diskStudyPrepare(t, withShapeClearance(envelopeReachCurves(t), true))
+	s := diskStudyPrepare(t, envelopeReachCurves(t))
 	berth := s.berthSafety["berth"]
 	for _, origin := range []bool{true, false} {
 		v := anchorPod(t, s, []string{"out", "bend"}, 0, 5)
@@ -652,7 +652,7 @@ func TestEnvelopeAnchorRouteCoverage(t *testing.T) {
 		{"diverge", diverge, [][]string{{"P", "L", "L2", "N"}, {"P", "M", "N"}, {"K", "N"}}},
 		{"chain", chain, [][]string{{"P", "C1", "C2", "L"}, {"P", "C1", "S"}, {"P", "C1", "C2", "M"}}},
 		{"loop", loop, [][]string{{"P", "L", "N", "R", "Q", "M"}, {"P", "L", "N", "R", "Q", "L"}}},
-		{"curves", withShapeClearance(envelopeReachCurves(t), true), [][]string{{"out", "bend", "short", "short2", "far", "leave"}}},
+		{"curves", envelopeReachCurves(t), [][]string{{"out", "bend", "short", "short2", "far", "leave"}}},
 		{"rule 1 before", anchorRuleOneChain(t, 15.7), [][]string{{"S", "A", "L", "M"}}},
 		{"rule 1 after", anchorRuleOneChain(t, 15.7-anchorRuleOneLength(t)), [][]string{{"S", "A", "L", "M"}}},
 	} {

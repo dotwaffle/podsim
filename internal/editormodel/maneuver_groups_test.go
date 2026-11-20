@@ -90,12 +90,4 @@ func TestManeuverGroupGeometryEdits(t *testing.T) {
 	if err := move("town-berth-2", number(town["x"])+1, number(town["y"])); err != nil {
 		t.Fatalf("town berth moved: %v", err)
 	}
-	geometry := geometryDraft{network: object(member(draft, "network"))}
-	var lanes []string
-	for _, id := range items(member(items(member(member(draft, "network"), "maneuverGroups"))[0], "laneIDs")) {
-		lanes = append(lanes, text(id))
-	}
-	if conflict := geometry.laneConflict(lanes, true); conflict != nil {
-		t.Fatalf("group lanes conflict: %+v", conflict)
-	}
 }

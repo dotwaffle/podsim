@@ -13,44 +13,32 @@ import (
 )
 
 // shapeDraft returns the two small lanes of largeDraftPaths, gap meters
-// apart, with shapeClearance set as given. The lanes share no node. At
-// 5 m, the server certifies them as a shape pair at 3.1 m. At 3 m, their
-// bodies overlap, so they keep 12 m, and the server refuses them.
-func shapeDraft(gap float64, field bool) map[string]any {
-	network := largeDraftPaths(gap, false)
-	if field {
-		network["shapeClearance"] = true
-	}
-	return network
+// apart. The lanes share no node. At 5 m, the server certifies them as a
+// shape pair at 3.1 m. At 3 m, their bodies overlap, so they keep 12 m,
+// and the server refuses them.
+func shapeDraft(gap float64) map[string]any {
+	return largeDraftPaths(gap, false)
 }
 
 // TestShapeDraftMatchesServer checks that the editor and the server agree
-// on the lane gaps of a draft network that sets shapeClearance: the draft
-// checks, the lane conflict of a layout edit, and the server checks of an
-// edit. With the field, a shape pair is accepted by both, and a small pair
+// on the lane gaps of a draft network: the draft checks and the server
+// checks of an edit. A shape pair is accepted by both, and a small pair
 // within 12 m that is not a shape pair is refused by both with the text of
-// the server. Without the field, the server does not audit small pairs,
-// and the editor results do not change: the draft checks accept both
-// pairs, and the lane conflict of a layout edit refuses both at 12 m.
+// the server.
 func TestShapeDraftMatchesServer(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		gap     float64
-		field   bool
 		refused bool
 	}{
-		{gap: 5, field: true}, {gap: 3, field: true, refused: true},
-		{gap: 5}, {gap: 3},
+		{gap: 5}, {gap: 3, refused: true},
 	} {
-		t.Run(fmt.Sprintf("gap %g field %v", test.gap, test.field), func(t *testing.T) {
+		t.Run(fmt.Sprintf("gap %g", test.gap), func(t *testing.T) {
 			t.Parallel()
-			network := shapeDraft(test.gap, test.field)
+			network := shapeDraft(test.gap)
 			typed, err := decodeDraftNetwork(network)
 			if err != nil {
 				t.Fatal(err)
-			}
-			if typed.ShapeClearance != test.field {
-				t.Fatalf("decoded field %v", typed.ShapeClearance)
 			}
 			serverErr := sim.ValidateNetwork(typed)
 			if (serverErr != nil) != test.refused {
@@ -75,14 +63,6 @@ func TestShapeDraftMatchesServer(t *testing.T) {
 				t.Fatalf("draft checks %q, want %q", texts, want)
 			}
 
-			conflict := geometryDraft{network: network}.laneConflict([]string{"second"}, true)
-			if test.field && conflict != nil {
-				t.Fatalf("lane conflict %+v with the field, want none", conflict)
-			}
-			if !test.field && (conflict == nil || conflict.other != "first" || conflict.minimum != sim.Clearance) {
-				t.Fatalf("lane conflict %+v without the field, want first at %g m", conflict, sim.Clearance)
-			}
-
 			draft := map[string]any{"network": network}
 			before := cloneEditValue(draft)
 			change, err := editGeometry(draft, jsontext.Value(`{"action":"laneSpeed","id":"second","value":15}`))
@@ -96,24 +76,19 @@ func TestShapeDraftMatchesServer(t *testing.T) {
 	}
 }
 
-// TestShapeDraftEditRefusal moves a node of a draft with shapeClearance.
-// When the lanes come within the side-by-side distance, the server checks
-// of the edit refuse it with the text of the server. When a lane becomes
-// too short, the lane checks of the edit refuse it first, as for a draft
-// with large geometry. Without the field, both edits are accepted, as
-// before.
+// TestShapeDraftEditRefusal moves a node of a draft. When the lanes come
+// within the side-by-side distance, the server checks of the edit refuse
+// it with the text of the server. When a lane becomes too short, the lane
+// checks of the edit refuse it first, as for a draft with large geometry.
 func TestShapeDraftEditRefusal(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct{ edit, want string }{
 		{`{"action":"moveNode","id":"d","point":{"x":100,"y":2}}`, `validate shape clearance: nonincident paths "first" and "second" are less than 12 meters apart`},
 		{`{"action":"moveNode","id":"d","point":{"x":10,"y":5}}`, "lane second would be shorter than 24 meters"},
 	} {
-		for _, field := range []bool{true, false} {
-			draft := map[string]any{"network": shapeDraft(5, field)}
-			_, err := editGeometry(draft, jsontext.Value(test.edit))
-			if field && (err == nil || err.Error() != test.want) || !field && err != nil {
-				t.Fatalf("%s, field %v: edit error %v, want %q", test.edit, field, err, test.want)
-			}
+		draft := map[string]any{"network": shapeDraft(5)}
+		if _, err := editGeometry(draft, jsontext.Value(test.edit)); err == nil || err.Error() != test.want {
+			t.Fatalf("%s: edit error %v, want %q", test.edit, err, test.want)
 		}
 	}
 }
@@ -123,7 +98,9 @@ func TestShapeDraftEditRefusal(t *testing.T) {
 // project decoder reads it again.
 func TestShapeDraftRoundTrip(t *testing.T) {
 	t.Parallel()
-	draft := map[string]any{"version": float64(project.CurrentVersion), "name": "Shape", "network": shapeDraft(5, true)}
+	source := shapeDraft(5)
+	source["shapeClearance"] = true
+	draft := map[string]any{"version": float64(project.CurrentVersion), "name": "Shape", "network": source}
 	normalized, err := normalizeProject(draft)
 	if err != nil {
 		t.Fatal(err)
@@ -154,67 +131,53 @@ func TestShapeDraftRoundTrip(t *testing.T) {
 	}
 }
 
-// TestShapeDraftLargeLanes checks two cases where the draft rules of the
-// editor refuse large lanes that the server accepts when the network sets
-// shapeClearance. Two lanes that admit Compact and Express, 5 m apart,
-// form a shape pair at 4.0 m. On reachLayoutDraft, the envelope reach by
-// position separates "link-in" and "over", which the whole-lane reach does
-// not. Without the field, the editor and the server refuse both.
+// TestShapeDraftLargeLanes checks two cases of large lanes that the server
+// accepts, and the editor with it. Two lanes that admit Compact and
+// Express, 5 m apart, form a shape pair at 4.0 m. On reachLayoutDraft, the
+// envelope reach by position separates "link-in" and "over", which the
+// whole-lane reach does not.
 func TestShapeDraftLargeLanes(t *testing.T) {
 	t.Parallel()
 	const layout = `{"action":"stationLayout","id":"station","value":{"spacing":260}}`
-	for _, field := range []bool{true, false} {
-		paths := largeDraftPaths(5, true)
-		for _, lane := range items(paths["lanes"]) {
-			object(lane)["vehicleClasses"] = []any{"compact", "express"}
-		}
-		reach := reachLayoutDraft()
-		if field {
-			paths["shapeClearance"], reach["shapeClearance"] = true, true
-		}
-		typed, err := decodeDraftNetwork(paths)
-		if err != nil {
-			t.Fatal(err)
-		}
-		serverErr := sim.ValidateNetwork(typed)
-		var report checkList
-		checkNetwork(paths, &report)
-		conflict := geometryDraft{network: paths}.laneConflict([]string{"second"}, true)
-		if field && (serverErr != nil || len(report.items) != 0 || conflict != nil) {
-			t.Fatalf("shape pair with the field: server %v, draft checks %+v, lane conflict %+v", serverErr, report.items, conflict)
-		}
-		if !field && (serverErr == nil || len(report.items) != 1 || report.items[0].Text != "validate large geometry: "+serverErr.Error() || conflict == nil || conflict.minimum != 20) {
-			t.Fatalf("shape pair without the field: server %v, draft checks %+v, lane conflict %+v", serverErr, report.items, conflict)
-		}
+	paths := largeDraftPaths(5, true)
+	for _, lane := range items(paths["lanes"]) {
+		object(lane)["vehicleClasses"] = []any{"compact", "express"}
+	}
+	reach := reachLayoutDraft()
+	typed, err := decodeDraftNetwork(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverErr := sim.ValidateNetwork(typed)
+	var report checkList
+	checkNetwork(paths, &report)
+	if serverErr != nil || len(report.items) != 0 {
+		t.Fatalf("shape pair: server %v, draft checks %+v", serverErr, report.items)
+	}
 
-		draft := map[string]any{"network": reach}
-		change, err := editGeometry(draft, jsontext.Value(layout))
-		if field && err != nil || !field && (err == nil || err.Error() != "lane link-in would come within 20 meters of lane over") {
-			t.Fatalf("layout edit with the field %v: %v", field, err)
-		}
-		if !field {
-			continue
-		}
-		edited, err := decodeDraftNetwork(change.Patch["network"])
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := sim.ValidateNetwork(edited); err != nil {
-			t.Fatalf("the server refuses the edited layout: %v", err)
-		}
+	draft := map[string]any{"network": reach}
+	change, err := editGeometry(draft, jsontext.Value(layout))
+	if err != nil {
+		t.Fatalf("layout edit: %v", err)
+	}
+	edited, err := decodeDraftNetwork(change.Patch["network"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sim.ValidateNetwork(edited); err != nil {
+		t.Fatalf("the server refuses the edited layout: %v", err)
 	}
 }
 
-// TestShapeDraftBanks checks a draft with banks and shapeClearance, and
-// two more small lanes 3 m apart that share no node. The editor keeps the
-// bank audit of a draft with banks, and its refusal keeps the prefix of
-// the bank audit, with the text of the server. Without the far lanes, the
-// editor and the server accept the draft.
+// TestShapeDraftBanks checks a draft with banks, and two more small lanes 3 m
+// apart that share no node. The editor keeps the bank audit of a draft with
+// banks, and its refusal keeps the prefix of the bank audit, with the text of
+// the server. Without the far lanes, the editor and the server accept the
+// draft.
 func TestShapeDraftBanks(t *testing.T) {
 	t.Parallel()
 	for _, pair := range []bool{false, true} {
 		network := object(bankEditorFixture(1)["network"])
-		network["shapeClearance"] = true
 		if pair {
 			paths := largeDraftPaths(3, false)
 			for _, node := range items(paths["nodes"]) {

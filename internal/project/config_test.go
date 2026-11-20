@@ -1044,7 +1044,7 @@ func TestValidateReachRefusalComesLast(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		for id, at := range map[string]sim.Point{"island-mid": {X: 5000, Y: 100}, "island-join": {X: 5000}, "island-east": {X: 5400}, "island-cross-east": {X: 5140, Y: 24}, "island-cross-west": {X: 4860, Y: 24}} {
+		for id, at := range map[string]sim.Point{"island-mid": {X: 5000, Y: 100}, "island-join": {X: 5000}, "island-east": {X: 5400}, "island-cross-east": {X: 5140, Y: 10}, "island-cross-west": {X: 4860, Y: 10}} {
 			config.Network.Nodes = append(config.Network.Nodes, sim.Node{ID: id, Position: at})
 		}
 		for _, row := range [][4]string{{"island-near", "island-mid", "island-join", "A"}, {"island-main", "island-join", "island-east", "Q"}, {"island-cross", "island-cross-east", "island-cross-west", "Q"}} {

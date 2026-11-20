@@ -73,26 +73,16 @@ var sharedTrackBuilt = map[string]string{
 // sharedTrackCounts holds the refusals, the refusals under 4.0 m, and the
 // shape pairs of the audit copy, by input, network, and reach options.
 var sharedTrackCounts = map[string][3]int{
-	"tight 2.1, whole network":                  {14, 10, 40},
-	"tight 2.1, each lane":                      {7, 5, 39},
-	"tight 2.1, each lane, small-pod rules":     {7, 5, 39},
-	"tight 2.1, whole network, small-pod rules": {14, 10, 40},
-	"tight 3.5, whole network":                  {7, 5, 39},
-	"tight 3.5, each lane":                      {0, 0, 38},
-	"tight 3.5, each lane, small-pod rules":     {0, 0, 38},
-	"tight 3.5, whole network, small-pod rules": {7, 5, 39},
-	"tight 3.6, whole network":                  {0, 0, 23},
-	"tight 3.6, each lane":                      {0, 0, 23},
-	"tight 3.6, each lane, small-pod rules":     {0, 0, 23},
-	"tight 3.6, whole network, small-pod rules": {4, 2, 21},
-	"wide 2.1, whole network":                   {14, 10, 40},
-	"wide 2.1, each lane":                       {7, 5, 39},
-	"wide 2.1, each lane, small-pod rules":      {7, 5, 39},
-	"wide 2.1, whole network, small-pod rules":  {14, 10, 40},
-	"ramps 2.1, whole network":                  {14, 11, 17},
-	"ramps 2.1, each lane":                      {14, 11, 14},
-	"ramps 2.1, each lane, small-pod rules":     {14, 11, 14},
-	"ramps 2.1, whole network, small-pod rules": {14, 11, 17},
+	"tight 2.1, each lane":                  {7, 5, 39},
+	"tight 2.1, each lane, small-pod rules": {7, 5, 39},
+	"tight 3.5, each lane":                  {0, 0, 38},
+	"tight 3.5, each lane, small-pod rules": {0, 0, 38},
+	"tight 3.6, each lane":                  {0, 0, 23},
+	"tight 3.6, each lane, small-pod rules": {0, 0, 23},
+	"wide 2.1, each lane":                   {7, 5, 39},
+	"wide 2.1, each lane, small-pod rules":  {7, 5, 39},
+	"ramps 2.1, each lane":                  {14, 11, 14},
+	"ramps 2.1, each lane, small-pod rules": {14, 11, 14},
 }
 
 // sharedTrackInput is a loaded project file.
@@ -465,22 +455,18 @@ func sharedTrackClusters(n Network) map[int][]int {
 	return clusters
 }
 
-// sharedTrackReachOptions selects the envelope reach of the study.
+// sharedTrackReachOptions selects the envelope reach of the study: the
+// index of section 3.1, with the anchor front of each lane and the anchors
+// within the slack. The arms with the bound of the whole network left with
+// the shapeClearance field.
 type sharedTrackReachOptions struct {
-	// perLane takes the index of section 3.1, with the anchor front of
-	// each lane and the anchors within the slack, in place of the index
-	// with the bound of the whole network.
-	perLane bool
 	// small adds the small-pod rules: the small-pod fronts, and the
 	// clusters of the maneuver groups.
 	small bool
 }
 
 func (o sharedTrackReachOptions) String() string {
-	text := "whole network"
-	if o.perLane {
-		text = "each lane"
-	}
+	text := "each lane"
 	if o.small {
 		text += ", small-pod rules"
 	}
@@ -488,21 +474,12 @@ func (o sharedTrackReachOptions) String() string {
 }
 
 // sharedTrackReach returns the envelope reach of a network with the
-// options, with the spans of each lane, and the front of each lane: the
-// anchor front, or the bound of the whole network. The index of the whole
-// network is the index of the network without ShapeClearance, which takes
-// no small-pod rule. The index of each lane is the index of the network
-// with ShapeClearance, which takes the small-pod rules. The study changes
-// the fronts and the clusters of each to add or remove the rules.
+// options, with the spans of each lane, and the anchor front of each lane.
+// The study changes the fronts and the clusters of the index to add or
+// remove the small-pod rules.
 func sharedTrackReach(n Network, tails map[string]geometryTails, options sharedTrackReachOptions) (*envelopeReach, []float64) {
-	r := newEnvelopeReach(sharedTrackWithout(n), tails)
-	if options.perLane {
-		with := n
-		with.ShapeClearance = true
-		r = newEnvelopeReach(with, tails)
-	}
+	r := newEnvelopeReach(n, tails)
 	r.graph.fronts = sharedTrackFronts(n, tails, options.small)
-	r.graph.front = reachFront(r.graph.fronts)
 	r.clusterOf, r.clusterLanes = nil, nil
 	if options.small {
 		r.clusterOf, r.clusterLanes = locationClusters(n, r.locations)
@@ -510,19 +487,19 @@ func sharedTrackReach(n Network, tails map[string]geometryTails, options sharedT
 	sharedRebuild(r)
 	fronts := make([]float64, len(n.Lanes))
 	for lane := range fronts {
-		fronts[lane] = r.graph.front
-		if options.perLane {
-			fronts[lane] = r.graph.anchorFront(lane)
-		}
+		fronts[lane] = r.graph.anchorFront(lane)
 	}
 	return r, fronts
 }
 
-// sharedTrackWithout returns a network without ShapeClearance. Its
-// envelope reach and its oracle are those of the build before section 3.1.
-func sharedTrackWithout(n Network) Network {
-	n.ShapeClearance = false
-	return n
+// sharedNetworkFront returns the largest front bound of the lanes of a
+// network, and at least largeEnvelopeRadius.
+func sharedNetworkFront(fronts []float64) float64 {
+	front := largeEnvelopeRadius
+	for _, value := range fronts {
+		front = max(front, value)
+	}
+	return front
 }
 
 // sharedTrackRefusal is a pair that the audit copy refuses. distance is the
@@ -770,7 +747,7 @@ func sharedTrackBuiltRefusals(t *testing.T, name string, n Network) {
 	t.Helper()
 	tails := indexGeometryTails(n)
 	result := sharedTrackAudit(t, n, tails, newEnvelopeReach(n, tails))
-	key := fmt.Sprintf("%s, %s", name, sharedTrackReachOptions{perLane: true, small: true})
+	key := fmt.Sprintf("%s, %s", name, sharedTrackReachOptions{small: true})
 	got := [3]int{len(result.refusals), result.under(4), result.shapes}
 	t.Logf("%s, index of the code: %d refusals, %d under 4.0 m, %d shape pairs", name, got[0], got[1], got[2])
 	if want := sharedTrackCounts[key]; got != want {
@@ -790,18 +767,15 @@ func sharedTrackBuiltRefusals(t *testing.T, name string, n Network) {
 func TestSharedTrackStudyRefusals(t *testing.T) {
 	input := sharedTrackLoad(t)
 	names, networks := sharedTrackNetworks(t, input)
-	// The index of the whole network without the rules gives the spans of
-	// the index of the network without ShapeClearance, and the index of
-	// each lane with the small-pod rules gives the spans of the index of the
-	// network.
+	// The index of each lane with the small-pod rules gives the spans of
+	// the index of the network.
 	base := networks["2.1"]
 	tails := indexGeometryTails(base)
 	for _, tie := range []struct {
 		built   *envelopeReach
 		options sharedTrackReachOptions
 	}{
-		{newEnvelopeReach(sharedTrackWithout(base), tails), sharedTrackReachOptions{}},
-		{newEnvelopeReach(base, tails), sharedTrackReachOptions{perLane: true, small: true}},
+		{newEnvelopeReach(base, tails), sharedTrackReachOptions{small: true}},
 	} {
 		copied, _ := sharedTrackReach(base, tails, tie.options)
 		for lane := range base.Lanes {
@@ -822,7 +796,7 @@ func TestSharedTrackStudyRefusals(t *testing.T) {
 		if want := sharedTrackBuilt[input.name+" "+name]; want != hash {
 			t.Errorf("%s %s: network SHA-256 %s, want %s", input.name, name, hash, want)
 		}
-		for _, options := range []sharedTrackReachOptions{{}, {perLane: true}, {perLane: true, small: true}, {small: true}} {
+		for _, options := range []sharedTrackReachOptions{{}, {small: true}} {
 			sharedTrackRefusals(t, input.name+" "+name, n, options)
 		}
 		sharedTrackBuiltRefusals(t, input.name+" "+name, n)
@@ -917,7 +891,7 @@ func sharedTrackWrite(t *testing.T, input sharedTrackInput, path string, n Netwo
 func sharedTrackHubRefusals(t *testing.T, n Network, hub string) []sharedTrackRefusal {
 	t.Helper()
 	tails := indexGeometryTails(n)
-	index, _ := sharedTrackReach(n, tails, sharedTrackReachOptions{perLane: true})
+	index, _ := sharedTrackReach(n, tails, sharedTrackReachOptions{})
 	var refusals []sharedTrackRefusal
 	for _, refusal := range sharedTrackAudit(t, n, tails, index).refusals {
 		if sharedTrackPlace(refusal) == hub[len(hub)-3:] {
@@ -983,64 +957,6 @@ func sharedTrackHubPaths(t *testing.T, n Network, hub string) (float64, float64)
 	return shortest, longest
 }
 
-// sharedTrackCompare compares the spans of three indexes of a network at
-// the cuts and the middles of each span: the index of each lane with the
-// small-pod rules (the index of the code), the index of the whole network
-// with the same rules, and the built index. The anchor front of each lane
-// is at most the bound of the whole network. The index of each lane is not
-// a subset of the index of the whole network: the anchors within the slack
-// of an end of a lane add the planes of the lanes next to it, also of the
-// lanes out of its From node. The comparison counts the lanes with planes
-// that the index of the whole network does not hold, and the lanes with
-// additions and with removals against the built index.
-func sharedTrackCompare(t *testing.T, name string, n Network, tails map[string]geometryTails) {
-	t.Helper()
-	main, fronts := sharedTrackReach(n, tails, sharedTrackReachOptions{perLane: true, small: true})
-	whole, _ := sharedTrackReach(n, tails, sharedTrackReachOptions{small: true})
-	built := newEnvelopeReach(sharedTrackWithout(n), tails)
-	locations := func(r *envelopeReach, span *reachSpan) map[SafetyLocation]bool {
-		closed := r.closure(span.locations)
-		set := make(map[SafetyLocation]bool, len(closed))
-		for _, number := range closed {
-			set[r.locations[number]] = true
-		}
-		return set
-	}
-	cuts := func(spans []reachSpan) []float64 {
-		var cuts []float64
-		for _, span := range spans {
-			cuts = append(cuts, span.from, (span.from+span.to)/2)
-		}
-		return cuts
-	}
-	var outside, added, removed int
-	for lane := range n.Lanes {
-		if fronts[lane] > whole.graph.front {
-			t.Errorf("%s: lane %q: anchor front %g m over the bound of the network %g m", name, n.Lanes[lane].ID, fronts[lane], whole.graph.front)
-		}
-		length := main.graph.lengths[lane]
-		positions := append(cuts(main.laneSpans(lane)), cuts(whole.laneSpans(lane))...)
-		positions = append(positions, cuts(built.laneSpans(lane))...)
-		var out, add, remove bool
-		for _, position := range positions {
-			position = min(length, max(0, position))
-			a, b, c := locations(main, main.laneAt(lane, position)), locations(whole, whole.laneAt(lane, position)), locations(built, built.laneAt(lane, position))
-			for location := range a {
-				out = out || !b[location]
-				add = add || !c[location]
-			}
-			for location := range c {
-				remove = remove || !a[location]
-			}
-		}
-		outside += boolInt(out)
-		added += boolInt(add)
-		removed += boolInt(remove)
-	}
-	t.Logf("%s: index of each lane against the index of the whole network, both with the small-pod rules: %d lanes with planes that the whole index does not hold", name, outside)
-	t.Logf("%s: index of each lane with the small-pod rules against the built index: %d lanes with additions, %d lanes with removals", name, added, removed)
-}
-
 // TestSharedTrackStudyGeometry logs the front bounds of section 2.3, the
 // lane lengths of sections 2.4 and 3.2 to 3.5, and the sweeps of the
 // Waterloo curve and the Bank turn in sections 3.3 and 3.4.
@@ -1063,7 +979,7 @@ func TestSharedTrackStudyGeometry(t *testing.T) {
 			}
 			t.Logf("%s %s: %s front %.2f m, tail %.2f m, length %.2f m", input.name, name, lane.ID, bounds.front, bounds.tail, sharedTrackLength(n, lane.ID))
 		}
-		t.Logf("%s %s: %d lanes with a front over 6 m, %d of them under 6.01 m, bound of the network %.2f m", input.name, name, over, near, reachFront(sharedTrackFronts(n, tails, false)))
+		t.Logf("%s %s: %d lanes with a front over 6 m, %d of them under 6.01 m, bound of the network %.2f m", input.name, name, over, near, sharedNetworkFront(sharedTrackFronts(n, tails, false)))
 		small, capped, chains, shortest := 0, 0, 0, math.Inf(1)
 		retention := newLaneRetention(n, tails)
 		for index, front := range sharedTrackFronts(n, tails, true) {
@@ -1093,8 +1009,7 @@ func TestSharedTrackStudyGeometry(t *testing.T) {
 		if shortest <= sharedSmallRadius {
 			t.Errorf("%s %s: a lane with a reduced retention is %.2f m long, not longer than the radius %.4f m", input.name, name, shortest, sharedSmallRadius)
 		}
-		sharedTrackCompare(t, input.name+" "+name, n, tails)
-		for _, options := range []sharedTrackReachOptions{{perLane: true}, {perLane: true, small: true}} {
+		for _, options := range []sharedTrackReachOptions{{}, {small: true}} {
 			_, bounds := sharedTrackReach(n, tails, options)
 			var large []string
 			for lane, bound := range bounds {
@@ -1344,8 +1259,10 @@ func (o *sharedOracle) envelope(v *vehicle, distance float64) []SafetyLocation {
 		if berthNode, ok := o.s.berthNodes[v.Pod.BerthID]; ok && v.Pod.BerthID != "" {
 			node = berthNode
 		}
-		for _, location := range o.s.nodeSafety[node] {
-			add(location)
+		for _, lane := range o.s.network.Lanes {
+			if lane.From == node || lane.To == node {
+				add(o.s.laneSafety[lane.ID])
+			}
 		}
 	}
 	for _, location := range slices.Clone(locations) {
@@ -1644,7 +1561,7 @@ func (c *sharedContainment) pose(route []int, at int, position float64, referenc
 		v.Pod.LaneID, v.Pod.LaneDistance = lanes[route[published.at]].ID, published.position
 		distance := v.blocks.lanes[published.at].start + published.position
 		e := envelopes{
-			c.s.appendVehicleSafetyLocations(nil, v, distance), c.plain.appendVehicleSafetyLocations(nil, v, distance), c.six.appendVehicleSafetyLocations(nil, v, distance),
+			c.s.appendVehicleSafetyLocations(nil, v), c.plain.appendVehicleSafetyLocations(nil, v), c.six.appendVehicleSafetyLocations(nil, v),
 			c.previous.envelope(v, distance), c.gate.envelope(v, distance),
 		}
 		shifted = append(shifted, e)
@@ -1655,7 +1572,7 @@ func (c *sharedContainment) pose(route []int, at int, position float64, referenc
 		if missing := slices.IndexFunc(e.main, func(location SafetyLocation) bool { return !c.held(c.main, span, location) }); missing >= 0 {
 			c.record("gate: the oracle holds a plane that its span does not hold", fmt.Sprintf("%s, published %s at %g m: plane %+v", where(), lanes[route[published.at]].ID, published.position, e.main[missing]))
 		}
-		if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v, distance), e.main) {
+		if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v), e.main) {
 			c.record("gate: the oracle differs from the reference construction", fmt.Sprintf("%s, published %s at %g m", where(), lanes[route[published.at]].ID, published.position))
 		}
 	}
@@ -1907,11 +1824,11 @@ func (c *sharedContainment) stationary(kind diskStudyKind) {
 			v := &vehicle{Pod: Pod{ID: "study", Class: kind.class(), Activity: Idle, BerthID: berth.ID}, originReleased: true}
 			where := func() string { return fmt.Sprintf("%s pod at berth %s", diskStudyKindNames[kind], berth.ID) }
 			c.counts["stationary berths "+diskStudyKindNames[kind]]++
-			envelope, plain, built := c.s.appendVehicleSafetyLocations(nil, v, 0), c.plain.appendVehicleSafetyLocations(nil, v, 0), c.gate.envelope(v, 0)
+			envelope, plain, built := c.s.appendVehicleSafetyLocations(nil, v), c.plain.appendVehicleSafetyLocations(nil, v), c.gate.envelope(v, 0)
 			if copied := c.previous.envelope(v, 0); !sharedSameLocations(copied, envelope) {
 				c.record("gate: the oracle at a berth differs from the copy of the oracle of the first build of slice 1", where())
 			}
-			if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v, 0), envelope) {
+			if c.reference && !slices.Equal(referenceVehicleSafetyLocations(c.s, v), envelope) {
 				c.record("gate: the oracle at a berth differs from the reference construction", where())
 			}
 			if missing := slices.IndexFunc(envelope, func(location SafetyLocation) bool {

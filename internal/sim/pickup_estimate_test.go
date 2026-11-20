@@ -173,7 +173,7 @@ func TestFourOutstandingOrdersComplete(t *testing.T) {
 	}
 	for range 1500 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 4 {
 			break
 		}

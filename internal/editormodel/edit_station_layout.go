@@ -183,27 +183,8 @@ func (g geometryDraft) setLayoutDimensions(layout stationDimensions, raw jsontex
 	if err != nil {
 		return err
 	}
-	lanes, err := g.movedLanes(moved, check)
-	if err != nil {
-		return err
-	}
-	if !check {
-		return nil
-	}
-	if conflict := g.laneConflict(lanes, true); conflict != nil {
-		err := fmt.Errorf("lane %s would come within %g meters of lane %s", conflict.lane, conflict.minimum, conflict.other)
-		if conflict.reachOnly {
-			return &heldConflictError{err}
-		}
-		return err
-	}
-	return nil
+	return g.checkMovedLanes(moved, check)
 }
-
-// heldConflictError is a lane conflict that only the plane reach of the lanes
-// gives. editGeometry reports it after the server checks of the edit, as the
-// server reports its plane reach refusal after its other checks.
-type heldConflictError struct{ error }
 
 // dimensionsChanged checks the new values in dimensions against the keys
 // and the values in previous. It reports whether a value differs from its
@@ -297,10 +278,9 @@ func (g geometryDraft) moveNodes(moves map[string]geometryPoint) (map[string]boo
 	return moved, nil
 }
 
-// movedLanes returns the IDs of the lanes with an end in moved. When check
-// is true, a moved lane must keep its minimum length.
-func (g geometryDraft) movedLanes(moved map[string]bool, check bool) ([]string, error) {
-	lanes := []string{}
+// checkMovedLanes checks the ends of the lanes with an end in moved. When
+// check is true, a moved lane must keep its minimum length.
+func (g geometryDraft) checkMovedLanes(moved map[string]bool, check bool) error {
 	clearance := newDraftClearance(g.network)
 	for _, lane := range items(g.network["lanes"]) {
 		from, to := text(member(lane, "from")), text(member(lane, "to"))
@@ -309,17 +289,16 @@ func (g geometryDraft) movedLanes(moved map[string]bool, check bool) ([]string, 
 		}
 		a, err := g.point(from)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		b, err := g.point(to)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		minimum := clearance.laneMinimum(lane)
 		if length := draftLaneLength(map[string]any{"x": a.X, "y": a.Y}, map[string]any{"x": b.X, "y": b.Y}, member(lane, "control")); check && length < minimum {
-			return nil, fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
+			return fmt.Errorf("lane %s would be shorter than %g meters", text(member(lane, "id")), minimum)
 		}
-		lanes = append(lanes, text(member(lane, "id")))
 	}
-	return lanes, nil
+	return nil
 }

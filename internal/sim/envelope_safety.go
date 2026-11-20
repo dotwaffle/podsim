@@ -19,79 +19,26 @@ func (s *Simulation) largeSafety(observation *SafetyObservation) {
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
 		start := len(locations)
-		locations = s.appendVehicleSafetyLocations(locations, v, v.distance)
+		locations = s.appendVehicleSafetyLocations(locations, v)
 		observation.envelopes[index] = locations[start:len(locations):len(locations)]
 	}
 }
 
 // appendVehicleSafetyLocations appends the planes that the body of a pod
-// occupies at a route distance to locations, each plane one time. The rear
-// bound includes retained resources, and the front bound encloses the body.
-// When the network sets ShapeClearance, the envelope comes from the spans
-// of the prepared envelope reach (see appendSpanEnvelope), and it does not
-// read the route distance.
-func (s *Simulation) appendVehicleSafetyLocations(locations []SafetyLocation, v *vehicle, distance float64) []SafetyLocation {
-	if s.envelopes != nil {
-		if span, choice, ok := s.envelopeSpan(v); ok {
-			return s.appendSpanEnvelope(locations, v, span, choice)
-		}
+// occupies to locations, each plane one time. The envelope comes from the
+// spans of the prepared envelope reach (see appendSpanEnvelope). A pod with
+// no span gets no plane, and an empty envelope is separated from no other
+// envelope (see envelopeLocationsSeparated). A traveling pod always has a
+// lane of the network, and each other pod a berth, so this does not occur.
+func (s *Simulation) appendVehicleSafetyLocations(locations []SafetyLocation, v *vehicle) []SafetyLocation {
+	if s.envelopes == nil {
+		return locations
 	}
-	if v.Pod.Activity != Traveling && v.Pod.LaneID == "" && v.Pod.BerthID != "" {
-		// The envelope of a pod at a berth depends only on the berth. The
-		// copy keeps the shared entry out of the observation.
-		if envelope, ok := s.berthEnvelopes[v.Pod.BerthID]; ok {
-			return append(locations, envelope...)
-		}
+	span, choice, ok := s.envelopeSpan(v)
+	if !ok {
+		return locations
 	}
-	start := len(locations)
-	add := func(location SafetyLocation) {
-		if !slices.Contains(locations[start:], location) {
-			locations = append(locations, location)
-		}
-	}
-	if v.Pod.LaneID != "" {
-		add(s.laneSafety[v.Pod.LaneID])
-	}
-	if v.Pod.BerthID != "" {
-		add(s.berthSafety[v.Pod.BerthID])
-	}
-	if v.Pod.Activity == Traveling {
-		front := largeEnvelopeRadius
-		for _, entry := range v.blocks.lanes {
-			if entry.cells != nil {
-				front = max(front, entry.cells.front)
-			}
-		}
-		for index, lane := range v.Route {
-			start, end := v.blocks.lanes[index].start, v.blocks.lanes[index+1].start
-			if start > distance+front {
-				break
-			}
-			tail := largeClearance
-			if cells := v.blocks.lanes[index].cells; cells != nil {
-				tail = max(tail, cells.tail)
-			}
-			if end >= distance-tail {
-				add(s.laneSafety[lane.ID])
-			}
-		}
-		if v.originReleased {
-			return locations
-		}
-		if v.origin.ID != "" {
-			add(s.berthSafety[v.origin.ID])
-		}
-	}
-	// A body at a berth occupies its incident planes, including an incoming
-	// plane after arrival. Center-only locations cannot prove that it has left.
-	node := v.origin.Node
-	if berthNode, ok := s.berthNodes[v.Pod.BerthID]; ok && v.Pod.BerthID != "" {
-		node = berthNode
-	}
-	for _, location := range s.nodeSafety[node] {
-		add(location)
-	}
-	return locations
+	return s.appendSpanEnvelope(locations, v, span, choice)
 }
 
 // envelopeChoice holds what the envelope of a pod selects from a span of
@@ -138,8 +85,8 @@ func (s *Simulation) envelopeSpan(v *vehicle) (*reachSpan, envelopeChoice, bool)
 	return &r.berths[choice.berth-len(r.lanes)], choice, true
 }
 
-// appendSpanEnvelope appends the envelope of a pod when the network sets
-// ShapeClearance: the planes of a span that the pod selects, then rule 2.
+// appendSpanEnvelope appends the envelope of a pod: the planes of a span
+// that the pod selects, then rule 2.
 // A lane of the span is selected when it is a lane of the route of the
 // pod, or when its item comes from the unit of the node that the choice
 // selects. A berth is selected when it is the selected origin berth and its
@@ -190,8 +137,8 @@ func (s *Simulation) appendSpanEnvelope(locations []SafetyLocation, v *vehicle, 
 // plane of a maneuver group lane, it appends the planes of the lanes at the
 // nodes of the cluster of the lane (see maneuverClusters), each plane one
 // time. The planes come in the order of the envelope, and the planes of one
-// cluster in lane order. clusterSafety is empty when the network does not
-// set ShapeClearance.
+// cluster in lane order. clusterSafety is empty when the network has no
+// maneuver group.
 func (n *networkIndexes) appendClusters(locations []SafetyLocation, start int) []SafetyLocation {
 	if len(n.clusterSafety) == 0 {
 		return locations

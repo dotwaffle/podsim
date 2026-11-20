@@ -29,7 +29,7 @@ func stepUntil(t *testing.T, s *Simulation, what string, done func() bool) {
 			return
 		}
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 	}
 	t.Fatalf("%s did not happen: %+v", what, s.Snapshot())
 }

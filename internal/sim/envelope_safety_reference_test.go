@@ -9,23 +9,23 @@ import (
 
 // referenceVehicleSafetyLocations is the construction of
 // vehicleSafetyLocations before the berth and node indexes. It scans every
-// station berth and every network lane. When the network sets
-// ShapeClearance, it builds the envelope of section 3.1 of the shared-track
-// design from its definition (see envelopeReference), and it does not read
-// the envelope reach, its spans, its items, or its bounds.
-func referenceVehicleSafetyLocations(s *Simulation, v *vehicle, distance float64) []SafetyLocation {
-	return referenceSafetyLocationsWith(s, nil, v, distance)
+// station berth and every network lane. It builds the envelope of section
+// 3.1 of the shared-track design from its definition (see
+// envelopeReference), and it does not read the envelope reach, its spans,
+// its items, or its bounds.
+func referenceVehicleSafetyLocations(s *Simulation, v *vehicle) []SafetyLocation {
+	return referenceSafetyLocationsWith(s, nil, v)
 }
 
 // referenceSafetyLocationsWith is referenceVehicleSafetyLocations with the
 // tables of the reference construction of s in r, so that a run builds
 // them one time. When r is nil, it builds them.
-func referenceSafetyLocationsWith(s *Simulation, r *envelopeReference, v *vehicle, distance float64) []SafetyLocation {
+func referenceSafetyLocationsWith(s *Simulation, r *envelopeReference, v *vehicle) []SafetyLocation {
 	_, lane := s.graph.lanes[v.Pod.LaneID]
 	_, berth := s.berthNodes[v.Pod.BerthID]
-	if !s.network.ShapeClearance || s.envelopes == nil || v.Pod.Activity == Traveling && !lane || v.Pod.Activity != Traveling && !berth {
+	if s.envelopes == nil || v.Pod.Activity == Traveling && !lane || v.Pod.Activity != Traveling && !berth {
 		// A traveling pod always has a lane, and each other pod a berth.
-		return builtVehicleSafetyLocations(s, v, distance)
+		return nil
 	}
 	if r == nil {
 		r = newEnvelopeReference(s)
@@ -33,7 +33,7 @@ func referenceSafetyLocationsWith(s *Simulation, r *envelopeReference, v *vehicl
 	return r.envelope(v)
 }
 
-// envelopeReference builds the envelope of a network with ShapeClearance
+// envelopeReference builds the envelope of a network
 // from the definition of section 3.1 of the shared-track design. Its walks
 // are label-correcting walks by node ID with a queue, in place of the
 // ordered walks of the index, and they give the same least sums.
@@ -418,69 +418,6 @@ func referenceClusterLanes(n Network, byID map[string]Lane, location SafetyLocat
 	return lanes
 }
 
-// builtVehicleSafetyLocations is the construction of
-// vehicleSafetyLocations before the berth and node indexes and before
-// slice 1 of the shared-track design. It scans every station berth and
-// every network lane, and it takes the largest front bound of the route.
-// It is the envelope of a network without ShapeClearance.
-func builtVehicleSafetyLocations(s *Simulation, v *vehicle, distance float64) []SafetyLocation {
-	var locations []SafetyLocation
-	add := func(location SafetyLocation) {
-		if !slices.Contains(locations, location) {
-			locations = append(locations, location)
-		}
-	}
-	if v.Pod.LaneID != "" {
-		add(s.laneSafety[v.Pod.LaneID])
-	}
-	if v.Pod.BerthID != "" {
-		add(s.berthSafety[v.Pod.BerthID])
-	}
-	if v.Pod.Activity == Traveling {
-		front := largeEnvelopeRadius
-		for _, entry := range v.blocks.lanes {
-			if entry.cells != nil {
-				front = max(front, entry.cells.front)
-			}
-		}
-		for index, lane := range v.Route {
-			start, end := v.blocks.lanes[index].start, v.blocks.lanes[index+1].start
-			if start > distance+front {
-				break
-			}
-			tail := largeClearance
-			if cells := v.blocks.lanes[index].cells; cells != nil {
-				tail = max(tail, cells.tail)
-			}
-			if end >= distance-tail {
-				add(s.laneSafety[lane.ID])
-			}
-		}
-		if v.originReleased {
-			return locations
-		}
-		if v.origin.ID != "" {
-			add(s.berthSafety[v.origin.ID])
-		}
-	}
-	node := v.origin.Node
-	if v.Pod.BerthID != "" {
-		for _, station := range s.network.Stations {
-			for _, berth := range station.Berths {
-				if berth.ID == v.Pod.BerthID {
-					node = berth.Node
-				}
-			}
-		}
-	}
-	for _, lane := range s.network.Lanes {
-		if lane.From == node || lane.To == node {
-			add(s.laneSafety[lane.ID])
-		}
-	}
-	return locations
-}
-
 // checkSafetyLocationParity requires the indexed envelope locations of
 // each pod to equal the reference construction, in the same order. It also
 // requires each per-pod entry of the observation to belong to the pod at
@@ -501,7 +438,7 @@ func checkSafetyLocationParityWith(t *testing.T, s *Simulation, r *envelopeRefer
 	}
 	for index := range s.vehicles {
 		v := &s.vehicles[index]
-		got, want := s.appendVehicleSafetyLocations(nil, v, v.distance), referenceSafetyLocationsWith(s, r, v, v.distance)
+		got, want := s.appendVehicleSafetyLocations(nil, v), referenceSafetyLocationsWith(s, r, v)
 		if !slices.Equal(got, want) {
 			t.Fatalf("tick %d pod %s safety locations %v, reference %v", s.tick, v.Pod.ID, got, want)
 		}
@@ -551,7 +488,7 @@ func checkSafetyLocationParityWith(t *testing.T, s *Simulation, r *envelopeRefer
 }
 
 // TestBerthEnvelopeMatchesReference compares appendVehicleSafetyLocations with
-// the reference on the pods that the berth envelopes can serve wrongly.
+// the reference on the pods at a berth.
 // Two lanes into the berth node have one location. A traveling pod that is
 // still at its berth, and a stopped pod that has a lane, do not take the
 // berth envelope.
@@ -564,9 +501,7 @@ func TestBerthEnvelopeMatchesReference(t *testing.T) {
 			{ID: "out", From: "c", To: "b", SeparationGroup: "h"},
 		},
 		Stations: []Station{{ID: "s", Berths: []Berth{{ID: "x", Node: "c", SeparationGroup: "g"}, {ID: "y", Node: "b", SeparationGroup: "h"}}}}}
-	indexes := &networkIndexes{network: n}
-	indexes.indexSafety()
-	s := &Simulation{networkIndexes: indexes}
+	s := &Simulation{networkIndexes: spanEnvelopeIndexes(n)}
 	parked := vehicle{
 		Pod: Pod{ID: "parked", Class: GroupClass, Activity: Idle, BerthID: "x"}}
 	leaving := vehicle{origin: n.Stations[0].Berths[0], blocks: blockList{lanes: []routeLaneCells{{start: 0}, {start: 100}}}}
@@ -574,12 +509,12 @@ func TestBerthEnvelopeMatchesReference(t *testing.T) {
 	stopped := vehicle{
 		Pod: Pod{ID: "stopped", Class: GroupClass, Activity: Idle, LaneID: "out", BerthID: "y"}}
 	for _, v := range []*vehicle{&parked, &leaving, &stopped} {
-		got, want := s.appendVehicleSafetyLocations(nil, v, 0), referenceVehicleSafetyLocations(s, v, 0)
+		got, want := s.appendVehicleSafetyLocations(nil, v), referenceVehicleSafetyLocations(s, v)
 		if !slices.Equal(got, want) {
 			t.Errorf("pod %s: safety locations %v, reference %v", v.Pod.ID, got, want)
 		}
 	}
-	if got := s.appendVehicleSafetyLocations(nil, &parked, 0); len(got) != 3 {
+	if got := s.appendVehicleSafetyLocations(nil, &parked); len(got) != 3 {
 		t.Errorf("parked pod: %d locations, want 3: %v", len(got), got)
 	}
 }

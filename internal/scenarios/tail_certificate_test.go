@@ -544,15 +544,21 @@ func TestTailPairCoverage(t *testing.T) {
 	}
 }
 
-// checkPairCoverage checks one lane pair and returns its close samples.
+// checkPairCoverage checks one lane pair and returns its close samples. Two
+// samples are close when they are less than 20 m apart, or less than the
+// side-by-side distance of a lateral merge or split pair.
 func checkPairCoverage(t *testing.T, prepared *sim.PreparedNetwork, first, second certLane) int {
 	t.Helper()
 	shared, count := first.sharesNode(second), 0
+	limit := 400.0
+	if clearance, merge := prepared.MergeClearanceForTest(first.id, second.id); merge {
+		limit = clearance * clearance
+	}
 	for a, pointA := range first.samples {
 		var heldA []string
 		for b, pointB := range second.samples {
 			delta := pointA.minus(pointB)
-			if delta.dot(delta) >= 400 {
+			if delta.dot(delta) >= limit {
 				continue
 			}
 			count++

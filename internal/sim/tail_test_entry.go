@@ -46,3 +46,15 @@ func (p *PreparedNetwork) CellJunctionsForTest(laneID string, distance, length f
 	}
 	return junctions
 }
+
+// MergeClearanceForTest returns the side-by-side distance of the lateral
+// merge or split pair of two lanes, and false when the lanes form no such
+// pair.
+func (p *PreparedNetwork) MergeClearanceForTest(first, second string) (float64, bool) {
+	a, okA := p.graph.lanes[first]
+	b, okB := p.graph.lanes[second]
+	if !okA || !okB {
+		return 0, false
+	}
+	return p.merges.clearance(laneKey(a), laneKey(b))
+}

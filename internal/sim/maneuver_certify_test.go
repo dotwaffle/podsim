@@ -315,8 +315,10 @@ func TestManeuverSafetyKeys(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := plain.SafetyObservation(); got.keys != nil || got.certified != nil {
-		t.Fatal("a network without groups has keys")
+	// The example has no maneuver group, so it has no certified pair. Its
+	// merge pairs give the pods keys.
+	if got := plain.SafetyObservation(); got.certified != nil || got.keys == nil || !plain.merges.any() {
+		t.Fatalf("a network without groups: certified pairs %v, keys %v, merge pairs %v", got.certified != nil, got.keys != nil, plain.merges.any())
 	}
 	if !reflect.DeepEqual(plain.SafetyObservation(), plain.SafetyObservation()) {
 		t.Fatal("observations differ")

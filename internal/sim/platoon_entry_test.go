@@ -228,13 +228,20 @@ func entryQueues(count int, approaches ...int) []entryPod {
 // the entry lane, and followers share the diverge zone and the cells of
 // the entry lane before the station entry node. Heads on the other
 // approach coast while a follower releases the zone. The monitors check
-// each rule at each tick, and every trip completes.
+// each rule at each tick, and every trip completes. With an approach of
+// 36 m, the merge pair of the two approaches shortens the diverge zone so
+// that no two heads coast at one tick. That run takes the isotropic
+// junction extents, which give such ticks.
 func TestPlatoonEntryLaneRun(t *testing.T) {
 	t.Parallel()
 	for _, approach := range []float64{150, 36} {
 		t.Run(fmt.Sprint(approach), func(t *testing.T) {
 			t.Parallel()
-			s := restoreEntry(t, entryNetwork(entryShape{join: 30, approach: approach}, 12), entryQueues(6, 1, 2))
+			restore := restoreEntry
+			if approach == 36 {
+				restore = restoreEntryIsotropic
+			}
+			s := restore(t, entryNetwork(entryShape{join: 30, approach: approach}, 12), entryQueues(6, 1, 2))
 			watch := newEntryWatch(s)
 			watch.until(t, s, "the arrival of each pod", func() bool { return s.completed == len(s.vehicles) })
 			if runs := watch.runs; runs.shared == 0 || runs.diverge == 0 || len(runs.approaches) != 2 {

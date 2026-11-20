@@ -158,40 +158,52 @@ func TestLargeProfileOraclePlaneProof(t *testing.T) {
 	}
 }
 
+// spanEnvelopeIndexes returns the indexes of a network with the compiled
+// envelope reach, for a simulation with no fleet.
+func spanEnvelopeIndexes(n Network) *networkIndexes {
+	indexes := &networkIndexes{network: n, graph: newRouteGraph(n)}
+	indexes.indexSafety()
+	indexes.envelopes = compileEnvelopeReach(n, indexGeometryTails(n))
+	return indexes
+}
+
+// TestLargeProfileEnvelopeRouteAndBerth checks the span envelope of a large
+// pod at the published lane position: the retained tail of the lane
+// behind, the front that reaches the next lane, and the envelope of a pod
+// at a berth.
 func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 	t.Parallel()
 	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}},
 		Lanes:    []Lane{{ID: "upper", From: "a", To: "b", SeparationGroup: "upper"}, {ID: "lower", From: "b", To: "c", SeparationGroup: "lower"}},
 		Stations: []Station{{ID: "end", Berths: []Berth{{ID: "end-1", Node: "c", SeparationGroup: "lower"}}}}}
-	indexes := &networkIndexes{network: n}
-	indexes.indexSafety()
-	s := &Simulation{networkIndexes: indexes}
+	s := &Simulation{networkIndexes: spanEnvelopeIndexes(n)}
 	v := vehicle{originReleased: true, blocks: blockList{lanes: []routeLaneCells{{start: 0}, {start: 100}, {start: 200}}}}
-	v.Pod, v.Route = Pod{ID: "group", Class: GroupClass, Activity: Traveling, LaneID: "lower"}, n.Lanes
+	v.Pod, v.Route = Pod{ID: "group", Class: GroupClass, Activity: Traveling, LaneID: "lower", LaneDistance: 16}, n.Lanes
 	before := v
-	if got := s.appendVehicleSafetyLocations(nil, &v, 116); len(got) != 2 {
+	if got := s.appendVehicleSafetyLocations(nil, &v); len(got) != 2 {
 		t.Fatalf("retained plane missing: %+v", got)
 	}
-	if got := s.appendVehicleSafetyLocations(nil, &v, 120.001); len(got) != 1 || got[0].SeparationGroup != "lower" {
+	v.Pod.LaneDistance = 20.01
+	if got := s.appendVehicleSafetyLocations(nil, &v); len(got) != 1 || got[0].SeparationGroup != "lower" {
 		t.Fatalf("passed incoming plane retained indefinitely: %+v", got)
 	}
-	v.Pod.LaneID = "upper"
-	if got := s.appendVehicleSafetyLocations(nil, &v, 94); len(got) != 2 {
+	v.Pod.LaneID, v.Pod.LaneDistance = "upper", 94
+	if got := s.appendVehicleSafetyLocations(nil, &v); len(got) != 2 {
 		t.Fatalf("front envelope failed to reach next plane: %+v", got)
 	}
 	v = before
 	v.Pod.Activity, v.Pod.LaneID, v.Pod.BerthID = Idle, "", "end-1"
-	if got := s.appendVehicleSafetyLocations(nil, &v, 0); len(got) != 2 {
+	if got := s.appendVehicleSafetyLocations(nil, &v); len(got) != 2 {
 		t.Fatalf("stationary berth lost its incoming plane: %+v", got)
 	}
-	parked := s.appendVehicleSafetyLocations(nil, &v, 0)
+	parked := s.appendVehicleSafetyLocations(nil, &v)
 	want := slices.Clone(parked)
 	parked[0].SeparationGroup, parked[1].SeparationGroup = "changed", "changed"
-	if got := s.appendVehicleSafetyLocations(nil, &v, 0); !slices.Equal(got, want) {
+	if got := s.appendVehicleSafetyLocations(nil, &v); !slices.Equal(got, want) {
 		t.Fatalf("berth envelope shares mutable simulation storage: %+v", got)
 	}
 	v = before
-	_ = s.appendVehicleSafetyLocations(nil, &v, 116)
+	_ = s.appendVehicleSafetyLocations(nil, &v)
 	if !reflect.DeepEqual(v, before) {
 		t.Fatal("oracle changed live vehicle state")
 	}
@@ -207,17 +219,17 @@ func TestLargeProfileEnvelopeRouteAndBerth(t *testing.T) {
 	}
 }
 
-// TestLargeEnvelopeReachesLastRouteLane builds the route blocks with
-// routeBlocks. The front of a pod near the end of the first lane reaches
-// the last lane of its route, and the envelope includes that lane.
+// TestLargeEnvelopeReachesLastRouteLane checks that the front of a pod near
+// the end of the first lane reaches the last lane of its route, and the
+// envelope includes that lane.
 func TestLargeEnvelopeReachesLastRouteLane(t *testing.T) {
 	t.Parallel()
 	n := Network{Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{X: 200}}},
 		Lanes: []Lane{{ID: "upper", From: "a", To: "b", SpeedLimit: 14, SeparationGroup: "upper"}, {ID: "lower", From: "b", To: "c", SpeedLimit: 14, SeparationGroup: "lower"}}}
-	s := &Simulation{networkIndexes: &networkIndexes{network: n, laneSafety: map[string]SafetyLocation{"upper": {SeparationGroup: "upper", From: "a", To: "b"}, "lower": {SeparationGroup: "lower", From: "b", To: "c"}}}}
-	v := vehicle{originReleased: true, Pod: Pod{ID: "express", Class: ExpressClass, Activity: Traveling, LaneID: "upper"}}
+	s := &Simulation{networkIndexes: spanEnvelopeIndexes(n)}
+	v := vehicle{originReleased: true, Pod: Pod{ID: "express", Class: ExpressClass, Activity: Traveling, LaneID: "upper", LaneDistance: 94}}
 	s.setVehicleRoute(&v, n.Lanes)
-	if got := s.appendVehicleSafetyLocations(nil, &v, 94); len(got) != 2 || got[1].SeparationGroup != "lower" {
+	if got := s.appendVehicleSafetyLocations(nil, &v); len(got) != 2 || got[1].SeparationGroup != "lower" {
 		t.Fatalf("front envelope failed to reach the last route lane: %+v", got)
 	}
 }

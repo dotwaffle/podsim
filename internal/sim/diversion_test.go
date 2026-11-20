@@ -49,7 +49,7 @@ func TestParkingDiversionPreservesMotion(t *testing.T) {
 			}
 			for range 400 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				if v.Pod.StationID == "parking" {
 					t.Fatal("diverted pod still visited parking")
 				}
@@ -92,7 +92,7 @@ func TestCommittedParkingInletFinishesBeforePickup(t *testing.T) {
 	parked := false
 	for range 400 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		parked = parked || v.Pod.StationID == "parking"
 		if s.completed == 1 {
 			break
@@ -124,7 +124,7 @@ func TestParkingDepartureCanceledForLocalOrder(t *testing.T) {
 	}
 	for range 360 * TicksPerSecond {
 		s.Step()
-		checkTraffic(t, s.Snapshot())
+		checkTraffic(t, s)
 		if s.completed == 1 {
 			break
 		}
@@ -253,7 +253,7 @@ func testCommittedStationAccessChainFinishesBeforePickup(t *testing.T, parkingOn
 			parked := false
 			for range 600 * TicksPerSecond {
 				s.Step()
-				checkTraffic(t, s.Snapshot())
+				checkTraffic(t, s)
 				parked = parked || lead.Pod.BerthID == "parking-2"
 				if s.completed == 1 {
 					break

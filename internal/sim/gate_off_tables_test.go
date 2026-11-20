@@ -186,17 +186,15 @@ func gateOffRefusedNetworks(t *testing.T, express Network) map[string]Network {
 }
 
 // gateOffAuditProbes returns the bank audit of two straight parallel lanes
-// 100 m long at the distances on each side of the clearance of the audit:
-// an Express lane and a small lane at 20 m, and two small lanes at 12 m,
-// which the audit of a network with no bank, large class, maneuver group,
-// or depot does not check.
+// 100 m long at the distances on each side of the clearances of the audit:
+// an Express lane and a small lane at 20 m and at their side-by-side
+// distance, and two small lanes at 12 m and at their side-by-side
+// distance.
 func gateOffAuditProbes() map[string]gateOffTables {
-	pair := func(gap float64, classes ClassSet, lateral bool) gateOffTables {
+	pair := func(gap float64, classes ClassSet) gateOffTables {
 		n := Network{
 			Nodes: []Node{{ID: "a"}, {ID: "b", Position: Point{X: 100}}, {ID: "c", Position: Point{Y: gap}}, {ID: "d", Position: Point{X: 100, Y: gap}}},
 			Lanes: []Lane{{ID: "first", From: "a", To: "b", SpeedLimit: 14, VehicleClasses: classes}, {ID: "second", From: "c", To: "d", SpeedLimit: 14}},
-			// LateralMerges does not change the audit.
-			LateralMerges: lateral,
 		}
 		audit := "accepted"
 		if err := n.ValidateBankGeometry(); err != nil {
@@ -205,32 +203,37 @@ func gateOffAuditProbes() map[string]gateOffTables {
 		return gateOffTables{Audit: "not prepared", BankAudit: audit}
 	}
 	probes := make(map[string]gateOffTables)
+	small := laneShapeBody(0).halfWidth
 	for _, gap := range []float64{Clearance - 0.01, Clearance + 0.01, largeClearance - 0.01, largeClearance + 0.01} {
-		probes[fmt.Sprintf("audit probe, Express and small lanes %g m apart", gap)] = pair(gap, shapeStudyClasses, false)
-		probes[fmt.Sprintf("audit probe, small lanes %g m apart", gap)] = pair(gap, 0, false)
-		probes[fmt.Sprintf("audit probe, small lanes %g m apart, lateralMerges true", gap)] = pair(gap, 0, true)
+		probes[fmt.Sprintf("audit probe, Express and small lanes %g m apart", gap)] = pair(gap, shapeStudyClasses)
+		probes[fmt.Sprintf("audit probe, small lanes %g m apart", gap)] = pair(gap, 0)
+	}
+	// The side-by-side distances of the union bodies of the lanes.
+	for _, gap := range []float64{laneShapeBody(shapeStudyClasses).halfWidth + small - 0.01, laneShapeBody(shapeStudyClasses).halfWidth + small + 0.01} {
+		probes[fmt.Sprintf("audit probe, Express and small lanes %.2f m apart", gap)] = pair(gap, shapeStudyClasses)
+	}
+	for _, gap := range []float64{2*small - 0.01, 2*small + 0.01} {
+		probes[fmt.Sprintf("audit probe, small lanes %.2f m apart", gap)] = pair(gap, 0)
 	}
 	return probes
 }
 
-// TestGateOffTables pins the static safety tables that the shape clearance
-// change touches, for a network that does not set the new field: the depot
-// lateral pairs, the lateral merge pairs and their extents, the junction
-// conflicts, and the result of the network audit. The networks are those
-// of testdata/scenario_networks.json.gz and the network of
-// london-full-express (TestExpressNetworkFixture in package scenarios
-// writes it). Each network runs as stored and with LateralMerges flipped.
-// Two networks from london-full-express that the audit refuses today pin
+// TestGateOffTables pins the static safety tables of the shape clearance rule:
+// the depot lateral pairs, the lateral merge pairs and their extents, the
+// junction conflicts, and the result of the network audit. The networks are
+// those of testdata/scenario_networks.json.gz and the network of
+// london-full-express (TestExpressNetworkFixture in package scenarios writes
+// it). Two networks from london-full-express that the audit refuses today pin
 // the refusal text (see gateOffRefusedNetworks), and pairs of lanes on each
-// side of the audit clearances pin the distances and the scope of the
-// audit (see gateOffAuditProbes).
-// Run the test with -update to write the golden file again.
+// side of the audit clearances pin the distances and the scope of the audit
+// (see gateOffAuditProbes). Run the test with -update to write the golden file
+// again.
 func TestGateOffTables(t *testing.T) {
 	t.Parallel()
 	networks := scenarioNetworks(t)
 	express := expressNetworkFixture(t)
 	networks["london-full-express"] = express
-	got := make(map[string]gateOffTables, 2*len(networks)+2)
+	got := make(map[string]gateOffTables, len(networks)+2)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	for name, network := range gateOffRefusedNetworks(t, express) {
@@ -242,16 +245,12 @@ func TestGateOffTables(t *testing.T) {
 		})
 	}
 	for name, network := range networks {
-		for _, lateral := range []bool{false, true} {
-			wg.Go(func() {
-				variant := network
-				variant.LateralMerges = lateral
-				tables := gateOffTablesOf(variant)
-				mu.Lock()
-				got[fmt.Sprintf("%s, lateralMerges %v", name, lateral)] = tables
-				mu.Unlock()
-			})
-		}
+		wg.Go(func() {
+			tables := gateOffTablesOf(network)
+			mu.Lock()
+			got[name] = tables
+			mu.Unlock()
+		})
 	}
 	wg.Wait()
 	maps.Copy(got, gateOffAuditProbes())
