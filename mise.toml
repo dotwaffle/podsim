@@ -116,8 +116,9 @@ go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonSharedExpressR
 
 # The qualification tests of the london-full-express preset (project D)
 # under the shape clearance rule. Most of them skip under -race and with
-# -short. Each pattern names each test, because a pattern that matches no
-# test passes. Add a new test of these rows here.
+# -short, so check and a CI job of its own run this task. Each pattern
+# names each test, because a pattern that matches no test passes. Add a
+# new test of these rows here.
 [tasks."test:london-express"]
 description = "Run the qualification tests of the London Express preset without the race detector"
 run = '''
@@ -181,6 +182,7 @@ run = [
   { task = "test:race:other" },
   { task = "test:long" },
   { task = "test:shared-express" },
+  { task = "test:london-express" },
 ]
 
 [tasks."check:static"]

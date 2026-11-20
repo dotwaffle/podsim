@@ -33,7 +33,7 @@ Keep this file short, and point to other documents instead of copying them.
 ## Checks
 
 The `mise` tasks are the source of truth.
-CI runs `test:race:*`, `test:long`, `test:shared-express`, `qualify`, and `check:static`.
+CI runs `test:race:*`, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `check:static`.
 `mise run check` runs all of them, one after another, so that the latency tests run on a quiet machine.
 
 - Quick loop: `go build ./...`, `go vet ./...`, and `mise run test:quick`.
