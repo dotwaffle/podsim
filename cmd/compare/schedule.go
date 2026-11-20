@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	randv2 "math/rand/v2"
 	"os"
@@ -241,6 +242,30 @@ func selectedDemandBands(profile project.DemandProfile, defaultBand, bandsText s
 	return bands, nil
 }
 
+// profileFlowAt returns the flow of a draw in [0, 1). flows comes from
+// weightedProfileFlows, so its total is at least minProfileDrawTotal. The
+// product of the draw and the total is then less than the total, so the
+// search always finds a flow: the largest draw is 1 - 2^-53, and its
+// product with a normal total rounds to a value below the total.
+func profileFlowAt(flows []weightedDemandFlow, draw float64) weightedDemandFlow {
+	target := draw * flows[len(flows)-1].cumulative
+	return flows[sort.Search(len(flows), func(index int) bool {
+		return flows[index].cumulative > target
+	})]
+}
+
+// minProfileDrawTotal is the smallest total weight that a draw multiplies
+// without a loss of precision. A draw is a multiple of 2^-53, and at this
+// total, the product of the smallest positive draw is the smallest normal
+// number. Below it, the products are subnormal and round to few values,
+// and the flows get a biased share of the requests.
+const minProfileDrawTotal = 0x1p-969
+
+// weightedProfileFlows returns the flows of a band that have a positive
+// weight, with their cumulative weights. It scales a total below
+// minProfileDrawTotal by a power of two to a total in [0.5, 1). The scale
+// is exact, so the shares of the flows stay the same. A larger total stays
+// as it is, so its schedules do not change.
 func weightedProfileFlows(profile project.DemandProfile, band int) []weightedDemandFlow {
 	flows := make([]weightedDemandFlow, 0, len(profile.Flows))
 	total := 0.0
@@ -251,6 +276,12 @@ func weightedProfileFlows(profile project.DemandProfile, band int) []weightedDem
 		}
 		total += weight
 		flows = append(flows, weightedDemandFlow{from: flow.From, to: flow.To, cumulative: total})
+	}
+	if total > 0 && total < minProfileDrawTotal {
+		_, exponent := math.Frexp(total)
+		for index := range flows {
+			flows[index].cumulative = math.Ldexp(flows[index].cumulative, -exponent)
+		}
 	}
 	return flows
 }
@@ -299,13 +330,8 @@ func profileDemandSchedule(input scheduleInput) []scheduledRequest {
 	requests := make([]scheduledRequest, 0, count)
 	seed := uint64(input.seed) // #nosec G115 -- Preserve the signed seed's bits for deterministic PCG input.
 	rng := randv2.New(randv2.NewPCG(seed, ^seed))
-	total := input.profileFlows[len(input.profileFlows)-1].cumulative
 	for index := range count {
-		target := rng.Float64() * total
-		selected := sort.Search(len(input.profileFlows), func(flowIndex int) bool {
-			return input.profileFlows[flowIndex].cumulative > target
-		})
-		flow := input.profileFlows[selected]
+		flow := profileFlowAt(input.profileFlows, rng.Float64())
 		requests = append(requests, scheduledRequest{
 			tick: int64(index+1) * input.intervalTicks, origin: flow.from, destination: flow.to,
 		})
