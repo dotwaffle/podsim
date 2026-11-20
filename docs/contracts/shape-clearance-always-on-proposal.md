@@ -1,7 +1,7 @@
 # Shape clearance always-on proposal
 
 Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
-Slices 0 to 4 landed.
+Slices 0 to 6 landed, and section 7.4 records the evidence of slice 7.
 Sections 7.2 and 7.3 record the decisions of the build, which the maintainer approved on 2026-11-20.
 On 2026-11-20, the amendments of section 4 were applied to their target documents, with each `<date>` as 2026-11-20.
 Date: 2026-11-20.
@@ -432,6 +432,62 @@ The agent decided each one on the delegation of section 7.2, and the maintainer 
 | AO-S14 | The coverage count of A1 drops on D (section 5.1) was 0. The route envelope of the count left out the rule 1 fronts. | Count with the fronts of the current rules. The count on D is 116 pod ticks, and the test requires a count above 0. |
 | AO-S15 | The amendment AO24 removed the paragraph that "the case above" in `group-physics-design.md` refers to. | Replace the sentence with "The envelope reach holds each plane of the route window of the oracle, so the audit covers that window." The AO24 row gives the new text. |
 | AO-S16 | `TestTailRandomCurvedNetworks` checked a 20 m center distance for each pair, which the certified merge pairs fail under the rule. | Use the D6 body oracle (`LateralBodyCheckForTest`) and `Check`. The test no longer has a check of the center distance that is independent of `Check` for the other pairs. |
+
+### 7.4 Evidence of slice 7
+
+The runs below are from 2026-11-20, on an AMD Ryzen 5 3600 with 6 cores and 12 threads, with Go 1.27.4.
+Timed runs did not use `nice`.
+
+The gates ran in the order of decision AO-D5 at `aac44c72`, the tip of slices 0 to 6 and the docs fixes.
+
+| Gate | Rows | Result | Wall time |
+| --- | --- | --- | ---: |
+| `mise run check` | SX1, E1, E5, A16, A17, the shared preset | Pass | 2,319 s |
+| `mise run test:london-express` | E2, E3, E4, E8, S1 | Pass | 864 s |
+| `go run ./cmd/projectcheck` on D | E2 | Pass | 5 s |
+| `PODSIM_SOAK_PRESETS=london-full-express mise run soak` | A15 | Pass | 673 s |
+| `PODSIM_SOAK_SEEDS=1 mise run soak:full`, the timing seed of decision AO-D8 | | Pass | 3,489 s |
+| `mise run soak:full`, 2 seeds | A16, A19, SX11, the `rail-hub` rows | Pass for each preset and seed, in the limit of 7,200 s | 6,398 s |
+
+During the timing seed, other jobs on the host gave a load average of up to about 5.8.
+
+Coverage counts of `TestLondonExpressEnvelopeRun` (section 5.1), in a run of 18,510 ticks with 3 restores:
+
+| Count | Value |
+| --- | ---: |
+| Pod ticks where A1 drops a plane of the largest front bound | 116 |
+| Envelopes where rule 2 adds a cluster lane | 122,607 |
+| Berth envelopes that hold a rule 2 lane | 120,298 |
+
+The largest front bound of a lane of D is 16.2 m, and the least anchor front is 6 m.
+
+The byte proofs did not change.
+The smallest headroom is 8,327,163 bytes, for the plain saved state of 125,890,565 bytes.
+The Express saved state has 105,124,223 bytes, with a headroom of 29,093,505 bytes.
+
+The edit times of section 6 at `aac44c72` were over the wasm limit on two networks.
+The cached p95 was 106.2 ms for `rail-hub` and 108.1 ms for `rail-hub-incidents`, against a limit of 100 ms, and the maximum of each was below its limit.
+This was a stop of decision AO-D9.
+The maintainer chose to profile the edit and to make the server check faster.
+Commits `17841e99`, `2a53972a`, `92cddf45`, and `407ce645` make the bank audit and the network preparation faster, with the same results.
+The wasm measurement at `407ce645` is in each limit of section 6.2:
+
+| Network | Cached accepted p95, slice 0 | At `aac44c72` | At `407ce645` |
+| --- | ---: | ---: | ---: |
+| `small` | 2.0 ms | 26.0 ms | 6.8 ms |
+| `busy` | 4.0 ms | 89.3 ms | 14.9 ms |
+| `rail-hub` | 5.2 ms | 106.2 ms | 16.5 ms |
+| `rail-hub-incidents` | 5.4 ms | 108.1 ms | 13.5 ms |
+| `scale100` | 21.1 ms | 60.7 ms | 58.9 ms |
+| Plain network at the project limits | 428.9 ms | 1,138.3 ms | 1,008.0 ms |
+
+At `407ce645`, the largest p95 of the first group of section 6.2 is 17.4 ms, for a refused edit on `small`.
+For the London presets and D, the largest ratio to slice 0 is 1.07 for a p95 and 1.18 for a maximum, against 1.25.
+
+`mise run check` passed at `65dcbd61`, the tip with these commits, in 2,525 s.
+The release soak ran at `aac44c72`, and it did not run again at `65dcbd61`.
+
+These items wait for the maintainer: the Chrome checks of E6 and E7 on the final build (decision AO-D4), the server measurement of E7, the timed runs of SX12, and the browser samples of section 6.1.
 
 ## 8. Decisions for the maintainer
 
