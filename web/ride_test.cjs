@@ -1291,3 +1291,23 @@ test("seatFov widens the seat view with speed and never narrows it", () => {
   near(ride.seatFov(20), 1.18, "full speed");
   near(ride.seatFov(60), 1.18, "past full speed");
 });
+
+test("createSigns draws a sign again when a station keeps its ID and changes its name", () => {
+  const texts = [];
+  const context = { fillRect() {}, fillText(text) { texts.push(text); } };
+  const B = {
+    MeshBuilder: { CreatePlane: () => ({ setEnabled() {}, position: { set() {} } }) },
+    DynamicTexture: function DynamicTexture() { this.getContext = () => context; this.update = () => {}; },
+    StandardMaterial: function StandardMaterial() {},
+    Color3: function Color3() {},
+    Mesh: { BILLBOARDMODE_Y: 2 },
+  };
+  const signs = ride.createSigns(B, {}, false);
+  const slab = (name) => [{ id: "s1", name, x: 0, z: 0, height: 0 }];
+  signs.update(slab("Old Street"), 0, 0);
+  signs.update(slab("Old Street"), 0, 0);
+  assert.deepEqual(texts, ["Old Street"], "an unchanged sign draws once");
+  // A project apply renames the station and keeps its ID.
+  signs.update(slab("New Street"), 0, 0);
+  assert.deepEqual(texts, ["Old Street", "New Street"]);
+});

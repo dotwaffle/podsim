@@ -2059,7 +2059,8 @@
 
   // createSigns makes a pool of station name signs. update gives them to the
   // stations nearest the camera. With polished, the signs have the style of
-  // drawStationSign.
+  // drawStationSign. A sign draws its texture again only when the name that
+  // it shows changes. A project apply can rename a station and keep its ID.
   function createSigns(B, scene, polished) {
     const signs = [];
     for (let i = 0; i < SIGN_COUNT; i++) {
@@ -2074,27 +2075,28 @@
       mesh.billboardMode = B.Mesh.BILLBOARDMODE_Y;
       mesh.isPickable = false;
       mesh.setEnabled(false);
-      signs.push({ mesh, texture, station: "" });
+      signs.push({ mesh, texture, name: "" });
     }
     function update(slabs, x, z) {
       const nearest = nearestSlabs(slabs, x, z, SIGN_COUNT, SIGN_RADIUS);
       signs.forEach((sign, i) => {
         const slab = nearest[i];
         sign.mesh.setEnabled(!!slab);
-        if (!slab) { sign.station = ""; return; }
+        if (!slab) { sign.name = ""; return; }
         sign.mesh.position.set(slab.x, slab.height + 4.2, slab.z);
-        if (sign.station === slab.id) return;
-        sign.station = slab.id;
+        const name = slab.name || slab.id;
+        if (sign.name === name) return;
+        sign.name = name;
         const context = sign.texture.getContext();
         if (polished) {
-          drawStationSign(context, 768, 128, slab.name || slab.id);
+          drawStationSign(context, 768, 128, name);
           sign.texture.update();
           return;
         }
         context.fillStyle = "#123a5e"; context.fillRect(0, 0, 768, 128);
         context.fillStyle = "#ffffff"; context.font = "bold 64px system-ui, sans-serif";
         context.textAlign = "center"; context.textBaseline = "middle";
-        context.fillText(slab.name || slab.id, 384, 66, 740);
+        context.fillText(name, 384, 66, 740);
         sign.texture.update();
       });
     }
@@ -2709,7 +2711,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, seatFov, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, seatFov, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, createSigns, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
