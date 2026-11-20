@@ -1,9 +1,11 @@
 package sim
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 )
 
@@ -36,6 +38,29 @@ const (
 // No production code calls it.
 func (s *Simulation) LateralBodyCheckForTest() error {
 	return s.lateralBodyCheck()
+}
+
+// SideBySidePairsForTest returns the lane ID pairs of the lateral merge
+// pairs and the shape pairs, sorted. The pods of such a pair keep the
+// side-by-side distance of their classes, and not 12 or 20 meters. It is a
+// test entry: a scenario test checks the center distance of the other
+// pairs without Check. No production code calls it.
+func (s *Simulation) SideBySidePairsForTest() [][2]string {
+	var pairs [][2]string
+	for _, table := range []*depotLateral{s.merges, s.shapes} {
+		if table == nil {
+			continue
+		}
+		for key := range table.pairs {
+			if key[0].kind == laneKeyKind && key[1].kind == laneKeyKind {
+				pairs = append(pairs, [2]string{s.network.Lanes[key[0].index].ID, s.network.Lanes[key[1].index].ID})
+			}
+		}
+	}
+	slices.SortFunc(pairs, func(a, b [2]string) int {
+		return cmp.Or(cmp.Compare(a[0], b[0]), cmp.Compare(a[1], b[1]))
+	})
+	return slices.Compact(pairs)
 }
 
 // JoinTurnPodsForTest returns the IDs of the traveling pods at a join turn:

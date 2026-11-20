@@ -1,6 +1,7 @@
 package scenarios_test
 
 import (
+	"fmt"
 	"math"
 	"math/rand/v2"
 	"slices"
@@ -129,7 +130,8 @@ var tailRandomSeeds = []uint64{1, 2, 3, 5, 8, 13, 21, 34}
 
 // TestTailRandomCurvedNetworks runs rings with changed links and fan curves,
 // with all classes and about 70 percent Group pods, for 8 simulated minutes.
-// The observer check and the D6 lateral body check run at each tick.
+// The observer check, the D6 lateral body check, and an independent check
+// of the center distance (see checkCenters) run at each tick.
 func TestTailRandomCurvedNetworks(t *testing.T) {
 	t.Parallel()
 	if testing.Short() {
@@ -184,6 +186,10 @@ func runRandomNetwork(t *testing.T, generator tailGenerator, seed uint64) bool {
 	if err != nil {
 		t.Fatal(err)
 	}
+	sideBySide := make(map[[2]string]bool)
+	for _, pair := range s.SideBySidePairsForTest() {
+		sideBySide[pair], sideBySide[[2]string{pair[1], pair[0]}] = true, true
+	}
 	passengers := make([]string, 0, stations)
 	for _, station := range network.Stations {
 		if !station.ParkingOnly {
@@ -202,6 +208,9 @@ func runRandomNetwork(t *testing.T, generator tailGenerator, seed uint64) bool {
 		if _, err := observation.Check(); err != nil {
 			t.Fatalf("seed %d tick %d: %v", seed, tick, err)
 		}
+		if err := checkCenters(observation.Pods, sideBySide); err != nil {
+			t.Fatalf("seed %d tick %d: %v", seed, tick, err)
+		}
 		if err := s.LateralBodyCheckForTest(); err != nil {
 			t.Fatalf("seed %d tick %d: D6: %v", seed, tick, err)
 		}
@@ -210,4 +219,33 @@ func runRandomNetwork(t *testing.T, generator tailGenerator, seed uint64) bool {
 		t.Fatalf("seed %d completed no trip", seed)
 	}
 	return true
+}
+
+// checkCenters checks the center distance of each pair of pods with the
+// minimums of docs/model.md, and does not use Check. A pair with a large pod
+// keeps 20 m, and a pair of small pods 12 m. A pair on the two lanes of a
+// merge, split, or shape pair (sideBySide) keeps the side-by-side distance
+// of its classes: 3.1 m for two small pods, 3.55 m for a small and a large
+// pod, and 4.0 m for two large pods. A gap can be 1 micrometer less than
+// the minimum, as the observer permits.
+func checkCenters(pods []sim.Pod, sideBySide map[[2]string]bool) error {
+	for index, first := range pods {
+		for _, second := range pods[index+1:] {
+			large := 0
+			for _, pod := range [2]sim.Pod{first, second} {
+				if pod.Class == sim.GroupClass || pod.Class == sim.ExpressClass {
+					large++
+				}
+			}
+			minimum := [3]float64{12, 20, 20}[large]
+			if first.LaneID != "" && second.LaneID != "" && sideBySide[[2]string{first.LaneID, second.LaneID}] {
+				minimum = [3]float64{3.1, 3.55, 4.0}[large]
+			}
+			if gap := math.Hypot(first.Position.X-second.Position.X, first.Position.Y-second.Position.Y); gap < minimum-1e-6 {
+				return fmt.Errorf("center check: pods %s (%s, lane %q) and %s (%s, lane %q) are %v m apart, less than %v m",
+					first.ID, first.Class, first.LaneID, second.ID, second.Class, second.LaneID, gap, minimum)
+			}
+		}
+	}
+	return nil
 }
