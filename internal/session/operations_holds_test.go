@@ -139,7 +139,7 @@ func TestRestorePolicyRunsFirst(t *testing.T) {
 	t.Parallel()
 	data := newOrdinaryRun(t).edited(t, setPod(0, 1, 2, 1))
 	steps := realRestoreSteps()
-	steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+	steps.restoreSimulation = func(*sim.NetworkCheck, sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 		t.Error("the restore ran after a refusal of the policy")
 		return nil, sim.RestoreResult{}, nil
 	}
@@ -157,7 +157,7 @@ func TestRestoreSwitchesFromSession(t *testing.T) {
 	for name, run := range map[string]storedRun{"ordinary": newOrdinaryRun(t), "demo": newDemoRun(t)} {
 		steps := realRestoreSteps()
 		var input sim.RestoreStateInput
-		steps.restoreSimulation = func(got sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+		steps.restoreSimulation = func(_ *sim.NetworkCheck, got sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 			input = got
 			return sim.RestoreState(got)
 		}

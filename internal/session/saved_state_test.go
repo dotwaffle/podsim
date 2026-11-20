@@ -227,7 +227,7 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 				t.Parallel()
 				steps := realRestoreSteps()
 				if kind == "restore panic" {
-					steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+					steps.restoreSimulation = func(*sim.NetworkCheck, sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 						panic("restore test")
 					}
 				}

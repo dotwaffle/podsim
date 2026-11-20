@@ -97,9 +97,9 @@ type StoreInput struct {
 	// during the demo. With nil, NewFromStore restores the saved project.
 	Project *project.Config
 	// Checked is the project of the -project file after CheckProject, or
-	// nil. It is Project with the checks of its network: a new session
-	// then takes the network preparation of the checks. Set Project or
-	// Checked, not both.
+	// nil. It is Project with the checks of its network: a new session,
+	// and a restore of a saved state of the same project, then take the
+	// network preparation of the checks. Set Project or Checked, not both.
 	Checked *CheckedProject
 	// Options configure the session, as in NewWithProject.
 	Options []Option
@@ -253,11 +253,22 @@ func (p *persistence) unsavedSeconds(saves, revision uint64) float64 {
 // checkPolicy runs before restoreSimulation, and a failure rejects the
 // save with no logical fallback. A nil checkPolicy skips the step: only
 // the session restores of the stage 1 fixtures, which make states that no
-// production path makes, leave it out.
+// production path makes, leave it out. restoreSimulation gets nil, or the
+// checks of the restore network.
 type restoreSteps struct {
 	validateProject   func(project.Config) error
 	checkPolicy       func(sim.RestoreStateInput) error
-	restoreSimulation func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error)
+	restoreSimulation func(*sim.NetworkCheck, sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error)
+}
+
+// restoreSimulation is the simulation restore of NewFromStore. check is
+// nil, or it holds the checks of input.Network. The restore then takes the
+// preparation of the checks, and does not prepare the network again.
+func restoreSimulation(check *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+	if check != nil {
+		return check.RestoreState(input)
+	}
+	return sim.RestoreState(input)
 }
 
 // NewFromStore restores the session that input.Store keeps when it can, and
@@ -274,7 +285,7 @@ type restoreSteps struct {
 // logical tier only. After two, the next start does not restore.
 func NewFromStore(ctx context.Context, input StoreInput) (*Session, error) {
 	return newFromStore(ctx, input, restoreSteps{
-		validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: sim.RestoreState,
+		validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: restoreSimulation,
 	})
 }
 
@@ -345,7 +356,7 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 		config, check := emptyProject(input, nil)
 		return nil, s.startUnreadable(config, check, input.readErr)
 	}
-	loaded, err := s.loadState(loadInput{data: input.data, project: input.project, steps: input.steps})
+	loaded, err := s.loadState(loadInput{data: input.data, project: input.project, check: input.check, steps: input.steps})
 	if _, protected := errors.AsType[*preservedStateError](err); protected {
 		s.persist.enabled.Store(false)
 		s.logger.Error("Preserved saved session state", slog.Any("error", err), slog.Bool("saving", false))
@@ -465,10 +476,11 @@ func (s *Session) startRejected(ctx context.Context, input rejectInput) error {
 }
 
 // loadInput holds a saved state, the project of the caller or nil, and the
-// restore steps.
+// restore steps. check is nil, or it holds the checks of project.Network.
 type loadInput struct {
 	data    []byte
 	project *project.Config
+	check   *sim.NetworkCheck
 	steps   restoreSteps
 }
 
@@ -517,7 +529,8 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	// One restore without a save can be the cause of a crash. Do not put the
 	// pods back where they were.
 	loaded.logicalOnly = file.RestoreAttempts == restoreLoopAttempts-1
-	if loaded.config, err = restoreProject(input, file.Project); err != nil {
+	var check *sim.NetworkCheck
+	if loaded.config, check, err = restoreProject(input, file.Project); err != nil {
 		return loaded, err
 	}
 	// The preflight runs before validProject is set. An empty session
@@ -552,7 +565,7 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 			return loaded, invalidState(err)
 		}
 	}
-	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(restoreInput)
+	loaded.simulation, loaded.result, err = input.steps.restoreSimulation(check, restoreInput)
 	if err != nil {
 		return loaded, invalidState(err)
 	}
@@ -604,18 +617,21 @@ func (s *Session) loadState(input loadInput) (loaded loadedState, err error) {
 	return loaded, nil
 }
 
-// restoreProject returns the project that a restore uses. saved is the
-// project of the saved state. With a project of the caller, the two projects
-// must match except for demand and experimental policy settings. The restore
-// uses a copy of the caller's project with the saved demand
-// settings. Without a project of the caller, saved must be valid. Each
-// error is a *stateError.
-func restoreProject(input loadInput, saved project.Config) (project.Config, error) {
+// restoreProject returns the project that a restore uses, and the checks
+// of its network or nil. saved is the project of the saved state. With a
+// project of the caller, the two projects must match except for demand and
+// experimental policy settings. The restore uses a copy of the caller's
+// project with the saved demand settings. Its network is a copy of the
+// network of the caller, so the checks of the caller are its checks.
+// Without a project of the caller, saved must be valid, and the restore
+// has no checks, because no check holds the saved network. Each error is a
+// *stateError.
+func restoreProject(input loadInput, saved project.Config) (project.Config, *sim.NetworkCheck, error) {
 	if input.project == nil {
 		if err := input.steps.validateProject(saved); err != nil {
-			return project.Config{}, invalidState(fmt.Errorf("saved project: %w", err))
+			return project.Config{}, nil, invalidState(fmt.Errorf("saved project: %w", err))
 		}
-		return saved, nil
+		return saved, nil, nil
 	}
 	config := project.Clone(*input.project)
 	config.Demand = saved.Demand
@@ -625,11 +641,11 @@ func restoreProject(input loadInput, saved project.Config) (project.Config, erro
 	same, err := sameProject(comparison, saved)
 	switch {
 	case err != nil:
-		return project.Config{}, invalidState(err)
+		return project.Config{}, nil, invalidState(err)
 	case !same:
-		return project.Config{}, &stateError{reason: reasonProjectChanged, err: errors.New("the saved project is not the project file")}
+		return project.Config{}, nil, &stateError{reason: reasonProjectChanged, err: errors.New("the saved project is not the project file")}
 	}
-	return config, nil
+	return config, input.check, nil
 }
 
 // sameProject reports whether two projects have the same canonical JSON

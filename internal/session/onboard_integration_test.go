@@ -287,7 +287,7 @@ func TestOnboardConsumerSourceGuards(t *testing.T) {
 			tc.edit(&selected)
 			steps := realRestoreSteps()
 			calls := 0
-			steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+			steps.restoreSimulation = func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 				calls++
 				return sim.RestoreState(input)
 			}
@@ -312,7 +312,7 @@ func TestOnboardConsumerSourceGuards(t *testing.T) {
 			}
 			steps := realRestoreSteps()
 			calls := 0
-			steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+			steps.restoreSimulation = func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 				calls++
 				return sim.RestoreState(input)
 			}

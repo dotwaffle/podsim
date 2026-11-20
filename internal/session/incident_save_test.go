@@ -139,7 +139,7 @@ func fixtureRestoreSteps(stageOne bool) restoreSteps {
 	steps := realRestoreSteps()
 	steps.checkPolicy = nil
 	if stageOne {
-		steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+		steps.restoreSimulation = func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 			input.FaultsOn, input.EmergenciesOn = false, false
 			return sim.RestoreState(input)
 		}

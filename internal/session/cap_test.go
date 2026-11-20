@@ -113,7 +113,7 @@ func startupCancelAfterRestore(t *testing.T, encoded []byte, tier sim.RestoreTie
 		defer cancel()
 		steps := realRestoreSteps()
 		restored := false
-		steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+		steps.restoreSimulation = func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 			simulation, result, err := sim.RestoreState(input)
 			restored = err == nil
 			result.Tier = tier

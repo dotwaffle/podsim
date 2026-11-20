@@ -18,7 +18,7 @@ func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
 			saved.OnboardPickups = savedPolicy
 			selected := project.Clone(saved)
 			selected.OnboardPickups = selectedPolicy
-			got, err := restoreProject(loadInput{project: &selected, steps: realRestoreSteps()}, saved)
+			got, _, err := restoreProject(loadInput{project: &selected, steps: realRestoreSteps()}, saved)
 			if err != nil || got.OnboardPickups != selectedPolicy {
 				t.Fatalf("saved=%t selected=%t: %v", savedPolicy, selectedPolicy, err)
 			}
@@ -26,7 +26,7 @@ func TestRestoreOnboardPolicyCompatibility(t *testing.T) {
 				t.Fatal("policy compatibility changed another project setting")
 			}
 			selected.Network.Stations[0].Berths[0].ID = "changed"
-			if _, restoreErr := restoreProject(loadInput{project: &selected, steps: realRestoreSteps()}, saved); restoreErr == nil {
+			if _, _, restoreErr := restoreProject(loadInput{project: &selected, steps: realRestoreSteps()}, saved); restoreErr == nil {
 				t.Fatal("policy compatibility admitted a source topology change")
 			}
 		}
@@ -51,7 +51,7 @@ func TestRestoreOnboardUsesSelectedRuntimePolicy(t *testing.T) {
 		called := false
 		sentinel := errors.New("stop after restore input validation")
 		steps := realRestoreSteps()
-		steps.restoreSimulation = func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+		steps.restoreSimulation = func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 			called = true
 			if input.OnboardPickups != selectedPolicy {
 				t.Fatal("restore ignored the selected runtime policy")

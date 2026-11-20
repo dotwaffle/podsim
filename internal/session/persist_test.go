@@ -200,7 +200,7 @@ func assertPreserved(t *testing.T, s *Session, err error, store *fakeStore, befo
 
 // realRestoreSteps returns the restore steps of NewFromStore.
 func realRestoreSteps() restoreSteps {
-	return restoreSteps{validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: sim.RestoreState}
+	return restoreSteps{validateProject: project.Validate, checkPolicy: sim.CheckIncidentPolicy, restoreSimulation: restoreSimulation}
 }
 
 // storedRun is a closed session and its final saved state.
@@ -613,12 +613,12 @@ func TestNewFromStoreRejects(t *testing.T) {
 			steps := realRestoreSteps()
 			if test.errText != "" {
 				// A rejected version must stop before the restore steps.
-				steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+				steps.restoreSimulation = func(*sim.NetworkCheck, sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 					panic("restore step ran for a rejected version")
 				}
 			}
 			if test.panics {
-				steps.restoreSimulation = func(sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+				steps.restoreSimulation = func(*sim.NetworkCheck, sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 					panic("restore test panic")
 				}
 			}

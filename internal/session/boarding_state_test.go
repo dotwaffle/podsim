@@ -237,7 +237,7 @@ func TestBoardingStateLoadSourceAndFallback(t *testing.T) {
 			}
 			data := encodeTestState(t, file)
 			calls := 0
-			steps := restoreSteps{validateProject: func(project.Config) error { return nil }, restoreSimulation: func(input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+			steps := restoreSteps{validateProject: func(project.Config) error { return nil }, restoreSimulation: func(_ *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
 				calls++
 				if input.LogicalOnly != logical || !reflect.DeepEqual(input.State.Pods[0].Boardings, file.Simulation.Pods[0].Boardings) {
 					t.Error("source-bound native restore input changed")
