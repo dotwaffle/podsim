@@ -69,3 +69,23 @@ func (c *NetworkCheck) ValidateFleet(placements []Placement, contract OrderContr
 	_, err = checkPreparedFleet(prepared, err, placements, contract)
 	return err
 }
+
+// NewFleetWithOrderContract is the package function NewFleetWithOrderContract
+// for the network of the check. It takes the preparation of the check, so
+// that a caller that validated the network with the check prepares it one
+// time. The refusals and their order are those of the package function.
+// The simulation shares the indexes of the preparation, which do not change.
+func (c *NetworkCheck) NewFleetWithOrderContract(placements []Placement, contract OrderContract) (*Simulation, error) {
+	if contract != "" {
+		if err := validateContractFleetBounds(c.network, placements, contract); err != nil {
+			return nil, err
+		}
+	}
+	prepared, err := c.preparation()
+	if prepared, err = checkPreparedFleet(prepared, err, placements, contract); err != nil {
+		return nil, err
+	}
+	s := newPreparedNetwork(prepared).newFleet(placements)
+	s.orderContract = contract
+	return s, nil
+}

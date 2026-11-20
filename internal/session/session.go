@@ -329,11 +329,13 @@ func New() (*Session, error) { return NewWithProject(project.Default()) }
 
 // NewWithProject validates and copies a project into a new session.
 func NewWithProject(config project.Config, options ...Option) (*Session, error) {
-	if err := project.Validate(config); err != nil {
+	// The fleet takes the network preparation of the validation.
+	check := sim.NewNetworkCheck(config.Network, sim.LaneClearance{})
+	if err := project.ValidateWith(config, project.Checked{Network: check}); err != nil {
 		return nil, err
 	}
 	session := newSession(nil, options)
-	if err := session.startProject(config); err != nil {
+	if err := session.startProject(config, check); err != nil {
 		return nil, err
 	}
 	return session, nil
@@ -362,10 +364,11 @@ func newServerStart() string {
 }
 
 // startProject starts a new simulation of a copy of config in a new epoch.
-// config must be valid.
-func (s *Session) startProject(config project.Config) error {
+// config must be valid. check is nil, or it holds the checks of
+// config.Network (see newProjectFleet).
+func (s *Session) startProject(config project.Config, check *sim.NetworkCheck) error {
 	owned := project.Clone(config)
-	simulation, err := sim.NewFleetWithOrderContract(owned.Network, owned.Fleet, owned.OrderContract)
+	simulation, err := newProjectFleet(owned, check)
 	if err != nil {
 		return fmt.Errorf("create shared fleet: %w", err)
 	}
@@ -391,6 +394,18 @@ func (s *Session) startProject(config project.Config) error {
 	s.demand = newDemand(demandInput{config: owned.Demand, network: owned.Network, profiles: owned.DemandProfiles, arrivals: owned.RailArrivals, departures: owned.RailDepartures, consent: owned.GeneratedOrderConsent})
 	s.configureRedistribution()
 	return nil
+}
+
+// newProjectFleet creates the fleet of config under its order contract.
+// check is nil, or it holds the checks of a network equal to
+// config.Network, and the fleet then takes the network preparation of the
+// check. A valid project and its copy of project.Clone have equal
+// networks.
+func newProjectFleet(config project.Config, check *sim.NetworkCheck) (*sim.Simulation, error) {
+	if check != nil {
+		return check.NewFleetWithOrderContract(config.Fleet, config.OrderContract)
+	}
+	return sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
 }
 
 // Run advances the shared clock until cancellation. Browsers never advance it.
@@ -941,7 +956,9 @@ func (s *Session) applyProject(command Command) (bool, error) {
 		return false, errors.New("project command requires a project")
 	}
 	config := project.Clone(*command.Project)
-	if err := project.Validate(config); err != nil {
+	// The fleet takes the network preparation of the validation.
+	check := sim.NewNetworkCheck(config.Network, sim.LaneClearance{})
+	if err := project.ValidateWith(config, project.Checked{Network: check}); err != nil {
 		return false, err
 	}
 	// sameProject compares the canonical JSON of the two projects, so a new
@@ -950,7 +967,7 @@ func (s *Session) applyProject(command Command) (bool, error) {
 	if same, err := sameProject(s.project, config); err == nil && same {
 		return false, nil
 	}
-	candidate, err := sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	candidate, err := newProjectFleet(config, check)
 	if err != nil {
 		return false, fmt.Errorf("create project fleet: %w", err)
 	}

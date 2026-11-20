@@ -1666,7 +1666,7 @@ func TestMetricsReportStateSaves(t *testing.T) {
 			t.Helper()
 			s := newSession(newPersistence(store), []Option{withClock(clock)})
 			s.persist.started = s.persist.now()
-			if err := s.startProject(project.Default()); err != nil {
+			if err := s.startProject(project.Default(), nil); err != nil {
 				t.Fatal(err)
 			}
 			return s

@@ -324,7 +324,7 @@ func (s *Session) start(ctx context.Context, input startInput) (*loadedState, er
 	switch {
 	case errors.Is(input.readErr, fs.ErrNotExist):
 		s.logger.Info("No saved session state")
-		return nil, s.startProject(emptyProject(input.project, nil))
+		return nil, s.startProject(emptyProject(input.project, nil), nil)
 	case errors.Is(input.readErr, ErrStateTooLarge):
 		return nil, preserveStateError(input.readErr)
 	case input.readErr != nil:
@@ -409,7 +409,7 @@ func emptyProject(input, saved *project.Config) project.Config {
 // the saved state failed. The session does not save, so the saved state
 // stays for the next start.
 func (s *Session) startUnreadable(config project.Config, readErr error) error {
-	if err := s.startProject(config); err != nil {
+	if err := s.startProject(config, nil); err != nil {
 		return err
 	}
 	s.restore = RestoreInfo{Tier: restoreEmpty, Reason: reasonUnreadable}
@@ -431,7 +431,7 @@ type rejectInput struct {
 // session cannot use, and moves the saved state aside. When the move fails,
 // the session does not save, so the saved state stays.
 func (s *Session) startRejected(ctx context.Context, input rejectInput) error {
-	if err := s.startProject(input.project); err != nil {
+	if err := s.startProject(input.project, nil); err != nil {
 		return err
 	}
 	s.restore = RestoreInfo{Tier: restoreEmpty, Reason: input.reason}
