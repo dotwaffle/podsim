@@ -170,6 +170,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Shared-track amendment](docs/contracts/shared-track-amendment-proposal.md) | The contract text of decision S1 of the shared-track design: a local front and a reach bound for each lane, and rule A1, behind the `shapeClearance` network field. Approved by the maintainer on 2026-11-16, and applied. The second amendment replaces the local front and the reach bound. |
 | [Second shared-track amendment](docs/contracts/shared-track-amendment-2-proposal.md) | The contract text that replaces the local front and the reach bound of the first amendment with the anchor front of each lane and an oracle that reads the compiled envelope reach, behind the `shapeClearance` network field. Approved by the maintainer on 2026-11-16, ST16 to ST24, and applied. |
 | [Express shared-track qualification](docs/contracts/express-shared-track-qualification-proposal.md) | Rows SX1 to SX13 for the opt-in preset `london-full-shared-express`. Approved by the maintainer on 2026-11-16. The preset is built, and the contract records the evidence of each row. The browser checks passed on 2026-11-20, so the preset is qualified. |
+| [Shape clearance always-on](docs/contracts/shape-clearance-always-on-proposal.md) | Removes the `shapeClearance` and `lateralMerges` network fields, and applies the shape clearance rules and the all-pairs audit to each network. The maintainer chose this end state and decided AO-D1 to AO-D9 on 2026-11-20. The text waits for approval, and nothing is built. |
 
 ### Designs
 
