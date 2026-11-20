@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, fov: true, time: "day" });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, fov: true, time: "day" });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false, signs: false, fx: false, time: "day" });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, fov: true, time: "day" });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false, signs: false, fx: false, fov: false, time: "day" });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1282,4 +1282,12 @@ test("lightLook keeps the day light and gives a low warm sun at dusk", () => {
   assert.ok(dusk.sun[0] > dusk.sun[2] + 0.5, "warm sun");
   const sky = ride.skyLook(ride.lookOptions("?time=dusk"));
   assert.ok(sky.horizon[0] > sky.horizon[2], "warm haze at dusk");
+});
+
+test("seatFov widens the seat view with speed and never narrows it", () => {
+  near(ride.seatFov(0), 1.1, "standing");
+  near(ride.seatFov(-3), 1.1, "a negative speed");
+  near(ride.seatFov(10), 1.14, "half speed");
+  near(ride.seatFov(20), 1.18, "full speed");
+  near(ride.seatFov(60), 1.18, "past full speed");
 });

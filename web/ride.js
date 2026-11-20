@@ -64,6 +64,14 @@
   const LOOK_RADIANS_PER_PIXEL = 0.004;
   const LOOK_PITCH_LIMIT = 0.9;
   const SEAT_PITCH = 0.06;
+  // The vertical field of view of the cameras, in radians. With the fov
+  // switch, the seat view widens by up to FOV_WIDEN at FOV_SPEED meters
+  // per second and more, and it follows a change of speed with the time
+  // constant FOV_SECONDS. A narrower view would cut off the cabin screens.
+  const CAMERA_FOV = 1.1;
+  const FOV_WIDEN = 0.08;
+  const FOV_SPEED = 20;
+  const FOV_SECONDS = 0.5;
   const CHASE_PITCH = 0.3;
   const CHASE_DISTANCE = 14;
   const CHASE_HEIGHT = 5;
@@ -186,7 +194,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights", "signs", "fx"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss", "lights", "signs", "fx", "fov"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -923,6 +931,13 @@
   // springBack moves a look offset toward zero with time constant tau.
   function springBack(offset, seconds, tau) {
     return tau > 0 ? offset * Math.exp(-Math.max(0, seconds) / tau) : 0;
+  }
+
+  // seatFov returns the field of view of the seat camera at speed meters
+  // per second: CAMERA_FOV when the pod stands, and wider with speed, to
+  // CAMERA_FOV + FOV_WIDEN at FOV_SPEED.
+  function seatFov(speed) {
+    return CAMERA_FOV + FOV_WIDEN * Math.min(1, Math.max(0, speed) / FOV_SPEED);
   }
 
   // chaseEye returns the scene position of the chase camera behind a pod at
@@ -2233,7 +2248,7 @@
     shadows.usePercentageCloserFiltering = true;
     shadows.filteringQuality = B.ShadowGenerator.QUALITY_HIGH;
     shadows.bias = 0.0008;
-    camera.fov = 1.1;
+    camera.fov = CAMERA_FOV;
     camera.rotation.x = SEAT_PITCH;
     // Without the pod model, the seat view draws a frame that moves with
     // the camera.
@@ -2509,6 +2524,10 @@
         lookYaw = springBack(lookYaw, seconds, LOOK_RETURN_SECONDS);
         lookPitch = springBack(lookPitch, seconds, LOOK_RETURN_SECONDS);
       }
+      // The seat view widens with speed. The chase and the platform views
+      // keep CAMERA_FOV.
+      const fov = look.fov && seatClass >= 0 ? seatFov(poses[index * POSE_FIELDS + 3]) : CAMERA_FOV;
+      camera.fov = fov + springBack(camera.fov - fov, seconds, FOV_SECONDS);
       if (platform) {
         camera.position.fromArray(platform.eye);
         camera.setTarget(B.Vector3.FromArray(platform.target));
@@ -2690,7 +2709,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, seatFov, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
