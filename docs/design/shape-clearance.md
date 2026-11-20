@@ -247,7 +247,7 @@ The difference comes from the front reach.
 The study probe takes the front bound of each lane, which is 6 m on this route.
 The envelope reach index takes the largest front bound of the network, which is 66.42 m on LondonFull, from the curved lane `940GZZLUWLO-move-05-01`.
 This sentence records the index as built for this design.
-When the network sets `shapeClearance`, the index of decision S1 of the shared-track design takes the anchor front of each lane, and on this network it gives the 7 refusals of the next line (section 2.2 of that design).
+Since 2026-11-20, the index of decision S1 of the shared-track design takes the anchor front of each lane in each network, and on this network it gives the 7 refusals of the next line (section 2.2 of that design).
 With a front reach of 6 m, the audit gives 7 refusals: the 5 pairs under 4.0 m of this section, and 2 pairs at 4.55 m and 6.26 m.
 The longer front reach adds 7 refusals at the two portals of link 100, and 5 of them are under 4.0 m.
 On project D, the Waterloo b bank takes the road to link 100, so the route runs 3,547 m through 5 stations.

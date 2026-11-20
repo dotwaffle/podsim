@@ -86,19 +86,19 @@ Each entry point refuses a project, a command, a saved state, a topology, or an 
 There is no migration.
 The values `true`, `false`, and `null` give the same error.
 With both members, the error names the first member in the document.
-The error text depends on the entry point, where `<m>` is the member:
+The error text depends on the entry point, where `<m>` is the member.
+The library wording of the decode error varies, so the table gives the stable part: the prefix, and the clause `unknown object member name "<m>"`.
+The editor and the saved-state restore name the member and its place in the network, as in `json: invalid JSON object at /network/<m>: unknown object member name "<m>"`.
 
 | Entry point | Error | Result |
 | --- | --- | --- |
 | Project file of `serve -project` | `read project <path>: json: unknown field "<m>"` | The server does not load the file. |
 | Project command | `invalid command JSON` | HTTP 400, and the session does not change. |
-| Saved state | `decode session state: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"` | `invalid_state`. The file moves aside, and the server starts a new session. |
+| Saved state | `decode session state: json: ...unknown object member name "<m>"` | `invalid_state`. The file moves aside, and the server starts a new session. |
 | Topology of the stream, the HTTP state, or the Go client | `json: unknown field "<m>"` | The client refuses the topology. |
-| Editor engine, `validate` | `decode project branch network: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"` | Refused. |
 | Editor call, `validate` | `decode editor project: json: invalid JSON object at /network/<m>: unknown object member name "<m>"` | Refused. |
-| Editor checks | `decode bank geometry: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>"` | A check error. |
-| Editor geometry edit | `decode bank geometry: json: invalid JSON object at /<m>: unknown object member name "<m>"` | The edit is refused. |
-| Other editor edits, for example `name` | The unknown-member error of the network decode | Refused. |
+| Editor engine `sync` and `validate`, and each edit of either entry point, also an edit of `name` | `decode project branch network: json: invalid JSON object at /network/<m>: unknown object member name "<m>"` | Refused. |
+| Editor checks | `decode bank geometry: json: ...unknown object member name "<m>"` | A check error. With both members, it can name either one. |
 
 A project file with either member and `"version":2` also gets the unknown-member error.
 To use an old file, remove both members from its network.
@@ -409,8 +409,8 @@ Some columns show only when you ask for what they report.
 | `fleet_class`, `served_percent_of_plain` | You give `-fleet-classes`. The table names them `FLEET` and `SERVED % PLAIN`. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 16.
-It is 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
+The JSON report has `schema_version` 15.
+It is 16 with a `pickup_reassignment` value, 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
 
 #### Waits and journeys
 

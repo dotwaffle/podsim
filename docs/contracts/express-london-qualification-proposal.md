@@ -6,6 +6,9 @@ On November 8, 2026, the maintainer approved row E7, after the bank routing work
 The approved rows are in the physical contract, the standee contract, the stage 7 contract, and the station banks document.
 D was not qualified until the Chrome check of row E6 and the browser readings of row E7 passed.
 On November 15, 2026, the maintainer passed both checks on D in desktop Chrome at `68a213f1`, so D is qualified.
+Note of 2026-11-20: the shape clearance rule applies to D since the [always-on proposal](shape-clearance-always-on-proposal.md), so D is not qualified until the rows of its section 5 pass and the maintainer repeats the Chrome checks of E6 and E7 on the final build (decision AO-D4).
+The reruns are pending.
+The sentence above records the state of November 15, 2026.
 
 ## Scope
 

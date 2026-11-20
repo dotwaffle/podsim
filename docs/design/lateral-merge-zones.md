@@ -3,9 +3,9 @@
 Status: the maintainer approved this design on 2026-11-15.
 The maintainer chose these options: the gated field (D4, option B), merges and splits (D1), a margin of 1 m (D2), the debris partners (D5), and the contract amendments (D7).
 D3 and D6 follow the recommendations.
-The rule is built behind the `lateralMerges` network field.
+The rule was built behind the `lateralMerges` network field.
 On 2026-11-15, the maintainer adopted it for LondonCentral and LondonFull, which set the field.
-`london-full-express` does not set it, so its behavior does not change.
+`london-full-express` did not set it, so its behavior did not change then.
 On 2026-11-20, the field was removed, and part 3 of the [shape clearance](shape-clearance.md) design applies this rule to each network, D included.
 The [junction study](../studies/london-junctions.md#lateral-merge-zones) has the results with the field set.
 
@@ -239,8 +239,9 @@ Mutations, with the table of the `verify-by-mutation` skill:
 ## 8. Study plan
 
 The method is that of the [London junction study](../studies/london-junctions.md#method): the AM peak of LondonFull, 60 minutes of arrivals, at most 60 more minutes, sharing and redistribution off, free-flow routing, and virtual platoons.
-`cmd/scenario` gets a `-lateral-merges` flag that sets the field.
-Since the adoption, the London presets set the field, and `-lateral-merges=false` clears it.
+`cmd/scenario` got a `-lateral-merges` flag that set the field.
+After the adoption, the London presets set the field, and `-lateral-merges=false` cleared it.
+The flag was removed on 2026-11-20, with the field.
 
 The study records means over seeds and paired changes, not the values of each seed, so the off arms run again.
 

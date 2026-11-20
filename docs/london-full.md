@@ -87,9 +87,12 @@ The network SHA-256 is the `network_sha256` value of the summary line.
 
 | Flags | Shape | Network SHA-256 | Soft conflicts |
 | --- | --- | --- | ---: |
-| none, the default | Tight | `e194426aa95104424a6365370f014c166f25d0572199f9b875e07bb58f2e880e` | 0 |
-| `-wide-stations` | Station scale 0.5, the default before November 16, 2026 | `441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d` | 1 |
-| `-berth-pitch 50` | Tight, the network of the study | `acba7958cf8bdaa25a67d24d891cdcfd04ac99586c9ad4918ddb4856d92845fe` | 0 |
+| none, the default | Tight | `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` | 0 |
+| `-wide-stations` | Station scale 0.5, the default before November 16, 2026 | `c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726` | 1 |
+| `-berth-pitch 50` | Tight, the flags of the study | `f0defafe5847dca7d069cf66806c29cf08207fb46cb26545436f8200111613b8` | 0 |
+
+The hashes are for the build of November 20, 2026, when the shape clearance rule began to apply to each network.
+The network of `london-full-express` did not change.
 
 A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide stations, the Compact stations in the heading search, and the Parking facilities.
 The study network differs from the default only at the three Parking facilities, because a pitch of 50 meters changes their shape.
@@ -113,7 +116,7 @@ mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-lond
 | Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
 | Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo |
 | Junction lanes | All chords | All chords | Two chords removed |
-| Network SHA-256 | `e194426a...` | `3aa0a2eb...` | `652d75eb...` |
+| Network SHA-256 | `69baad6a...` | `3aa0a2eb...` | `5961c702...` |
 
 The hub geometry changes are a Waterloo throat at 90 m, Bank turned by 5 degrees, a curve on `940GZZLUWLO-road-in-05`, and the removal of `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06`.
 Without them, the bank audit refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
@@ -126,7 +129,7 @@ The comb has 16 berths, parts of 41 m, and two roads to the link 100 portals at 
 The layout audit of the preset treats the comb as a Parking facility of Waterloo, because its road crosses the curved `road-in-05`.
 The preset has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.5 m is longer than its length of 39.1 m, so it holds one pod.
 The capacity flags do not apply to it.
-Its network SHA-256 is `652d75eb86ce9badf1f310a7a3744c1bc26425abbe4c4d7dcc231864255d23d5`.
+Its network SHA-256 is `5961c7021dcc4a13712cc8006bd060f94e25d38c4eec295056d6ee5cb9f8c687`.
 
 ## Depots and Compact stations
 

@@ -112,8 +112,8 @@ At positions that the service contract calls separated, the pair is exempt, as b
 At the other positions, two lanes keep the shape certification of the [service contract](../contracts/service-contract-proposals.md).
 Two lanes that it does not certify, and a pair with a berth, keep 12 meters, or 20 meters when either path admits a large class, at those positions.
 The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
-In such a network, the oracle takes its envelope from the reach at the published lane position, so the front bound of a route lane extends the route window only from an anchor on that lane.
-The envelope reach holds each plane of the route window of this changed oracle, so the case above is not a gap.
+The oracle takes its envelope from the reach at the published lane position, so the front bound of a route lane extends the route window only from an anchor on that lane.
+The envelope reach holds each plane of the route window of the oracle, so the audit covers that window.
 The order of the refusals and their text do not change.
 Amended 2026-11-16, by maintainer decision: the envelope planes of the audit, behind the `shapeClearance` network field.
 Amended 2026-11-16, by maintainer decision: the local front of the envelope, the small-pod rules, and the reach bound of each lane, behind the `shapeClearance` network field.

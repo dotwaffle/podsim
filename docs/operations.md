@@ -382,7 +382,7 @@ A version 12 file with `incidentContract`, `faultContract`, or `emergencyContrac
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
 Likewise, a version 12 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
-Its error is `decode session state: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>" within "/network"`, where `<m>` is the first of these members in the file.
+Its error starts with `decode session state: json:` and ends with the clause `unknown object member name "<m>"`, where `<m>` is the first of these members in the file.
 A version 12 file without these members restores under the shape clearance rule.
 When the audit of that rule refuses the saved network, the file gets `invalid_state` with the error `saved project: ...`.
 Until the first release, a narrower set of accepted values also keeps the version.
@@ -970,12 +970,13 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, the three race tasks, `test:long`, and `test:shared-express` one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `qualify`, and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and then the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
 | `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. |
 | `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so only this task runs them. |
+| `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`. `mise run check` and CI do not run this task, so run it by hand after a change that can alter the motion of D. |
 | `mise run test:web` | Only the editor, loader, and page tests. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
