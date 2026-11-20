@@ -1,7 +1,8 @@
 # London road fillets proposal
 
-Status: PROPOSED, awaiting maintainer approval.
-No code, pin, or contract text changes before the maintainer approves the decisions of section 9.
+Status: PROPOSED.
+The maintainer decided FL-D1 to FL-D9 on 2026-11-20 (section 9), and the text waits for maintainer approval.
+No code, pin, or contract text changes before that approval.
 Date: 2026-11-20.
 Line references are for `468d1dd6`.
 "Study" numbers are from a scratch probe of 2026-11-20 at `151416ae`, and the probe files are deleted.
@@ -374,7 +375,7 @@ A row for an applied record adds a "Note of <date>" line, as the always-on propo
 | --- | --- | --- | --- |
 | FL-A1 | `express-shared-track-qualification-proposal.md:29` to `:31` (SX1) | "LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay." | Add: "Since <date>, the roads of LondonFull and of the preset are filleted (fillets proposal), so their network hashes and their behavior changed. D did not change." |
 | FL-A2 | `express-shared-track-qualification-proposal.md:22` | "The rows apply to the geometry whose network hash the preset test pins after slice 3 of the design." | Add: "Since <date>, the rows apply to the geometry of the fillets proposal, and the Evidence section records the reruns." |
-| FL-A3 | `express-shared-track-qualification-proposal.md:5` to `:6`, and the status table `:124` to `:133` | "...so each row is closed and the preset is qualified." | Add after `:6`: "Note of <date>: the fillets proposal changes the geometry of the preset, so the preset is not qualified until the rows run again on the new geometry, with the Chrome checks of SX6, SX7, and SX9 (decision FL-D9)." |
+| FL-A3 | `express-shared-track-qualification-proposal.md:5` to `:6`, and the status table `:124` to `:133` | "...so each row is closed and the preset is qualified." | Add after `:6`: "Note of <date>: the fillets proposal changes the geometry of the preset, so the preset is not qualified until the rows run again on the new geometry. The Chrome checks of SX6, SX7, and SX9 of 2026-11-20 stand (decision FL-D9)." |
 | FL-A4 | `express-physical-encoding-contract-proposal.md:512` to `:513` (E1) | "Ordinary LondonFull, its fleet, and its defaults do not change." | Add: "Note of <date>: the fillets proposal changes the roads of ordinary LondonFull. It does not change D." |
 | FL-A5 | `express-london-qualification-proposal.md:19`, `:140` (E1) | "It does not change ordinary LondonFull, its fleet, or its defaults." | Add the note of FL-A4 after the status lines. |
 | FL-A6 | `shared-track-amendment-proposal.md:535`, and `docs/design/shared-track-preset.md:844`, `:873` | "LondonFull, D, ... do not change, and their network hashes stay." | Add one note after the status lines of each file: "Note of <date>: the fillets proposal changes the roads of LondonFull and of the preset. D does not change." |
@@ -397,7 +398,7 @@ A row for an applied record adds a "Note of <date>" line, as the always-on propo
 | Server cost | SX7 | The server measurement of the SX7 record, 4 cases |
 | Byte bounds | SX5, SX13 | `TestLondonSharedExpressByteBounds`, and `mise run test:embedded` |
 | Edit times | Validation cost of more curved lanes | `TestDraftEditTimes` with the protocol of section 6.1 of the always-on proposal, on `london-full` and the preset, against its limit of 1.25 times the value at the base commit of the build |
-| Chrome | SX6, SX7, SX9 | The maintainer, on the final build (decision FL-D9) |
+| Chrome | SX6, SX7, SX9 | None. The checks of 2026-11-20 stand (decision FL-D9). |
 
 ## 6. The shared-track qualification
 
@@ -413,16 +414,16 @@ A fillet changes behavior, so no parity argument carries the evidence.
 | SX3 | The envelope run, the envelope tests, and the support tests run again. |
 | SX4 | The checkpoint script takes each state at its first sight, so it adapts. The platoon restore and the policies-off platooning check need a platoon link (section 3.1). |
 | SX5, SX13 | The proofs pad a worst-case project, which does not change. The measured sizes of the preset run again. |
-| SX6, SX7, SX9 | The Go tests run again. The Chrome checks need the maintainer (FL-D9). |
+| SX6, SX7, SX9 | The Go tests run again. The Chrome checks of 2026-11-20 stand (FL-D9). |
 | SX8 | The incident fixtures and the recovery chain run again. |
 | SX10, SX11 | The London soak row, the CI soak, and the release soak run again. |
 | SX12 | The timed runs run again. |
 
-The proposal asks the maintainer to decide three things:
+The maintainer decided three things on 2026-11-20:
 
-- Whether the preset changes at all, and when (FL-D4).
-- Whether the hub roads of the preset change (FL-D5).
-- Whether the Chrome checks repeat (FL-D9).
+- The preset changes in a second stage, after the maintainer accepts the LondonFull evidence (FL-D4).
+- The hub roads of the preset keep their chords (FL-D5).
+- The Chrome checks do not repeat (FL-D9).
 
 If the preset does not change, it stops deriving from the default LondonFull.
 It then builds on a LondonFull without fillets, and the test at `london_full_shared_test.go:248` compares it with that build.
@@ -456,7 +457,7 @@ Each slice passes `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -di
 | | Evidence of LondonFull | | The compare study of FL-D6, `mise run qualify:london`, and `mise run check` on the tip of slice 3. The maintainer reads the result before slice 4 (FL-D4 B). |
 | 4 | `scenarios: Fillet the roads of the shared-track preset` | `internal/scenarios`, `internal/sim/testdata`, tests of `internal/sim`, `internal/session`, `internal/remote` | The preset builds on the filleted LondonFull. The hub roads follow FL-D5. The pins of section 5.3 move, except the shape pair count, which needs the maintainer. |
 | 5 | `contracts: Apply the fillet amendments` | `docs/contracts/`, `docs/design/` | Rows FL-A1 to FL-A7, after maintainer approval. `mise run lint` |
-| 6 | `contracts: Record the evidence of the filleted preset` | `docs/contracts/` | The gates of section 5.7 in this order: `mise run test:shared-express` and `mise run test:london-express`, then `mise run check`, then the London soak row, then the SX12 timed runs and the SX7 server measurement on a quiet host, then one timing seed per preset, then `mise run soak:full`. The records go in the SX proposal and in this proposal. The Chrome checks follow (FL-D9). |
+| 6 | `contracts: Record the evidence of the filleted preset` | `docs/contracts/` | The gates of section 5.7 in this order: `mise run test:shared-express` and `mise run test:london-express`, then `mise run check`, then the London soak row, then the SX12 timed runs and the SX7 server measurement on a quiet host, then one timing seed per preset, then `mise run soak:full`. The records go in the SX proposal and in this proposal. The Chrome checks do not repeat (FL-D9). |
 
 Run the race task of each changed package once on the tip of slice 4: `mise run test:race:sim`, `test:race:session`, and `test:race:other`.
 Under FL-D4 A, slices 2 and 4 are one commit, and the LondonFull evidence runs with the evidence of slice 6.
@@ -464,14 +465,14 @@ Under FL-D4 C, slices 4 and 6 do not happen, and slice 5 has FL-A4, FL-A5, FL-A7
 
 ## 9. Decisions for the maintainer
 
-| ID | Question | Options | Recommendation |
+| ID | Question | Options | Decision |
 | --- | --- | --- | --- |
-| FL-D1 | What "depot fans" means | A: the 22 Parking facility roads that the study converted. B: also the depot `fan` and `throat` lanes, which already have a control point and which the depot rules describe as fan and throat paths (`docs/model.md:383`). | A. B is not measured, and it changes depot lanes, which have their own clearance rule. |
-| FL-D2 | A road with a smallest radius below 12.5 m | A: the clamp, a curve at 5 m/s. B: no fillet. The road keeps its chord at 14 m/s, as a ramp below the floor drops. C: `sqrt(2 r)` with no floor, down to 0.29 m/s. | B. It keeps the approved floor of the ramp design. The radii go down to 0.04 m, so A labels a near-cusp curve 5 m/s, with up to 581 m/s² of lateral acceleration. The three refusals of the preset are such roads. Cost: about 625 roads on LondonFull keep their kinks. C makes the slowest lanes of the network. |
-| FL-D3 | Speed of a fillet, given the platoon rule | A: the ramp speed. By the code, platoons cannot form toward about 280 of the 309 passenger stations. B: shape only. Each fillet keeps 14 m/s, as the moves do today. C: the ramp speed, with a separate model proposal that lets a platoon link end before a slower lane. | A, gated by FL-D6. If LondonFull fails the gate, bring back B and C with the slice 0 counts. B gives the shape without a speed rule, against the approved ramp speed. C changes the platoon model and is a separate contract. |
-| FL-D4 | Does the preset change, and when | A: LondonFull and the preset in one build, with the evidence at the end. B: both presets, in two stages: LondonFull first, then the preset after the maintainer accepts the LondonFull evidence. C: LondonFull only, and the preset builds on a LondonFull without fillets. | B. It keeps the scope of the maintainer. The preset reruns SX2 to SX12 and the Chrome checks, which cost the most, only after the LondonFull gate passes. C keeps SX, but the preset then no longer has the stations of LondonFull. |
-| FL-D5 | The roads of the two Express hubs, Waterloo and Bank, on the preset | A: fillet them after `apply`. B: keep them straight, and keep the curve of `940GZZLUWLO-road-in-05`. | B. The study traced the 3 refusals and the change from 47 to 33 shape pairs to these roads. Their geometry is the Express route of SX2, and the role rule at the link 100 portals is not measured. |
-| FL-D6 | Acceptance criterion for LondonFull | A: the ramps criterion of `london-junctions.md:170` to `:176`, with virtual platoons on. At 15 requests per minute, the fillets drain at least as many seeds as the straight roads, and the mean wait and the mean journey are at most 5 percent longer, as a mean of the paired changes. A drain difference of one seed adds three seeds. B: record only, and the maintainer decides from the numbers. | A. The maintainer approved this criterion for the last junction change. The study estimates a free-flow cost of +1.5 percent at the median and +4.8 percent at p90, before the loss of platoons. |
-| FL-D7 | Station roads and Parking roads in one slice | A: one slice. B: two slices. | A. One rule, one option, and one set of pins. B moves each pin of section 5.2 two times. |
-| FL-D8 | A `cmd/scenario` flag | A: `-road-fillets` for the London presets, refused for D. B: no flag. The straight arm comes from the base commit. | A. The compare study and later studies get both arms at one commit, as `-junctions` did. |
-| FL-D9 | The Chrome checks of SX6, SX7, and SX9 | A: the maintainer repeats them on the final build. B: the earlier checks stand. | A. Changed motion can change the publication traffic and the work of the consumers, as decision AO-D4 found for D. |
+| FL-D1 | What "depot fans" means | A: the 22 Parking facility roads that the study converted. B: also the depot `fan` and `throat` lanes, which already have a control point and which the depot rules describe as fan and throat paths (`docs/model.md:383`). | Decided 2026-11-20: A. B is not measured, and it changes depot lanes, which have their own clearance rule. |
+| FL-D2 | A road with a smallest radius below 12.5 m | A: the clamp, a curve at 5 m/s. B: no fillet. The road keeps its chord at 14 m/s, as a ramp below the floor drops. C: `sqrt(2 r)` with no floor, down to 0.29 m/s. | Decided 2026-11-20: B. It keeps the approved floor of the ramp design. The radii go down to 0.04 m, so A labels a near-cusp curve 5 m/s, with up to 581 m/s² of lateral acceleration. The three refusals of the preset are such roads. Cost: about 625 roads on LondonFull keep their kinks. C makes the slowest lanes of the network. |
+| FL-D3 | Speed of a fillet, given the platoon rule | A: the ramp speed. By the code, platoons cannot form toward about 280 of the 309 passenger stations. B: shape only. Each fillet keeps 14 m/s, as the moves do today. C: the ramp speed, with a separate model proposal that lets a platoon link end before a slower lane. | Decided 2026-11-20: A, gated by FL-D6. If LondonFull fails the gate, bring back B and C with the slice 0 counts. B gives the shape without a speed rule, against the approved ramp speed. C changes the platoon model and is a separate contract. |
+| FL-D4 | Does the preset change, and when | A: LondonFull and the preset in one build, with the evidence at the end. B: both presets, in two stages: LondonFull first, then the preset after the maintainer accepts the LondonFull evidence. C: LondonFull only, and the preset builds on a LondonFull without fillets. | Decided 2026-11-20: B. It keeps the scope of the maintainer. The preset reruns SX2 to SX12, which cost the most, only after the LondonFull gate passes. C keeps SX, but the preset then no longer has the stations of LondonFull. |
+| FL-D5 | The roads of the two Express hubs, Waterloo and Bank, on the preset | A: fillet them after `apply`. B: keep them straight, and keep the curve of `940GZZLUWLO-road-in-05`. | Decided 2026-11-20: B. The study traced the 3 refusals and the change from 47 to 33 shape pairs to these roads. Their geometry is the Express route of SX2, and the role rule at the link 100 portals is not measured. |
+| FL-D6 | Acceptance criterion for LondonFull | A: the ramps criterion of `london-junctions.md:170` to `:176`, with virtual platoons on. At 15 requests per minute, the fillets drain at least as many seeds as the straight roads, and the mean wait and the mean journey are at most 5 percent longer, as a mean of the paired changes. A drain difference of one seed adds three seeds. B: record only, and the maintainer decides from the numbers. | Decided 2026-11-20: A. The maintainer approved this criterion for the last junction change. The study estimates a free-flow cost of +1.5 percent at the median and +4.8 percent at p90, before the loss of platoons. |
+| FL-D7 | Station roads and Parking roads in one slice | A: one slice. B: two slices. | Decided 2026-11-20: A. One rule, one option, and one set of pins. B moves each pin of section 5.2 two times. |
+| FL-D8 | A `cmd/scenario` flag | A: `-road-fillets` for the London presets, refused for D. B: no flag. The straight arm comes from the base commit. | Decided 2026-11-20: A. The compare study and later studies get both arms at one commit, as `-junctions` did. |
+| FL-D9 | The Chrome checks of SX6, SX7, and SX9 | A: the maintainer repeats them on the final build. B: the earlier checks stand. | Decided 2026-11-20: B. The Chrome checks of 2026-11-20 stand. The agent recommended A, because changed motion can change the publication traffic and the work of the consumers, as decision AO-D4 found for D. |
