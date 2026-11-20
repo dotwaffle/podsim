@@ -10,7 +10,7 @@ The station levels are built, and the maintainer accepted them in Chrome on 2026
 The cabin HUD and the textures are built, and the maintainer accepted them in Chrome on 2026-11-15.
 The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer accepted it in Chrome on 2026-11-15.
 The [rounded joins](#rounded-joins) are built, and the maintainer accepted them in Chrome on LondonFull on 2026-11-20.
-The [visual polish](#visual-polish) of 2026-11-21 is built, and it waits for a check in Chrome.
+The [visual polish](#visual-polish) of 2026-11-20 is built, and it waits for a check in Chrome.
 
 ## Goal
 

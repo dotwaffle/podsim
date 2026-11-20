@@ -1032,7 +1032,7 @@ These variables change a run:
 | `PODSIM_SOAK_ARMS` | The arms, with commas. A branch of an arm reads the queue range of a reference arm only when the list holds it. | The arms of the shape and the preset |
 | `PODSIM_SOAK_SHAPE` | `branches`, or `seeds` for the shape of amendment A6. | `branches` |
 | `PODSIM_SOAK_EVERY_TICK` | `1` runs the full check at each tick. | Off |
-| `PODSIM_SOAK_SEEDS` and `PODSIM_SOAK_FIRST_SEED` | The seeds. Each seed has its own warm save. | 1 seed in `branches`, 5 in `seeds`, from seed 1 |
+| `PODSIM_SOAK_SEEDS` and `PODSIM_SOAK_FIRST_SEED` | The seeds. Each seed has its own warm save. | 1 seed in `branches`, 2 in `seeds`, from seed 1 |
 | `PODSIM_SOAK_BRANCHES` | The branches of each arm. | 10 on `rail-hub`, 3 on `london-central`, 1 in `seeds` |
 | `PODSIM_SOAK_HOURS` | The length of a branch before the clear. | 1.5 on `rail-hub`, 1 on `london-central`, 6 in `seeds` |
 | `PODSIM_SOAK_PARALLEL` | The number of runs at one time. | 3 |
