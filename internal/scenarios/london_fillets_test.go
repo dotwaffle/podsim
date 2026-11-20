@@ -78,8 +78,9 @@ func TestLondonFilletCurve(t *testing.T) {
 // TestLondonRoadFillets checks the neighbors of the roads on a small
 // network: the end tangent of a curved link lane, the start tangent of a
 // curved access lane, a control point at the end of a lane, a portal with
-// two link lanes, a station without an access lane, and the lanes that are
-// not roads.
+// two link lanes, a station without an access lane, the lanes that are
+// not roads, and a road-out between a curved access lane and a curved link
+// lane.
 func TestLondonRoadFillets(t *testing.T) {
 	t.Parallel()
 	node := func(id string, x, y float64) sim.Node { return sim.Node{ID: id, Position: sim.Point{X: x, Y: y}} }
@@ -91,6 +92,7 @@ func TestLondonRoadFillets(t *testing.T) {
 			node("link-start", -100, -50), node("arrival", 0, 0), node("s-diverge", 40, 40), node("s-entry", 100, 100),
 			node("s-exit", -40, 100), node("s-merge", -40, 40), node("departure", -80, 0), node("link-end", -180, 0),
 			node("other-start", -100, 50), node("other-arrival", 0, 200), node("t-diverge", 50, 250),
+			node("r-exit", 1900, 300), node("r-merge", 1900, 0), node("r-departure", 1600, -300), node("r-link-end", 1300, -900),
 		},
 		Lanes: []sim.Lane{
 			// The end tangent of the link lane is east, and its chord is not.
@@ -113,6 +115,12 @@ func TestLondonRoadFillets(t *testing.T) {
 			// Not roads: no station, and not a road ID.
 			lane("x-road-in-01", "arrival", "s-diverge", "", nil),
 			lane("s-through", "s-entry", "s-exit", "s", nil),
+			// The end tangent of the access lane is (-2, -1), and its chord
+			// is south. The start tangent of the link lane is south, and its
+			// chord is not. The rays meet at (1600, -150).
+			lane("r-access-out", "r-exit", "r-merge", "r", &sim.Point{X: 2200, Y: 150}),
+			lane("r-road-out-01", "r-merge", "r-departure", "r", nil),
+			lane("london-link-004-ba-1", "r-departure", "r-link-end", "", &sim.Point{X: 1600, Y: -600}),
 		},
 	}
 	fillets := londonRoadFillets(network)
@@ -123,6 +131,7 @@ func TestLondonRoadFillets(t *testing.T) {
 	want := map[string]londonFilletOutcome{
 		"s-road-in-01": londonFilletCurved, "s-road-out-01": londonFilletCurved,
 		"s-road-in-02": londonFilletNoNeighbor, "t-road-in-01": londonFilletNoNeighbor,
+		"r-road-out-01": londonFilletCurved,
 	}
 	if len(got) != len(want) {
 		t.Fatalf("%d roads, want %d: %+v", len(got), len(want), fillets)
@@ -132,7 +141,7 @@ func TestLondonRoadFillets(t *testing.T) {
 			t.Fatalf("%s: outcome %d, want %d", id, got[id].outcome, outcome)
 		}
 	}
-	for id, control := range map[string]sim.Point{"s-road-in-01": {X: 40}, "s-road-out-01": {X: -40}} {
+	for id, control := range map[string]sim.Point{"s-road-in-01": {X: 40}, "s-road-out-01": {X: -40}, "r-road-out-01": {X: 1600, Y: -150}} {
 		if c := got[id].control; math.Hypot(c.X-control.X, c.Y-control.Y) > 1e-9 {
 			t.Fatalf("%s: control %v, want %v", id, c, control)
 		}
