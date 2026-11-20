@@ -23,6 +23,44 @@ const (
 // phase.
 func inferStationLaneRoles(n *Network) {
 	graph := newRouteGraph(*n)
+	forbidden := n.stationForbidden()
+	// The searches share one work area, as in validateStationRoutes.
+	var work routeSearchWork
+	var routes []berthRoutes
+	for _, station := range n.Stations {
+		if station.Banks != nil {
+			continue
+		}
+		for _, berth := range station.Berths {
+			berthForbidden := n.depotForbidden(forbidden, berth.ID)
+			var found berthRoutes
+			if arrival, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph, &work); err == nil {
+				found.arrival = arrival
+			}
+			if departure, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph, &work); err == nil {
+				found.departure = departure
+			}
+			routes = append(routes, found)
+		}
+	}
+	setStationLaneRoles(n, graph, routes)
+}
+
+// berthRoutes holds the route from the entry of a station to a berth and
+// the route from the berth to the exit. A route that a search did not find
+// is nil.
+type berthRoutes struct {
+	arrival, departure []Lane
+}
+
+// setStationLaneRoles gives the lanes of the through lanes of each station
+// with no banks, and of routes, their roles (see inferStationLaneRoles).
+// routes holds the routes of each berth of each station with no banks, in
+// station and berth order, from a network with the lanes of n. graph is a
+// route graph of such a network. The route searches do not read the roles
+// that this sets: a search reads a role only of a lane of a bank, and such
+// a lane has its role in the network.
+func setStationLaneRoles(n *Network, graph routeGraph, routes []berthRoutes) {
 	var grouped map[string]bool
 	for _, group := range n.ManeuverGroups {
 		if grouped == nil {
@@ -32,14 +70,12 @@ func inferStationLaneRoles(n *Network) {
 			grouped[id] = true
 		}
 	}
-	forbidden := n.stationForbidden()
 	// through holds the IDs of the lanes between two nodes, in lane order.
 	through := make(map[[2]string][]string)
 	for _, lane := range n.Lanes {
 		through[[2]string{lane.From, lane.To}] = append(through[[2]string{lane.From, lane.To}], lane.ID)
 	}
-	// The searches share one work area, as in validateStationRoutes.
-	var work routeSearchWork
+	next := 0
 	for _, station := range n.Stations {
 		if station.Banks != nil {
 			continue
@@ -47,19 +83,14 @@ func inferStationLaneRoles(n *Network) {
 		for _, id := range through[[2]string{station.Entry, station.Exit}] {
 			setStationLaneRole(n, graph, grouped, id, station.ID, StationThroughRole)
 		}
-		for _, berth := range station.Berths {
-			berthForbidden := n.depotForbidden(forbidden, berth.ID)
-			arrival, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph, &work)
-			if err == nil {
-				for _, lane := range arrival {
-					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationBerthAccessRole)
-				}
+		for range station.Berths {
+			found := routes[next]
+			next++
+			for _, lane := range found.arrival {
+				setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationBerthAccessRole)
 			}
-			departure, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph, &work)
-			if err == nil {
-				for _, lane := range departure {
-					setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationDepartureRole)
-				}
+			for _, lane := range found.departure {
+				setStationLaneRole(n, graph, grouped, lane.ID, station.ID, StationDepartureRole)
 			}
 		}
 	}

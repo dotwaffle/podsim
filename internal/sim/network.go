@@ -563,31 +563,39 @@ func routeQueueLess(a, b routeQueueItem) bool {
 // with no banks. The first error
 // is the refusal, so the order is part of the result.
 func (n Network) validate() error {
+	_, err := n.validateRoutes(nil)
+	return err
+}
+
+// validateRoutes is validate. It returns the route graph of n. With
+// routes, it also adds the berth routes of each station with no banks to
+// routes (see checkStationRoutes).
+func (n Network) validateRoutes(routes *[]berthRoutes) (routeGraph, error) {
 	nodes, err := n.validateNodes()
 	if err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	if err := n.validateLaneFields(nodes); err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	stations := make(map[string]bool)
 	if err := n.validateStationFields(nodes, stations); err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	if err := n.validateLaneStations(stations); err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	if err := n.validateManeuvers(nodes); err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	if err := n.validateDepots(nodes); err != nil {
-		return err
+		return routeGraph{}, err
 	}
 	graph := newRouteGraph(n)
 	if graph.banks.err != nil {
-		return graph.banks.err
+		return routeGraph{}, graph.banks.err
 	}
-	return n.validateStationRoutes(graph)
+	return graph, n.checkStationRoutes(graph, routes)
 }
 
 // validateNodes checks that each node has a unique ID and a finite
@@ -679,10 +687,17 @@ func (n Network) validateLaneStations(stations map[string]bool) error {
 // needs a through lane from its entry to its exit, and a route from its
 // entry to each berth and from each berth to its exit.
 func (n Network) validateStationRoutes(graph routeGraph) error {
+	return n.checkStationRoutes(graph, nil)
+}
+
+// checkStationRoutes is validateStationRoutes. With routes, it also adds
+// the two routes of each berth of each station with no banks to routes, in
+// station and berth order.
+func (n Network) checkStationRoutes(graph routeGraph, routes *[]berthRoutes) error {
 	forbidden := n.stationForbidden()
 	var work routeSearchWork
 	for _, station := range n.Stations {
-		if station.Banks == nil && !n.stationRoutesExist(station, forbidden, graph, &work) {
+		if station.Banks == nil && !n.stationRoutesExist(station, forbidden, graph, &work, routes) {
 			return fmt.Errorf("station %q needs entry, exit, and through lanes", station.ID)
 		}
 	}
@@ -692,17 +707,23 @@ func (n Network) validateStationRoutes(graph routeGraph) error {
 // stationRoutesExist reports whether a station has its through lane and
 // the routes to and from each berth, in berth order. A route to or from a
 // depot slot can pass the other slots of its lane (see depotForbidden).
-func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph, work *routeSearchWork) bool {
+// With routes, it adds the routes of each berth to routes.
+func (n Network) stationRoutesExist(station Station, forbidden map[string]bool, graph routeGraph, work *routeSearchWork, routes *[]berthRoutes) bool {
 	if !n.connected(station.Entry, station.Exit) {
 		return false
 	}
 	for _, berth := range station.Berths {
 		berthForbidden := n.depotForbidden(forbidden, berth.ID)
-		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph, work); err != nil {
+		arrival, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: station.Entry, to: berth.Node, forbidden: berthForbidden}, graph, work)
+		if err != nil {
 			return false
 		}
-		if _, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph, work); err != nil {
+		departure, err := n.routeIndexedWithWork(networkRouteInput{class: topologyClass, from: berth.Node, to: station.Exit, forbidden: berthForbidden}, graph, work)
+		if err != nil {
 			return false
+		}
+		if routes != nil {
+			*routes = append(*routes, berthRoutes{arrival: arrival, departure: departure})
 		}
 	}
 	return true

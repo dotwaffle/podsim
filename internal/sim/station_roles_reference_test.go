@@ -89,3 +89,35 @@ func TestStationLaneRolesMatchReference(t *testing.T) {
 		}
 	}
 }
+
+// TestPreparedStationLaneRolesMatchInference checks that a preparation,
+// which takes the berth routes of the validation, gives each lane the role
+// of inferStationLaneRoles, on the networks of
+// TestStationLaneRolesMatchReference that the preparation accepts, with
+// and without their roles.
+func TestPreparedStationLaneRolesMatchInference(t *testing.T) {
+	t.Parallel()
+	networks := scenarioNetworks(t)
+	networks["compact station"], _ = loadCompactStation(t)
+	networks["bank example"] = BankExample()
+	networks["depot"] = testDepotNetwork()
+	networks["example"] = Example()
+	prepared := 0
+	for _, name := range slices.Sorted(maps.Keys(networks)) {
+		for _, network := range []Network{networks[name], withoutRoles(networks[name])} {
+			got, err := prepareNetworkTails(network, nil)
+			if err != nil {
+				continue
+			}
+			prepared++
+			want := network.clone()
+			inferStationLaneRoles(&want)
+			if !reflect.DeepEqual(got.network.Lanes, want.Lanes) {
+				t.Errorf("%s: the lane roles of the preparation differ from the inference", name)
+			}
+		}
+	}
+	if prepared < len(networks) {
+		t.Fatalf("the preparation accepts %d of %d networks", prepared, 2*len(networks))
+	}
+}
