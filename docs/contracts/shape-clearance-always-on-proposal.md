@@ -1,7 +1,7 @@
 # Shape clearance always-on proposal
 
 Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
-The build has not started.
+The build has started: slices 0 and 1 landed, and section 7.2 records the decisions on the slice 2 stops.
 Date: 2026-11-20.
 Revised on 2026-11-20 after an adversarial review: 6 major findings and 1 minor finding are folded in.
 Line references are for `b2114516`.
@@ -396,6 +396,25 @@ Two things stay apart.
 | `TestLargeDraftLaneReachConflict`, `TestLargeDraftLaneReachConflictOrder`, `TestLargeDraftLayoutReachConflictComesLast`, `TestLargeDraftServerReachRefusalComesLast` (`internal/editormodel/large_geometry_test.go:413` to `:536`) | Reach conflicts and their order in a draft | All four fail on the forced-on tree, because the envelope reach gives no conflict for their fixtures. Move each fixture so that the reach conflict or the held refusal stays, as for the project test, and keep each competing-error assertion. The fixture moves are not tested yet. When no move keeps a held refusal, stop (section 9.2). |
 | `TestPresetWithCapacity`, invalid variants (`internal/scenarios`) | Each variant pins a later refusal | The audit refusal now comes first. Pin the new first refusal, and add a variant that has only the later fault, so that the later check keeps a test. |
 | New `TestRestoreRefusesAuditedProject` (`internal/session`) | None | A saved state whose project has two small lanes 3.0 m apart that share no node. Restore gives `invalid_state` with `saved project: invalid project scenario: nonincident paths ...`. A second case adds a session member that passes the state decode and fails only a restore check after `restoreProject`, and the project refusal still comes first (`persist.go:488`). |
+
+### 7.2 Decisions on the slice 2 stops
+
+On 2026-11-20, slices 0 and 1 found section 9.2 stops for slice 2.
+A study on a forced-on copy found no oracle stop: each failure near 12 m came from the 12 m test helper `checkTraffic`, a field-off arm, or a pinned trace, and `Check` and the D6 oracle stayed clean.
+The maintainer delegated the decisions below to the agent on 2026-11-20.
+Each one is decided by the agent on that delegation, and each one waits for maintainer review.
+
+| ID | Stop | Decision |
+| --- | --- | --- |
+| AO-S1 | `TestRestoreSeparatesTravelingPods` and the "berths within clearance" case of `TestRestoreFailsForInvalidState`: no valid project gives two pods closer than the clearance on paths that share no node | Keep both tests. Reach each refusal through the existing `newFleet` parameter of `restorePhysical`, with a berth node that moves after preparation. The refusal order and text stay. |
+| AO-S2 | `TestFaultAtDepartureSeparatePlane` | Rewrite it as an assertion of the location of the faulted pod. |
+| AO-S3 | `laneEndNetwork`, the "effective mask exclusion" case of `TestLargeGeometryBerthIncidentAudit`, and `TestPlatoonGeometry/close_fold` | Use the fixture changes of the study, which pass on both trees, as a follow-up commit to slice 1. |
+| AO-S4 | Section 7.1, editor row | Under the rule, the local reach check of the editor (`laneConflict`, `heldConflictError`) cannot fire, and slice 2 removes it. Slice 2 removes the local-check arms and `TestLargeDraftLaneReachConflictOrder`, keeps the server arm of `TestLargeDraftLaneReachConflict`, keeps `TestLargeDraftServerReachRefusalComesLast` with a moved fixture, and removes `TestLargeDraftLayoutReachConflictComesLast`, because with the rule it repeats the server order test. The held `PlaneReachError` path stays live for large pairs whose envelope reaches overlap, and the moved fixtures of the `TestLargeGeometry*Reach*` tests and of `TestNetworkCheckMatchesValidation` land in slice 2. The "same lane far from the join" case changes to no refusal, and a test pins that outcome. |
+| AO-S5 | Editor goldens `geometry.json` and `checks.json` | Geometry: check the parity of the transform through `geometryDraft.change` with no server check, so the 49 fixtures need no golden change. Checks: one scripted control point on the return lane of the ring, and a targeted move for each fixture that it does not fix. |
+| AO-S6 | A plain draft with a station structure defect | Accept that each geometry edit of such a draft is refused, as it is for the London presets today. The repair route of section 2.2 applies. |
+| AO-S7 | `TestPlatoonEntryLaneRun/36` reaches no tick with two coasting heads | Slice 2 finds a fixture that reaches the case. If none does in a bounded search, it reaches the state through a test entry, as `TestRestore*` does with `newFleet`. Stop only if neither works. |
+| AO-S8 | The 12 m test helper `checkTraffic` (49 call sites) | Replace it with `Check` and the D6 oracle in slice 2. |
+| AO-S9 | New pins of slice 2 | Pin the corridor headways (8.633 s, 4.933 s, 2.993 s), the parallel chains in place, and the sampler trace. |
 
 ## 8. Decisions for the maintainer
 
