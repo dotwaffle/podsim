@@ -222,7 +222,7 @@ The `serve` and `compare` commands read a `-project` file of 32 MiB or less.
 The central generated file is indented, so it is about 2.6 MiB (2,701,745 bytes).
 The generator uses compact JSON when indentation would exceed the project file limit.
 Project validation also limits the compact JSON form of a project to 32 MiB, with room for the widest demand settings.
-In that form, the London project is about 1.1 MiB (1,199,241 bytes).
+In that form, the London project is about 1.1 MiB (1,199,279 bytes).
 The server writes the `-project` file in this form when it saves it.
 When the editor applies the project, it compresses the command with gzip, so it sends about 0.2 MiB.
 The server accepts a compressed command of 16 MiB or less, with 32 MiB plus 64 KiB of JSON or less after decompression.

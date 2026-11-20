@@ -298,7 +298,7 @@ These checks do not establish a sustainable demand rate.
 
 The project limits admit 12,000 nodes, 20,000 lanes, 600 stations, 1,000 pods, 400,000 flows, and 32 MiB of project JSON.
 Express projects retain their separate 600-pod limit.
-The default compact project JSON has 5,612,265 bytes.
+The default compact project JSON has 5,612,278 bytes.
 The default indented export has 14,912,409 bytes.
 The saved-state cap is 128 MiB.
 The plain and Express saved-state and full-stream byte proofs include completed history and the independent project and topology caps.
