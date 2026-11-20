@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -109,24 +110,31 @@ func readProject(path string) (project.Config, error) {
 		return project.Config{}, fmt.Errorf("open project %s: %w", path, err)
 	}
 	defer func() { _ = file.Close() }()
-	info, err := file.Stat()
+	return decodeProject(path, file)
+}
+
+// decodeProject reads the project named name from r. It reads one byte past
+// project.MaxFileBytes and refuses that byte, because a pipe or a growing
+// file has no size to check first.
+func decodeProject(name string, r io.Reader) (project.Config, error) {
+	data, err := io.ReadAll(io.LimitReader(r, project.MaxFileBytes+1))
 	if err != nil {
-		return project.Config{}, fmt.Errorf("stat project %s: %w", path, err)
+		return project.Config{}, fmt.Errorf("read project %s: %w", name, err)
 	}
-	if info.Size() > project.MaxFileBytes {
-		return project.Config{}, fmt.Errorf("read project %s: file exceeds %d MiB", path, project.MaxFileBytes>>20)
+	if len(data) > project.MaxFileBytes {
+		return project.Config{}, fmt.Errorf("read project %s: project exceeds the %d MiB input bound", name, project.MaxFileBytes>>20)
 	}
 	// Member names match exactly. The other encoding/json rules stay.
-	decoder := jsontext.NewDecoder(io.LimitReader(file, project.MaxFileBytes), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
+	decoder := jsontext.NewDecoder(bytes.NewReader(data), json.DefaultOptionsV1(), jsonv2.MatchCaseInsensitiveNames(false), jsonv2.RejectUnknownMembers(true))
 	var config project.Config
 	if err := jsonv2.UnmarshalDecode(decoder, &config); err != nil {
-		return project.Config{}, fmt.Errorf("read project %s: %w", path, err)
+		return project.Config{}, fmt.Errorf("read project %s: %w", name, err)
 	}
 	if _, err := decoder.ReadToken(); !errors.Is(err, io.EOF) {
-		return project.Config{}, fmt.Errorf("read project %s: expected one JSON value", path)
+		return project.Config{}, fmt.Errorf("read project %s: expected one JSON value", name)
 	}
 	if err := project.Validate(config); err != nil {
-		return project.Config{}, fmt.Errorf("validate project %s: %w", path, err)
+		return project.Config{}, fmt.Errorf("validate project %s: %w", name, err)
 	}
 	return config, nil
 }

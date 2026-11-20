@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -550,6 +551,37 @@ func TestReadProjectRemovedMarkers(t *testing.T) {
 		if _, err := readProject(path); err == nil || !strings.Contains(err.Error(), member) {
 			t.Errorf("%s: %v, want a refusal that names the member", member, err)
 		}
+	}
+}
+
+// spaces is an endless stream of JSON whitespace.
+type spaces struct{}
+
+func (spaces) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = ' '
+	}
+	return len(p), nil
+}
+
+// TestDecodeProjectStreamBound checks that a project stream, which has no
+// size, can have at most project.MaxFileBytes. A valid project followed by
+// whitespace past the bound must not load.
+func TestDecodeProjectStreamBound(t *testing.T) {
+	t.Parallel()
+	data, err := jsonv2.Marshal(scenarios.Small(), json.DefaultOptionsV1())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := func(size int) io.Reader {
+		return io.MultiReader(bytes.NewReader(data), io.LimitReader(spaces{}, int64(size-len(data))))
+	}
+	if _, err := decodeProject("at-bound", stream(project.MaxFileBytes)); err != nil {
+		t.Fatalf("a stream of exactly the bound: %v", err)
+	}
+	const want = "read project over-bound: project exceeds the 32 MiB input bound"
+	if _, err := decodeProject("over-bound", stream(project.MaxFileBytes+1)); err == nil || err.Error() != want {
+		t.Fatalf("a stream one byte over the bound: got %v, want %q", err, want)
 	}
 }
 
