@@ -3,8 +3,9 @@
 Status: PROPOSED.
 The maintainer decided FL-D1 to FL-D9 on 2026-11-20 (section 9), and the text waits for maintainer approval.
 No code, pin, or contract text changes before that approval.
+An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.
-Line references are for `468d1dd6`.
+Line references are for `ddb2233a`.
 "Study" numbers are from a scratch probe of 2026-11-20 at `151416ae`, and the probe files are deleted.
 "Rerun" numbers are from an independent scratch script on the project files that `cmd/scenario` writes at `468d1dd6`, and that script is deleted.
 The study converted more lane kinds than this proposal does, so each study number says which lanes it converted.
@@ -17,6 +18,7 @@ On 2026-11-20, the maintainer chose to fillet only two kinds of lanes on LondonF
 - The roads of the three Parking facilities, which the study calls the depot fans (section 1.2).
 
 A fillet is a quadratic curve that leaves a road tangent to the lane before it and joins the lane after it at the same heading.
+The tangency is that of the analytic curves (section 2.1).
 The speed limit of a fillet comes from its smallest radius, by the ramp formula of the [London junction](../design/london-junctions.md) design.
 Project D, `london-full-express`, keeps its chords, because its approved contract freezes its geometry (`london-junctions.md:34`).
 
@@ -91,8 +93,17 @@ The rule takes two headings by the role of the neighbor lanes, and not by the co
 | Road-out | The end heading of `<station>-access-out` | The start heading of the `london-link-` lane that starts at the departure portal |
 | Parking road | As for the station roads of the facility | As for the station roads of the facility |
 
+`u` and `v` are the normalized analytic tangents at the ends of the neighbor lanes.
+A straight lane has the direction of its chord at both ends.
+A lane with a control point `C` has the start tangent `C - from` and the end tangent `to - C`.
+If `C` is at that end of the lane, the tangent is the direction of the chord.
+
 The control point `C` is where the ray from `a` along `u` meets the ray into `b` along `v`: `C = a + s u = b - t v`, with `s > 0` and `t > 0`.
-The road then leaves `a` at heading `u` and reaches `b` at heading `v`, so both joins have no kink.
+The analytic road then leaves `a` at heading `u` and reaches `b` at heading `v`, so both joins of the analytic curves have no kink.
+The simulator samples each curved lane as 64 straight segments (`lanePointsBetween`, `network.go:202`, through `Network.Polyline`, `:179`).
+The lateral pairs take their headings from the first and the last segment (`depot_lateral.go:281`).
+So each join of the sampled paths keeps a small residual angle.
+Slice 0 measures the residual join angles on `Network.Polyline`.
 A quadratic turns in one direction only, so its total turn is the angle from `u` to `v`.
 This is at most the sum of the two kinks that it replaces.
 
@@ -102,7 +113,9 @@ The rule leaves a road as it is in these cases:
 - The rays meet behind `a` or behind `b` (`s` or `t` at most 1e-6).
   The rerun finds 132 such roads on LondonFull and 128 on the preset.
 - One end is already tangent, within 1 degree (15 roads on LondonFull, 14 on the preset).
-- The road already has a control point, as `940GZZLUWLO-road-in-05` on the preset (`london_full_shared.go:302` to `:319`).
+- The road already has a control point.
+  The pass runs on LondonFull before `apply`, so `940GZZLUWLO-road-in-05` has no control point when the pass reads it.
+  On the preset, `apply` gives that road its curve (`london_full_shared.go:302` to `:319`, section 3.7).
 
 The study took the headings by the count of tangents at a node.
 On the preset, the Express parking roads end and start at the portals of link 100 at Waterloo, so that rule blocked `940GZZLUWLO-road-in-01` and `940GZZLUWLO-road-out-01`.
@@ -162,7 +175,7 @@ Each check result below converted the junction moves too, and most also converte
 | Kinks touching road-out lanes, on the preset | Road-out only | 1,322 before, 88 after |
 | Kinks touching Parking roads, on the preset | Parking roads only | 62 before, 20 after |
 | Validation, LondonFull | All but the through lanes | No refusal after 1 move went back to straight. 2 layout conflicts, both from the bulge of `WLO-move-03-04`. |
-| Validation, the preset | All but the through lanes | 3 refusals "lane ... has an unsupported large-vehicle path shape" (`prepared.go:186`), for `940GZZLUBNK-road-in-06`, `940GZZLUBNK-road-out-05`, and `940GZZLUWLO-road-out-02` |
+| Validation, the preset | All but the through lanes | 3 refusals "lane ... has an unsupported large-vehicle path shape" (`prepared.go:187`), for `940GZZLUBNK-road-in-06`, `940GZZLUBNK-road-out-05`, and `940GZZLUWLO-road-out-02` |
 | Shape pairs and tail warnings, the preset | All but the through lanes, and the 3 roads above straight | 33 shape pairs, against the pinned 47. The study traced the change to the road fillets at the Express hubs. 1 tail warning, as pinned. |
 | Free-flow route time, 100 passenger pairs, the preset | All, with the clamp | Median +19.6 s (+1.5 percent), p90 +28.3 s (+4.8 percent), maximum +56 s (+15 percent). Most of the cost is the roads at 5 to 7 m/s at each end of a trip. |
 | Free-flow route time, Waterloo to Bank, LondonFull | All, with the clamp | +31.3 s, from 155 s to 186 s |
@@ -199,7 +212,8 @@ The rerun did not check which stations are platoon destinations today.
 The 8 Compact stations have aisle and bay lanes at 2 m/s with no `stationID`, and the Parking facilities have depot lanes.
 These lanes can already stop a link toward those stations, but the route can grow after the link forms (`platoon.go:618` to `:621`), so this is not verified.
 On the preset, `TestSharedExpressEnvelopeRun` restores at the first platoon link, and the policies-off check of SX4 needs a platoon link (`express-shared-track-qualification-proposal.md:221`, `:234` to `:237`).
-The two Express hubs keep 14 m/s on each lane when their roads keep their chords (decision FL-D5), so links toward the hubs stay possible.
+Under decision FL-D5, the preset sets each hub road back to its chord and to 14 m/s before `apply` (section 3.7).
+So each lane of the two Express hubs keeps 14 m/s, and links toward the hubs stay possible.
 Slice 0 counts the platoon links of a 60-minute run of each preset, before and after.
 Decision FL-D3 asks the maintainer to choose the speed rule with this effect known.
 
@@ -213,6 +227,12 @@ The speed limit applies to the whole lane, so a fillet with a small radius slows
   A station with roads of different speeds can get a different arrival arm, and a different route.
 - Bank routes (`bank_routes.go:290`) and the pickup estimate (`pickup_estimate.go:369` to `:374`) read the same limit.
 - The slow-lane retention of `retention.go:115` and `:165` applies only to a straight lane below 3.74 m/s, so a curved fillet never gets it.
+- `admissionRequest` sets the reservation horizon from the larger of the pod speed and the limit of the current lane (`claim_surrender.go:107`).
+  A slower road shortens the reservation ahead of a pod on it.
+- The coasting hold distance uses the limit of the lane of the denied request (`coast.go:164`).
+- `coastRelease` uses the limit of the current lane of each releaser for the time to its release distance (`coast.go:191`).
+
+The paired runs of the compare study (FL-D6) check each effect of this list on LondonFull.
 
 ### 3.3 Lateral pairs and junction conflict zones
 
@@ -228,20 +248,26 @@ Each other pair gets the isotropic extent of `conflictExtentWithClearance` (`jun
 
 The fillet changes these pairs at four places:
 
-- At the diverge node, each road-in of a station now arrives at the heading of `access-in`.
-  The road-in lanes form converging pairs with each other, and they now meet at a zero angle.
-- At the merge node, each road-out now leaves at the heading of `access-out`, so the road-out lanes form diverging pairs at a zero angle.
+- At the diverge node, each filleted road-in of a station now arrives at the analytic heading of `access-in`.
+  The road-in lanes form converging pairs with each other, and the filleted ones now meet with one analytic tangent.
+  On the sampled paths, they meet at the residual angle of section 2.1.
+- At the merge node, each filleted road-out now leaves at the analytic heading of `access-out`, so the road-out lanes form diverging pairs with one analytic tangent.
 - At an arrival portal, the road-in now leaves at the heading of the link, and it forms diverging pairs with the junction moves of that portal at new angles.
 - At a departure portal, the road-out and the moves into that portal form converging pairs at new angles.
 
-Near a node where two lanes meet at a zero angle, their bodies stay close for a longer distance.
+Near a node where two lanes meet at a residual angle near zero, their bodies stay close for a longer distance.
 So a lateral extent can grow, and a pair can fail clause 5 and fall back to the isotropic extent.
 Slice 0 counts the lateral pairs, the pairs that clause 5 excludes, and the zone lengths by the method of section 1 of the [lateral merge zones](../design/lateral-merge-zones.md) design, before and after.
 
 ### 3.4 Shape pairs and the bank audit
 
 `shapePairs` (`shape_pairs.go:200`) certifies pairs of lanes that share no node.
-`auditBankGeometry` (`bank_geometry.go:168`) refuses an uncertified pair closer than 12 m, with the text of `planeGapText` (`:289`).
+`auditBankGeometry` (`bank_geometry.go:168`) skips a pair that shares a node, a certified pair, and a pair that a plane exempts (`:231` to `:246`).
+It refuses each other pair that comes closer than its clearance, with the text of `planeGapText` (`:289`).
+A lateral pair or a shape pair uses the clearance of its table (`pieces`, `:296`).
+Each other pair uses `pairPieces` (`retention.go:288`), under the retention rules.
+It needs 12 m (`Clearance`) for two small paths, or 20 m (`largeClearance`) when either path is large.
+For two small paths, a retention window can lower the clearance of a piece to `compactClearance` (`retention.go:31`).
 The road-in and the road-out of one link now both run along the link near its portals, so they can form new shape pairs or new refusals.
 `TestLondonFullSharedExpress` pins 47 shape pairs on the preset (`london_full_shared_test.go:39`), and `TestSharedExpressShapePairSweep` certifies each of them (SX2).
 
@@ -258,7 +284,7 @@ A larger anchor front adds planes to the envelope reach, so it changes rule A1, 
 ### 3.6 Tails of large paths
 
 `indexGeometryTails` (`profile_geometry.go:59`) gives the tail bounds of each lane.
-Preparation refuses a lane whose bound is not finite (`prepared.go:184` to `:186`).
+Preparation refuses a lane whose bound is not finite (`prepared.go:185` to `:187`).
 On the preset, the three refusals of section 2.4 come from this check.
 `LaneTailOverruns` (`profile_geometry.go:103`) gives the tail warnings, and `tail_warnings_test.go:190` requires no warning on LondonFull.
 
@@ -266,8 +292,15 @@ On the preset, the three refusals of section 2.4 come from this check.
 
 `sharedTrackGeometry.apply` (`london_full_shared.go:241`) moves the diverge, merge, entry, exit, and berth nodes of Waterloo and Bank after LondonFull is built (`:273` to `:300`).
 It then curves `940GZZLUWLO-road-in-05` (`:302` to `:319`).
-A hub road that LondonFull fillets is therefore not tangent after `apply`.
-The preset must fillet its hub roads again after `apply`, or keep them straight (decision FL-D5).
+It sets only the `Control` field of that road, and it changes no speed limit.
+A hub road that LondonFull fillets is therefore not tangent after `apply`, and it keeps the speed limit of its fillet.
+
+Under decision FL-D5, the preset keeps its hub roads straight.
+Before it calls `apply`, it sets `Control` to nil and `SpeedLimit` to 14 m/s on each road-in and road-out lane of Waterloo and Bank.
+`apply` then gives `940GZZLUWLO-road-in-05` its curve again.
+To clear the control points after `apply` is not sufficient.
+That order removes the curve of `940GZZLUWLO-road-in-05`, and the hub roads keep their fillet speeds.
+`oneSpeedLimit` then refuses each platoon link toward a hub, because the lanes of the destination station have different limits (`platoon.go:628`).
 
 ### 3.8 Other readers of the road shape
 
@@ -278,9 +311,24 @@ The fillet moves no node, so these readers keep their inputs:
 - The label ranks count the approach lanes (`anchor.go:122`).
 - The size check counts nodes and lanes.
 
-The ride page rounds each join with a turn of 3 to 150 degrees, for display only (`internal/ride/fillet.go:10` to `:24`).
-After the build, a filleted road joins with no turn, so the ride page does not round it.
+The ride page rounds the joins at a node, for display only (`internal/ride/fillet.go:10` to `:24`).
+`roundNode` (`:116`) rounds the whole node when one pair of an arriving and a leaving lane turns by 3 degrees or more, and no pair turns by more than 150 degrees.
+`nodePieces` (`:97`) then builds a piece, with trims, for each pair at the node.
+A filleted road with no analytic turn at a node therefore gets a piece and trims when another lane at that node turns.
+This occurs where a filleted road meets a road that keeps its chord (FL-D2) or a junction move.
+Slice 0 checks the node-wide rounding and the trims at each node where filleted roads and chords meet.
 The ride goldens (`internal/ride/testdata/fillets.json`, `levels.json`) use test networks, not London, so they do not move.
+
+### 3.9 Debris footprints
+
+`debrisFootprint` (`debris.go:103`) takes the cells of the lane near the debris segment.
+It then collects the lateral neighbors of the lane: its depot lateral partners, its lateral merge partners, and its shape partners (`:125`).
+It adds each cell of a neighbor that comes closer than 12 m (`Clearance`) to the segment (`:137`).
+`debrisSegment` refuses a segment whose footprint holds a berth resource (`:86`).
+A fillet changes the lateral and shape pair tables (sections 3.3 and 3.4), so it changes the footprint of debris on a changed road and on its partners.
+The blocked set (`faults.go:336`), the owner rebuild (`ownership.go:43`), the release (`debris.go:235`), and the check of invariants F6 and F7 (`faults.go:654`) compute the footprint again.
+The incident evidence therefore includes a check of the debris footprint on each changed road and on its partners.
+The check covers a new fault, a restore, and the recovery chain.
 
 ## 4. Build shape
 
@@ -292,7 +340,7 @@ The ride goldens (`internal/ride/testdata/fillets.json`, `levels.json`) use test
 - With `Junctions: LondonRamps`, the field has no effect.
 - `londonCapacity.equal` compares the field, so a build with another value is not the cached preset.
 - The fillet is one pass over the finished network, by the road IDs that `addLondonStation` writes (`london.go:938`, `:954`).
-  The preset runs the pass again on its hub roads after `apply`, or clears their control points, by decision FL-D5.
+  By decision FL-D5, the preset sets each hub road back to `Control` nil and `SpeedLimit` 14 m/s before `sharedTrackGeometry.apply`, which then curves `940GZZLUWLO-road-in-05` again (section 3.7).
 - `cmd/scenario` gets a flag `-road-fillets` for the London presets (decision FL-D8), and refuses it for D, as it refuses `-junctions`.
 
 The existing pins of section 5.1 show that LondonCentral and D do not change.
@@ -314,7 +362,7 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | LondonCentral output and network | `cmd/scenario/main_test.go:122`, `:129`, `:182` to `:186`, `:354`, `:429`, `layout_audit_test.go:30`, `london_full_test.go:188` to `:189`, and `london_options_test.go:67` |
 | LondonCentral fixture | The "London" network of `internal/sim/testdata/scenario_networks.json.gz` (`conflict_fixture_test.go:34`) |
 | LondonCentral behavior | The `london-central` entry of `internal/session/testdata/preset_behavior_parity.json` |
-| The ramps study arms | `cmd/scenario/main_test.go:430`, `:434`, and `internal/sim/shared_track_study_test.go:60`, `:70` |
+| The ramps study arms | `cmd/scenario/main_test.go:430`, `:434`, and `internal/sim/shared_track_study_test.go:60`, `:70`, and the ramps audit counts `:84` to `:85` |
 | D project fixture | `internal/sim/testdata/express_project.json`, `TestExpressProjectFixture` (`express_project_fixture_test.go:20`) |
 | Gate-off tables of LondonCentral, the rings, and D | `internal/sim/testdata/gate_off_tables.json`, `TestGateOffTables` (`gate_off_tables_test.go:24`) |
 
@@ -328,7 +376,7 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | Wide stations | `london_options_test.go:68`, and `cmd/scenario/main_test.go:355` to `:356`, `:433` | Routine |
 | Berth pitch 50 | `cmd/scenario/main_test.go:382` | Routine |
 | Opt-out variants | `cmd/scenario/main_test.go:188`, `:190`, `:192` (`TestRunLondonOptOut`) | Routine |
-| Study inputs | `internal/sim/shared_track_study_test.go:58`, `:59`, and the built networks `:66` to `:69` | Routine. The study is opt-in. |
+| Study inputs, built networks, and audit counts of the tight and wide inputs | `internal/sim/shared_track_study_test.go`: the input hashes `:58`, `:59`, the built network hashes `:66` to `:69`, and the counts of refusals and shape pairs `:76` to `:83`, which `:729` and `:750` enforce | Routine, in slice 2. The study is opt-in, so slice 2 runs it with `PODSIM_SHARED_TRACK_STUDY` set to get the new values. |
 | Behavior | The `london-full` entry of `preset_behavior_parity.json` (`TestPresetBehaviorParity`, `internal/session/preset_parity_test.go:128`) | Routine |
 | No tail warning | `internal/project/tail_warnings_test.go:190` | Must still pass |
 | Validation, layout audit, bank audit | `TestLondonFullPreset` (`london_full_test.go:19`), `TestAuditPresetsHaveNoHardConflicts` (`layout_audit_test.go:49`), `TestTailPairCoverage` (`tail_certificate_test.go:512`) | Must still pass |
@@ -340,7 +388,7 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | Pin | File and line | Kind |
 | --- | --- | --- |
 | Network SHA-256 `5961c702...` | `london_full_shared_test.go:265` | Routine |
-| Network before the parking `09b8fdea...` | `london_full_shared_test.go:264`, `shared_track_study_test.go:67` | Routine |
+| Network before the parking `09b8fdea...` | `london_full_shared_test.go:264` | Routine |
 | The cached build equals the generated build | `london_full_shared_test.go:248` | Must still pass |
 | 47 shape pairs and the tail warning on `940GZZLUBNK-move-08-02` | `london_full_shared_test.go:39` to `:47` | Qualification (SX2). A new count needs the maintainer, because SX2 certifies each shape pair. |
 | Layout and parking | `TestLondonFullSharedExpressLayout` (`:208`), `TestLondonFullSharedExpressParking` (`:92`) | Must still pass |
@@ -348,6 +396,12 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | SX fixture | `internal/sim/testdata/shared_express_project.json.gz`, `TestSharedExpressFixture` (`shared_express_fixture_test.go:38`), with `-update-shared-express` | Routine. Each SX test in `internal/sim` reads it. |
 | Behavior | The `london-full-shared-express` entry of `preset_behavior_parity.json` | Routine |
 | The tests of `mise run test:shared-express` | `mise.toml:108` | Qualification (SX2 to SX10) |
+
+Today the "tight 3.5" hash of the study (`shared_track_study_test.go:67`) is equal to the "before the parking" hash of the preset (`london_full_shared_test.go:264`).
+The study reads the LondonFull file of `cmd/scenario` and builds its own copy of the construction of the preset.
+So in slice 2, "tight 3.5" changes with the other study pins of section 5.2, and the "before the parking" hash stays frozen until slice 4.
+The study copy does not set the hub roads back to their chords (section 3.7), so the two hashes stay different after slice 4 too.
+Slice 2 changes the comments that say the two networks are the same (`london_full_shared_test.go:235` to `:237`, `:262` to `:263`).
 
 ### 5.4 Live documents with numbers that move
 
@@ -415,7 +469,7 @@ A fillet changes behavior, so no parity argument carries the evidence.
 | SX4 | The checkpoint script takes each state at its first sight, so it adapts. The platoon restore and the policies-off platooning check need a platoon link (section 3.1). |
 | SX5, SX13 | The proofs pad a worst-case project, which does not change. The measured sizes of the preset run again. |
 | SX6, SX7, SX9 | The Go tests run again. The Chrome checks of 2026-11-20 stand (FL-D9). |
-| SX8 | The incident fixtures and the recovery chain run again. |
+| SX8 | The incident fixtures and the recovery chain run again, with the debris footprint check of section 3.9. |
 | SX10, SX11 | The London soak row, the CI soak, and the release soak run again. |
 | SX12 | The timed runs run again. |
 
@@ -427,6 +481,7 @@ The maintainer decided three things on 2026-11-20:
 
 If the preset does not change, it stops deriving from the default LondonFull.
 It then builds on a LondonFull without fillets, and the test at `london_full_shared_test.go:248` compares it with that build.
+Each construction of the preset uses that one base (section 8, slice 2).
 
 ## 7. Risks and stop conditions
 
@@ -450,12 +505,12 @@ Each slice passes `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -di
 
 | # | Commit subject (draft) | Packages | Tests and evidence |
 | ---: | --- | --- | --- |
-| 0 | None: a scratch measurement | Scratch tree | Build the rule with the decisions of section 9. On LondonFull and the preset, run validation, the layout audit, the bank audit, the shape pair count, and the tail warnings. Count the lateral pairs, the clause 5 exclusions, and the zone lengths (section 3.3). Count the platoon links of a 60-minute run (section 3.1). Measure the free-flow route times of the study, roads only. Each stop of section 7 goes to the maintainer before slice 1. |
-| 1 | `scenarios: Add an option to fillet the London roads` | `internal/scenarios`, `cmd/scenario` | The option of section 4, off for each preset, and the flag of FL-D8. Unit tests: tangency at both ends, the speed of FL-D2 and FL-D3, each case that the rule leaves straight, no effect with ramps, and `londonCapacity.equal`. Each test is checked by mutation. No pin moves. |
-| 2 | `scenarios: Fillet the roads of LondonFull` | `internal/scenarios`, tests of `cmd/scenario`, `internal/sim`, `internal/session` | LondonFull sets the option. Under FL-D4 B, the preset builds on LondonFull without fillets. The pins of section 5.2 move. The pins of sections 5.1 and 5.3 do not move. |
+| 0 | None: a scratch measurement | Scratch tree | Build the rule with the decisions of section 9. On LondonFull and the preset, run validation, the layout audit, the bank audit, the shape pair count, and the tail warnings. Count the lateral pairs, the clause 5 exclusions, and the zone lengths (section 3.3). Count the platoon links of a 60-minute run (section 3.1). Measure the residual join angles on `Network.Polyline` (section 2.1). Check the ride rounding and trims of section 3.8, and the debris footprints of section 3.9. Measure the free-flow route times of the study, roads only. Each stop of section 7 goes to the maintainer before slice 1. |
+| 1 | `scenarios: Add an option to fillet the London roads` | `internal/scenarios`, `cmd/scenario` | The option of section 4, off for each preset, and the flag of FL-D8. Unit tests: analytic tangency at both ends, the speed of FL-D2 and FL-D3, each case that the rule leaves straight, no effect with ramps, and `londonCapacity.equal`. Each test is checked by mutation. No pin moves. |
+| 2 | `scenarios: Fillet the roads of LondonFull` | `internal/scenarios`, tests of `cmd/scenario`, `internal/sim`, `internal/session` | LondonFull sets the option. Under FL-D4 B, the preset builds on LondonFull without fillets. Each construction of the preset uses that one base: the generator `GenerateLondonFullSharedExpress` (`london_full_shared.go:63`), and the tests that build it from `LondonFull()`. These tests are `TestLondonFullSharedExpress` (`london_full_shared_test.go:27` to `:28`), the parking, layout, and routes tests (`:94`, `:210`, `:285`), the cached build and the build before the parking (`:240`, `:251`), and `TestSharedExpressFixture` (`shared_express_fixture_test.go:40`). The other packages build the preset through the generator. The pins of section 5.2 move, and the comments of section 5.3 change. The pins of sections 5.1 and 5.3 do not move. |
 | 3 | `docs: Describe the filleted LondonFull roads` | `docs/` | Section 5.4 for LondonFull. `mise run lint` |
 | | Evidence of LondonFull | | The compare study of FL-D6, `mise run qualify:london`, and `mise run check` on the tip of slice 3. The maintainer reads the result before slice 4 (FL-D4 B). |
-| 4 | `scenarios: Fillet the roads of the shared-track preset` | `internal/scenarios`, `internal/sim/testdata`, tests of `internal/sim`, `internal/session`, `internal/remote` | The preset builds on the filleted LondonFull. The hub roads follow FL-D5. The pins of section 5.3 move, except the shape pair count, which needs the maintainer. |
+| 4 | `scenarios: Fillet the roads of the shared-track preset` | `internal/scenarios`, `internal/sim/testdata`, tests of `internal/sim`, `internal/session`, `internal/remote` | The preset builds on the filleted LondonFull. Each construction of slice 2 goes back to `GenerateLondonFull` or `LondonFull()`, and the unfilleted base goes. The hub roads follow FL-D5 and section 3.7. The pins of section 5.3 move, except the shape pair count, which needs the maintainer. |
 | 5 | `contracts: Apply the fillet amendments` | `docs/contracts/`, `docs/design/` | Rows FL-A1 to FL-A7, after maintainer approval. `mise run lint` |
 | 6 | `contracts: Record the evidence of the filleted preset` | `docs/contracts/` | The gates of section 5.7 in this order: `mise run test:shared-express` and `mise run test:london-express`, then `mise run check`, then the London soak row, then the SX12 timed runs and the SX7 server measurement on a quiet host, then one timing seed per preset, then `mise run soak:full`. The records go in the SX proposal and in this proposal. The Chrome checks do not repeat (FL-D9). |
 
