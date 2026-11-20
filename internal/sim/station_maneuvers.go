@@ -22,6 +22,7 @@ const (
 // win. A lane of a maneuver group gets no role: routeStationPhase names its
 // phase.
 func inferStationLaneRoles(n *Network) {
+	inferences.Add(1)
 	graph := newRouteGraph(*n)
 	forbidden := n.stationForbidden()
 	// The searches share one work area, as in validateStationRoutes.

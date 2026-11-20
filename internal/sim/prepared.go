@@ -151,6 +151,7 @@ func checkNetworkTails(network Network, tails map[string]geometryTails) (network
 // which it returns in the preparation. A caller with later checks reports the
 // refusal after them.
 func prepareNetworkTails(network Network, tails map[string]geometryTails) (networkPreparation, error) {
+	preparations.Add(1)
 	// The validation searches the berth routes that the role inference
 	// needs, on a network with the lanes of owned and before any role
 	// changes, so the inference uses them.
