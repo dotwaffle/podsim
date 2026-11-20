@@ -93,24 +93,24 @@ func limitsProject() project.Config {
 
 // editTimer sends the requests of the browser worker to one engine.
 type editTimer struct {
-	t    *testing.T
+	t    testing.TB
 	call func(string) string
 	keys string
 }
 
 // newEditTimer returns an engine that holds the project data.
-func newEditTimer(t *testing.T, data []byte, keys string) *editTimer {
-	t.Helper()
-	timer := &editTimer{t: t, call: NewCall(), keys: keys}
+func newEditTimer(tb testing.TB, data []byte, keys string) *editTimer {
+	tb.Helper()
+	timer := &editTimer{t: tb, call: NewCall(), keys: keys}
 	var reply struct {
 		Valid bool   `json:"valid"`
 		Error string `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(timer.call(`{"op":"sync","keys":`+keys+`,"patch":`+string(data)+`}`)), &reply); err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	if !reply.Valid {
-		t.Fatalf("the project is not valid: %s", reply.Error)
+		tb.Fatalf("the project is not valid: %s", reply.Error)
 	}
 	return timer
 }
@@ -203,23 +203,50 @@ func TestDraftEditTimes(t *testing.T) {
 	t.Log("\n" + strings.Join(rows, "\n"))
 }
 
+// BenchmarkMoveNodeEdit measures one cached accepted geometry moveNode edit
+// of a ring preset, as the cached accepted samples of TestDraftEditTimes
+// do. One engine holds the preset. Each iteration moves the node of
+// editTimeMoves 0.5 m forward or back, and then syncs the network of the
+// reply, as the browser does. The edit-ms/op metric is the time of the edit
+// call only. Use it for a native CPU profile of the edit, for example:
+//
+//	go test ./internal/editormodel -run '^$' -bench '^BenchmarkMoveNodeEdit$/^rail-hub$' -benchtime=200x -count=1 -o /tmp/editormodel.test -cpuprofile /tmp/edit.cpu
+func BenchmarkMoveNodeEdit(b *testing.B) {
+	for _, network := range []struct {
+		name   string
+		config func() project.Config
+	}{
+		{"small", scenarios.Small},
+		{"busy", scenarios.Busy},
+		{"rail-hub", scenarios.RailHub},
+	} {
+		b.Run(network.name, func(b *testing.B) {
+			config := network.config()
+			data, keys := editTimeData(b, config)
+			accepted, _ := editTimeMoves(b, newEditTimer(b, data, keys), config.Network)
+			// A new engine, as for the cached samples. The first edit moves the
+			// node and the second moves it back, so that the engine holds the
+			// server checks of the network.
+			timer := newEditTimer(b, data, keys)
+			timer.accept(accepted.edit(1))
+			timer.accept(accepted.edit(0))
+			var spent time.Duration
+			edits := 0
+			for b.Loop() {
+				edits++
+				spent += timer.accept(accepted.edit(edits % 2))
+			}
+			b.ReportMetric(float64(spent.Microseconds())/1000/float64(edits), "edit-ms/op")
+		})
+	}
+}
+
 // measureEditTimes measures the edit times of one network, and returns the
 // rows of the result table.
 func measureEditTimes(t *testing.T, name string, config project.Config) []string {
 	t.Helper()
-	data, err := json.Marshal(config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fields map[string]jsontext.Value
-	if err = json.Unmarshal(data, &fields); err != nil {
-		t.Fatal(err)
-	}
-	keys, err := json.Marshal(slices.Sorted(maps.Keys(fields)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	accepted, refused := editTimeMoves(t, newEditTimer(t, data, string(keys)), config.Network)
+	data, keys := editTimeData(t, config)
+	accepted, refused := editTimeMoves(t, newEditTimer(t, data, keys), config.Network)
 	t.Logf("%s: accepted edits move %s, refused edit %s", name, accepted.node, refused)
 	var rows []string
 	row := func(mode, edit string, samples []time.Duration, verdicts map[string]int) {
@@ -243,7 +270,7 @@ func measureEditTimes(t *testing.T, name string, config project.Config) []string
 	// Cold: a new engine for each edit.
 	var samples []time.Duration
 	for range editTimeSamples {
-		spent, network, refusal := newEditTimer(t, data, string(keys)).edit(accepted.edit(1))
+		spent, network, refusal := newEditTimer(t, data, keys).edit(accepted.edit(1))
 		if refusal != "" || len(network) == 0 {
 			t.Fatalf("cold: %s: refused: %s", accepted.edit(1), refusal)
 		}
@@ -252,7 +279,7 @@ func measureEditTimes(t *testing.T, name string, config project.Config) []string
 	row("cold", "accepted", samples, map[string]int{"accepted": len(samples)})
 	samples, verdicts := nil, map[string]int{}
 	for range editTimeSamples {
-		spent, _, refusal := newEditTimer(t, data, string(keys)).edit(refused)
+		spent, _, refusal := newEditTimer(t, data, keys).edit(refused)
 		refusedSample(verdicts, refusal)
 		samples = append(samples, spent)
 	}
@@ -260,7 +287,7 @@ func measureEditTimes(t *testing.T, name string, config project.Config) []string
 	// Cached: one engine. The first edit moves the node and the second
 	// moves it back, so the engine holds the server checks of the network
 	// of the start.
-	timer := newEditTimer(t, data, string(keys))
+	timer := newEditTimer(t, data, keys)
 	timer.accept(accepted.edit(1))
 	timer.accept(accepted.edit(0))
 	samples, verdicts = nil, map[string]int{}
@@ -276,6 +303,25 @@ func measureEditTimes(t *testing.T, name string, config project.Config) []string
 	}
 	row("cached", "accepted", samples, map[string]int{"accepted": len(samples)})
 	return rows
+}
+
+// editTimeData returns the encoded project and its sorted member names,
+// which a sync request of the engine sends.
+func editTimeData(tb testing.TB, config project.Config) ([]byte, string) {
+	tb.Helper()
+	data, err := json.Marshal(config)
+	if err != nil {
+		tb.Fatal(err)
+	}
+	var fields map[string]jsontext.Value
+	if err = json.Unmarshal(data, &fields); err != nil {
+		tb.Fatal(err)
+	}
+	keys, err := json.Marshal(slices.Sorted(maps.Keys(fields)))
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return data, string(keys)
 }
 
 // acceptedMove is a node that the engine lets move 0.5 m in x.
@@ -298,8 +344,8 @@ func (m acceptedMove) edit(step int) string {
 // class reads; then the other nodes. timer tests the first 20 candidates
 // for the accepted move, and each refused edit: the engine must accept it
 // or refuse it with a lane gap refusal.
-func editTimeMoves(t *testing.T, timer *editTimer, network sim.Network) (acceptedMove, string) {
-	t.Helper()
+func editTimeMoves(tb testing.TB, timer *editTimer, network sim.Network) (acceptedMove, string) {
+	tb.Helper()
 	ends, stationLane, restricted := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, station := range network.Stations {
 		ends[station.Entry], ends[station.Exit] = true, true
@@ -357,7 +403,7 @@ func editTimeMoves(t *testing.T, timer *editTimer, network sim.Network) (accepte
 		}
 	}
 	if accepted.node == "" {
-		t.Fatal("no candidate node can move 0.5 m")
+		tb.Fatal("no candidate node can move 0.5 m")
 	}
 	for _, id := range plain {
 		if edit, ok := refusedMove(network, positions, incident, id); ok {
@@ -366,7 +412,7 @@ func editTimeMoves(t *testing.T, timer *editTimer, network sim.Network) (accepte
 			}
 		}
 	}
-	t.Fatal("no candidate node can move 3.0 m from a lane")
+	tb.Fatal("no candidate node can move 3.0 m from a lane")
 	return acceptedMove{}, ""
 }
 
