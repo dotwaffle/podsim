@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -9,6 +10,9 @@ import (
 
 // Include empty departures after a concentrated burst of passenger arrivals.
 func TestScale100Station19BurstDrainsSafely(t *testing.T) {
+	if os.Getenv("PODSIM_QUALIFY") != "1" {
+		t.Skip("the Station 19 drain runs only in mise run qualify (PODSIM_QUALIFY=1)")
+	}
 	if raceEnabled {
 		t.Skip("one simulation on one goroutine, so the race detector finds nothing. mise run qualify runs this test without it.")
 	}

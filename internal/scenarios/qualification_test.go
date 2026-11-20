@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"os"
 	"reflect"
 	"slices"
 	"testing"
@@ -339,6 +340,9 @@ func observedPod(state sim.SafetyObservation, id string) sim.Pod {
 
 // Check every tick, including the final empty moves after passenger delivery.
 func TestScale100Station19QueueDrainsSafely(t *testing.T) {
+	if os.Getenv("PODSIM_QUALIFY") != "1" {
+		t.Skip("the Station 19 drain runs only in mise run qualify (PODSIM_QUALIFY=1)")
+	}
 	if raceEnabled {
 		t.Skip("one simulation on one goroutine, so the race detector finds nothing. mise run qualify runs this test without it.")
 	}

@@ -207,10 +207,11 @@ description = "Run the Station 19 scale and safety tests, the emergency choice a
 # task runs this task, so such a test must be in one of these patterns.
 # Add it to a pattern, because a pattern that matches no test passes.
 # test:race runs the other tests.
-# TestEmergencyNoCandidateLatency and the CI incident soak run only in this
+# The Station 19 drain tests, TestEmergencyNoCandidateLatency, and the CI
+# incident soak skip without PODSIM_QUALIFY=1, so they run only in this
 # task. The report of qualify:limits gates nothing, so it is not here.
 run = '''
-go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
+PODSIM_QUALIFY=1 go test ./internal/scenarios -count=1 -v -timeout=30m -run '^TestScale100Station19(Queue|Burst)DrainsSafely$' || exit 1
 PODSIM_QUALIFY=1 go test ./internal/sim -count=1 -v -timeout=30m -run '^(TestEmergencyChoiceLatency|TestEmergencyNoCandidateLatency|TestSampledTickLatency)$' || exit 1
 PODSIM_QUALIFY=1 go test ./internal/session -count=1 -v -timeout=30m -run '^TestIncidentSoakCI$'
 '''
