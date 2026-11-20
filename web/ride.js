@@ -136,6 +136,14 @@
   // The sky color at the horizon, which the fog also uses, and at the top.
   const SKY = [0.74, 0.82, 0.9];
   const SKY_TOP = [0.25, 0.45, 0.78];
+  // The sky of the visual polish: a lighter haze at the horizon, which the
+  // fog also uses, a deeper blue at the top, and a warm glow around the
+  // sun. The fog thickens with distance as exp(-(d * HAZE_DENSITY)^2), so
+  // 4% of a color stays at FOG_END.
+  const HAZE = [0.8, 0.86, 0.92];
+  const HAZE_TOP = [0.22, 0.42, 0.78];
+  const SUN_GLOW = [1, 0.84, 0.6];
+  const HAZE_DENSITY = 6e-4;
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
   // Textures: web/textures, which internal/cmd/texgen writes. One repeat of
   // the concrete covers CONCRETE_TILE meters.
@@ -151,7 +159,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -1764,18 +1772,48 @@
     return parts;
   }
 
-  // buildSky makes a sky dome with a vertical gradient in vertex colors.
-  function buildSky(B, scene) {
-    const sky = B.MeshBuilder.CreateSphere("sky", { diameter: 2 * FOG_END, segments: 24, sideOrientation: B.Mesh.BACKSIDE }, scene);
-    const positions = sky.getVerticesData(B.VertexBuffer.PositionKind);
+  // skyLook returns the colors of the sky: the horizon, which is also the
+  // fog color, the top, the glow around the sun or null, and the color
+  // below the horizon. With the sky switch off, it is the sky from before
+  // the visual polish.
+  function skyLook(polish) {
+    if (!polish.sky) return { horizon: SKY, top: SKY_TOP, glow: null, below: SKY };
+    return { horizon: HAZE, top: HAZE_TOP, glow: SUN_GLOW, below: HAZE };
+  }
+
+  // skyColor returns the color of the sky in a scene direction, a unit
+  // vector [x, y, z]. sky comes from skyLook, and toSun is the unit vector
+  // toward the sun. Above the horizon, the color goes from the horizon
+  // color to the top color, with the glow added near the sun. The glow
+  // fades in above the horizon, so the horizon keeps the fog color. Below
+  // the horizon, the color goes to the below color within about 7 degrees.
+  function skyColor(direction, sky, toSun) {
+    const [x, y, z] = direction;
+    if (y <= 0) {
+      const f = Math.min(1, -y * 8);
+      return sky.horizon.map((value, c) => value + (sky.below[c] - value) * f);
+    }
+    const t = Math.sqrt(Math.min(1, y));
+    const base = sky.horizon.map((value, c) => value + (sky.top[c] - value) * t);
+    if (!sky.glow) return base;
+    const cos = Math.max(0, x * toSun[0] + y * toSun[1] + z * toSun[2]);
+    const lift = Math.min(1, y / 0.1), fade = lift * lift * (3 - 2 * lift);
+    const glow = (0.35 * cos ** 32 + 0.12 * cos ** 4) * fade;
+    return base.map((value, c) => Math.min(1, value + sky.glow[c] * glow));
+  }
+
+  // buildSky makes a sky dome with the colors of skyColor in vertex
+  // colors.
+  function buildSky(B, scene, sky, toSun) {
+    // The glow needs more vertices than the plain gradient.
+    const dome = B.MeshBuilder.CreateSphere("sky", { diameter: 2 * FOG_END, segments: sky.glow ? 48 : 24, sideOrientation: B.Mesh.BACKSIDE }, scene);
+    const positions = dome.getVerticesData(B.VertexBuffer.PositionKind);
     const colors = new Float32Array(positions.length / 3 * 4);
     for (let i = 0; i < positions.length / 3; i++) {
-      // 0 at the horizon and below, 1 at the top.
-      const up = Math.max(0, positions[i * 3 + 1] / FOG_END), t = Math.sqrt(up);
-      for (let c = 0; c < 3; c++) colors[i * 4 + c] = SKY[c] + (SKY_TOP[c] - SKY[c]) * t;
-      colors[i * 4 + 3] = 1;
+      const x = positions[i * 3], y = positions[i * 3 + 1], z = positions[i * 3 + 2], length = Math.hypot(x, y, z) || 1;
+      colors.set([...skyColor([x / length, y / length, z / length], sky, toSun), 1], i * 4);
     }
-    sky.setVerticesData(B.VertexBuffer.ColorKind, colors);
+    dome.setVerticesData(B.VertexBuffer.ColorKind, colors);
     const material = new B.StandardMaterial("sky", scene);
     // With lighting off, the output is the emissive color times the vertex
     // color, so the emissive color is white.
@@ -1783,11 +1821,11 @@
     material.emissiveColor = new B.Color3(1, 1, 1);
     material.diffuseColor = new B.Color3(1, 1, 1);
     material.fogEnabled = false;
-    sky.material = material;
-    asGroundLayer(sky, GROUND_LAYERS.sky);
-    sky.infiniteDistance = true;
-    sky.isPickable = false;
-    return sky;
+    dome.material = material;
+    asGroundLayer(dome, GROUND_LAYERS.sky);
+    dome.infiniteDistance = true;
+    dome.isPickable = false;
+    return dome;
   }
 
   // createTileLayer drapes map tiles on the ground around the camera when the
@@ -1989,11 +2027,17 @@
     const engine = new B.Engine(canvas, true, { useLargeWorldRendering: true });
     const scene = new B.Scene(engine);
     scene.setRenderingOrder(0, groundLayerOrder);
-    scene.clearColor = new B.Color4(SKY[0], SKY[1], SKY[2], 1);
-    scene.fogMode = B.Scene.FOGMODE_LINEAR;
-    scene.fogColor = color(B, SKY);
-    scene.fogStart = FOG_START;
-    scene.fogEnd = FOG_END;
+    const look = lookOptions(root.location.search), sky = skyLook(look);
+    scene.clearColor = new B.Color4(sky.horizon[0], sky.horizon[1], sky.horizon[2], 1);
+    scene.fogColor = color(B, sky.horizon);
+    if (look.sky) {
+      scene.fogMode = B.Scene.FOGMODE_EXP2;
+      scene.fogDensity = HAZE_DENSITY;
+    } else {
+      scene.fogMode = B.Scene.FOGMODE_LINEAR;
+      scene.fogStart = FOG_START;
+      scene.fogEnd = FOG_END;
+    }
     scene.skipPointerMovePicking = true;
     const sunDirection = new B.Vector3(-0.5, -0.75, -0.35).normalize();
     const sun = new B.DirectionalLight("sun", sunDirection, scene);
@@ -2003,7 +2047,7 @@
     fill.intensity = 0.5;
     fill.diffuse = color(B, SKY);
     fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
-    buildSky(B, scene);
+    buildSky(B, scene, sky, sunDirection.negate().asArray());
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
     // The nearest cabin part is about 0.5 m from the eye. A larger near plane keeps
     // more depth precision for the far ground.
@@ -2044,7 +2088,6 @@
     const picker = document.getElementById("pod");
     const diagnostics = document.getElementById("diagnostics");
     const params = new URLSearchParams(root.location.search);
-    const look = lookOptions(root.location.search);
     let requested = params.get("pod") || "", podList = [], ids = [], version = -1;
     let session = "", world = null, poses = new Float64Array(0), lastTime = performance.now();
     let bridgeTime = 0, connected = false, connectionError = "";
@@ -2466,7 +2509,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

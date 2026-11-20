@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1154,4 +1154,30 @@ test("a tapered beam has a narrow bottom and sides that face out and down", () =
       assert.ok(Math.abs(Math.abs(nz) * 0.25 - Math.abs(ny) * 0.7) < 1e-6, "normal square to the side");
     }
   }
+});
+
+test("skyColor keeps the fog color at the horizon and glows toward the sun", () => {
+  const close = (a, b, message) => a.forEach((value, i) => near(value, b[i], `${message} ${i}`));
+  const toSun = [0.6, 0.8, 0];
+  const polished = ride.skyLook({ sky: true }), plain = ride.skyLook({ sky: false });
+  for (const sky of [polished, plain]) {
+    // The horizon is the fog color in each direction, also toward the sun.
+    for (const direction of [[1, 0, 0], [0, 0, 1], [-1, 0, 0]]) close(ride.skyColor(direction, sky, toSun), sky.horizon, "horizon");
+    // The sky dome below the horizon has the fog color.
+    close(ride.skyColor([0.6, -0.8, 0], sky, toSun), sky.horizon, "below");
+  }
+  // Without the polish, the sky is the gradient from before.
+  close(ride.skyColor([0.8, 0.6, 0], plain, toSun), [0.74, 0.82, 0.9].map((value, c) => value + ([0.25, 0.45, 0.78][c] - value) * Math.sqrt(0.6)), "plain gradient");
+  // At one height, the sky is brighter toward the sun than away from it.
+  const toward = ride.skyColor([0.6, 0.8, 0], polished, toSun), away = ride.skyColor([-0.6, 0.8, 0], polished, toSun);
+  assert.ok(toward[0] > away[0] + 0.2, `glow ${toward} against ${away}`);
+  // Just above the horizon, the glow is still faint, so the sky meets the
+  // fog without a band.
+  const low = [Math.sqrt(1 - 0.02 * 0.02), 0.02, 0], lowGlow = ride.skyColor(low, polished, toSun)[0] - ride.skyColor(low, { ...polished, glow: null }, toSun)[0];
+  assert.ok(lowGlow < 0.005, `glow ${lowGlow} near the horizon`);
+  // At 90 degrees from the sun, the glow ends.
+  close(ride.skyColor([-0.8, 0.6, 0], polished, toSun), ride.skyColor([-0.8, 0.6, 0], { ...polished, glow: null }, toSun), "no glow away from the sun");
+  // A below color shows under the horizon.
+  close(ride.skyColor([0, -0.5, Math.sqrt(0.75)], { ...polished, below: [0.3, 0.3, 0.3] }, toSun), [0.3, 0.3, 0.3], "ground");
+  assert.ok(toward.every((value) => value <= 1), "the glow stays in range");
 });
