@@ -1254,8 +1254,8 @@
   }
 
   // boundedText reads the body of response as UTF-8 text, as text() does.
-  // It reads at most one byte past limit. A larger body throws an error
-  // with the message tooLarge and cancels the rest of the body.
+  // It stops at the first chunk that takes the size past limit, throws an
+  // error with the message tooLarge, and cancels the rest of the body.
   async function boundedText(response, limit, tooLarge) {
     if (!response.body) return "";
     const reader = response.body.getReader();
