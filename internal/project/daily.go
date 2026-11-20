@@ -94,6 +94,7 @@ func NewDailyProfile(config DemandConfig, profiles []DemandProfile) (*DailyProfi
 		if sampler.total <= 0 || math.IsInf(sampler.total, 0) {
 			return nil, errors.New("daily bands need finite positive weight totals")
 		}
+		scaleDailyBand(&sampler)
 		daily.bands[index] = sampler
 		for offset := range band.DurationMinutes {
 			daily.minutes[(band.StartMinute+offset)%minutesPerDay] = index
@@ -141,18 +142,42 @@ func (d *DailyProfile) Weights(band int) map[string]float64 {
 	return maps.Clone(d.bands[band].weights)
 }
 
+// minDailyDrawTotal is the smallest total weight that a draw multiplies
+// without a loss of precision. A draw is a multiple of 2^-53, and at this
+// total, the product of the smallest positive draw is the smallest normal
+// number. Below it, the products are subnormal and round to few values,
+// and the flows get a biased share of the draws.
+const minDailyDrawTotal = 0x1p-969
+
+// scaleDailyBand scales a total below minDailyDrawTotal and the cumulative
+// weights of the band by a power of two to a total in [0.5, 1). The scale
+// is exact, so the shares of the flows stay the same. A larger total stays
+// as it is, so each draw selects the same pair as before. The pickup
+// weights do not change.
+func scaleDailyBand(sampler *dailyBand) {
+	if sampler.total >= minDailyDrawTotal {
+		return
+	}
+	_, exponent := math.Frexp(sampler.total)
+	sampler.total = math.Ldexp(sampler.total, -exponent)
+	for index := range sampler.flows {
+		sampler.flows[index].cumulative = math.Ldexp(sampler.flows[index].cumulative, -exponent)
+	}
+}
+
 // Pair selects a band's flow using a draw in [0, 1). A gap returns no pair.
+// The total of the band is at least minDailyDrawTotal, so the product of
+// the draw and the total is less than the total, and the search always
+// finds a flow: the largest draw is 1 - 2^-53, and its product with a
+// normal total rounds to a value below the total.
 func (d *DailyProfile) Pair(band int, draw float64) (from, to string, ok bool) {
 	if d.Rate(band) == 0 || draw < 0 || draw >= 1 || math.IsNaN(draw) {
 		return "", "", false
 	}
 	sampler := &d.bands[band]
-	index := sort.Search(len(sampler.flows), func(index int) bool {
-		return sampler.flows[index].cumulative > draw*sampler.total
-	})
-	if index == len(sampler.flows) {
-		index--
-	}
-	flow := sampler.flows[index]
+	target := draw * sampler.total
+	flow := sampler.flows[sort.Search(len(sampler.flows), func(index int) bool {
+		return sampler.flows[index].cumulative > target
+	})]
 	return flow.from, flow.to, true
 }

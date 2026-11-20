@@ -1,9 +1,13 @@
 package project
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json/v2"
 	"math"
+	"math/rand/v2"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -158,5 +162,85 @@ func TestDailyZeroClockKeepsLegacyEncoding(t *testing.T) {
 	}
 	if _, present := members["dailyStartMinute"]; present {
 		t.Fatal("zero daily clock changed legacy demand encoding")
+	}
+}
+
+// dailyPairProfile compiles a daily profile with one band and one flow for
+// each weight. Flow i goes from "s<i>" to "t<i>".
+func dailyPairProfile(t *testing.T, weights []float64) *DailyProfile {
+	t.Helper()
+	profile := DemandProfile{ID: "pairs", Name: "Pairs", Bands: []DemandBand{{ID: "all", Name: "All", DurationMinutes: minutesPerDay}}}
+	for index, weight := range weights {
+		profile.Flows = append(profile.Flows, DemandFlow{From: "s" + strconv.Itoa(index), To: "t" + strconv.Itoa(index), Weights: []float64{weight}})
+	}
+	daily, err := NewDailyProfile(DemandConfig{Pattern: "profile-daily", Profile: "pairs", PerMinute: 12}, []DemandProfile{profile})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return daily
+}
+
+// TestDailyPairSubnormalShares checks the shares of flows with subnormal
+// weights over a uniform grid of draws. Without a scale, the products of
+// the draws round to a few values, and two equal weights get 25% and 75%
+// of the draws. A single flow must get each draw, because Pair has no
+// clamp after the search.
+func TestDailyPairSubnormalShares(t *testing.T) {
+	t.Parallel()
+	const draws = 100_000
+	for _, test := range []struct {
+		weights []float64
+		want    []int
+	}{
+		{[]float64{5e-324}, []int{100_000}},
+		{[]float64{5e-324, 5e-324}, []int{50_000, 50_000}},
+		{[]float64{5e-324, 1.5e-323}, []int{25_000, 75_000}},
+		{[]float64{1e-310, 3e-310}, []int{25_000, 75_000}},
+	} {
+		daily := dailyPairProfile(t, test.weights)
+		got := make([]int, len(test.weights))
+		for index := range draws {
+			from, _, ok := daily.Pair(0, (float64(index)+0.5)/draws)
+			if !ok {
+				t.Fatalf("weights %v: draw %d has no pair", test.weights, index)
+			}
+			flow, err := strconv.Atoi(from[1:])
+			if err != nil {
+				t.Fatal(err)
+			}
+			got[flow]++
+		}
+		if !reflect.DeepEqual(got, test.want) {
+			t.Errorf("weights %v: %v draws, want %v", test.weights, got, test.want)
+		}
+	}
+}
+
+// TestDailyPairOrdinaryTotal pins the pairs of profiles whose total is at
+// or above minDailyDrawTotal. Such a total has no scale, so each draw
+// selects the same pair as before the scale.
+func TestDailyPairOrdinaryTotal(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		weights []float64
+		want    string
+	}{
+		{[]float64{0.1, 0.2, 0.7}, "19ed431d5619afa9"},
+		{[]float64{3, 1e-300, 1, 2.5}, "b88d64d042ab79f1"},
+		{[]float64{0x1p-970, 0x1p-970}, "5ab5a9248a9a6fe1"},
+	} {
+		daily := dailyPairProfile(t, test.weights)
+		rng := rand.New(rand.NewPCG(7, 11))
+		hash := sha256.New()
+		for range 10_000 {
+			from, _, ok := daily.Pair(0, rng.Float64())
+			if !ok {
+				t.Fatalf("weights %v: no pair", test.weights)
+			}
+			hash.Write([]byte(from))
+		}
+		if got := hex.EncodeToString(hash.Sum(nil))[:16]; got != test.want {
+			t.Errorf("weights %v: pairs %s, want %s", test.weights, got, test.want)
+		}
 	}
 }
