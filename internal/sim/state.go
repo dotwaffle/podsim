@@ -312,20 +312,23 @@ func checkSavedExclusions(state SavedState) error {
 // that it tries fails. The error then wraps the error of each tier that it
 // tried. Invalid saved faults return an error without a logical fallback.
 func RestoreState(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	return restoreState(input, restoreFleets(input))
+	return restoreState(input, restoreFleets(input, func() (*PreparedNetwork, error) {
+		return prepareContractNetwork(input.Network, input.Fleet, input.OrderContract)
+	}))
 }
 
-// restoreFleets returns the fleet factory of RestoreState. Each call gives
-// a new fleet, as NewFleetWithOrderContract does, but the fleets share one
+// restoreFleets returns the fleet factory of a restore. Each call gives a
+// new fleet, as NewFleetWithOrderContract does, but the fleets share one
 // prepared network, as the tiers of PreparedNetwork.RestoreState do. The
-// first call prepares the network, and each later call gives the same
-// error when that fails.
-func restoreFleets(input RestoreStateInput) func() (*Simulation, error) {
+// first call runs prepare, and each later call gives the same error when
+// that fails. prepare returns the network of input prepared for input.Fleet
+// under input.OrderContract.
+func restoreFleets(input RestoreStateInput, prepare func() (*PreparedNetwork, error)) func() (*Simulation, error) {
 	var prepared *PreparedNetwork
 	var err error
 	return func() (*Simulation, error) {
 		if prepared == nil && err == nil {
-			prepared, err = prepareContractNetwork(input.Network, input.Fleet, input.OrderContract)
+			prepared, err = prepare()
 		}
 		if err != nil {
 			return nil, err

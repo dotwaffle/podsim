@@ -272,13 +272,21 @@ func sameRestoreResult(a, b RestoreResult) bool {
 	return true
 }
 
+// packageRestoreFleets returns the fleet factory of the package function
+// RestoreState for input.
+func packageRestoreFleets(input RestoreStateInput) func() (*Simulation, error) {
+	return restoreFleets(input, func() (*PreparedNetwork, error) {
+		return prepareContractNetwork(input.Network, input.Fleet, input.OrderContract)
+	})
+}
+
 // TestRestoreFleetsShareNetwork checks that the tiers of RestoreState get
 // new fleets on one prepared network, and the error of
 // NewFleetWithOrderContract at each call when the fleet is invalid.
 func TestRestoreFleetsShareNetwork(t *testing.T) {
 	t.Parallel()
 	fleet := []Placement{{ID: "01", StationID: "harbor"}}
-	newFleet := restoreFleets(RestoreStateInput{Network: Example(), Fleet: fleet})
+	newFleet := packageRestoreFleets(RestoreStateInput{Network: Example(), Fleet: fleet})
 	first, err := newFleet()
 	if err != nil {
 		t.Fatal(err)
@@ -299,7 +307,7 @@ func TestRestoreFleetsShareNetwork(t *testing.T) {
 		t.Fatal("a later fleet differs from a new fleet")
 	}
 	_, wantErr := NewFleetWithOrderContract(Example(), nil, "")
-	invalid := restoreFleets(RestoreStateInput{Network: Example()})
+	invalid := packageRestoreFleets(RestoreStateInput{Network: Example()})
 	for call := range 2 {
 		if _, err := invalid(); err == nil || err.Error() != wantErr.Error() {
 			t.Fatalf("call %d: error %v, want %v", call, err, wantErr)
