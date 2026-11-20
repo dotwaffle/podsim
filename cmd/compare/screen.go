@@ -99,7 +99,70 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	case opts.workers < 1 || opts.workers > maxWorkers || opts.checkEverySeconds < 1:
 		return screenOptions{}, errors.New("workers must be from 1 to 64 and check-every at least 1")
 	}
+	if opts.backgroundPerMin == 0 {
+		opts.backgroundPerMin = scenarios.LondonFull().Demand.PerMinute
+	}
+	if err := checkScreenBytes(opts); err != nil {
+		return screenOptions{}, err
+	}
 	return opts, nil
+}
+
+// The sizes of the screen storage on a 64-bit platform.
+// TestScreenStorageBytes checks them.
+const (
+	screenEventBytes   = 64
+	screenOutcomeBytes = 72
+	// screenOrderBytes is the order list of a background event, which has
+	// one order.
+	screenOrderBytes = 8
+	// screenHubOrderBytes is the largest order list of a hub event. A hub
+	// party splits into at most sim.MaxExpressParties orders, and append
+	// gives a list of 32 orders for them.
+	screenHubOrderBytes = 32 * 8
+)
+
+// screenBackgroundInterval returns the ticks between two background
+// requests at perMinute requests a minute.
+func screenBackgroundInterval(perMinute int) int64 {
+	return 60 * sim.TicksPerSecond / int64(perMinute)
+}
+
+// screenHubLimit returns the largest number of hub events in an arrival
+// window. It is twice the mean number and 32 more, so a seed does not get
+// near it. screenHubEvents refuses a stream with more events, so the
+// storage of a screen cannot be larger than checkScreenBytes counts.
+func screenHubLimit(arrivalTicks int64) int64 {
+	return 2*(arrivalTicks/screenHubMean) + 32
+}
+
+// maxScreenBytes bounds the offered events, the outcomes, and one
+// background schedule of a screen. It holds one band and seed of 24 hours
+// at one request each tick in the three configurations, which need about
+// 1000 MiB.
+const maxScreenBytes = 1 << 30
+
+// checkScreenBytes refuses a screen whose offered events, outcomes, and
+// background schedule need more than maxScreenBytes. The events of each
+// band and seed and the outcomes of each arm stay in memory until the
+// report. One background schedule is in memory while the screen builds the
+// events of a band and seed. The bound does not count the memory of a
+// simulation. opts.backgroundPerMin must be the rate that the screen uses.
+func checkScreenBytes(opts screenOptions) error {
+	arrivalTicks := durationTicks(opts.arrivals)
+	background := intervalRequestCount(arrivalTicks, screenBackgroundInterval(opts.backgroundPerMin))
+	hub := screenHubLimit(arrivalTicks)
+	configs := float64(len(opts.configs))
+	events := float64(background)*(screenEventBytes+configs*(screenOutcomeBytes+screenOrderBytes)) +
+		float64(hub)*(screenEventBytes+configs*(screenOutcomeBytes+screenHubOrderBytes))
+	// A float64 holds each total below 2^53 bytes exactly, so the result is
+	// exact near the bound, and a larger total cannot overflow.
+	total := float64(len(opts.bands))*float64(len(opts.seeds))*events + float64(background*scheduleRequestBytes)
+	if total > maxScreenBytes {
+		return fmt.Errorf("the screen storage must fit in %d MiB, and this screen needs %.0f MiB; use fewer seeds, bands, or configurations, a lower background rate, or a shorter arrival window",
+			maxScreenBytes>>20, math.Ceil(total/(1<<20)))
+	}
+	return nil
 }
 
 // screenConfig is one configuration of the screen.
@@ -193,22 +256,38 @@ func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 		seed: input.seed, durationTicks: input.arrivalTicks, intervalTicks: input.intervalTicks, pattern: "profile",
 		passengers: base.passengers, focus: base.focus, profileFlows: weightedProfileFlows(profile, input.band),
 	})
-	events := make([]screenEvent, 0, len(background)+int(input.arrivalTicks/screenHubMean)+1)
+	limit := screenHubLimit(input.arrivalTicks)
+	events := make([]screenEvent, 0, int64(len(background))+limit)
 	for _, request := range background {
 		events = append(events, screenEvent{Tick: request.tick, From: request.origin, To: request.destination, Size: 1})
 	}
-	rng := rand.New(rand.NewPCG(uint64(input.seed), screenHubStream)) // #nosec G115 G404 -- Seeds are positive, and the stream is a reproducible schedule.
-	for tick := int64(rng.ExpFloat64() * screenHubMean); tick < input.arrivalTicks; tick += 1 + int64(rng.ExpFloat64()*screenHubMean) {
+	events, err = screenHubEvents(events, input.seed, input.arrivalTicks, limit)
+	if err != nil {
+		return nil, err
+	}
+	slices.SortStableFunc(events, func(a, b screenEvent) int { return cmp.Compare(a.Tick, b.Tick) })
+	for index := range events {
+		events[index].ID = index
+	}
+	return events, nil
+}
+
+// screenHubEvents appends the hub events of the seed in the arrival window
+// to events. It refuses a stream with more than limit events.
+func screenHubEvents(events []screenEvent, seed, arrivalTicks, limit int64) ([]screenEvent, error) {
+	rng := rand.New(rand.NewPCG(uint64(seed), screenHubStream)) // #nosec G115 G404 -- Seeds are positive, and the stream is a reproducible schedule.
+	count := int64(0)
+	for tick := int64(rng.ExpFloat64() * screenHubMean); tick < arrivalTicks; tick += 1 + int64(rng.ExpFloat64()*screenHubMean) {
+		if count == limit {
+			return nil, fmt.Errorf("seed %d: the hub stream has more than %d events", seed, limit)
+		}
+		count++
 		outbound := rng.Float64() < screenHubOutbound
 		from, to := screenBank, screenWaterloo
 		if outbound {
 			from, to = screenWaterloo, screenBank
 		}
 		events = append(events, screenEvent{Tick: tick, From: from, To: to, Size: 1 + rng.IntN(sim.MaxExpressParties), Hub: true, Outbound: outbound})
-	}
-	slices.SortStableFunc(events, func(a, b screenEvent) int { return cmp.Compare(a.Tick, b.Tick) })
-	for index := range events {
-		events[index].ID = index
 	}
 	return events, nil
 }

@@ -3,11 +3,11 @@ package main
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -254,18 +254,11 @@ func TestParseScreenOptions(t *testing.T) {
 // comes before the values, as in the -seeds flag of a comparison.
 func TestParseScreenSeedCount(t *testing.T) {
 	t.Parallel()
-	seeds := func(count int) string {
-		parts := make([]string, count)
-		for index := range parts {
-			parts[index] = strconv.Itoa(index + 1)
-		}
-		return strings.Join(parts, ",")
-	}
-	if opts, err := parseScreenOptions([]string{"-seeds", seeds(maxSeeds)}, &bytes.Buffer{}); err != nil || len(opts.seeds) != maxSeeds {
+	if opts, err := parseScreenOptions([]string{"-seeds", seedList(maxSeeds)}, &bytes.Buffer{}); err != nil || len(opts.seeds) != maxSeeds {
 		t.Fatalf("%d seeds: %d seeds, %v", maxSeeds, len(opts.seeds), err)
 	}
 	const want = "seeds must contain at most 100 values"
-	for _, list := range []string{seeds(maxSeeds + 1), seeds(maxSeeds) + ",x", strings.Repeat(",", maxSeeds)} {
+	for _, list := range []string{seedList(maxSeeds + 1), seedList(maxSeeds) + ",x", strings.Repeat(",", maxSeeds)} {
 		if _, err := parseScreenOptions([]string{"-seeds", list}, &bytes.Buffer{}); err == nil || err.Error() != want {
 			t.Errorf("%.20q: got %v, want %q", list, err, want)
 		}
@@ -394,5 +387,78 @@ func TestScreenOfferQueueLimit(t *testing.T) {
 	input.queueLimit = 2
 	if outcome := screenOffer(simulation, event, input); outcome.Refused || outcome.Partial || len(outcome.Orders) != 2 {
 		t.Fatalf("two orders at a queue limit of 2: %+v, %d pending", outcome, simulation.PendingCount())
+	}
+}
+
+// TestScreenStorageBytes checks the sizes that the storage bound of a
+// screen charges.
+func TestScreenStorageBytes(t *testing.T) {
+	t.Parallel()
+	if size := reflect.TypeFor[screenEvent]().Size(); size != screenEventBytes {
+		t.Errorf("an event has %d bytes, and the bound charges %d", size, screenEventBytes)
+	}
+	if size := reflect.TypeFor[screenOutcome]().Size(); size != screenOutcomeBytes {
+		t.Errorf("an outcome has %d bytes, and the bound charges %d", size, screenOutcomeBytes)
+	}
+	var orders []int
+	for range sim.MaxExpressParties {
+		orders = append(orders, 0)
+	}
+	if size := cap(orders) * 8; size > screenHubOrderBytes {
+		t.Errorf("the orders of a hub party use %d bytes, and the bound charges %d", size, screenHubOrderBytes)
+	}
+}
+
+// TestScreenHubLimit checks that the hub stream stops at its limit, and
+// that the limit is far from the hub streams of the screen.
+func TestScreenHubLimit(t *testing.T) {
+	t.Parallel()
+	const arrivalTicks = 20 * 60 * sim.TicksPerSecond
+	events, err := screenHubEvents(nil, 2, arrivalTicks, screenHubLimit(arrivalTicks))
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := int64(len(events))
+	if _, err := screenHubEvents(nil, 2, arrivalTicks, count); err != nil {
+		t.Fatalf("a limit of exactly %d events: %v", count, err)
+	}
+	want := fmt.Sprintf("seed 2: the hub stream has more than %d events", count-1)
+	if _, err := screenHubEvents(nil, 2, arrivalTicks, count-1); err == nil || err.Error() != want {
+		t.Fatalf("a limit one event under the stream: got %v, want %q", err, want)
+	}
+	for seed := range int64(100) {
+		for _, window := range []int64{1, 450, 2 * 3600 * sim.TicksPerSecond} {
+			if _, err := screenHubEvents(nil, seed+1, window, screenHubLimit(window)); err != nil {
+				t.Errorf("seed %d, %d ticks: %v", seed+1, window, err)
+			}
+		}
+	}
+}
+
+// TestParseScreenStorage checks the storage bound of a screen. The bound
+// holds one band and seed of 24 hours at one request each tick in the three
+// configurations. The default rate is the LondonFull rate.
+func TestParseScreenStorage(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{
+		{"-arrivals", "24h", "-background-per-minute", "1800", "-seeds", "1", "-bands", "busy"},
+		{"-arrivals", "24h", "-seeds", "1", "-bands", "busy"},
+	} {
+		if _, err := parseScreenOptions(args, &bytes.Buffer{}); err != nil {
+			t.Errorf("%v: %v", args, err)
+		}
+	}
+	for _, test := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"-arrivals", "24h", "-background-per-minute", "1800", "-seeds", "1,2", "-bands", "busy"}, "the screen storage must fit in 1024 MiB, and this screen needs 1764 MiB"},
+		{[]string{"-arrivals", "24h", "-seeds", seedList(100)}, "the screen storage must fit in 1024 MiB, and this screen needs 3146 MiB"},
+	} {
+		const advice = "; use fewer seeds, bands, or configurations, a lower background rate, or a shorter arrival window"
+		_, err := parseScreenOptions(test.args, &bytes.Buffer{})
+		if err == nil || err.Error() != test.want+advice {
+			t.Errorf("%.80v: got %v, want %q", test.args, err, test.want+advice)
+		}
 	}
 }

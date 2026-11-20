@@ -383,6 +383,11 @@ It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express po
 | `-check-every` | 1 | The simulated seconds between two checks of the safety oracle, the state contract, and the order accounting. |
 | `-output` | none | The file of the JSON report. |
 
+Before the command builds the offered events, it refuses a screen whose events, outcomes, and background schedule need more than 1 GiB.
+The events of each band and seed and the outcomes of each arm stay in memory until the report.
+The bound holds one band and seed of 24 hours at 1,800 background requests a minute in the three configurations.
+It does not count the memory of the simulations.
+
 A seed gives the background requests of the band, as the `profile` pattern does, and a separate hub stream.
 The hub stream offers a shared party of 1 to 20 passengers between Waterloo and Bank each 15 s on average, three in four from Waterloo.
 In `D`, a hub party is one Express order.

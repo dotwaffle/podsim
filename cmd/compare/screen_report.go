@@ -172,10 +172,6 @@ func screen(opts screenOptions) (screenReport, error) {
 		return screenReport{}, err
 	}
 	source := scenarios.LondonFull()
-	perMinute := opts.backgroundPerMin
-	if perMinute == 0 {
-		perMinute = source.Demand.PerMinute
-	}
 	arrivalTicks, clearTicks := durationTicks(opts.arrivals), durationTicks(opts.clear)
 	events := map[screenKey][]screenEvent{}
 	var inputs []screenArmInput
@@ -186,7 +182,7 @@ func screen(opts screenOptions) (screenReport, error) {
 		}
 		bandID := source.DemandProfiles[0].Bands[band].ID
 		for _, seed := range opts.seeds {
-			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: 60 * sim.TicksPerSecond / int64(perMinute), source: source})
+			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: screenBackgroundInterval(opts.backgroundPerMin), source: source})
 			if eventsErr != nil {
 				return screenReport{}, eventsErr
 			}
