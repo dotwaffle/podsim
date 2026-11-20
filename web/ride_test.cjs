@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1180,4 +1180,45 @@ test("skyColor keeps the fog color at the horizon and glows toward the sun", () 
   // A below color shows under the horizon.
   close(ride.skyColor([0, -0.5, Math.sqrt(0.75)], { ...polished, below: [0.3, 0.3, 0.3] }, toSun), [0.3, 0.3, 0.3], "ground");
   assert.ok(toward.every((value) => value <= 1), "the glow stays in range");
+});
+
+// cubeLookup is the cube map lookup of the WebGL specification: the face
+// and the s, t of a direction.
+function cubeLookup([x, y, z]) {
+  const ax = Math.abs(x), ay = Math.abs(y), az = Math.abs(z);
+  let face, sc, tc, ma;
+  if (ax >= ay && ax >= az) [face, sc, tc, ma] = x > 0 ? [0, -z, -y, ax] : [1, z, -y, ax];
+  else if (ay >= az) [face, sc, tc, ma] = y > 0 ? [2, x, z, ay] : [3, x, -z, ay];
+  else [face, sc, tc, ma] = z > 0 ? [4, x, -y, az] : [5, -x, -y, az];
+  return [face, (sc / ma + 1) / 2, (tc / ma + 1) / 2];
+}
+
+test("cubeDirection is the inverse of the WebGL cube lookup", () => {
+  for (let face = 0; face < 6; face++) {
+    for (const [s, t] of [[0.5, 0.5], [0.1, 0.8], [0.9, 0.3], [0.25, 0.05]]) {
+      const direction = ride.cubeDirection(face, s, t);
+      near(Math.hypot(...direction), 1, "unit");
+      const [back, bs, bt] = cubeLookup(direction);
+      assert.equal(back, face, `face of ${direction}`);
+      near(bs, s, `s on face ${face}`);
+      near(bt, t, `t on face ${face}`);
+    }
+  }
+});
+
+test("skyCubeFaces puts the sky up and the ground down", () => {
+  const size = 8, sky = ride.skyLook({ sky: true }), faces = ride.skyCubeFaces(size, sky, [0.6, 0.8, 0]);
+  assert.equal(faces.length, 6);
+  const texel = (face, s, t) => [...faces[face].subarray((t * size + s) * 4, (t * size + s) * 4 + 4)];
+  for (const face of faces) assert.equal(face.length, size * size * 4);
+  // The bottom face is the ground everywhere, and the top face is sky.
+  const ground = [0.3, 0.32, 0.29].map((value) => Math.round(value * 255));
+  for (let i = 0; i < size; i++) assert.deepEqual(texel(3, i, size - 1 - i), [...ground, 255]);
+  assert.ok(texel(2, 4, 4)[2] > texel(2, 4, 4)[0], "the top is blue");
+  // On each side face, the first row is the sky and the last row is the
+  // ground.
+  for (const face of [0, 1, 4, 5]) {
+    assert.ok(texel(face, 4, 0)[2] > 200, `sky at the top of face ${face}`);
+    assert.deepEqual(texel(face, 4, size - 1), [...ground, 255], `ground at the bottom of face ${face}`);
+  }
 });

@@ -144,6 +144,10 @@
   const HAZE_TOP = [0.22, 0.42, 0.78];
   const SUN_GLOW = [1, 0.84, 0.6];
   const HAZE_DENSITY = 6e-4;
+  // The pods reflect a cube texture of the sky, SKY_CUBE_SIZE texels on a
+  // side. Below the horizon, they reflect GROUND_SHINE.
+  const SKY_CUBE_SIZE = 32;
+  const GROUND_SHINE = [0.3, 0.32, 0.29];
   const CLASS_COLORS = [[0.86, 0.88, 0.9], [0.32, 0.62, 0.9], [0.95, 0.66, 0.22], [0.72, 0.36, 0.86]];
   // Textures: web/textures, which internal/cmd/texgen writes. One repeat of
   // the concrete covers CONCRETE_TILE meters.
@@ -159,7 +163,7 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky"];
+  const LOOK_SWITCHES = ["tint", "rail", "taper", "sky", "gloss"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
@@ -1478,8 +1482,10 @@
   // color, dark glass, and a running gear on the beam. With a pod model, the
   // parts come from the model, stretched to the class length. The parts
   // merge into one mesh with one submesh for each material, so thin
-  // instances draw a class in a few calls.
-  function buildPodMesh(B, scene, cls, rgb, model) {
+  // instances draw a class in a few calls. With a sky cube texture, the
+  // shell and the glass reflect the sky, most at a low angle, as paint and
+  // glass do.
+  function buildPodMesh(B, scene, cls, rgb, model, skyCube) {
     const [shell, glass, gear] = model
       ? ["shell", "glass", "gear"].map((name) => modelMesh(B, scene, `${name}-${cls.name}`, model.parts[name], cls, model))
       : proceduralPodParts(B, scene, cls);
@@ -1494,6 +1500,14 @@
     glassMaterial.specularColor = new B.Color3(0.9, 0.95, 1);
     glassMaterial.specularPower = 96;
     glass.material = glassMaterial;
+    if (skyCube) {
+      // The reflection adds to the lit color, and the result is clipped at
+      // white, so the light shells reflect little and only at a low angle.
+      shellMaterial.reflectionTexture = skyCube;
+      shellMaterial.reflectionFresnelParameters = fresnel(B, 0.3, 0.1);
+      glassMaterial.reflectionTexture = skyCube;
+      glassMaterial.reflectionFresnelParameters = fresnel(B, 0.85, 0.2);
+    }
 
     const gearMaterial = new B.StandardMaterial(`gear-${cls.name}`, scene);
     gearMaterial.diffuseColor = color(B, model ? model.parts.gear.color : [0.16, 0.17, 0.19]);
@@ -1506,6 +1520,20 @@
     // The instances move every frame and cover the whole network.
     mesh.alwaysSelectAsActiveMesh = true;
     return { mesh, shellMaterial };
+  }
+
+  // fresnel returns the Fresnel parameters of a reflection that is level
+  // strong at a grazing angle and facing times as strong head on. Babylon
+  // mixes the two with the weight cos^power of the angle to the normal, so
+  // with power 0.5, the reflection falls fast from a grazing angle: to
+  // half its range at 75 degrees from the normal.
+  function fresnel(B, level, facing) {
+    const parameters = new B.FresnelParameters();
+    parameters.leftColor = new B.Color3(level, level, level);
+    parameters.rightColor = new B.Color3(level * facing, level * facing, level * facing);
+    parameters.bias = 0;
+    parameters.power = 0.5;
+    return parameters;
   }
 
   // buildModelCabin makes the inside of a pod of a class from the pod
@@ -1593,8 +1621,9 @@
   // casters cast shadows, and receivers show them. With a pod model, each
   // class also gets a cabin, and the world gets the cabin screens. The
   // textures load in the background, and the surfaces keep their flat
-  // colors until then. look holds the switches of lookOptions.
-  function buildWorld(B, scene, topology, model, look) {
+  // colors until then. look holds the switches of lookOptions, sky the
+  // colors of skyLook, and toSun the unit vector toward the sun.
+  function buildWorld(B, scene, topology, model, look, sky, toSun) {
     const meshes = [], casters = [], receivers = [];
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const beamMaterial = new B.StandardMaterial("beam", scene);
@@ -1719,8 +1748,10 @@
     meshes.push(ground); receivers.push(ground);
 
     const textured = { shell: [], cabin: [], seat: [] };
+    const skyCube = look.gloss ? new B.RawCubeTexture(scene, skyCubeFaces(SKY_CUBE_SIZE, sky, toSun), SKY_CUBE_SIZE, B.Engine.TEXTUREFORMAT_RGBA, B.Engine.TEXTURETYPE_UNSIGNED_BYTE, true, false, B.Texture.TRILINEAR_SAMPLINGMODE) : null;
+    if (skyCube) skyCube.coordinatesMode = B.Texture.CUBIC_MODE;
     const pods = topology.classes.map((cls, index) => {
-      const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model);
+      const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model, skyCube);
       meshes.push(mesh); casters.push(mesh);
       const cabin = model ? buildModelCabin(B, scene, cls, model) : null;
       if (cabin) {
@@ -1739,6 +1770,7 @@
       attachTexture(B, scene, "textures/panel.png", textured.shell),
       attachTexture(B, scene, "textures/dash.png", textured.cabin),
       attachTexture(B, scene, "textures/fabric.png", textured.seat),
+      ...(skyCube ? [skyCube] : []),
     ];
     return { meshes, casters, receivers, pods, slabs, screens, textures };
   }
@@ -1800,6 +1832,36 @@
     const lift = Math.min(1, y / 0.1), fade = lift * lift * (3 - 2 * lift);
     const glow = (0.35 * cos ** 32 + 0.12 * cos ** 4) * fade;
     return base.map((value, c) => Math.min(1, value + sky.glow[c] * glow));
+  }
+
+  // cubeDirection returns the unit scene direction through the point s, t
+  // of a face of a cube texture, with s and t from 0 to 1. The faces are
+  // in the order +x, -x, +y, -y, +z, -z. s grows along a row and t from
+  // the first row to the last, with the orientation of WebGL, which
+  // Babylon also uses to read a cube face.
+  function cubeDirection(face, s, t) {
+    const a = 2 * s - 1, b = 2 * t - 1;
+    const direction = [[1, -b, -a], [-1, -b, a], [a, 1, b], [a, -1, -b], [a, -b, 1], [-a, -b, -1]][face];
+    const length = Math.hypot(...direction);
+    return direction.map((value) => value / length);
+  }
+
+  // skyCubeFaces returns the six faces of a cube texture of the sky of
+  // skyColor, in the order of cubeDirection: size by size RGBA bytes, the
+  // first row first. Below the horizon, the sky goes to GROUND_SHINE, so a
+  // pod reflects the ground there.
+  function skyCubeFaces(size, sky, toSun) {
+    const look = { ...sky, below: GROUND_SHINE };
+    return Array.from({ length: 6 }, (_, face) => {
+      const data = new Uint8Array(size * size * 4);
+      for (let t = 0; t < size; t++) {
+        for (let s = 0; s < size; s++) {
+          const rgb = skyColor(cubeDirection(face, (s + 0.5) / size, (t + 0.5) / size), look, toSun);
+          data.set([...rgb.map((value) => Math.round(value * 255)), 255], (t * size + s) * 4);
+        }
+      }
+      return data;
+    });
   }
 
   // buildSky makes a sky dome with the colors of skyColor in vertex
@@ -2047,7 +2109,8 @@
     fill.intensity = 0.5;
     fill.diffuse = color(B, SKY);
     fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
-    buildSky(B, scene, sky, sunDirection.negate().asArray());
+    const toSun = sunDirection.negate().asArray();
+    buildSky(B, scene, sky, toSun);
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
     // The nearest cabin part is about 0.5 m from the eye. A larger near plane keeps
     // more depth precision for the far ground.
@@ -2262,7 +2325,7 @@
         for (const texture of world.textures) texture.dispose();
       }
       if (tileLayer) tileLayer.dispose();
-      world = buildWorld(B, scene, topology, podModel, look);
+      world = buildWorld(B, scene, topology, podModel, look, sky, toSun);
       // The sun does not light a cabin, because no roof shadows the floor.
       sun.excludedMeshes = world.pods.flatMap((pod) => (pod.cabin ? [pod.cabin] : []));
       shadows.getShadowMap().renderList = world.casters;
@@ -2509,7 +2572,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);
