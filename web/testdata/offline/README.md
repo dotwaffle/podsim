@@ -25,6 +25,12 @@ go run ./cmd/parkride -project web/testdata/offline/project.json -plan web/testd
 go run ./cmd/compare -project web/testdata/offline/project.json -energy-file web/testdata/offline/energy.json -duration 2s -request-every 1s -redistribution-policies off -format json -output web/testdata/offline/energy-report.json
 ```
 
+The schema 19 energy report comes from revision `3bbb5ff4`, with the same inputs and `-fleet-classes plain`.
+
+```sh
+go run ./cmd/compare -project web/testdata/offline/project.json -energy-file web/testdata/offline/energy.json -fleet-classes plain -duration 2s -request-every 1s -redistribution-policies off -format json -output web/testdata/offline/energy-fleet-report.json
+```
+
 The full report includes a completed round trip and a zero-capacity full-lot refusal.
 The one-second report keeps a held slot and a censored pod journey.
 The three-car, one-pod report includes outward queue refusal, recovered refusal, and terminal stranding.

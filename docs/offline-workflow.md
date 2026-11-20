@@ -70,6 +70,8 @@ The car report identifies its build, project hash, plan hash, queue limit, nativ
 A run error appears above the outcomes.
 
 Energy schema 18 reports show gross traction draw, recovery, auxiliary energy, and signed net energy in joules.
+Compare writes schema 19 when you give `-fleet-classes`, and the viewer accepts it when each result has fleet class `plain`.
+The viewer shows the fleet class in the name of each result.
 Select a comparison result to inspect class counts, profiles, mass assumptions, policy settings, and its full result.
 Negative net energy remains negative.
 Energy reports do not contain build or project hashes.

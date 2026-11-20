@@ -81,6 +81,29 @@ test('actual car and energy reports retain outcomes, missing clocks, assumptions
   const car = fixture('car-report.json'); delete car.itineraries[0].held; assert.throws(() => offline.validateReport(car));
 });
 
+test('energy reports of schema 19 need fleet class plain and the energy fields', async () => {
+  const report = fixture('energy-fleet-report.json');
+  assert.equal(report.schema_version, 19);
+  const parsed = offline.validateReport(report); assert.equal(parsed.kind, 'energy');
+  assert.deepEqual(JSON.parse(offline.encode(parsed.report)), JSON.parse(JSON.stringify(report)));
+  for (const [name, mutate] of [
+    ['no fleet class', r => {delete r.results[0].fleet_class;}],
+    ['fleet class express', r => {r.results[0].fleet_class = 'express';}],
+    ['no energy', r => {delete r.results[0].energy;}],
+    ['no net energy', r => {delete r.results[0].energy.net_joules;}],
+    ['negative traction', r => {r.results[0].energy.traction_joules = -1;}],
+    ['schema 20', r => {r.schema_version = 20;}],
+  ]) {
+    const value = clone(report); mutate(value); assert.throws(() => offline.validateReport(value), name);
+  }
+  const page = offlinePage();
+  await page.start('reportImport', readyFile(report, 'energy-report.json'));
+  assert.equal(page.get('status').dataset.error, 'false', page.get('status').textContent);
+  const texts = []; const walk = node => { texts.push(node.textContent); node.childNodes.forEach(walk); }; walk(page.get('reportView'));
+  assert.ok(texts.includes('Energy comparison schema 19. 1 results. Estimates use authored flat-v1 profiles.'), texts.join('\n'));
+  assert.ok(texts.some(text => text.startsWith('1. ') && text.endsWith(' / fleet plain')), texts.join('\n'));
+});
+
 test('exports pass actual parkride and compare CLI decoders', {timeout: 180000}, t => {
   const result = spawnSync(process.env.PODSIM_GO || 'go', ['version'], {encoding: 'utf8'});
   if (result.error) { if (process.env.PODSIM_REQUIRE_GO) throw result.error; t.skip('Go not installed'); return; }
@@ -94,7 +117,8 @@ test('exports pass actual parkride and compare CLI decoders', {timeout: 180000},
   fs.writeFileSync(path.join(dir, 'energy.json'), offline.encode(offline.validateEnergy(model())));
   for (const [command, args, reportName] of [
     ['parkride', ['-plan', path.join(dir, 'car-plan.json'), '-duration', '20m', '-queue-limit', '200'], 'car-report.json'],
-    ['compare', ['-energy-file', path.join(dir, 'energy.json'), '-duration', '2s', '-request-every', '1s', '-redistribution-policies', 'off', '-format', 'json'], 'energy-report.json']
+    ['compare', ['-energy-file', path.join(dir, 'energy.json'), '-duration', '2s', '-request-every', '1s', '-redistribution-policies', 'off', '-format', 'json'], 'energy-report.json'],
+    ['compare', ['-energy-file', path.join(dir, 'energy.json'), '-fleet-classes', 'plain', '-duration', '2s', '-request-every', '1s', '-redistribution-policies', 'off', '-format', 'json'], 'energy-fleet-report.json']
   ]) {
     const output = path.join(dir, reportName);
     const run = spawnSync(process.env.PODSIM_GO || 'go', ['run', `./cmd/${command}`, '-project', path.join(dir, 'project.json'), ...args, '-output', output], {cwd: path.join(__dirname, '..'), encoding: 'utf8', timeout: 80000, env: {...process.env, GOEXPERIMENT: 'jsonv2'}});

@@ -166,11 +166,14 @@
       }
       return {kind: 'cars', report};
     }
-    if (report.schema_version === 18) {
+    // Compare writes schema 19 when -fleet-classes is set. Then each result
+    // names its fleet class. Compare refuses energy estimates for express.
+    if (report.schema_version === 18 || report.schema_version === 19) {
       const results = array(report.results, 'Comparison results');
       if (!results.length) fail('Comparison report has no results.');
       for (const result of results) {
         object(result, 'Comparison result'); const energy = object(result.energy, 'Energy result');
+        if (report.schema_version === 19 && result.fleet_class !== 'plain') fail('Schema 19 energy results must have fleet class plain.');
         validateEnergy({model: energy.model, profiles: energy.profiles});
         string(energy.mass_assumption, 'Mass assumption'); object(energy.class_counts, 'Class counts');
         for (const [className, count] of Object.entries(energy.class_counts)) {
@@ -184,7 +187,7 @@
       }
       return {kind: 'energy', report};
     }
-    fail('Unsupported report. Import a car report version 1 or an energy comparison schema 18.');
+    fail('Unsupported report. Import a car report version 1 or an energy comparison schema 18 or 19.');
   }
   function encode(value) { const text = JSON.stringify(value, null, 2) + '\n'; if (bytes(text) > INPUT_BYTES) fail('Export exceeds the 10 MiB native input limit.'); parseJSON(text); return text; }
   function blank(fields) { return Object.fromEntries(fields.map(key => [key, ''])); }
@@ -300,9 +303,9 @@
       selector.addEventListener('change', update); target.append(selector, detail); update();
       target.append(element('p', 'Each itinerary includes authored durations, seats, consent, policies, request IDs, and event ticks. Tick -1 means unrecorded.'));
     } else {
-      target.append(element('p', `Energy comparison schema 18. ${report.results.length} results. Estimates use authored flat-v1 profiles.`));
+      target.append(element('p', `Energy comparison schema ${report.schema_version}. ${report.results.length} results. Estimates use authored flat-v1 profiles.`));
       const selector = element('select'); selector.setAttribute('aria-label', 'Energy comparison result');
-      report.results.forEach((value, index) => { const option = element('option', `${index + 1}. ${value.pattern ?? 'Pattern unavailable'} / ${value.policy ?? 'Policy unavailable'} / seed ${value.seed ?? 'unavailable'}`); option.value = String(index); selector.append(option); });
+      report.results.forEach((value, index) => { const option = element('option', `${index + 1}. ${value.pattern ?? 'Pattern unavailable'} / ${value.policy ?? 'Policy unavailable'} / seed ${value.seed ?? 'unavailable'}${value.fleet_class ? ` / fleet ${value.fleet_class}` : ''}`); option.value = String(index); selector.append(option); });
       const detail = element('div');
       function update() {
         detail.replaceChildren(); const result = report.results[Number(selector.value)], energy = result.energy;
