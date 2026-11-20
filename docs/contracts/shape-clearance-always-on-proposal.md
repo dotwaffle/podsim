@@ -431,7 +431,7 @@ The agent decided each one on the delegation of section 7.2, and the maintainer 
 | AO-S13 | The checks decoded the network again from a map, so with both members the check error named either one. | The checks decode the bytes of the network, and name the first member in document order. The check text uses the fixed wording of `jsonerr`. |
 | AO-S14 | The coverage count of A1 drops on D (section 5.1) was 0. The route envelope of the count left out the rule 1 fronts. | Count with the fronts of the current rules. The count on D is 116 pod ticks, and the test requires a count above 0. |
 | AO-S15 | The amendment AO24 removed the paragraph that "the case above" in `group-physics-design.md` refers to. | Replace the sentence with "The envelope reach holds each plane of the route window of the oracle, so the audit covers that window." The AO24 row gives the new text. |
-| AO-S16 | `TestTailRandomCurvedNetworks` checked a 20 m center distance for each pair, which the certified merge pairs fail under the rule. | Use the D6 body oracle (`LateralBodyCheckForTest`) and `Check`. The test no longer has a check of the center distance that is independent of `Check` for the other pairs. |
+| AO-S16 | `TestTailRandomCurvedNetworks` checked a 20 m center distance for each pair, which the certified merge pairs fail under the rule. | Use the D6 body oracle (`LateralBodyCheckForTest`) and `Check`. The test also checks the center distance of each pair without `Check`, with the minimums of `docs/model.md`: 20 m with a large pod, 12 m for two small pods, and the side-by-side distance by class on a merge, split, or shape lane pair. |
 
 ### 7.4 Evidence of slice 7
 
