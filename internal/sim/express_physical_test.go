@@ -46,13 +46,13 @@ func expressEvidence(t *testing.T, name string, value any) {
 
 // checkExpressMotionTick measures integration and resource IDs independently.
 // The fixed numeric bounds do not use production profile, braking, or release helpers.
-func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
+func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod, tables *referenceTables) float64 {
 	t.Helper()
 	recordExpressTick(t, s)
 	if _, err := s.SafetyObservation().Check(); err != nil {
 		t.Fatal(err)
 	}
-	checkSafetyLocationParity(t, s)
+	checkSafetyLocationParity(t, s, tables)
 	checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
@@ -130,11 +130,11 @@ func checkExpressMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
 	return minimum
 }
 
-func expressAdversarialTick(t *testing.T, s *Simulation, previous *motionPodBuffer) {
+func expressAdversarialTick(t *testing.T, s *Simulation, previous *motionPodBuffer, tables *referenceTables) {
 	t.Helper()
 	before := previous.capture(s)
 	s.Step()
-	checkExpressMotionTick(t, s, before)
+	checkExpressMotionTick(t, s, before, tables)
 }
 
 // expressFixtureBoarding returns the boarding seconds of the party that
@@ -189,6 +189,7 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 				gap := math.Inf(1)
 				sawFollowing := false
 				var previous motionPodBuffer
+				var tables referenceTables
 				for steps := range 600 * TicksPerSecond {
 					if steps == leadAt {
 						expressMotionRequest(t, s, "lead", "b")
@@ -198,7 +199,7 @@ func TestExpressMotionFollowingAndMerge(t *testing.T) {
 					}
 					before := previous.capture(s)
 					s.Step()
-					gap = min(gap, checkExpressMotionTick(t, s, before))
+					gap = min(gap, checkExpressMotionTick(t, s, before, &tables))
 					lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
 					if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
 						sawFollowing = true
@@ -229,10 +230,11 @@ func TestExpressMotionBankAndParking(t *testing.T) {
 	}
 	sawParkingDeparture, sawBankArrival := false, false
 	var previous motionPodBuffer
+	var tables referenceTables
 	for steps := 0; steps < 600*TicksPerSecond && s.completed == 0; steps++ {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		v := &s.vehicles[0]
 		if v.Pod.Activity == Traveling && v.RelocatingTo == "origin" && v.origin.ID == "parking-1" {
 			sawParkingDeparture = true
@@ -251,9 +253,10 @@ var expressAdversary = largeAdversary{
 	newFleet: expressPhysicalFleet,
 	newTick: func() func(*testing.T, *Simulation) {
 		var previous motionPodBuffer
+		var tables referenceTables
 		return func(t *testing.T, s *Simulation) {
 			t.Helper()
-			expressAdversarialTick(t, s, &previous)
+			expressAdversarialTick(t, s, &previous, &tables)
 		}
 	},
 	evidence: true,

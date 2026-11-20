@@ -42,10 +42,11 @@ func TestExpressRegistryBoundAndRuntime(t *testing.T) {
 	expressEvidence(t, "service-20-with-one-pending", s.ExportState())
 	restored := false
 	var previous motionPodBuffer
+	var tables referenceTables
 	for s.completed < 21 && s.tick < 600*TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		if !restored && s.vehicles[0].Pod.Activity == Traveling {
 			state := roundTripState(t, s.ExportState())
 			cold, receipt, err := RestoreState(RestoreStateInput{OrderContract: ExpressOrderContract, Network: n, Fleet: fleet, State: state, ExpressServices: services})

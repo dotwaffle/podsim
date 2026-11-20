@@ -41,12 +41,12 @@ func largeMotionNetwork(curved bool) Network {
 
 // checkLargeMotionTick measures visible center gaps and integration directly.
 // Its numeric bounds do not call the production profile or stopping helpers.
-func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod) float64 {
+func checkLargeMotionTick(t *testing.T, s *Simulation, before []Pod, tables *referenceTables) float64 {
 	t.Helper()
 	if _, err := s.SafetyObservation().Check(); err != nil {
 		t.Fatal(err)
 	}
-	checkSafetyLocationParity(t, s)
+	checkSafetyLocationParity(t, s, tables)
 	checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 	if err := s.CheckContract(); err != nil {
 		t.Fatal(err)
@@ -156,13 +156,14 @@ func TestLargeMotionFollowingAndMerge(t *testing.T) {
 				gap := math.Inf(1)
 				sawFollowing := false
 				var previous motionPodBuffer
+				var tables referenceTables
 				for steps := range 600 * TicksPerSecond {
 					if steps == 2*TicksPerSecond {
 						largeMotionRequest(t, s, "follow", "b")
 					}
 					before := previous.capture(s)
 					s.Step()
-					gap = min(gap, checkLargeMotionTick(t, s, before))
+					gap = min(gap, checkLargeMotionTick(t, s, before, &tables))
 					lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
 					if lead.Pod.LaneID == "a-link" && follow.Pod.LaneID == "a-link" && lead.Pod.LaneDistance > follow.Pod.LaneDistance {
 						sawFollowing = true
@@ -192,10 +193,11 @@ func TestLargeMotionBankAndParking(t *testing.T) {
 	}
 	sawParkingDeparture, sawBankArrival := false, false
 	var previous motionPodBuffer
+	var tables referenceTables
 	for steps := 0; steps < 600*TicksPerSecond && s.completed == 0; steps++ {
 		before := previous.capture(s)
 		s.Step()
-		checkLargeMotionTick(t, s, before)
+		checkLargeMotionTick(t, s, before, &tables)
 		v := &s.vehicles[0]
 		if v.Pod.Activity == Traveling && v.RelocatingTo == "origin" && v.origin.ID == "parking-1" {
 			sawParkingDeparture = true

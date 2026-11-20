@@ -418,13 +418,33 @@ func referenceClusterLanes(n Network, byID map[string]Lane, location SafetyLocat
 	return lanes
 }
 
+// referenceTables holds the tables of the reference construction of one
+// simulation, so that the parity checks of a run build them one time.
+type referenceTables struct {
+	r *envelopeReference
+}
+
+// of returns the tables of s. It builds them at the first call, and again
+// when the run moves to another simulation. It returns nil when s has no
+// envelope index, because then the reference construction gives no
+// envelope and needs no tables (see referenceSafetyLocationsWith).
+func (h *referenceTables) of(s *Simulation) *envelopeReference {
+	if s.envelopes == nil {
+		return nil
+	}
+	if h.r == nil || h.r.s != s {
+		h.r = newEnvelopeReference(s)
+	}
+	return h.r
+}
+
 // checkSafetyLocationParity requires the indexed envelope locations of
 // each pod to equal the reference construction, in the same order. It also
 // requires each per-pod entry of the observation to belong to the pod at
-// its index.
-func checkSafetyLocationParity(t *testing.T, s *Simulation) {
+// its index. tables holds the tables of the reference for the run.
+func checkSafetyLocationParity(t *testing.T, s *Simulation, tables *referenceTables) {
 	t.Helper()
-	checkSafetyLocationParityWith(t, s, nil)
+	checkSafetyLocationParityWith(t, s, tables.of(s))
 }
 
 // checkSafetyLocationParityWith is checkSafetyLocationParity with the

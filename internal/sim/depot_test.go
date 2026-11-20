@@ -11,12 +11,13 @@ import (
 // when the ticks run out first.
 func stepDepot(t *testing.T, s *Simulation, ticks int, done func() bool) {
 	t.Helper()
+	var tables referenceTables
 	for range ticks {
 		s.Step()
 		if _, err := s.SafetyObservation().Check(); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)
 		}
-		checkSafetyLocationParity(t, s)
+		checkSafetyLocationParity(t, s, &tables)
 		checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 		if err := checkOwners(s); err != nil {
 			t.Fatalf("tick %d: %v", s.tick, err)

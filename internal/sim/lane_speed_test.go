@@ -202,13 +202,14 @@ func TestLaneSpeedLargeMixedRestore(t *testing.T) {
 			entered := make(map[string]bool)
 			gap := math.Inf(1)
 			var previous motionPodBuffer
+			var tables referenceTables
 			for tick := range 12000 {
 				if tick == 2*TicksPerSecond {
 					request("follow")
 				}
 				before := previous.capture(s)
 				s.Step()
-				gap = math.Min(gap, checkLargeMotionTick(t, s, before))
+				gap = math.Min(gap, checkLargeMotionTick(t, s, before, &tables))
 				for i := range s.vehicles {
 					v := &s.vehicles[i]
 					if v.Pod.Activity != Traveling {

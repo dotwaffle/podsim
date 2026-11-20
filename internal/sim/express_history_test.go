@@ -24,10 +24,11 @@ func newExpressOccupiedPickupRide(t *testing.T, network Network) *Simulation {
 		}
 	}
 	var previous motionPodBuffer
+	var tables referenceTables
 	for range 300 * TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		v := &s.vehicles[0]
 		if v.Pod.Activity == Boarding && v.Pod.Occupied {
 			return s
@@ -46,6 +47,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 	}
 	nextDestination := map[string]string{"market": "garden", "harbor": "market", "garden": "harbor"}
 	var previous motionPodBuffer
+	var tables referenceTables
 	for range 22 {
 		v := &s.vehicles[0]
 		pickup := v.Stops[0]
@@ -60,7 +62,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 		for range 600 * TicksPerSecond {
 			before := previous.capture(s)
 			s.Step()
-			checkExpressMotionTick(t, s, before)
+			checkExpressMotionTick(t, s, before, &tables)
 			if v.Pod.Activity == Boarding && v.Pod.Occupied && v.Pod.StationID == pickup {
 				joined = true
 				break
@@ -92,7 +94,7 @@ func TestExpressRepeatedHistoryRetirement(t *testing.T) {
 	for range 600 * TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 	}
 	if s.completed != s.requestID || len(s.requestCompletions) != s.requestID || s.maxDetourRatio > maxSharedRideDetour+1e-9 || len(v.Riders) > MaxExpressParties || countUnaccounted(t, s) != 0 {
 		t.Fatalf("repeated pickup completion: %+v", s.Snapshot())
@@ -112,6 +114,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 	}
 	pairs := [][2]string{{"harbor", "market"}, {"garden", "harbor"}, {"market", "garden"}}
 	var previous motionPodBuffer
+	var tables referenceTables
 	for tick := range 200 * TicksPerSecond {
 		if tick%(5*TicksPerSecond) == 0 {
 			pair := pairs[(tick/(5*TicksPerSecond))%len(pairs)]
@@ -124,7 +127,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 		off.Step()
 		before := previous.capture(opt)
 		opt.Step()
-		checkExpressMotionTick(t, opt, before)
+		checkExpressMotionTick(t, opt, before, &tables)
 		a, b := off.ExportState(), opt.ExportState()
 		b.OrderContract = ""
 		if !reflect.DeepEqual(a, b) {
@@ -139,7 +142,7 @@ func TestExpressFoundationAndObservationParity(t *testing.T) {
 		plain.Step()
 		before := previous.capture(observed)
 		observed.Step()
-		checkExpressMotionTick(t, observed, before)
+		checkExpressMotionTick(t, observed, before, &tables)
 		if !reflect.DeepEqual(plain.ExportState(), observed.ExportState()) {
 			t.Fatal("oracle altered native trajectory")
 		}

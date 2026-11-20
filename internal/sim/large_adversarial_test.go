@@ -27,7 +27,7 @@ func largeAdversarialNetwork(t *testing.T, allLarge bool) Network {
 
 // This check measures visible centers and scans ownership independently of the
 // large envelope oracle. These journey fixtures use one physical plane.
-func largeAdversarialTick(t *testing.T, s *Simulation) {
+func largeAdversarialTick(t *testing.T, s *Simulation, tables *referenceTables) {
 	t.Helper()
 	s.Step()
 	for i, first := range s.vehicles {
@@ -44,7 +44,7 @@ func largeAdversarialTick(t *testing.T, s *Simulation) {
 	if _, err := s.SafetyObservation().Check(); err != nil {
 		t.Fatal(err)
 	}
-	checkSafetyLocationParity(t, s)
+	checkSafetyLocationParity(t, s, tables)
 	checkSavedRouteStart(t, s, &savedRouteStartCounts{})
 	checkIncrementalOwners(t, s)
 	for i := range s.vehicles {
@@ -74,7 +74,13 @@ type largeAdversary struct {
 var groupAdversary = largeAdversary{
 	large:    GroupClass,
 	newFleet: NewFleet,
-	newTick:  func() func(*testing.T, *Simulation) { return largeAdversarialTick },
+	newTick: func() func(*testing.T, *Simulation) {
+		var tables referenceTables
+		return func(t *testing.T, s *Simulation) {
+			t.Helper()
+			largeAdversarialTick(t, s, &tables)
+		}
+	},
 }
 
 func (adv largeAdversary) writeEvidence(t *testing.T, name string, s *Simulation) {

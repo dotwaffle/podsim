@@ -97,10 +97,11 @@ func TestExpressClearApproachBrakesAtPlannedRate(t *testing.T) {
 			expressMotionRequest(t, s, "pod", "b")
 			var ledger expressLedger
 			var previous motionPodBuffer
+			var tables referenceTables
 			for range 300 * TicksPerSecond {
 				before := previous.capture(s)
 				s.Step()
-				checkExpressMotionTick(t, s, before)
+				checkExpressMotionTick(t, s, before, &tables)
 				ledger.add(before[0].Speed, s.vehicles[0].Pod.Speed)
 				if s.completed == 1 {
 					break
@@ -131,10 +132,11 @@ func TestGroupKeepsFullRates(t *testing.T) {
 	expressMotionRequest(t, s, "pod", "b")
 	var ledger expressLedger
 	var previous motionPodBuffer
+	var tables referenceTables
 	for range 300 * TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		ledger.add(before[0].Speed, s.vehicles[0].Pod.Speed)
 		if s.completed == 1 {
 			break
@@ -161,6 +163,7 @@ func TestExpressBlockedStopUsesMaximumRate(t *testing.T) {
 	expressMotionRequest(t, s, "lead", "b")
 	lead, follow := s.findVehicle("lead"), s.findVehicle("follow")
 	var previous motionPodBuffer
+	var tables referenceTables
 	var ledger expressLedger
 	faulted := false
 	for tick := range 240 * TicksPerSecond {
@@ -174,7 +177,7 @@ func TestExpressBlockedStopUsesMaximumRate(t *testing.T) {
 		before := previous.capture(s)
 		speed := follow.Pod.Speed
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		if faulted && speed > 0 {
 			ledger.add(speed, follow.Pod.Speed)
 		}
@@ -255,6 +258,7 @@ func TestExpressDiversionStaysWithinMaximumRate(t *testing.T) {
 		t.Fatal("could not start the parking move")
 	}
 	var previous motionPodBuffer
+	var tables referenceTables
 	diverted := false
 	for range 240 * TicksPerSecond {
 		if !diverted && v.Pod.LaneID == "a-link" && v.Pod.Speed == 14 {
@@ -274,7 +278,7 @@ func TestExpressDiversionStaysWithinMaximumRate(t *testing.T) {
 		}
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 		if s.completed == 1 {
 			break
 		}

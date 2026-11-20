@@ -36,10 +36,11 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 			t.Fatal(err)
 		}
 		var previous motionPodBuffer
+		var tables referenceTables
 		for s.completed < saved.RequestID && s.tick < 600*TicksPerSecond {
 			before := previous.capture(s)
 			s.Step()
-			checkExpressMotionTick(t, s, before)
+			checkExpressMotionTick(t, s, before, &tables)
 		}
 		if s.completed != saved.RequestID || s.unaccountedOrders != 0 || len(s.waiting) != 0 {
 			t.Fatalf("accepted continuation censored at original cap: %+v", s.ExportState())
@@ -76,6 +77,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 		t.Fatal(err)
 	}
 	var previous motionPodBuffer
+	var tables referenceTables
 	for steps := 0; live.completed < 1 && steps < 30000; steps++ {
 		v := findVehicle(t, live, "01")
 		capture(activityCode(v.Pod.Activity))
@@ -98,7 +100,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 		}
 		before := previous.capture(live)
 		live.Step()
-		checkExpressMotionTick(t, live, before)
+		checkExpressMotionTick(t, live, before, &tables)
 	}
 	if live.completed != 1 {
 		t.Fatal("first Group journey did not finish")
@@ -114,7 +116,7 @@ func TestExpressRestoreProductionPhases(t *testing.T) {
 		}
 		before := previous.capture(live)
 		live.Step()
-		checkExpressMotionTick(t, live, before)
+		checkExpressMotionTick(t, live, before, &tables)
 	}
 	if live.completed != 2 {
 		t.Fatal("second Group journey did not finish")
@@ -154,6 +156,7 @@ func TestExpressRestoreIntermediateProduction(t *testing.T) {
 	}
 	seen := make(map[podPhase]bool)
 	var previous motionPodBuffer
+	var tables referenceTables
 	for steps := 0; live.completed < 2 && steps < 30000; steps++ {
 		saved := live.ExportState().Pods[0]
 		phase, err := phaseOf(saved)
@@ -170,7 +173,7 @@ func TestExpressRestoreIntermediateProduction(t *testing.T) {
 		}
 		before := previous.capture(live)
 		live.Step()
-		checkExpressMotionTick(t, live, before)
+		checkExpressMotionTick(t, live, before, &tables)
 	}
 	if live.completed != 2 || !seen[phaseUnloadingIntermediate] {
 		t.Fatalf("shared Group phases missing: completed=%d, phases=%v", live.completed, seen)
@@ -206,10 +209,11 @@ func TestExpressRestoreContinuingAuthored(t *testing.T) {
 	expressEvidence(t, "continuing", s.ExportState())
 	checkIncrementalOwners(t, s)
 	var previous motionPodBuffer
+	var tables referenceTables
 	for steps := 0; s.completed < 2 && steps < 30000; steps++ {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 	}
 	if s.completed != 2 || s.requestID != 2 || s.boarded != 2 || s.unaccountedOrders != 0 {
 		t.Fatal("authored Continuing lost order conservation")
@@ -262,10 +266,11 @@ func TestExpressMixedPartyWholeCapacity(t *testing.T) {
 		t.Fatal("rejection changed facts")
 	}
 	var previous motionPodBuffer
+	var tables referenceTables
 	for s.completed < 3 && s.tick < 600*TicksPerSecond {
 		before := previous.capture(s)
 		s.Step()
-		checkExpressMotionTick(t, s, before)
+		checkExpressMotionTick(t, s, before, &tables)
 	}
 	if s.completed != 3 || s.boarded != 3 || s.requestID != 3 {
 		t.Fatal("mixed whole parties censored")
