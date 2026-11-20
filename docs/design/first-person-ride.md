@@ -10,6 +10,7 @@ The station levels are built, and the maintainer accepted them in Chrome on 2026
 The cabin HUD and the textures are built, and the maintainer accepted them in Chrome on 2026-11-15.
 The fix that keeps the cabin front of a 6 m pod at its 4 m size is built, and the maintainer accepted it in Chrome on 2026-11-15.
 The [rounded joins](#rounded-joins) are built, and the maintainer accepted them in Chrome on LondonFull on 2026-11-20.
+The [visual polish](#visual-polish) of 2026-11-21 is built, and it waits for a check in Chrome.
 
 ## Goal
 
@@ -120,6 +121,7 @@ A test pins the axis mapping with a station pair of known compass direction.
 - Guideway: one box-section beam for each lane, extruded along the line or curve, at a fixed height of 5 m on tapered pillars about every 60 m.
   A lane beam stops at the trims of its ends, and each piece of a [rounded join](#rounded-joins) has its own beam.
   The page merges the beams into a few meshes, so LondonFull does not have 20,000 draw calls.
+  The [visual polish](#visual-polish) tapers the beam sides and adds a light rail along the beam tops.
   Vertex colors make the running surface on top darker than the concrete sides.
 - Pods: the page loads `web/pod.glb`, a glTF model that `internal/cmd/podmodel` writes.
   The model is 4 m long, 1.5 m wide, and 2.1 m tall, with the parts `shell`, `glass`, `gear`, `cabin`, and `seat`, an `eye` node at the seat, and four screen nodes.
@@ -132,8 +134,10 @@ A test pins the axis mapping with a station pair of known compass direction.
   glTF is right-handed and Babylon is left-handed, so the page changes the sign of x.
   With the same index order, the triangles then wind as the Babylon meshes do, and a Node test checks each triangle of the file.
   If the file does not load, the page draws procedural pods and a cabin frame that moves with the camera.
+  The visual polish adds sky reflections and lights to the pods.
 - Stations: a platform slab under the berths of each station.
   A pool of 12 name signs goes to the stations within 900 m of the camera, because a texture for each of 600 stations uses too much memory.
+  The visual polish gives the signs the style of the cabin screens.
 - Ground: map tiles when `geo` is present, from the tile source of `web/tiles.js`, with the OpenStreetMap credit on the page.
   The ride page does not need the `map` setting that the 2D view needs, but it refuses a `map` setting that is not valid.
   Three rings surround the ridden pod: zoom 18 tiles to 300 m, zoom 16 tiles to 1.2 km, and zoom 14 tiles to the fog distance.
@@ -146,6 +150,7 @@ A test pins the axis mapping with a station pair of known compass direction.
   Without `geo`, the ground is a plain textured plane.
 - Light and sky: a warm sun as a directional light, a hemispheric fill light, a sky dome with a vertical gradient, and distance fog in the horizon color.
   Fog hides the far guideway, so the draw distance can stay at about 3 km.
+  The visual polish adds a haze, a glow around the sun, an exponential fog, and a dusk light.
 - Shadows: one 4,096-pixel shadow map covers a 320 m square, with texels of about 8 cm and high-quality PCF filtering.
   The square is centered 120 m ahead of the camera, along the horizontal view direction, so the shadows reach about 280 m ahead and 40 m behind.
   The light moves in whole texels across its view, so the shadow edges do not crawl when the camera moves.
@@ -156,6 +161,7 @@ A test pins the axis mapping with a station pair of known compass direction.
   The pods, the beams, and the pillars cast shadows, and the ground, the tiles, the beams, and the platforms receive them.
 - Image: Babylon's default rendering pipeline with 4x multisampling, FXAA, and ACES tone mapping.
   In the check of the cascaded shadows, a weak bloom (threshold 0.85, weight 0.2) spread the bright map tiles into soft blotches on the edges of the dark cabin pillars, so the page has no bloom.
+  The visual polish adds a vignette and more color saturation in the same pass.
 - Crossings: the simulation does not control a crossing of two lanes with no shared node, so a pod passes through a pod on the other lane.
   On LondonFull with the wide stations of station scale 0.5, 6,712 such crossings are less than 3.2 m apart in height after the station levels: 2,905 between mainline lanes, 3,097 between a mainline lane and a station lane, and 710 between station lanes.
   The tight stations of November 16, 2026, do not change the mainline lanes, and nobody counted the crossings of their station lanes again.
@@ -279,7 +285,7 @@ The passenger flow logs its state changes.
 - Go tests in `internal/ride`: the heading on lines and curves, the frame packing, the HUD data, the ETA, the auto mode choice, and each step and stop case of the passenger flow.
 - Go tests in `internal/cmd/podmodel`: the GLB structure, the node names, the bounds of the model, the winding of each triangle, what the rider sees from the eye in each direction, the screens, and the texture coordinates.
 - Go tests in `internal/cmd/texgen`: the texture files, the tiling, and the brightness of the textures.
-- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, the HUD formatting, the read of the pod model, the cabin screens, the stop ladder, the texture fallback, and the overlay layout.
+- Node tests (`mise run test:web`): the beam path points, the coordinate mapping, the camera smoothing, the HUD formatting, the read of the pod model, the cabin screens, the stop ladder, the texture fallback, the overlay layout, and the parts of the visual polish.
 - CI has no GPU, so no test draws the scene.
 - The maintainer checks each milestone in desktop Chrome.
   The performance target is 60 frames per second on LondonFull at 1x on the maintainer's GPU.
@@ -496,6 +502,64 @@ Each texture is gray, and the page multiplies it by the color of the surface.
 - The beams and the hub decks get texture coordinates in meters from the start of each lane or the first point of the deck, so the values stay small far from the origin.
 - A texture goes to its materials only after it loads.
   When it does not load, the page logs a warning, and the surfaces keep their flat colors.
+
+## Visual polish
+
+After M2, the maintainer noted that the look needs more work.
+On 2026-11-20, the maintainer asked for a ride page that is prettier, more futuristic, and more realistic, with a good frame rate on LondonFull.
+The polish is a set of small parts, and each part has a URL switch, so the maintainer can compare the look in Chrome.
+
+- Each switch is on, and `name=0` turns it off, for example `/ride.html?pod=01&rail=0`.
+  `polish=0` turns all of them off and gives the look from before the polish.
+- `lookOptions` in `web/ride.js` reads the switches, and a Node test pins them.
+- No part adds an asset file, a script, a light, or a pass of the image pipeline.
+  The textures of the polish are typed arrays that `web/ride.js` makes at load, and Node tests check them.
+- No part adds per-frame CPU work that grows with the lane count.
+  The GPU draws the rail vertices in each frame, as it draws the beams.
+- The counts are for LondonFull, from the topology of the preset in Node.
+  Before the polish, the page draws 8,220 lanes, 9,045 pieces, and 1,182,064 beam vertices.
+
+| Switch | Part | Cost |
+| --- | --- | --- |
+| `tint` | The map tiles get a cool gray diffuse color, so the guideway stands out over the bright map. | One material color. No draw call, vertex, or per-frame work. |
+| `rail` | A strip in the HUD accent color, 12 cm wide, runs along the middle of each beam top, 5 cm above it. | One draw call, one unlit material, 295,516 vertices, 260,986 triangles, and about 6.7 MB of GPU buffers. No shadow work. About 140 ms more to build in Node. |
+| `taper` | The beam bottom is 0.9 m wide under the 1.4 m top, so the sides slope in. | The same faces and vertices as the box beam. |
+| `sky` | The sky has a lighter haze at the horizon, a deeper blue at the top, and a warm glow around the sun. The fog is exponential squared in the haze color, and 4% of a color stays at 3 km. | The sky dome has 48 segments in place of 24: about 3,700 more vertices in the same draw call. The fog costs the same. |
+| `gloss` | The pod shells and windows reflect a cube texture of the sky, with a Fresnel term. | A cube texture of 32 texels on a side, about 33 KB with mipmaps, made once for each topology. One cube sample for each pixel of a shell or a window. No draw call. |
+| `lights` | The pod model gets a white band across the front nose, a red band across the rear nose, and a thin accent line along each side, in the livery stripe. | An emissive texture of 64 by 512 texels, about 175 KB with mipmaps. One texture sample for each shell pixel. No geometry or draw call. |
+| `signs` | The station signs have the dark panel of the cabin screens, an accent bar, and a stop mark. A long name loses the part in brackets, then words at its end. | A sign draws only when it moves to another station, as before. |
+| `fx` | A weak vignette darkens the corners of a 16:9 view by about 21% and the cabin screens by about 8%, and the color curves raise the saturation a little. | Uniforms of the existing image processing pass. No new pass. |
+| `fov` | The seat view widens from 1.1 rad when the pod stands to 1.18 rad at 20 m/s, with a time constant of 0.5 s. | A few operations in each frame. |
+
+- `time=dusk` gives a warm sun 15 degrees above the horizon in the west-southwest, a cool fill light, a warm haze, and a strong glow.
+  The day stays the default, because the bridge has no clock of the day.
+  Dusk needs the polished sky, so `sky=0` gives the day.
+  With the low sun, the 320 m shadow map covers about 1.2 km of ground along the sun direction.
+  Thus the shadows are softer in that direction.
+- The rail is real geometry with a small depth offset.
+  A light line in the beam texture would fight in the depth buffer at each fork, where the tops of two beams overlap.
+  An edge line of one branch would also cross the running surface of the other, and a center rail splits cleanly at a fork.
+- The cube faces of `gloss` follow the WebGL cube lookup, which Babylon also uses.
+  A Node test checks the face directions against that lookup.
+  If the windows show the ground above the horizon, the faces are upside down in the browser.
+- The lights of `lights` use the shell texture coordinates of `internal/cmd/podmodel`.
+  There, u is z in meters, and the middle of the livery stripe is at v = 0.5.
+  A Node test pins this mapping against `web/pod.glb`.
+  The procedural pods have no such coordinates, so they get no lights.
+- The reflections and the lights add to the lit color after the lighting, and the sum stops at white.
+  Thus the light shells reflect little, and shade does not dim the lights.
+- The seat view only widens, because a narrower view cuts off the cabin screens.
+  There is no head bob.
+
+These parts were judged and left out:
+
+- Bloom or a glow layer: in an earlier check, bloom spread the bright map tiles over the cabin pillars.
+  The sky, the cabin, the screens, and the signs use emissive color in place of light, so a glow would light them too.
+- A light line on the beam edges: it fights at forks, as the list above says.
+  The tapered sides face down, so the seat view does not see a line on them.
+- Platform edge lights and canopies: the platform slab is a box around the berths, aligned with the map axes and not with the berths.
+  Lights on its edges show the box, and a canopy can block the platform camera.
+- A time of day from the session clock: the bridge sends no clock of the day.
 
 ## Later items
 
