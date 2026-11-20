@@ -87,11 +87,14 @@ func replacedLondonID(id string, replaced, moved []string) bool {
 // checkLondonParity checks that the variant is the reference outside the
 // replaced stations. Each node and lane outside them has the same ID, the
 // same position or ends and control, and the same metadata, and each other
-// station is the same. Each new node and lane belongs to a replaced
+// station is the same. A road of a replaced station can have another
+// control point and speed limit, which the road fillets give it from the
+// layout of its station, when the options of the variant fillet the
+// roads (see sameLondonLane). Each new node and lane belongs to a replaced
 // station. The demand and the settings are the same, and the pods outside
 // the replaced stations are the same but for their class. The stations in
 // moved are also replaced, and their throats can move too.
-func checkLondonParity(t *testing.T, reference, variant project.Config, moved []string, replaced ...string) {
+func checkLondonParity(t *testing.T, reference, variant project.Config, options LondonOptions, moved []string, replaced ...string) {
 	t.Helper()
 	replaced = append(slices.Clone(replaced), moved...)
 	nodes := make(map[string]sim.Node, len(variant.Network.Nodes))
@@ -113,8 +116,9 @@ func checkLondonParity(t *testing.T, reference, variant project.Config, moved []
 	for _, lane := range variant.Network.Lanes {
 		lanes[lane.ID] = lane
 	}
+	roads := londonParityRoads(variant.Network, options, replaced)
 	for _, lane := range reference.Network.Lanes {
-		if got, ok := lanes[lane.ID]; !replacedLondonID(lane.ID, replaced, moved) && (!ok || !reflect.DeepEqual(got, lane)) {
+		if got, ok := lanes[lane.ID]; !replacedLondonID(lane.ID, replaced, moved) && (!ok || !sameLondonLane(lane, got, replaced, roads)) {
 			t.Fatalf("lane %+v is %+v", lane, got)
 		}
 		delete(lanes, lane.ID)
@@ -153,6 +157,61 @@ func checkLondonParity(t *testing.T, reference, variant project.Config, moved []
 	if !slices.Equal(pods(variant), pods(reference)) {
 		t.Fatal("the pods outside the replaced stations differ")
 	}
+}
+
+// londonParityRoads returns the roads of the replaced stations that
+// checkLondonParity accepts in the variant network: the roads of
+// londonRuleRoads when the options fillet the roads, or none.
+func londonParityRoads(network sim.Network, options LondonOptions, replaced []string) map[string]sim.Lane {
+	if !options.RoadFillets || options.Junctions != LondonChords {
+		return nil
+	}
+	return londonRuleRoads(network, replaced)
+}
+
+// londonRuleRoads returns the roads of the replaced stations of network as
+// the road fillets make them from the layout of the network: each such
+// road gets its chord at 14 m/s, and then filletLondonRoads runs. It gives
+// the lanes by ID.
+func londonRuleRoads(network sim.Network, replaced []string) map[string]sim.Lane {
+	network = project.CloneNetwork(network)
+	for index := range network.Lanes {
+		if lane := &network.Lanes[index]; londonReplacedRoad(*lane, replaced) {
+			lane.Control, lane.SpeedLimit = nil, speedLimit
+		}
+	}
+	filletLondonRoads(&network)
+	roads := make(map[string]sim.Lane)
+	for _, lane := range network.Lanes {
+		if londonReplacedRoad(lane, replaced) {
+			roads[lane.ID] = lane
+		}
+	}
+	return roads
+}
+
+// londonReplacedRoad reports whether lane is a road of a replaced station.
+func londonReplacedRoad(lane sim.Lane, replaced []string) bool {
+	return slices.Contains(replaced, lane.StationID) && strings.HasPrefix(lane.ID, lane.StationID+"-road-")
+}
+
+// sameLondonLane reports whether the lane got of a variant keeps the lane
+// of the reference. The lane passes when it equals the reference. A road
+// of a replaced station also passes when only its control point and its
+// speed limit differ, and when these are the values of the road in roads
+// (see londonRuleRoads). With no road in roads, the lane must equal the
+// reference.
+func sameLondonLane(reference, got sim.Lane, replaced []string, roads map[string]sim.Lane) bool {
+	if reflect.DeepEqual(got, reference) {
+		return true
+	}
+	if !londonReplacedRoad(reference, replaced) {
+		return false
+	}
+	shape := got
+	shape.Control, shape.SpeedLimit = reference.Control, reference.SpeedLimit
+	want, ok := roads[reference.ID]
+	return ok && reflect.DeepEqual(shape, reference) && reflect.DeepEqual(got, want)
 }
 
 // londonFacilityIDs returns the IDs of the Parking facilities.
@@ -214,7 +273,7 @@ func TestLondonDepots(t *testing.T) {
 						t.Fatal(err)
 					}
 					checkLondonDepots(t, config, lanes, slots, options.ParkingPods)
-					checkLondonParity(t, reference, config, nil, londonFacilityIDs()...)
+					checkLondonParity(t, reference, config, options, nil, londonFacilityIDs()...)
 					if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 						t.Fatalf("name %q", config.Name)
 					}
@@ -509,6 +568,95 @@ func TestLondonDepotArea(t *testing.T) {
 					t.Fatalf("%g degrees, mirrored %t: slot node %s is outside", degrees, mirrored, node.ID)
 				}
 			}
+		}
+	}
+}
+
+// TestSameLondonLane checks the lane rule of checkLondonParity: only a road
+// of a replaced station can differ from the reference, only in its control
+// point and its speed limit, and only to the road that the fillets give it.
+func TestSameLondonLane(t *testing.T) {
+	t.Parallel()
+	road := sim.Lane{ID: "s-road-in-01", From: "portal", To: "s-diverge", SpeedLimit: speedLimit, SeparationGroup: "s-road-in-01", StationID: "s"}
+	curved := road
+	curved.Control, curved.SpeedLimit = &sim.Point{X: 10}, 9
+	other := curved
+	other.SpeedLimit = 8
+	moved := curved
+	moved.To = "s-entry"
+	access := sim.Lane{ID: "s-access-in", From: "s-diverge", To: "s-entry", SpeedLimit: speedLimit, StationID: "s"}
+	bent := access
+	bent.Control = &sim.Point{X: 10}
+	roads := map[string]sim.Lane{road.ID: curved}
+	tests := []struct {
+		name           string
+		reference, got sim.Lane
+		replaced       []string
+		roads          map[string]sim.Lane
+		want           bool
+	}{
+		{name: "same lane", reference: road, got: road, want: true},
+		{name: "road of a replaced station with the rule shape", reference: road, got: curved, replaced: []string{"s"}, roads: roads, want: true},
+		{name: "road of a replaced station with another speed", reference: road, got: other, replaced: []string{"s"}, roads: map[string]sim.Lane{road.ID: curved}},
+		{name: "road of a replaced station with no rule shape", reference: road, got: curved, replaced: []string{"s"}},
+		{name: "road of another station", reference: road, got: curved, replaced: []string{"t"}, roads: roads},
+		{name: "road of a replaced station with other ends", reference: road, got: moved, replaced: []string{"s"}, roads: map[string]sim.Lane{road.ID: moved}},
+		{name: "lane that is not a road", reference: access, got: bent, replaced: []string{"s"}, roads: map[string]sim.Lane{access.ID: bent}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			if got := sameLondonLane(test.reference, test.got, test.replaced, test.roads); got != test.want {
+				t.Fatalf("sameLondonLane = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+// TestLondonRuleRoads checks that londonRuleRoads gives the roads of the
+// replaced stations as the road fillets make them, from their chords: a
+// road with another control point and speed limit gets its rule shape
+// again. It gives no lane of another station.
+func TestLondonRuleRoads(t *testing.T) {
+	t.Parallel()
+	network := project.CloneNetwork(LondonFull().Network)
+	station := londonFacilityIDs()[0]
+	want := make(map[string]sim.Lane)
+	curved := 0
+	for index := range network.Lanes {
+		lane := &network.Lanes[index]
+		if !londonReplacedRoad(*lane, []string{station}) {
+			continue
+		}
+		want[lane.ID] = *lane
+		if lane.Control != nil {
+			curved++
+			lane.Control, lane.SpeedLimit = &sim.Point{X: lane.Control.X + 1, Y: lane.Control.Y}, 3
+		}
+	}
+	if curved == 0 {
+		t.Fatalf("%s has no curved road", station)
+	}
+	if got := londonRuleRoads(network, []string{station}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("roads of %s: %v, want %v", station, got, want)
+	}
+}
+
+// TestLondonParityRoads checks that checkLondonParity accepts a changed
+// road only when the options of the variant fillet the roads: LondonFull
+// with chords. LondonCentral, LondonFull without the option, and LondonFull
+// with ramps get no road.
+func TestLondonParityRoads(t *testing.T) {
+	t.Parallel()
+	network, replaced := LondonFull().Network, londonFacilityIDs()
+	if roads := londonParityRoads(network, DefaultLondonFullOptions(), replaced); len(roads) == 0 {
+		t.Fatal("LondonFull gets no road")
+	}
+	straight, ramps := DefaultLondonFullOptions(), DefaultLondonFullOptions()
+	straight.RoadFillets, ramps.Junctions = false, LondonRamps
+	for _, options := range []LondonOptions{DefaultLondonCentralOptions(), straight, ramps} {
+		if roads := londonParityRoads(network, options, replaced); roads != nil {
+			t.Fatalf("options %+v get %d roads", options, len(roads))
 		}
 	}
 }

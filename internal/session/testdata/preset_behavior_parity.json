@@ -41,43 +41,43 @@
 		]
 	},
 	"london-full": {
-		"topology": "0e2820627504017cbb8164ad52a3baccdb6234a635208d4d02e500a3e96f363e",
+		"topology": "40d35b05d1736491ec9b82affcb3e59bb5ecea3a199fd7334617bb85de7de8a0",
 		"checkpoints": [
 			{
 				"state": "demand",
 				"tick": 18000,
-				"savedState": "c8fff7b4e4ed09a6396e8978106ef37a26e63d4399bdb9022c632052dc62c8f9",
-				"full": "93803b06f7ef911e80d0f18d8d3a977cdd353ae4dd46c4579cf2b5ea2d358bf8"
+				"savedState": "0b97ef7e338bd7fcb9d020d175ff49bf078463b60c3dd3858a3d00225c1a9a7b",
+				"full": "978a0c72aaa17b4d1d0c001c35f91d9367a9bb3dae01c172bbc80475e73c52ab"
 			},
 			{
 				"state": "demand",
 				"tick": 36000,
-				"savedState": "1e0c7a61e3db20523b19af7f6c431256194c569aa528566bc8fd0888b64d63f1",
-				"full": "3a1b9d92c0f6afa572b791b6036e6489dd13a3f475ef455eda90002754ac63c8"
+				"savedState": "3e0f5524529bb3eaa66656afcc90187877fdcdeb9f40cbabcb07fbf008017f02",
+				"full": "f01c24436b893feb2d08c0711a134ab7c439d510822945664f670aac70e904a7"
 			},
 			{
 				"state": "demand",
 				"tick": 54000,
-				"savedState": "e1982a4c06ae78b502d6dafc561cd5572a0376093576319c853939230a62ce36",
-				"full": "7ce8a1acf9e811cdbc0ef6e104d995c0fbdfd76d9f3daa295742fa184f6df6de"
+				"savedState": "7557068facc7c674f63ef5e2860b16eab06a0b753c3983c46ce117839bc1ad2e",
+				"full": "bad8777c2484d8a2d1261c3f7278c489559a8fb312453985272ed44a8f82105e"
 			},
 			{
 				"state": "demand",
 				"tick": 72000,
-				"savedState": "fd94e10741f2151d333db97a2d565fe5ced30063b4a6054347ea218fc6e4929a",
-				"full": "2d4143492520e40b99a4182ce2881fcd71667db69038691137a456be11c43bbb"
+				"savedState": "617fa10ba89b706a2097fef777da3db35b89fcfae34428f215118314332bf1ac",
+				"full": "71d7ece81d61b49feea1a9b52d3c9691b4b1adcf0098ead5c4c08c9bfdee38d4"
 			},
 			{
 				"state": "demand",
 				"tick": 90000,
-				"savedState": "090d75c3743abd8d52b03c3f90292d493002d839bff16c51e376a884657aa607",
-				"full": "3dbd03b1a1d98842a7d410656e140fa1d23fb44c8be54e8401fabe9deab7f2b1"
+				"savedState": "5472e9b63e041293e8ed907d625e221067e7f788f714e9d382cfe9f180a25944",
+				"full": "9fa207385d59e5e82e9eed4cd65b328b80532223f1bdbc19501d4ff030418ddc"
 			},
 			{
 				"state": "demand",
 				"tick": 108000,
-				"savedState": "2d3d6d0a3f867740bdf515fe23e1dac47c888d90ecc828e9925748ce9ee606f5",
-				"full": "bdcaee9afbed3738197a319725d199c8e06ea54c945c6529941af1a2aedbec69"
+				"savedState": "5cb326f4ae706f415b8994167fbf2c253410dc3faf5688b02efb2a556b407208",
+				"full": "231235c3cc977a473610c8747bfb36f928e235874299a3e4aa949df178fd2db8"
 			}
 		]
 	},

@@ -58,13 +58,22 @@ var sharedTrackRoute = []string{
 // Express preset without a cache. It is decision D11 of the shape
 // clearance design: LondonFull with Express on the main-line track of link
 // 100 between Waterloo and Bank, shared with Compact pods. Its 16 Express
-// pods start in the Express parking of decision S4 beside Waterloo.
+// pods start in the Express parking of decision S4 beside Waterloo. It
+// builds on LondonFull with straight roads (see sharedTrackBase).
 func GenerateLondonFullSharedExpress() (project.Config, error) {
-	config, err := GenerateLondonFull()
+	config, err := sharedTrackBase()
 	if err != nil {
 		return project.Config{}, err
 	}
 	return londonFullSharedExpressPreset(config)
+}
+
+// sharedTrackBase returns the LondonFull project that the preset builds
+// on: LondonFull with straight roads. Decision FL-D4 B of
+// docs/contracts/london-fillets-proposal.md keeps the preset on this base
+// until the maintainer accepts the evidence of the filleted LondonFull.
+func sharedTrackBase() (project.Config, error) {
+	return generateLondonFull(func(options *LondonOptions) { options.RoadFillets = false })
 }
 
 // londonFullSharedExpressPreset returns the preset from c, which is a

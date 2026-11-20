@@ -56,9 +56,10 @@ var (
 )
 
 // expressBaseOptions changes the LondonFull options to those of the
-// approved Express geometry: wide stations at station scale 1.
+// approved Express geometry: wide stations at station scale 1, and roads
+// that keep their chords.
 func expressBaseOptions(options *LondonOptions) {
-	options.StationScale, options.WideStations = 1, true
+	options.StationScale, options.WideStations, options.RoadFillets = 1, true, false
 }
 
 // GenerateLondonFullExpress returns the LondonFull Express preset without

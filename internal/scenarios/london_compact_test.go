@@ -170,7 +170,7 @@ func TestLondonCompactStations(t *testing.T) {
 				} else if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 					t.Fatalf("name %q", config.Name)
 				}
-				checkLondonParity(t, preset.ordinary(t), config, options.CompactStations, replaced...)
+				checkLondonParity(t, preset.ordinary(t), config, options, options.CompactStations, replaced...)
 			})
 		}
 	}
@@ -197,7 +197,7 @@ func TestLondonCompactEachStation(t *testing.T) {
 				t.Fatal(err)
 			}
 			checkLondonCompact(t, config, []string{id}, londonStationPods)
-			checkLondonParity(t, reference, config, []string{id})
+			checkLondonParity(t, reference, config, options, []string{id})
 			if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
 				t.Fatalf("name %q", config.Name)
 			}

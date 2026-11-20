@@ -37,7 +37,7 @@ type sharedExpressFixture struct {
 // change to the preset.
 func TestSharedExpressFixture(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(LondonFull())
+	config, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}

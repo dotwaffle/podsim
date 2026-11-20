@@ -120,14 +120,14 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
 		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
 		"london-central":      "4fe988e97c3bf869c56eb6af59dd24f0885f2ab5d977eb9a91a8202acc53acc7",
-		"london-full":         "f9b42a168fbec23652695ed241ac9ba5736d67f7a4a2dc8cda560ff63d5d1da2",
+		"london-full":         "66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa",
 		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
 		"london-central":      "088a6fed356a6e6673638df361c6357f511d02868a6e6b154807ad248568cbf7",
-		"london-full":         "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225",
+		"london-full":         "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5",
 		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
 	}
 	for preset, want := range tests {
@@ -185,11 +185,11 @@ func TestRunLondonOptOut(t *testing.T) {
 			flags: []string{"-parking-lanes", "0"}, groups: 7},
 		{name: "LondonCentral without Compact stations", preset: "london-central", network: "27c06dd891a51d0ee9eaffdd62fd9544e77e573e15714c6db3ddb8a72df47f76",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
-		{name: "LondonFull", preset: "london-full", network: "fa1dc35e1b915a2788e0df1fd3eb8029220ca6e8ffdff3d57dab727d7caefe3b",
+		{name: "LondonFull", preset: "london-full", network: "c34a657f750919f107fc917f137a5df851c86c0f83057e9bf1b006cce49d3006",
 			flags: []string{"-parking-lanes", "0", "-compact-stations", "none"}},
-		{name: "LondonFull without depots", preset: "london-full", network: "a0975e289ebd72de3c54d5cc8f80e41826a6ae13f86b4584777c71dbec589f03",
+		{name: "LondonFull without depots", preset: "london-full", network: "697474d1d483e04b703aa2657b60afcd21d973daa6354c5dc7de267b34fec811",
 			flags: []string{"-parking-lanes", "0"}, groups: 8},
-		{name: "LondonFull without Compact stations", preset: "london-full", network: "aa2e5c64e88189bec1dfd7fb7bb6ea3dbe55e7e9c33ab6d1d9ec8fc2d02fad9e",
+		{name: "LondonFull without Compact stations", preset: "london-full", network: "bd9f3d1565c6b1a12f3f76fa0c63872892299c496e991ea8aab86595a3bcd0e2",
 			flags: []string{"-compact-stations", "none"}, depots: 3},
 	}
 	for _, test := range tests {
@@ -352,8 +352,8 @@ func TestRunCapacityFlags(t *testing.T) {
 			flags           []string
 		}{
 			{preset: "london-central", network: "98872d902a7109289d750d53664a87ff0d81eedd7753075b5e6db42140e51c0c"},
-			{preset: "london-full", network: "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726"},
-			{preset: "london-full", network: "2050d85700bb34bcaf4e2d6b52a6ce343d19b0a3a8e1ad4fc25770aff49dedd0", flags: []string{"-berth-pitch", "50"}},
+			{preset: "london-full", network: "413119c9bd469ccc50ab755683a6bcc1f27eb78ac5d6b1105b142a482f48b9d3"},
+			{preset: "london-full", network: "22067582851892434e1998166192c914cc463a5accd9b57e21fe732d480ed4b2", flags: []string{"-berth-pitch", "50"}},
 		}
 		for _, test := range tests {
 			t.Run(strings.Join(append([]string{test.preset}, test.flags...), " "), func(t *testing.T) {
@@ -379,7 +379,7 @@ func TestRunCapacityFlags(t *testing.T) {
 		if distance := math.Hypot(second.Position.X-first.Position.X, second.Position.Y-first.Position.Y); math.Abs(distance-25) > 1e-6 {
 			t.Fatalf("berth pitch = %v meters, want 25", distance)
 		}
-		if network := "f0defafe5847dca7d069cf66806c29cf08207fb46cb26545436f8200111613b8"; !strings.Contains(summary, " network_sha256="+network+" ") {
+		if network := "9503e65cd30cbe9b861552ec9d96e76b939b0be9e744b7ff85105ddd9ea2e0ec"; !strings.Contains(summary, " network_sha256="+network+" ") {
 			t.Fatalf("summary = %q, want network SHA-256 %s", summary, network)
 		}
 	})
@@ -430,7 +430,7 @@ func TestRunCapacityFlags(t *testing.T) {
 				"ramps":  "f797fb2ff315cbd4c4a6acd9f0a3746d224289a5a1bdc31b042dd8fb581e10b0",
 			},
 			"london-full": {
-				"chords": "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726",
+				"chords": "413119c9bd469ccc50ab755683a6bcc1f27eb78ac5d6b1105b142a482f48b9d3",
 				"ramps":  "029781d541c2d9b43be66ba05a52b7d4cc33d2b3b4538c8f9cb26c158b8e0c7b",
 			},
 		}
@@ -526,16 +526,16 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 	}
 }
 
-// TestRunRoadFillets checks the -road-fillets flag on LondonFull: it gives
-// the network of the road fillets and a custom capacity name, and false
-// keeps the preset.
+// TestRunRoadFillets checks the -road-fillets flag on LondonFull, which
+// sets it: the flag keeps the preset, and false gives the straight roads
+// and a custom capacity name.
 func TestRunRoadFillets(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		flag, network, name string
 	}{
-		{flag: "-road-fillets", network: "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5", name: "LondonFull (custom capacity)"},
-		{flag: "-road-fillets=false", network: "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225", name: "LondonFull"},
+		{flag: "-road-fillets", network: "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5", name: "LondonFull"},
+		{flag: "-road-fillets=false", network: "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225", name: "LondonFull (custom capacity)"},
 	} {
 		t.Run(test.flag, func(t *testing.T) {
 			t.Parallel()

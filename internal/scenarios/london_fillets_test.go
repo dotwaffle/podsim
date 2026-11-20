@@ -163,14 +163,15 @@ func TestLondonRoadFillets(t *testing.T) {
 }
 
 // TestLondonRoadFilletsOnLondonFull checks the rule on the roads of
-// LondonFull, which are straight: the count of each outcome, and the
-// network that the option builds. Each curved road leaves the link lane
-// before it and joins the lane after it at their headings, with the speed
-// of its curve. Each other road keeps its chord at 14 m/s, and each other
-// lane and node does not change.
+// LondonFull with straight roads, the base of the shared-track preset: the
+// count of each outcome, and the network of LondonFull, which sets the
+// option. Each curved road leaves the link lane before it and joins the
+// lane after it at their headings, with the speed of its curve. Each other
+// road keeps its chord at 14 m/s, and each other lane and node does not
+// change.
 func TestLondonRoadFilletsOnLondonFull(t *testing.T) {
 	t.Parallel()
-	base := LondonFull().Network
+	base := sharedBase(t).Network
 	fillets := londonRoadFillets(base)
 	counts := make(map[londonFilletOutcome]int)
 	for _, fillet := range fillets {
@@ -182,16 +183,7 @@ func TestLondonRoadFilletsOnLondonFull(t *testing.T) {
 	if !reflect.DeepEqual(counts, want) {
 		t.Fatalf("outcomes %v, want %v", counts, want)
 	}
-	options := DefaultLondonFullOptions()
-	options.RoadFillets = true
-	config, err := LondonFullWith(options)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.HasSuffix(config.Name, CustomCapacitySuffix) {
-		t.Fatalf("name %q, want the custom capacity suffix", config.Name)
-	}
-	n := config.Network
+	n := LondonFull().Network
 	if !reflect.DeepEqual(n.Nodes, base.Nodes) || len(n.Lanes) != len(base.Lanes) {
 		t.Fatal("the option changes the nodes or the lane count")
 	}
@@ -241,12 +233,15 @@ func TestLondonRoadFilletsOnLondonFull(t *testing.T) {
 	}
 }
 
-// TestLondonRoadFilletsOption checks that no preset sets the option, that
-// londonCapacity.equal compares it, and that it has no effect with ramps.
+// TestLondonRoadFilletsOption checks that LondonFull sets the option and
+// LondonCentral and the base of D do not, that londonCapacity.equal
+// compares it, and that it has no effect with ramps.
 func TestLondonRoadFilletsOption(t *testing.T) {
 	t.Parallel()
-	if DefaultLondonCentralOptions().RoadFillets || DefaultLondonFullOptions().RoadFillets {
-		t.Fatal("a preset sets the road fillets")
+	express := DefaultLondonFullOptions()
+	expressBaseOptions(&express)
+	if DefaultLondonCentralOptions().RoadFillets || !DefaultLondonFullOptions().RoadFillets || express.RoadFillets {
+		t.Fatal("the road fillets are not set for LondonFull only")
 	}
 	var source londonSource
 	if err := decodeLondonSource(&source); err != nil {

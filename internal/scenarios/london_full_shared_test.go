@@ -10,11 +10,27 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
+
+// sharedTrackTestBase builds the base of the preset once (see
+// sharedTrackBase).
+var sharedTrackTestBase = sync.OnceValues(sharedTrackBase)
+
+// sharedBase returns an owned copy of the base of the preset: LondonFull
+// with straight roads.
+func sharedBase(tb testing.TB) project.Config {
+	tb.Helper()
+	config, err := sharedTrackTestBase()
+	if err != nil {
+		tb.Fatal(err)
+	}
+	return project.Clone(config)
+}
 
 // TestLondonFullSharedExpress checks the static results of the shared-track
 // preset (docs/design/shared-track-preset.md, sections 3.5, 3.7, and 4):
@@ -24,8 +40,8 @@ import (
 // Express parking.
 func TestLondonFullSharedExpress(t *testing.T) {
 	t.Parallel()
-	base := LondonFull()
-	config, err := londonFullSharedExpressPreset(LondonFull())
+	base := sharedBase(t)
+	config, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +107,7 @@ func TestLondonFullSharedExpress(t *testing.T) {
 // the comb to each hub and back.
 func TestLondonFullSharedExpressParking(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(LondonFull())
+	config, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +223,7 @@ func expressCombBerth(i int) string {
 // the arrival portal of link 100 crosses the Waterloo road-in-05.
 func TestLondonFullSharedExpressLayout(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(LondonFull())
+	config, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,13 +247,16 @@ func TestLondonFullSharedExpressLayout(t *testing.T) {
 
 // TestLondonFullSharedExpressKeepsPresets checks that the shared-track
 // preset changes neither LondonFull nor project D (decision SX1). It builds
-// the preset first, from the cached LondonFull and with the generator, so
-// that a change to a shared base fails. The construction before the
-// Express parking keeps the network of variant 3.5 of the shared-track
-// study.
+// the preset first, from the cached base and with the generator, so that a
+// change to a shared base fails. The base is LondonFull with straight
+// roads (decision FL-D4 B of the fillets proposal), and LondonFull fillets
+// its roads. Until the fillets proposal, the construction before the
+// Express parking had the network of variant 3.5 of the shared-track
+// study. The study builds on the filleted LondonFull, so the two networks
+// now differ.
 func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	t.Parallel()
-	cached, err := londonFullSharedExpressPreset(LondonFull())
+	cached, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,9 +265,9 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(generated, cached) {
-		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached LondonFull")
+		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached base")
 	}
-	before, err := londonFullSharedExpress(LondonFull(), sharedTrackPresetGeometry())
+	before, err := londonFullSharedExpress(sharedBase(t), sharedTrackPresetGeometry())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,10 +276,11 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 		network sim.Network
 		want    string
 	}{
-		{"LondonFull", LondonFull().Network, "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225"},
+		{"LondonFull", LondonFull().Network, "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5"},
+		{"LondonFull with straight roads", sharedBase(t).Network, "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225"},
 		{"LondonFull Express", LondonFullExpress().Network, "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5"},
-		// The network of variant 3.5 of the shared-track study in
-		// internal/sim, which builds its own copy of this construction.
+		// Before the fillets proposal, this was the network of variant 3.5
+		// of the shared-track study in internal/sim.
 		{"LondonFull Shared Express before the parking", before.Network, "09b8fdea19e1b87e438fe2539878e3bf232eaa13af5e4e954216919ff67614df"},
 		{"LondonFull Shared Express", generated.Network, "5961c7021dcc4a13712cc8006bd060f94e25d38c4eec295056d6ee5cb9f8c687"},
 	} {
@@ -282,7 +302,7 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 // each berth of the Express parking to each hub berth and back.
 func TestLondonFullSharedExpressRoutes(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(LondonFull())
+	config, err := londonFullSharedExpressPreset(sharedBase(t))
 	if err != nil {
 		t.Fatal(err)
 	}

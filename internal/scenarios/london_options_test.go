@@ -65,7 +65,7 @@ func TestLondonWideStationsOption(t *testing.T) {
 		sha256  string
 	}{
 		{name: "LondonCentral", options: DefaultLondonCentralOptions(), build: LondonCentralWith, sha256: "7f8eb551e8915ee1dc93980a908291cc4ce63c7b9577aa50677ed7ff6e0ee0c2"},
-		{name: "LondonFull", options: DefaultLondonFullOptions(), build: LondonFullWith, sha256: "4861d23f0454452591ccc2cddb0cec164d3df870b9bd1acf940726b2d2ffa928"},
+		{name: "LondonFull", options: DefaultLondonFullOptions(), build: LondonFullWith, sha256: "9ec575882c3f108139c9cd05e7305bac44c8de1a50de407760fa408e958a22cd"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
