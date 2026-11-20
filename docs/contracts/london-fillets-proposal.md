@@ -1,8 +1,8 @@
 # London road fillets proposal
 
-Status: PROPOSED.
-The maintainer decided FL-D1 to FL-D9 on 2026-11-20 (section 9), and the text waits for maintainer approval.
-No code, pin, or contract text changes before that approval.
+Status: APPROVED by the maintainer on 2026-11-20, with decisions FL-D1 to FL-D9 (section 9).
+The maintainer approved stage 1 of decision FL-D4: slices 0 to 3 and the evidence of LondonFull.
+Stage 2 waits until the maintainer reads the evidence of LondonFull.
 An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.
 Line references are for `ddb2233a`.
