@@ -125,7 +125,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX9 | Fault, Dwell, and Restore and stream evidence on the preset. Open: the browser game page, which the maintainer checks. |
 | SX7 | Server measurement recorded for the maintainer. Open: retained frames and the browser in Chrome, which the maintainer checks. |
 | SX10 | Evidence complete on the preset. |
-| SX11 | CI case complete. Release soak failed: seed 1 misses the emergency Progress gate in the queues of link 100 (see SX11), and a whole run does not fit the 2-hour limit. With queue promotion (section 9.3.1 of the emergency contract), seeds 1 to 3 had no late record, and the release soak has not run again. |
+| SX11 | Evidence complete on the preset. The release soak of amendment A19 passed on 2026-11-20 at `9cfadfe2`, with queue promotion (section 9.3.1 of the emergency contract) and no late record. The earlier run, before queue promotion, failed (see SX11). |
 | SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
 
 ### Fixture
@@ -450,7 +450,22 @@ Retained frames, decoded client memory, and browser responsiveness are the maint
   It took 51.4 minutes, and each seed passed, with no late record.
   The preset took 3,111 s of run-slot time, the most of the 4 presets, and its `incidents` arm was the longest run, at 1,553 s.
   From this run, the maintainer set the release soak to 2 seeds of each preset in amendment A19 on 2026-11-19.
-  Row SX11 stays failed until the release soak runs at 2 seeds.
+- `mise run soak:full` ran on 2026-11-19 from 23:53Z, at commit `9cfadfe2`, without `nice`, with the 2-hour limit.
+  It finished in 96.9 minutes (5,812 s), with exit status 0, and each of the 8 seeds passed.
+  In each of the 2,016 windows of the log, the tick rate by wall time was between 92 and 101 percent of the rate by thread CPU time.
+  No checked arm of any preset had a late record.
+  On the preset, each checked arm ran the D6 oracle at each tick, with 707,089 to 707,206 runs of the oracle for 702,000 ticks.
+
+  | Preset arm and seed | Records | Completed trips | Queue peak | Mean wait | Longest not blocked by a fault | Late |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+  | `incidents`, seed 1 | 86 | 4,180 | 200 | 793.8 s | 462.4 s | 0 |
+  | `incidents`, seed 2 | 86 | 4,929 | 200 | 610.3 s | 348.8 s | 0 |
+  | `emergencies`, seed 1 | 85 | 4,858 | 200 | 598.9 s | 499.9 s | 0 |
+  | `emergencies`, seed 2 | 79 | 5,049 | 181 | 390.4 s | 428.0 s | 0 |
+
+- The `incidents` arm of seeds 1 and 2 repeats the `promo` rows of the study above: the same records, trips, mean wait, and longest time.
+- On the other presets, the longest record not blocked by a fault was 223.0 s on `london-central`, 442.8 s on `london-full-express`, and 213.6 s on `rail-hub`.
+- Row SX11 passes.
 
 #### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
 
