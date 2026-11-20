@@ -235,6 +235,15 @@ func TestParseScreenOptions(t *testing.T) {
 			t.Errorf("%v: no error", args)
 		}
 	}
+	// At 1800 a minute, the interval is one tick. A higher rate has an
+	// interval of 0 ticks.
+	if opts, err := parseScreenOptions([]string{"-background-per-minute", "1800"}, &bytes.Buffer{}); err != nil || opts.backgroundPerMin != 1800 {
+		t.Errorf("1800 a minute: %+v, %v", opts, err)
+	}
+	const want = "background-per-minute must be from 0 to 1800 and queue-limit from 1 to the queue cap"
+	if _, err := parseScreenOptions([]string{"-background-per-minute", "1801"}, &bytes.Buffer{}); err == nil || err.Error() != want {
+		t.Errorf("1801 a minute: got %v, want %q", err, want)
+	}
 }
 
 // TestScreenOfferQueueLimit checks that the queue limit admits a whole event

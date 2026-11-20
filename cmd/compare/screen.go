@@ -36,6 +36,9 @@ const (
 	// screenHubStream separates the stream of the hub events from the stream
 	// of the background schedule.
 	screenHubStream = 0x48554245
+	// screenMaxBackgroundPerMinute is the highest background rate with an
+	// interval of at least one tick between two requests.
+	screenMaxBackgroundPerMinute = 60 * sim.TicksPerSecond
 )
 
 // screenOptions holds the options of the screen command.
@@ -88,8 +91,8 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	switch {
 	case opts.arrivals <= 0 || opts.arrivals > maxDuration || opts.clear < 0 || opts.clear > maxDuration:
 		return screenOptions{}, errors.New("arrivals must be positive, and arrivals and clear at most 24h")
-	case opts.backgroundPerMin < 0 || opts.queueLimit < 1 || opts.queueLimit > maxQueueLimit:
-		return screenOptions{}, errors.New("background-per-minute must be at least 0 and queue-limit from 1 to the queue cap")
+	case opts.backgroundPerMin < 0 || opts.backgroundPerMin > screenMaxBackgroundPerMinute || opts.queueLimit < 1 || opts.queueLimit > maxQueueLimit:
+		return screenOptions{}, fmt.Errorf("background-per-minute must be from 0 to %d and queue-limit from 1 to the queue cap", screenMaxBackgroundPerMinute)
 	case opts.workers < 1 || opts.workers > maxWorkers || opts.checkEverySeconds < 1:
 		return screenOptions{}, errors.New("workers must be from 1 to 64 and check-every at least 1")
 	}
