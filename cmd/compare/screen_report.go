@@ -110,8 +110,20 @@ func runScreen(args []string, stdout, stderr io.Writer) int {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
-	writeScreenSummary(stdout, report)
-	if output := opts.output; output != "" {
+	return writeScreenResults(report, opts.output, stdout, stderr)
+}
+
+// writeScreenResults writes the summary to stdout and the JSON report to
+// output, and returns the exit status. A write error gives status 1, also
+// when a deciding gate failed. A screen can run for hours, so the JSON
+// report is written also when the summary cannot be.
+func writeScreenResults(report screenReport, output string, stdout, stderr io.Writer) int {
+	code := 0
+	if err := writeScreenSummary(stdout, report); err != nil {
+		_, _ = fmt.Fprintln(stderr, err)
+		code = 1
+	}
+	if output != "" {
 		data, err := json.Marshal(report, jsontext.WithIndent("  "))
 		if err == nil {
 			err = os.WriteFile(output, append(data, '\n'), 0o600)
@@ -121,10 +133,10 @@ func runScreen(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	}
-	if !report.Pass {
+	if code == 0 && !report.Pass {
 		return 3
 	}
-	return 0
+	return code
 }
 
 // screen runs every arm and compares each candidate with LF.
@@ -189,15 +201,28 @@ func screen(opts screenOptions) (screenReport, error) {
 	return report, nil
 }
 
-func writeScreenSummary(w io.Writer, report screenReport) {
+// writeScreenSummary writes a line for each arm, a line for each gate of
+// each pair, and the result. It stops at the first write error and returns
+// it.
+func writeScreenSummary(w io.Writer, report screenReport) error {
+	var err error
+	printf := func(format string, args ...any) {
+		if err == nil {
+			_, err = fmt.Fprintf(w, format, args...)
+		}
+	}
 	for _, arm := range report.Arms {
-		_, _ = fmt.Fprintf(w, "arm %s band=%s seed=%d ticks=%d wall=%.1fs wall_per_sim_hour=%.1fs checks=%d submitted=%d completed=%d interrupted=%d outstanding=%d refused=%d partial=%d refusal=%q failure=%q\n",
+		printf("arm %s band=%s seed=%d ticks=%d wall=%.1fs wall_per_sim_hour=%.1fs checks=%d submitted=%d completed=%d interrupted=%d outstanding=%d refused=%d partial=%d refusal=%q failure=%q\n",
 			arm.Config, arm.Band, arm.Seed, arm.Ticks, arm.WallSeconds, screenSecondsPerHour(arm), arm.Checks, arm.Submitted, arm.Completed, arm.Interrupted, arm.Outstanding, arm.Refused, arm.Partial, arm.Refusal, arm.Failure)
 	}
 	for _, pair := range report.Pairs {
 		for _, gate := range pair.Gates {
-			_, _ = fmt.Fprintf(w, "pair %s vs LF band=%s seed=%d decides=%t gate=%q pass=%t %s\n", pair.Candidate, pair.Band, pair.Seed, pair.Decides, gate.Name, gate.Pass, gate.Detail)
+			printf("pair %s vs LF band=%s seed=%d decides=%t gate=%q pass=%t %s\n", pair.Candidate, pair.Band, pair.Seed, pair.Decides, gate.Name, gate.Pass, gate.Detail)
 		}
 	}
-	_, _ = fmt.Fprintf(w, "screen pass=%t\n", report.Pass)
+	printf("screen pass=%t\n", report.Pass)
+	if err != nil {
+		return fmt.Errorf("write screen summary: %w", err)
+	}
+	return nil
 }

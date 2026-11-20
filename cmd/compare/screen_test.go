@@ -2,6 +2,9 @@ package main
 
 import (
 	"bytes"
+	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -243,6 +246,53 @@ func TestParseScreenOptions(t *testing.T) {
 	const want = "background-per-minute must be from 0 to 1800 and queue-limit from 1 to the queue cap"
 	if _, err := parseScreenOptions([]string{"-background-per-minute", "1801"}, &bytes.Buffer{}); err == nil || err.Error() != want {
 		t.Errorf("1801 a minute: got %v, want %q", err, want)
+	}
+}
+
+// failingWriter fails only the write after the first ok writes, so that a
+// write error that one line drops does not show again on the next line.
+type failingWriter struct{ ok, writes int }
+
+var errWriteFailed = errors.New("write failed")
+
+func (w *failingWriter) Write(p []byte) (int, error) {
+	w.writes++
+	if w.writes == w.ok+1 {
+		return 0, errWriteFailed
+	}
+	return len(p), nil
+}
+
+// TestScreenSummaryWriteError checks that the screen reports a failed write
+// of each summary line, still writes the JSON report, and exits with
+// status 1, also when a deciding gate failed.
+func TestScreenSummaryWriteError(t *testing.T) {
+	t.Parallel()
+	report := screenReport{SchemaVersion: 1, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
+		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Decides: true, Gates: []screenGate{{Name: "g"}}}}}
+	// The summary has an arm line, a gate line, and the result line.
+	for ok := range 3 {
+		err := writeScreenSummary(&failingWriter{ok: ok}, report)
+		if !errors.Is(err, errWriteFailed) || !strings.HasPrefix(err.Error(), "write screen summary: ") {
+			t.Errorf("failure at write %d: %v", ok+1, err)
+		}
+	}
+	if err := writeScreenSummary(&failingWriter{ok: 3}, report); err != nil {
+		t.Fatalf("three writes: %v", err)
+	}
+	output := filepath.Join(t.TempDir(), "screen.json")
+	var stderr bytes.Buffer
+	if code := writeScreenResults(report, output, &failingWriter{}, &stderr); code != 1 {
+		t.Errorf("exit %d, want 1: %s", code, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "write screen summary: write failed") {
+		t.Errorf("stderr %q", stderr.String())
+	}
+	if _, err := os.Stat(output); err != nil {
+		t.Errorf("no JSON report: %v", err)
+	}
+	if code := writeScreenResults(report, "", &bytes.Buffer{}, &bytes.Buffer{}); code != 3 {
+		t.Errorf("a failed deciding gate: exit %d, want 3", code)
 	}
 }
 
