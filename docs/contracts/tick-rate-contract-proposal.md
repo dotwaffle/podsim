@@ -3,7 +3,7 @@
 Status: decided on 2026-11-05.
 Decision 1 chose 30 Hz, and patch 6 landed in `f60f6af`, so `sim.TicksPerSecond` is 30.
 The maintainer also decided on the same day: the lookahead stays two ticks (decision 3), the amendments of section 3.4 are approved with cadences in seconds (decision 4), the view runs at a fixed 60 Hz (decision 6), the wake budget follows the wake period and stays 20 ms at 60 Hz (decision 7), and new corridor pins are accepted (decision 11).
-Amended through November 16, 2026.
+Amended through November 20, 2026.
 Git history holds the dated amendment notes and the earlier text.
 It was drafted against `8bbae7a`, where `sim.TicksPerSecond` was 60.
 Each `file:line` reference is for that tree.
@@ -92,16 +92,15 @@ The rounding in this proof is near 1e-12 m, so the margin still holds.
 A depot chain lane uses the rule of section 1.3, with a pitch of 6 m and a speed from `DepotSpeed` (`internal/sim/depot_network.go:58`).
 A lateral pair uses `lateralClearance`, which is 3.1 m plus `v²/2`, at the higher speed limit of the pair (`internal/sim/depot_lateral.go:33`).
 The sweep of a lateral pair and the maneuver sweep of a bay run at network preparation, over continuous geometry, with no time term.
-A lateral merge pair of a network that sets `lateralMerges` keeps `lateralClearance(0)`, which is 3.1 m, with no speed term (`internal/sim/lateral_merges.go`).
-The junction of its node orders the two pods, and its body sweep runs at network preparation, over continuous geometry, with no time term.
 Amended 2026-11-15, by maintainer decision: the lateral merge pairs of the [lateral merge zones](../design/lateral-merge-zones.md) design.
-A merge or split pair of a network that sets `shapeClearance` keeps the side-by-side distance of the classes of its two pods, 3.1 m, 3.55 m, or 4.0 m, with no speed term ([shape clearance](../design/shape-clearance.md)).
+A merge or split pair keeps the side-by-side distance of the classes of its two pods, 3.1 m, 3.55 m, or 4.0 m, with no speed term ([shape clearance](../design/shape-clearance.md)).
 The junction of its node orders the two pods, and its body sweep runs at network preparation, over continuous geometry, with no time term.
-A shape pair of such a network keeps the same distance, with no speed term.
+A shape pair keeps the same distance, with no speed term.
 Its sweep is the shape certification of the [service contract](service-contract-proposals.md), and it runs at network preparation, over continuous geometry, with no time term.
 The sweep proves that the grown bodies are disjoint at each pair of positions that are not separated, and the plane exemption holds at the other positions.
 So no resource orders the two pods.
 Amended 2026-11-16, by maintainer decision: the merge, split, and shape pairs of the shape clearance design.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 The reversal dwell is `TicksPerSecond` ticks, which is 1 s at each rate.
 
 ### 1.6 Faults

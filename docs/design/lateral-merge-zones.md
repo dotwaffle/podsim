@@ -6,6 +6,7 @@ D3 and D6 follow the recommendations.
 The rule is built behind the `lateralMerges` network field.
 On 2026-11-15, the maintainer adopted it for LondonCentral and LondonFull, which set the field.
 `london-full-express` does not set it, so its behavior does not change.
+On 2026-11-20, the field was removed, and part 3 of the [shape clearance](shape-clearance.md) design applies this rule to each network, D included.
 The [junction study](../studies/london-junctions.md#lateral-merge-zones) has the results with the field set.
 
 Lane ends, found by a review on 2026-11-15: the safety argument of section 3 failed where the body range of a lane reached the far end of the lane.
@@ -70,7 +71,7 @@ A pair is a lateral pair when all of these are true:
 1. Both lanes end at the node (converging), or both start at it (diverging).
 2. Neither lane is a loop, and the two lanes do not share both endpoints (`sharedEndpoints`, `junction_conflicts.go:72`).
 3. Both lanes are small: no large class and no geometry tail, as for the depot `small` member (`internal/sim/depot_lateral.go:70`).
-   With `shapeClearance`, this clause does not apply (see the amendment of section 2).
+   This clause does not apply (see the amendment of section 2).
 4. Neither lane is in a maneuver group or a depot.
 5. On neither lane does the body range reach the far end of the lane: the start for a converging pair, or the end for a diverging pair.
    A join step at the far end counts as part of the lane.
@@ -79,12 +80,13 @@ A pair is a lateral pair when all of these are true:
 
 Through pairs, crossings, and every other pair keep the isotropic rule.
 Pairs with a large class keep 20 m, as the Express contract requires (`docs/contracts/express-physical-encoding-contract-proposal.md:206`).
-When the network sets `shapeClearance`, the [shape clearance](shape-clearance.md) design applies this rule to each class, and `lateralMerges` has no further effect.
+The [shape clearance](shape-clearance.md) design applies this rule to each class.
 Clause 3 does not apply, so a lane with a large class or a geometry tail can form a pair.
 Clauses 1, 2, 4, and 5 stay.
 The body of each lane is the union of the bodies of the classes that the lane admits, and a pair keeps the side-by-side distance of the classes of its two pods.
 The node range stays 12 m, because the union body changes only the body range.
 Amended 2026-11-16, by maintainer decision: the rule for each class, behind the `shapeClearance` network field.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 
 The extent of lane A against lane B in a lateral pair is the union of two ranges:
 
@@ -95,7 +97,7 @@ The extent of lane A against lane B in a lateral pair is the union of two ranges
 
 The range gets the same 0.5 m sample pad as today.
 The center distance that two disjoint grown bodies keep is `2 × 1.05 + 1 = 3.1 m`, which is `lateralClearance(0)` (`depot_lateral.go:34`).
-When the network sets `shapeClearance`, the union body and the side-by-side distance of the two classes replace this body and this distance, as the amended clause 3 states.
+The union body and the side-by-side distance of the two classes replace this body and this distance.
 
 The depot formula `W(v) = 3.1 + v²/2` does not carry over.
 It is 15.6 m at 5 m/s and 101 m at 14 m/s, so a merge zone would become longer than today.
@@ -172,6 +174,8 @@ But the qualification evidence (the soak row, the checkpoints, the oracle runs) 
 | B. Gate by a network field, `lateralMerges`, with `omitzero` and `digest:"ext=16"` | Same | Express, digests, and goldens stay. Gate off and gate on run in one build, so the study needs no scratch build. | Two rules in the simulator. A format change: `docs/reference.md`, project validation, the editor round trip, and the digest registry. |
 | C. Amend the Express contract and requalify | Changes | One rule. | Cost of the soak and the checkpoint rows again, before the rule has study evidence. |
 
+Note of 2026-11-20: the field is removed ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md)), so option B no longer applies.
+
 Numbers 1, 2, and 10 are retired, and 16 is the next free extension number (`internal/session/digest_extension_test.go:438`).
 A network field with a safe zero value keeps `stateVersion` 12 (`internal/session/state_file.go:23`).
 The stream frames refer to the network by index (`internal/session/stream_frame.go:65`), and the project that carries the field reaches clients as it does today, so `StreamVersion` stays 10.
@@ -214,7 +218,7 @@ Unit tests:
 - Straight lateral pairs at 3, 6, 10, 15, 21, 30, 60, and 90 degrees, converging and diverging: the extent against a closed form, and never shorter than the node range.
 - Quadratic ramps from the ramps generator, against the brute-force body reference.
 - Through pairs, loops, shared endpoints, large pairs, lanes with tails, maneuver and depot lanes: the old extent.
-  With `shapeClearance`, large pairs and lanes with tails can form a pair (see clause 3 above).
+  Large pairs and lanes with tails can form a pair.
 - Gate off: each table in `scenario_networks.json.gz` equals the current reference.
 - `Check`: a lateral pair at 3.1 m passes, at 3.09 m fails; a through pair at 3.1 m fails.
 - Two streams into a 6 degree merge for 15 simulated minutes, with `Check` and the oriented body oracle at each tick.

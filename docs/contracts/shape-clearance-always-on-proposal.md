@@ -1,7 +1,8 @@
 # Shape clearance always-on proposal
 
 Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
-The build has started: slices 0 and 1 landed, and section 7.2 records the decisions on the slice 2 stops.
+Slices 0 to 4 landed, and section 7.2 records the decisions on the slice 2 stops.
+On 2026-11-20, the amendments of section 4 were applied to their target documents, with each `<date>` as 2026-11-20.
 Date: 2026-11-20.
 Revised on 2026-11-20 after an adversarial review: 6 major findings and 1 minor finding are folded in.
 Line references are for `b2114516`.

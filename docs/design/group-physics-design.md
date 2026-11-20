@@ -28,14 +28,14 @@ The approval does not authorize default adoption, deployment, real vehicle certi
 ## Geometry and ownership
 
 An interaction with a large class requires at least 20 meters between reference positions on overlapping physical planes.
-When the network sets `shapeClearance`, a merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
+A merge, split, or shape pair with a large pod keeps the side-by-side distance of its two classes, 3.55 meters with a small pod and 4.0 meters with a large pod, as the [shape clearance](shape-clearance.md) design defines.
 Each other pair with a large pod keeps the 20 meter clearance, a following pair included: two pods on one lane, or on two lanes where one ends at the node where the other starts.
 The overlapping physical planes are those of the envelope of "Body planes" below.
 Large-admitting lanes require at least 40 meters of length and actual cells of at least 20 meters.
 Station and berth masks must both admit the class.
 Network preparation checks the largest admitted class, even when the fleet contains only small pods.
 It also checks small lanes that meet a large-admitting lane or berth node.
-When the network sets `shapeClearance`, the static extents of a merge, split, or shape pair use the union body of the classes that each lane admits, and not the body of the largest class.
+The static extents of a merge, split, or shape pair use the union body of the classes that each lane admits, and not the body of the largest class.
 Amended 2026-11-16, by maintainer decision: the following, merge, split, and shape pairs of the shape clearance design, behind the `shapeClearance` network field.
 
 A 20-meter path gap on a curve can give less than 20 meters of physical separation.
@@ -73,17 +73,15 @@ A departing pod retains its raw origin berth plane until origin release.
 A large pair receives a plane exemption only when every cross-pair of occupied locations proves separation.
 Missing arrays, changed pod values, or overlapping incident planes refuse the exemption.
 Public center-only locations cannot grant this exemption.
-The network audit applies the same rule before a run: a large pair of lanes gets the exemption only when every cross-pair of the lanes, their incident lanes, and the berths at their From nodes is on different planes.
+When a tail bound of the network is not finite, the network audit applies the same rule before a run, and preparation then refuses the network: a large pair of lanes gets the exemption only when every cross-pair of the lanes, their incident lanes, and the berths at their From nodes is on different planes.
 The audit uses the whole lane, so a pass that is far from the join on a lane that is incident to a shared plane is also refused.
 The audit returns this refusal as a `PlaneReachError`, and a caller reports it after its other checks (the path, length, and cell checks of preparation, the placements of a fleet, and the other checks of a project), so that it does not hide an earlier refusal.
-When the network does not set `shapeClearance`, the route window of a pod can reach further than an incident lane, because the front bound is the largest `6 * projection bound / 20` of the lanes of the route, and each lane stores it beside its tail.
-The audit does not cover that case, so the observer can report a pair that the audit accepted.
-When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
+The audit checks each pair, small pairs included, in each network.
 For a pair with a large path, it takes the planes of each path by position, and not for the whole lane.
 The envelope reach of a position on a lane holds each plane that the envelope of a pod at that position can hold, on each route through the lane.
 The reach can hold more planes than such an envelope, but not fewer.
 This includes the lanes behind the position on the route, each up to its retained tail, also more than one lane back.
-When the network sets `shapeClearance` and the fleet has a large pod, the envelope of a pod comes from the envelope reach, and not from the largest front bound of the route.
+When the fleet has a large pod, the envelope of a pod comes from the envelope reach, and not from the largest front bound of the route.
 The slack is `envelopeReachSlack`, 1 millimeter.
 Rule 1: a curved lane with no geometry tail has the front bound `min(6 / (c (1 - conflictSlack)), 16.2 meters)`, where c is the minimum projection of a segment of the lane on its chord, and 16.2 meters when c is 0 or less.
 Rule 2: when an envelope holds a lane of a maneuver group, it also holds each lane at a node of the cluster of that lane.
@@ -115,11 +113,12 @@ At the other positions, two lanes keep the shape certification of the [service c
 Two lanes that it does not certify, and a pair with a berth, keep 12 meters, or 20 meters when either path admits a large class, at those positions.
 The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
 In such a network, the oracle takes its envelope from the reach at the published lane position, so the front bound of a route lane extends the route window only from an anchor on that lane.
-The envelope reach holds each plane of the route window of this changed oracle, so the case above stays a gap only in a network without the field.
+The envelope reach holds each plane of the route window of this changed oracle, so the case above is not a gap.
 The order of the refusals and their text do not change.
 Amended 2026-11-16, by maintainer decision: the envelope planes of the audit, behind the `shapeClearance` network field.
 Amended 2026-11-16, by maintainer decision: the local front of the envelope, the small-pod rules, and the reach bound of each lane, behind the `shapeClearance` network field.
 Amended 2026-11-16, by maintainer decision: the anchor front of each lane, the compiled reach, and the envelope that reads the reach, in place of the local front and the reach bound, behind the `shapeClearance` network field.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 The observation uses the existing tick rate and authored speed limits.
 Its separation has no braking term, because a pod stops inside the cells that it owns, so the [rates of a class](../model.md#vehicle-classes) do not change it.
 

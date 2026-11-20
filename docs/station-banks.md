@@ -52,21 +52,21 @@ Banked imports, edits, and simulation admission check the full network with the 
 The audit compares the positions of each pair of nonincident paths.
 It requires 12 meters between two paths, or less on a lane that the retention rules certify.
 A pair with a large class needs 20 meters.
-Such a pair skips the audit by plane only when each location that either path can occupy is on a different plane from each location of the other path.
-The locations of a lane are the lane, its incident lanes, and each berth at its From node.
+When a tail bound of the network is not finite, such a pair skips the audit by plane only when each location that either path can occupy is on a different plane from each location of the other path, and preparation then refuses the network.
+In that case, the locations of a lane are the lane, its incident lanes, and each berth at its From node.
 The audit reports a pair that only these locations refuse after its scan, and a network, a fleet, or a project reports that refusal after its other checks.
 The locations of a berth are the berth and its incident lanes.
 Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
-With a depot and no bank, the audit checks only the pairs with a depot lane or a slot.
-When the network sets `shapeClearance`, the audit checks each pair, small pairs included, also in a network without banks, large classes, maneuver groups, or depots.
-For a pair with a large class, the locations of a lane are then the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
-When the network sets `shapeClearance`, for a pair with a large class, the locations of a berth are the berth, its incident lanes, and by rule 2 of the [group physics design](design/group-physics-design.md) each lane at a node of the cluster of a maneuver group lane among them.
+The audit checks each pair, small pairs included, in each network.
+For a pair with a large class, the locations of a lane are the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
+For a pair with a large class, the locations of a berth are the berth, its incident lanes, and by rule 2 of the [group physics design](design/group-physics-design.md) each lane at a node of the cluster of a maneuver group lane among them.
 Two lanes that share no node are a shape pair when the shape certification of the [service contract](contracts/service-contract-proposals.md) proves them, and the audit does not refuse a shape pair.
 Each other pair needs 12 meters, or 20 meters when either path admits a large class, at each pair of positions that are not separated.
 A pair with a berth is not a shape pair.
 The certified pairs and the skip rules of the maneuver groups, the depot lateral pairs, and the retention rules come first and do not change.
 The order of the refusals and their text do not change.
 The editor uses the same index (`sim.NewLaneClearance`), so its checks match the server.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 
 ## Depot lanes
 

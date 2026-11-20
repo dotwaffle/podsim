@@ -6,6 +6,9 @@ On 2026-11-16, the maintainer approved ST16 to ST24 of the [second shared-track 
 Build record of 2026-11-16: slices 0 to 5 of section 7 are built, and the commit ids are in that section.
 The preset is `london-full-shared-express`, with 5,790 nodes, 9,089 lanes, and 343 pods.
 Slices 6 and 7, the qualification evidence and the study batch, are open, and no simulation has run on the preset.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
+Note of 2026-11-20: the fields are removed, and S1, A1, and the compiled reach apply to each network.
+The text below records the design with the field.
 
 This design is decision D11 of the approved [shape clearance](shape-clearance.md) design.
 D11 keeps project D (`london-full-express`) as it is, and it adds a new opt-in preset with Express on shared main-line track between Waterloo and Bank.

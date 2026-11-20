@@ -6,6 +6,7 @@ The maintainer first approved C2.
 Section 11 gives the measurements of C2 and C1 that changed the decision.
 The other decisions are the separation-group exemption for L1 and clause 5 for L4.
 L3 and L6 do not apply to D, and the record of L5 is corrected.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 Code references are for `959912c7`.
 The counts come from a scratch test at `959912c7`, which did not land.
 A number in a table with the "Measured" heading, or a statement marked "measured", comes from that test.
@@ -390,3 +391,4 @@ Thus neither code option is narrow, and the gap is already closed on every prese
 London and Express run the all-pairs audit, because they have maneuver groups, and no side of a ring preset reaches a lane end.
 The gap stays open only in a project without banks or maneuver groups, where `Check` still reports a close pair.
 The maintainer chose D.
+Note of 2026-11-20: the [always-on proposal](../contracts/shape-clearance-always-on-proposal.md) runs the all-pairs audit with shape pairs in each network, so the gap of decision D is closed (decision AO-D7).

@@ -10,6 +10,9 @@ The old sentence was "The reach bound of L is the largest of `F(L)` and of `F(P)
 The new sentences are "The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P of the seed of L." and "The seed of L holds each lane whose To node is less than two slacks from the From node of L, by the shortest walk back along lanes."
 The ST3 text below records the text as first approved.
 Note of 2026-11-16: the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md) replaces the seed, the reach bound, and the local front of ST3 to ST7, ST11, ST12, ST14, and ST15, by amendments ST16 to ST22.
+Note of 2026-11-20: the [always-on proposal](shape-clearance-always-on-proposal.md) removes the `shapeClearance` field.
+Each changed rule of ST1 to ST15, with rule A1, applies to each network, as the second shared-track amendment proposal amends it.
+The conditions on the field below are records.
 
 ## Summary
 

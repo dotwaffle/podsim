@@ -6,6 +6,9 @@ Applied on 2026-11-16: the text of each ST item is in its target document, with 
 Files changed: `docs/design/group-physics-design.md` (ST16 with ST24), `docs/contracts/service-contract-proposals.md` (ST17), `docs/design/shape-clearance.md` (ST18 with ST24, and ST19), `docs/contracts/express-standees-contract-proposal.md` (ST20), `docs/contracts/shape-clearance-amendment-proposal.md` (ST21 notes), `docs/contracts/express-shared-track-qualification-proposal.md` (ST22), `docs/contracts/shared-track-amendment-proposal.md` (ST23 note), `docs/design/shared-track-preset.md`, and `README.md`.
 The "Amended through" lines of the service contract and the standee contract already gave November 16, 2026.
 The text below records the text as approved.
+Note of 2026-11-20: the [always-on proposal](shape-clearance-always-on-proposal.md) removes the `shapeClearance` field.
+The anchor front of each lane, the compiled envelope reach, and the oracle that reads it (ST16 to ST24) apply to each network.
+The conditions on the field below are records.
 
 ## Summary
 

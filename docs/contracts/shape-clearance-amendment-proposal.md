@@ -1,6 +1,9 @@
 # Shape clearance amendment proposal
 
 Status: approved by the maintainer on 2026-11-16, and applied.
+Note of 2026-11-20: the [always-on proposal](shape-clearance-always-on-proposal.md) removes the field, and each rule of SC1 to SC16 applies to each network.
+The conditional clauses below are records.
+The target documents carry the text of AO1 to AO36 and AO40 to AO44.
 Revised on 2026-11-16 after an adversarial review (see "Review").
 On 2026-11-16, the maintainer approved the [shape clearance](../design/shape-clearance.md) design, with D1-B, D3-A, D5 included, D6-B, D12-A, D2 for all classes, D4 at 20 m, D7 as the network field `shapeClearance`, D8, D9, and D11.
 Section 5 of the design lists the contract changes.

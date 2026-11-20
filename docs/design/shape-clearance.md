@@ -3,12 +3,14 @@
 Status: approved on 2026-11-16.
 Amended on 2026-11-16, by maintainer decision: rule A1 and the envelope of decision S1 of the [shared-track](shared-track-preset.md) design, in amendments ST1, ST5 to ST8, ST10, and ST15 of the [shared-track amendment proposal](../contracts/shared-track-amendment-proposal.md).
 Amended on 2026-11-16, by maintainer decision: the envelope of decision S1 from the compiled envelope reach, in amendments ST18 and ST19 of the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md).
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 Proposed on 2026-11-15, and revised on 2026-11-16 after an adversarial review (section 9).
 Build record: on 2026-11-16, the rule of parts 1 to 5 was built behind the `shapeClearance` network field.
 The commits are `2c918f46` (the field and digest extension 17, with no effect), `4b09997e` and `f6fd4091` (the envelope reach index by position, built on demand), `29af1248` (shape certification, the shape pair table, the all-pairs audit, the oracle, and debris), `33607784` (the independent body oracle for merge pairs), `4805ba4a` (merge and split pairs admit large and tailed lanes with the union body), `e515829b` (the editor runs the server lane check under the field), and `3d71de3d` (the independent body oracle for shape pairs).
 Not built: the section 7 row "routes of section 2.1 with residual geometry fixed", which needs the D11 shared-track geometry, and the applications of section 4 (the D8 Express Parking comb, the D9 demand hubs, and the D11 preset).
 Note of 2026-11-16: the D11 preset, with the D8 comb beside Waterloo, is built as `london-full-shared-express` (see the [shared-track](shared-track-preset.md) design, slices 1 to 3).
 The D9 demand hubs and the section 7 row stay open.
+Note of 2026-11-20: the field is removed, and parts 1 to 5 apply to each network ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md)).
 The body oracle is stricter than the D6 text.
 It fails on any body overlap on a merge pair, because a pod outside its extent clears the other lane.
 So the accepted case of the D6 text, where one pod holds the junction and the other is outside its extent, cannot overlap when the extent table is right.
@@ -61,7 +63,7 @@ Two pods side by side on parallel lanes need the same distance as two pods on on
 
 A pair is exempt when its two pods are on different planes.
 Two locations are on different planes when their separation groups differ and they share no node (`safetyLocationsSeparated`, `internal/sim/safety.go:332`).
-When the network sets `shapeClearance`, rule A1 of the model applies.
+Rule A1 of the model applies to each network.
 A1: two bodies do not overlap when each lane under each body has a nonempty separation group, each lane under one body is in a different group from each lane under the other body, and no lane under one body shares a node with a lane under the other.
 The lanes under a body are its support: the connected part of the route that is under the body and holds the reference of the pod.
 A part of the route that leaves the body and comes back is not in the support.
@@ -69,7 +71,7 @@ The network stores no level, so A1 is a declaration of the author, and validatio
 A1 also assumes that the vertical gap between two levels is enough for each admitted body.
 For a body on one lane, A1 is the test of `safetyLocationsSeparated` on two locations.
 For a body over a node, A1 is the reason that D1-B adds the lanes ahead and behind.
-A network without the field, project D included, keeps the envelope of this section and its requirements, and none of its rules depends on A1.
+Since 2026-11-20, D also uses the envelope reach and A1, and its evidence runs again ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md), section 5).
 Stated 2026-11-16, by maintainer decision: rule A1, which the maintainer accepted as a rule of the model on 2026-11-16 (decision S1 of the [shared-track](shared-track-preset.md) design).
 A small pod has one location: the lane or the berth of its reference (`indexSafety`, `internal/sim/prepared.go:230`).
 When the fleet has a large pod, each pod has an envelope of locations (`largeSafety` and `appendVehicleSafetyLocations`, `internal/sim/envelope_safety.go:13` and `:30`).
@@ -151,7 +153,7 @@ Route validation has other refusals, such as the lane length of section 2.4, whi
   A berth has its own plane and the planes of the lanes at its node.
   The envelope adds only the lanes of the route of the pod (`envelope_safety.go:55` to `:68`), so the rule does not take the other lanes at these nodes.
   This is the rule of D1-B.
-  When the network sets `shapeClearance`, rule 2 of the [group physics design](group-physics-design.md) also adds each lane at a node of the cluster of a held maneuver group lane, also a lane off the route, and a berth gets the same lanes.
+  Rule 2 of the [group physics design](group-physics-design.md) also adds each lane at a node of the cluster of a held maneuver group lane, also a lane off the route, and a berth gets the same lanes.
   The counts of this section come from the rule above, without rule 2.
 - Body reach: the planes of the lanes into the From node in the first 6 m, and of the lanes out of the To node in the last 6 m.
   It drops the retained tail and the origin berth.
@@ -161,13 +163,13 @@ Route validation has other refusals, such as the lane length of section 2.4, whi
 
 The envelope of the oracle also holds the small pod of a mixed pair, so the probe gives each rule to small paths too.
 The probe takes the front bound of a lane from that lane only.
-When the network does not set `shapeClearance`, the envelope takes the largest front bound of the route, as it did when the probe ran.
-With the field, the envelope comes from the envelope reach at the published lane position, with the anchor front of each lane of the [group physics design](group-physics-design.md).
+Before 2026-11-20, a network without the field had an envelope with the largest front bound of the route, as when the probe ran.
+Since 2026-11-20, the envelope of each network comes from the envelope reach at the published lane position, with the anchor front of each lane of the [group physics design](group-physics-design.md).
 It also adds the lanes of one node back only.
 On the measured routes, no lane is curved and each tail is 20 m, which is shorter than each lane, so these limits do not change a count (inferred).
 The built envelope reach index takes the largest front bound of the network for each lane, and that changes the counts (section 2.2, "Counts of the built audit").
 This sentence records the index as built for this design.
-When the network sets `shapeClearance`, the index of decision S1 of the [shared-track](shared-track-preset.md) design takes the anchor front of each lane of the [group physics design](group-physics-design.md) in place of this bound.
+Since 2026-11-20, the index of decision S1 of the [shared-track](shared-track-preset.md) design takes the anchor front of each lane of the [group physics design](group-physics-design.md) in each network, in place of this bound.
 
 | Pair | Route, each way | Stations passed | Whole reach, 20 m (today) | Whole reach, 12 m | Envelope reach, 20 m | Envelope reach, 12 m | Body reach, 20 m | Body reach, 12 m | Lane plane, 20 m or 12 m |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -516,7 +518,7 @@ Shape clearance has five parts.
    If the two swept regions are disjoint, the pair is a shape pair.
    If they meet, or the sweep does not resolve, the pair keeps 12 m or 20 m, and the audit refuses it if it is closer.
 5. **Audit coverage.**
-   When the network sets the field, the bank audit runs on each pair, small pairs included (decision D12, option A).
+   The bank audit runs on each pair of each network, small pairs included (decision D12, option A).
 
 Each shape pair goes into a table, as the depot lateral pairs and the lateral merge pairs do (`depotLateral`, `depot_lateral.go:47`).
 The oracle reads the table.
@@ -544,7 +546,7 @@ The union body holds each class body, so a pair that the union sweep clears is c
    The depot rule `3.1 + v²/2` keeps a stop term for the same kind of pair, and that term is 101 m at 14 m/s.
    Decision D3 chooses between the two.
 5. Under D1-B, the planes of each pod are those of its envelope.
-   When the network sets `shapeClearance`, the envelope comes from the envelope reach, with the small-pod rules of the [group physics design](group-physics-design.md).
+   The envelope comes from the envelope reach, with the small-pod rules of the [group physics design](group-physics-design.md).
    Under rule A1 of section 1.1, the envelope then holds each lane under the body, for the bodies and within the limits that the group physics design states.
    So the plane exemption keeps its meaning, and the envelope can drop a plane of the largest front bound of the route that is not under the body.
    The audit takes the envelope reach by position, and not by whole lane.
@@ -561,6 +563,10 @@ The union body holds each class body, so a pair that the union sweep clears is c
    The class rates of Express do not change a lateral result.
 
 ### 3.5 Places that change
+
+Note of 2026-11-20: this table records the change behind the field.
+Since 2026-11-20, each branch for a network with the field applies to each network.
+Each branch without the field is removed, except the whole-lane reach of `validateBankGeometry`, which stays as the fallback when a tail bound is not finite.
 
 | Place | Change |
 | --- | --- |
@@ -596,7 +602,9 @@ Under D12 option A, such a project then runs the all-pairs audit.
 - Retention layer A: no change, because it is a following rule.
 - Platoons and coasting: no change.
 - The order of the refusals and their text in restore, scan, and stream checks stay.
-  The audit refuses fewer pairs, and its text for a refused pair does not change.
+  In a network that ran the all-pairs audit before 2026-11-20, the audit refuses fewer pairs.
+  In a plain network, it refuses more pairs, and the first refusal of an invalid network can change.
+  Its text for a refused pair does not change.
 
 ## 4. Applications
 
@@ -780,6 +788,9 @@ Its rows need their own evidence, even where the limits and the requirements do 
 | A18 | Unchanged: the formats row | The byte proof runs again, as for E5 | New, as for E5 |
 | B1 | Unchanged: the station banks formats and restore | Holds with parity | New, only if the preset has banks |
 
+Note of 2026-11-20: without the field, D changes, and the rows of section 5 of the [always-on proposal](../contracts/shape-clearance-always-on-proposal.md) run again.
+The gate-off and parity tests of section 7 are removed.
+
 ## 6. Decisions
 
 | ID | Decision | Options | Recommendation |
@@ -804,6 +815,7 @@ That choice followed the C2 build, in which the all-pairs audit on every network
 Option A of D12 runs the all-pairs audit only in a network that sets `shapeClearance`.
 A network without the field does not change, so option A does not reverse decision D.
 A plain project that sets the field and has a close pair that shares no node is refused.
+Since 2026-11-20, D12-A runs the all-pairs audit in each network, so it reverses lane-end decision D for plain projects (decision AO-D7).
 Under option B, the design records the same gap that decision D records, and part 4 makes no claim for unaudited networks.
 
 On 2026-11-16, the maintainer chose the recommended option of each decision.
@@ -812,6 +824,8 @@ D2 covers all classes, D4 keeps 20 m along the path, and D7 is the network field
 D8 is a parking comb beside each origin hub, D9 orders the pairs by demand and residuals, and D11 keeps D and adds a shared-track preset.
 For D10, the maintainer asked for both a generator study of the rows at 25 m and the short access lanes, and a design of berths in series.
 On 2026-11-16, the maintainer approved the contract amendments of section 5, as the [shape clearance amendment proposal](../contracts/shape-clearance-amendment-proposal.md) gives them.
+On 2026-11-20, the maintainer reversed D7: the rule has no gate, and the fields `shapeClearance` and `lateralMerges` are removed.
+D, the ring presets, and their goldens change ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md)).
 
 ### 6.1 Dependencies
 

@@ -6,6 +6,7 @@ The preset is not qualified while a row in the [Evidence](#evidence) section is 
 On 2026-11-20, the maintainer passed the Chrome checks of rows SX6, SX7, and SX9 on the preset in desktop Chrome at `f5bf17a3`, so each row is closed and the preset is qualified.
 Amended 2026-11-16, by maintainer decision: SX3 compares the compiled envelope reach with an independent reference, in amendment ST22 of the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md).
 Amended 2026-11-17, by maintainer decision: the [Evidence](#evidence) section records the evidence, and the maintainer accepts that history rollover of SX8 is not reached on the preset.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 
 ## Scope
 
@@ -26,6 +27,8 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
   Measures: that the preset is opt-in, and that it changes no other project.
   Pass: qualification includes the opt-in preset `london-full-shared-express`.
   LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay.
+  Since 2026-11-20, the network hashes of LondonFull and the preset changed when the network fields left the format, and their behavior did not change (parity test of slice 0 of the always-on proposal).
+  D changed by the shape clearance rule, and its evidence ran again.
   Carried from E1: idle Express pods keep their current behavior.
   Evidence: a test that pins the network hashes of LondonFull and D.
   The field-off test: on D and on each scenario network, the oracle and the reference construction give the envelopes of today, and `TestBerthEnvelopeMatchesReference` passes.
@@ -155,6 +158,9 @@ All evidence items of the row exist, and commit `933a9f12` adds the preset to th
 - `TestBerthEnvelopeMatchesReference` passes.
 - `TestLondonExpressBehaviorParity` passes, so the saved-state and stream bytes of D at each checkpoint do not change.
   `TestGateOffTables` passes.
+
+Note of 2026-11-20: these tests are removed with the fields.
+The parity test of the always-on proposal replaces them for the preset.
 
 #### SX2, Route and station eligibility, and Physical geometry
 
@@ -396,6 +402,7 @@ As for D, this check gave no numbers, and retained frames and decoded client mem
 - On a project that sets `shapeClearance`, each check of the soak driver now also runs the D6 oracle (`LateralBodyCheckForTest`).
   The checks run at each tick, so the D6 oracle runs at each tick.
   The CI case requires at least one run of the D6 oracle for each tick.
+  Note of 2026-11-20: the fields are removed, and the soak driver runs the D6 oracle on each project.
 - `TestSoakLondonSharedExpressDriver` runs a short soak of the preset with the checks, and requires the same count.
   The task `test:shared-express` runs it.
 - The subtest ran once by itself on 2026-11-16, under `nice`, at a host load average of 3.8 to 5.6, and passed in 268 s of wall time.

@@ -2,7 +2,7 @@
 
 Status: decisions 1 to 13 accepted by the maintainer on 2026-11-05, as recommended.
 The maintainer also approved the revision of sections 4, 5, and 7.1 after the external review of section 4.10.
-Amended through November 16, 2026.
+Amended through November 20, 2026.
 Git history holds the dated amendment notes and the earlier text.
 No product code changes with this document.
 It was drafted against `b2262f6`, and each `file:line` reference is for that tree.
@@ -71,7 +71,7 @@ A private on-demand party of 13 to 20 therefore stands in part.
 ### 2.3 Body envelope
 
 The 6 m radius circle and the 20 m pair clearance stay.
-When the network sets `shapeClearance`, a merge, split, or shape pair keeps the side-by-side distance of its two classes, as the [shape clearance](../design/shape-clearance.md) design defines, and each other pair keeps the 20 m pair clearance.
+A merge, split, or shape pair keeps the side-by-side distance of its two classes, as the [shape clearance](../design/shape-clearance.md) design defines, and each other pair keeps the 20 m pair clearance.
 A 6 by 2.5 m rectangle has a half-diagonal of 3.25 m, so a smaller radius is possible.
 A radius for each class makes `classPairClearance`, `LaneMinimumLength`, the cell size guard, the junction clearance, the bank audit scan, and the envelope front into a table of class pairs.
 This has no gain for a Group or Express pod until the mixed cases have a proof, so it is decision 8 and it is out of this slice.
@@ -217,10 +217,11 @@ The rule is on centers, as in the group physics design, and two envelopes of rad
 The proof has three cases, by the lanes of the two pods.
 The tail carries only the first case.
 The old bound also addressed only the first case, so its proof did not cover the part of a tail on a later lane either.
-When the network sets `shapeClearance`, the set of locations of a pod is its envelope (`internal/sim/envelope_safety.go`), and the claim holds for each pair except two kinds.
+The set of locations of a pod is its envelope (`internal/sim/envelope_safety.go`), and the claim holds for each pair except two kinds.
 A merge or split pair of case B, and a shape pair of case C, keep the side-by-side distance of the classes of the two pods instead, by section 3.4 of the [shape clearance](../design/shape-clearance.md) design.
-Case A does not change, and sections 4.4 and 4.5 each give a branch for the field.
+Case A does not change, and sections 4.4 and 4.5 each give a branch for merge, split, and shape pairs.
 Amended 2026-11-16, by maintainer decision: the claim of the 20 m proof under the `shapeClearance` network field.
+Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 
 ### 4.3 Case A: the same lane
 
@@ -250,7 +251,7 @@ If one pod is outside its interval, the distance is above 20 m.
 A sharp join, an S-bend across two lanes, and a tail that continues onto the next lane are all in this case.
 On the presets, route pairs at or past the tail have chords down to 7.29 m when the front pod is on the next lane, so a path gap alone does not separate them.
 The independent check found 0 close samples outside a held junction section, in about 2.7 million close samples.
-When the network sets `shapeClearance`, this case holds as written for a through pair, and for each pair at a node that is not a merge or split pair of the service contract.
+This case holds as written for a through pair, and for each pair at a node that is not a merge or split pair of the service contract.
 A merge or split pair has the extent of the [lateral merge zones](../design/lateral-merge-zones.md) design in place of the 20 m interval: the body range with the union body, and the node range of 12 m.
 Each cell that overlaps the extent holds the junction resource of the node, so the junction orders the two pods.
 A pod outside its extent clears each body position of the other lane, so the grown bodies are disjoint, and the centers are at least the side-by-side distance of the two classes apart.
@@ -265,11 +266,11 @@ Both pods are inside their polylines, so the distance is at least 20 m.
 The audit first gave each lane only its own plane.
 That was a fault in the code of today, and section 4.10 gives its numbers.
 A separate patch lands the location sets before patch 2, and it has no dependency on the tail.
-When the network does not set `shapeClearance`, it reads whole lanes, so it refuses a pass that is far from the join on a lane incident to the shared plane.
+When a tail bound of the network is not finite, it reads whole lanes, and preparation then refuses the network.
 A berth is a zero-length path in this audit, so it is in this case too.
 This case holds for a leader 2 or more lanes ahead on the route, and for a pod on an unrelated lane, at each path gap.
 The independent check found 0 such samples under 20 m, and 0 route pairs under 20 m past the next lane.
-When the network sets `shapeClearance`, the audit takes the envelope reach of the [group physics design](../design/group-physics-design.md) at each position, and not the whole lane.
+The audit takes the envelope reach of the [group physics design](../design/group-physics-design.md) at each position, and not the whole lane.
 The envelope reach of a position holds each plane of the envelope of a pod at that position.
 So when a location of the envelope of `x` and a location of the envelope of `y` are on one plane, their two positions are not separated.
 At such positions, the audit refuses the network when the paths are less than 20 m apart, unless the two lanes are a shape pair of the service contract.
@@ -306,11 +307,11 @@ These are gaps, and I do not hide them behind the case split.
    A tail of 0.7 × scan produced no violation in 35 hairpin networks, so only a static scan can gate the bound.
 4. No random network and no run here uses separation groups.
    Directed networks with plane joins ran in the check of section 4.10, and the tests of the audit patch pin them.
-   A shorter tail narrows the rear window of the observer and the front does not change, so the tail cannot add an observer report.
+   Before 2026-11-20, without the field, a shorter tail narrows the rear window of the observer and the front does not change, so the tail cannot add an observer report.
    The front is a maximum over the route, so one long-tail curve can make the window reach two lanes ahead, and the audit does not cover that case.
    One scratch probe reported 19.996 m there, with the body far from that lane.
    It looks like a false alarm, this is not proved, and the maintainer chose to record it and not change the observer.
-   When the network sets `shapeClearance`, the oracle takes its envelope from the envelope reach of the [group physics design](../design/group-physics-design.md), and not from the largest front bound of the route.
+   The oracle takes its envelope from the envelope reach of the [group physics design](../design/group-physics-design.md), and not from the largest front bound of the route.
    The front bound of a route lane extends the window only from an anchor on that lane.
    The audit takes the same envelope reach, so it holds each plane of the oracle, and the audit covers the window.
    Amended 2026-11-16, by maintainer decision: the local front of the oracle envelope, behind the `shapeClearance` network field.
@@ -388,9 +389,9 @@ The review found the same-lane bound sound in exact arithmetic, and it found no 
 
 These stay:
 
-- The 20 m clearance, except for the merge, split, and shape pairs of a network that sets `shapeClearance` (sections 2.3 and 4.2), the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
+- The 20 m clearance, except for the merge, split, and shape pairs (sections 2.3 and 4.2), the 6 m envelope, the 40 m lane minimum, and the 20 m cell minimum.
 - The refusal of a folded path, a zero chord, and a nonfinite bound, with its text.
-- The audit of nonincident paths and the junction clearance, with the branches of sections 4.4 and 4.5 when the network sets `shapeClearance`.
+- The audit of nonincident paths and the junction clearance, with the branches of sections 4.4 and 4.5.
 - The small-class 12 m clearance, the qualifying chains, the bays, and the depots.
 - The exclusion of large classes from virtual links, coast, and maneuver groups.
 - The Express fleet of 600 pods, the 17,000 orders, and the 20 stored riders.
