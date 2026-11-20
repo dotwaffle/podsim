@@ -113,6 +113,7 @@ var optionSteps = [...]func(*options, map[string]bool) error{
 	parseExperimentalOptions,
 	parseFleetClassOptions,
 	checkMatrixSize,
+	checkScheduleSize,
 }
 
 // defineFlags defines the command-line flags of compare, with opts as their
@@ -294,6 +295,13 @@ func checkMatrixSize(opts *options, _ map[string]bool) error {
 		return fmt.Errorf("the matrix must contain at most %d comparisons", maxComparisons)
 	}
 	return nil
+}
+
+// checkScheduleSize checks the memory of the request schedules before the
+// project loads. It counts one arm for each pattern, and compare counts
+// each band of the profile pattern after the project loads.
+func checkScheduleSize(opts *options, _ map[string]bool) error {
+	return checkScheduleBytes(*opts, opts.patterns)
 }
 
 // validateAdaptiveLimit checks -adaptive-limit and -past-limit.

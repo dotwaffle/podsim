@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
 	randv2 "math/rand/v2"
+	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
@@ -101,5 +105,102 @@ func TestProfileScheduleOrdinaryTotal(t *testing.T) {
 		if id := scheduleID(requests); len(requests) != 3599 || id != pin.id {
 			t.Errorf("band %d seed %d: %d requests, ID %s, want 3599, %s", pin.band, pin.seed, len(requests), id, pin.id)
 		}
+	}
+}
+
+// TestScheduleRequestBytes checks the size that the schedule bound charges
+// for each request.
+func TestScheduleRequestBytes(t *testing.T) {
+	t.Parallel()
+	if size := reflect.TypeFor[scheduledRequest]().Size(); size != scheduleRequestBytes {
+		t.Fatalf("a scheduled request has %d bytes, and the bound charges %d", size, scheduleRequestBytes)
+	}
+}
+
+// TestIntervalRequestCount checks that the bound counts the requests that
+// the interval schedules hold.
+func TestIntervalRequestCount(t *testing.T) {
+	t.Parallel()
+	base, err := newScenario(project.Default(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	flows := []weightedDemandFlow{{from: base.passengers[0], to: base.passengers[1], cumulative: 1}}
+	for _, pattern := range []string{"balanced", "bursty-hotspot", "profile"} {
+		for _, window := range [][2]int64{{1, 1}, {10, 1}, {10, 3}, {12, 3}, {13, 3}, {1800, 7}} {
+			requests := demandSchedule(scheduleInput{seed: 1, durationTicks: window[0], intervalTicks: window[1], burstSize: 3, pattern: pattern,
+				passengers: base.passengers, focus: base.focus, profileFlows: flows})
+			if got := intervalRequestCount(window[0], window[1]); int64(len(requests)) != got {
+				t.Errorf("%s, window %v: %d requests, bound counts %d", pattern, window, len(requests), got)
+			}
+		}
+	}
+}
+
+// seedList returns the seeds 1 to n as a -seeds value.
+func seedList(n int) string {
+	seeds := make([]string, n)
+	for index := range seeds {
+		seeds[index] = strconv.Itoa(index + 1)
+	}
+	return strings.Join(seeds, ",")
+}
+
+// TestScheduleBytesBound checks the bound at its limit for each count that
+// it multiplies. One seed of 24h at one request a second holds 86,399
+// requests, so 32 seeds fit in 256 MiB and 33 do not. A load of 34ms is
+// one tick, and one such schedule holds 2,591,999 requests.
+func TestScheduleBytesBound(t *testing.T) {
+	t.Parallel()
+	const refusal = "the request schedules must fit in 256 MiB"
+	for _, test := range []struct {
+		name   string
+		args   []string
+		refuse bool
+	}{
+		{"32 seeds", []string{"-request-every", "1s", "-seeds", seedList(32)}, false},
+		{"33 seeds", []string{"-request-every", "1s", "-seeds", seedList(33)}, true},
+		{"one load", []string{"-loads", "34ms"}, false},
+		{"two loads", []string{"-loads", "34ms,40ms"}, true},
+		{"one pattern", []string{"-request-every", "34ms", "-patterns", "balanced"}, false},
+		{"two patterns", []string{"-request-every", "34ms", "-patterns", "balanced,hotspot"}, true},
+		{"a shorter arrival window", []string{"-request-every", "34ms", "-arrivals-for", "12h", "-patterns", "balanced,hotspot"}, false},
+		{"a daily pattern", []string{"-pattern", "profile-daily", "-seeds", seedList(100)}, false},
+		{"a rail pattern", []string{"-pattern", "rail-services", "-seeds", seedList(100)}, false},
+	} {
+		_, err := parseOptions(append([]string{"-duration", "24h"}, test.args...), &bytes.Buffer{})
+		if refused := err != nil && strings.HasPrefix(err.Error(), refusal); refused != test.refuse || err != nil && !refused {
+			t.Errorf("%s: %v", test.name, err)
+		}
+	}
+}
+
+// TestScheduleBytesRefusal checks the matrix of the audit, about 23 GiB of
+// requests, which the command refuses as a flag error before it allocates
+// a schedule.
+func TestScheduleBytesRefusal(t *testing.T) {
+	t.Parallel()
+	var stderr bytes.Buffer
+	code := runCLI(cliInput{args: []string{"-duration", "24h", "-request-every", "34ms", "-seeds", seedList(100)}, stdout: &bytes.Buffer{}, stderr: &stderr})
+	const want = "the request schedules must fit in 256 MiB, and this matrix needs 23731 MiB"
+	if code != 2 || !strings.HasPrefix(stderr.String(), want) {
+		t.Fatalf("exit %d, %q; want 2, %q", code, stderr.String(), want)
+	}
+}
+
+// TestScheduleBytesProfileBands checks that compare counts each profile
+// band. Before the project loads, the profile pattern counts as one arm.
+func TestScheduleBytesProfileBands(t *testing.T) {
+	t.Parallel()
+	opts, err := parseOptions([]string{"-pattern", "profile", "-bands", "am-peak,pm-peak", "-duration", "24h", "-request-every", "1s", "-seeds", seedList(32), "-workers", "1"}, &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	london, err := newScenario(scenarios.LondonFull(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := compare(opts, london); err == nil || !strings.HasPrefix(err.Error(), "the request schedules must fit in 256 MiB, and this matrix needs 507 MiB") {
+		t.Fatalf("two bands of 32 seeds: %v", err)
 	}
 }

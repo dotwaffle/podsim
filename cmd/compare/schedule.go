@@ -32,6 +32,56 @@ type scheduledRequest struct {
 	walkingTicks  int64
 }
 
+// scheduleRequestBytes is the size of a scheduledRequest on a 64-bit
+// platform. TestScheduleRequestBytes checks it.
+const scheduleRequestBytes = 96
+
+// maxScheduleBytes bounds the request schedules of a comparison, which
+// stay in memory until the last arm ends. It is the 256 MiB storage bound
+// of the daily and rail matrices. At 96 bytes, it holds 2,796,202
+// requests: one seed of 24 hours at one request each tick.
+const maxScheduleBytes = 256 << 20
+
+// intervalRequestCount returns the number of requests of a schedule with
+// one request each interval in the arrival window.
+func intervalRequestCount(arrivalTicks, intervalTicks int64) int64 {
+	return (arrivalTicks - 1) / intervalTicks
+}
+
+// intervalPattern reports whether the requests of pattern come each load
+// interval. The daily and rail patterns take their times from the project
+// and have their own bounds.
+func intervalPattern(pattern string) bool {
+	return pattern != "profile-daily" && pattern != "rail-arrivals" && pattern != "rail-services"
+}
+
+// checkScheduleBytes refuses a matrix whose interval schedules need more
+// than maxScheduleBytes. armPatterns has the pattern of each demand arm.
+// The arms that differ only in policy share one schedule, so the bound
+// counts one schedule for each demand arm with an interval pattern, each
+// load, and each seed.
+func checkScheduleBytes(opts options, armPatterns []string) error {
+	arms := 0
+	for _, pattern := range armPatterns {
+		if intervalPattern(pattern) {
+			arms++
+		}
+	}
+	// A single daily or rail pattern has one load of 0.
+	if arms == 0 {
+		return nil
+	}
+	var requests int64
+	for _, load := range opts.loads {
+		requests += intervalRequestCount(durationTicks(opts.arrivalsFor), durationTicks(load))
+	}
+	if total := requests * int64(arms) * int64(len(opts.seeds)) * scheduleRequestBytes; total > maxScheduleBytes {
+		return fmt.Errorf("the request schedules must fit in %d MiB, and this matrix needs %d MiB; use fewer seeds, loads, patterns, or bands, a longer interval, or a shorter arrival window",
+			maxScheduleBytes>>20, (total+(1<<20)-1)>>20)
+	}
+	return nil
+}
+
 type scenario struct {
 	network        sim.Network
 	fleet          []sim.Placement
@@ -312,7 +362,7 @@ func demandSchedule(input scheduleInput) []scheduledRequest {
 		return profileDemandSchedule(input)
 	}
 	rng := rand.New(rand.NewSource(input.seed))
-	count := int((input.durationTicks - 1) / input.intervalTicks)
+	count := int(intervalRequestCount(input.durationTicks, input.intervalTicks))
 	requests := make([]scheduledRequest, 0, count)
 	for i := range count {
 		tick := int64(i+1) * input.intervalTicks
@@ -326,7 +376,7 @@ func demandSchedule(input scheduleInput) []scheduledRequest {
 }
 
 func profileDemandSchedule(input scheduleInput) []scheduledRequest {
-	count := int((input.durationTicks - 1) / input.intervalTicks)
+	count := int(intervalRequestCount(input.durationTicks, input.intervalTicks))
 	requests := make([]scheduledRequest, 0, count)
 	seed := uint64(input.seed) // #nosec G115 -- Preserve the signed seed's bits for deterministic PCG input.
 	rng := randv2.New(randv2.NewPCG(seed, ^seed))

@@ -61,6 +61,13 @@ func compare(opts options, scenario scenario) ([]result, error) {
 	if err := validateDailyMatrix(opts, arms, armsPerSchedule); err != nil {
 		return nil, err
 	}
+	armPatterns := make([]string, 0, len(arms))
+	for _, arm := range arms {
+		armPatterns = append(armPatterns, arm.pattern)
+	}
+	if err := checkScheduleBytes(opts, armPatterns); err != nil {
+		return nil, err
+	}
 	inputs := make([]runInput, 0, len(arms)*len(opts.loads)*len(opts.seeds)*armsPerSchedule*2)
 	for _, arm := range arms {
 		for _, load := range opts.loads {

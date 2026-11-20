@@ -1057,6 +1057,7 @@ func TestParseOptionsStepOrder(t *testing.T) {
 		"parseExperimentalOptions",
 		"parseFleetClassOptions",
 		"checkMatrixSize",
+		"checkScheduleSize",
 	}
 	var got []string
 	for _, step := range optionSteps {

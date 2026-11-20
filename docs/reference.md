@@ -277,6 +277,12 @@ Each group runs its rates from the lowest offered rate, with all seeds of a rate
 After the first rate at which a seed does not drain, the group runs `-past-limit` more rates and skips the rest.
 The report omits the skipped arms, and the other rows are identical to the rows of a full run.
 
+Before the command runs an arm, it refuses a matrix whose request schedules need more than 256 MiB, at 96 bytes a request.
+The arms that differ only in a policy share a schedule, so the bound counts one schedule for each pattern or profile band, each load, and each seed.
+A schedule has one request for each interval in the arrival window, so `-duration 24h -request-every 1s` allows at most 32 seeds.
+When the command reads the flags, it counts one band for `profile`, and after it reads the project, it counts each band of `-bands`.
+The `profile-daily`, `rail-arrivals`, and `rail-services` patterns have their own 256 MiB bounds.
+
 When `GOGC` is not set, the command sets the Go GC percent to 400.
 An earlier LondonCentral measurement used about 14% less CPU and about 120 MB more memory than at the default of 100, and the September 29 review kept 400 after testing both London presets.
 CPU and memory costs depend on the workload, and these measurements do not set the server GC policy.
