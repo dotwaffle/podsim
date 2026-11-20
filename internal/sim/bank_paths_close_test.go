@@ -151,3 +151,38 @@ func BenchmarkBankPathsClose(b *testing.B) {
 		bankPathsClose(in, out, Clearance)
 	}
 }
+
+// TestBankAuditReusesShapePairVerdicts checks that the audit loop takes the
+// close test of a pair on the whole polylines from shapePairs. The curved
+// lane and the straight lane share no node, and their boxes come within
+// Clearance, but the lanes do not. A straight lane across the curve gives
+// the refusal of the audit.
+func TestBankAuditReusesShapePairVerdicts(t *testing.T) {
+	t.Parallel()
+	network := func(c, d Point) Network {
+		return Network{
+			Nodes: []Node{{ID: "a", Position: Point{X: 0, Y: 0}}, {ID: "b", Position: Point{X: 30, Y: 30}}, {ID: "c", Position: c}, {ID: "d", Position: d}},
+			Lanes: []Lane{{ID: "curve", From: "a", To: "b", SpeedLimit: 10, Control: &Point{X: 0, Y: 30}}, {ID: "line", From: "c", To: "d", SpeedLimit: 10}},
+		}
+	}
+	audit := func(n Network) (*pairVerdicts, error) {
+		t.Helper()
+		bank, err := n.newBankAudit()
+		if err != nil {
+			t.Fatal(err)
+		}
+		bank.verdicts = &pairVerdicts{}
+		_, err = n.auditBankGeometry(bank)
+		return bank.verdicts, err
+	}
+	verdicts, err := audit(network(Point{X: 35, Y: 0}, Point{X: 45, Y: 5}))
+	if err != nil {
+		t.Fatalf("the far pair is refused: %v", err)
+	}
+	if verdicts.hits != 1 {
+		t.Fatalf("the audit used %d results of shapePairs, want 1", verdicts.hits)
+	}
+	if _, err := audit(network(Point{X: -5, Y: 15}, Point{X: 15, Y: 15})); err == nil || err.Error() != `nonincident paths "line" and "curve" are less than 12 meters apart` {
+		t.Fatalf("the near pair gives %v", err)
+	}
+}

@@ -219,7 +219,13 @@ func (audit bankAudit) shapePairs(n Network, paths []bankAuditPath, scanClearanc
 			if planes.exempt || (first.large || second.large) && planes.held && audit.envelope.get() == nil {
 				continue
 			}
-			if !planes.close(first.points, second.points, clearance) {
+			near := planes.close(first.points, second.points, clearance)
+			if planes.ranges == nil {
+				// The test was on the whole polylines. The audit loop uses
+				// the result again.
+				audit.verdicts.record(first, second, clearance, near)
+			}
+			if !near {
 				continue
 			}
 			if slices.ContainsFunc(audit.retention.pairPieces(first.member, second.member), func(piece pairPiece) bool { return piece.clearance != clearance }) {

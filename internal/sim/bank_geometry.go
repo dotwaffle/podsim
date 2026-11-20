@@ -39,6 +39,47 @@ type bankAudit struct {
 	// one with shapeOptions when a pair first needs it. Tests set it to
 	// change the options.
 	certifier *shapeCertifier
+	// verdicts holds the close tests of shapePairs, so that the audit does
+	// not repeat them. A nil value keeps no result. auditBankGeometry sets
+	// one when it is nil.
+	verdicts *pairVerdicts
+}
+
+// pairVerdicts holds the results of bankPathsClose on the whole polylines
+// of pairs of audit paths, by the keys of the two paths, in scan order, and
+// the clearance. hits counts the results that the audit used again.
+type pairVerdicts struct {
+	near map[pairVerdictKey]bool
+	hits int
+}
+
+type pairVerdictKey struct {
+	pair      [2]separationKey
+	clearance float64
+}
+
+// record keeps the result of bankPathsClose(first.points, second.points,
+// clearance).
+func (v *pairVerdicts) record(first, second bankAuditPath, clearance float64, near bool) {
+	if v == nil {
+		return
+	}
+	if v.near == nil {
+		v.near = make(map[pairVerdictKey]bool)
+	}
+	v.near[pairVerdictKey{pair: [2]separationKey{first.key, second.key}, clearance: clearance}] = near
+}
+
+// wholeClose returns bankPathsClose(first.points, second.points,
+// clearance), from the kept result when there is one.
+func (v *pairVerdicts) wholeClose(first, second bankAuditPath, clearance float64) bool {
+	if v != nil {
+		if near, ok := v.near[pairVerdictKey{pair: [2]separationKey{first.key, second.key}, clearance: clearance}]; ok {
+			v.hits++
+			return near
+		}
+	}
+	return bankPathsClose(first.points, second.points, clearance)
 }
 
 // ValidateBankGeometry audits each pair of nonincident paths of the
@@ -182,6 +223,9 @@ func (n Network) auditBankGeometry(audit bankAudit) (*depotLateral, error) {
 	if large {
 		scanClearance = largeClearance
 	}
+	if audit.verdicts == nil {
+		audit.verdicts = &pairVerdicts{}
+	}
 	audit.shapes = audit.shapePairs(n, paths, scanClearance)
 	var reachRefusal *PlaneReachError
 	for i, first := range paths {
@@ -204,11 +248,15 @@ func (n Network) auditBankGeometry(audit bankAudit) (*depotLateral, error) {
 			pieces := audit.pieces(first, second)
 			for _, piece := range pieces {
 				for _, part := range planes.cut(piece) {
-					a, b := first.points, second.points
+					// With one piece and no plane ranges, the test is on the
+					// whole polylines, as shapePairs tests a pair.
+					var near bool
 					if len(pieces) > 1 || planes.ranges != nil {
-						a, b = polylinePiece(a, part.first[0], part.first[1]), polylinePiece(b, part.second[0], part.second[1])
+						near = bankPathsClose(polylinePiece(first.points, part.first[0], part.first[1]), polylinePiece(second.points, part.second[0], part.second[1]), part.clearance)
+					} else {
+						near = audit.verdicts.wholeClose(first, second, part.clearance)
 					}
-					if bankPathsClose(a, b, part.clearance) {
+					if near {
 						if !planes.held {
 							return nil, errors.New(planeGapText(first.id, second.id, part.clearance))
 						}
