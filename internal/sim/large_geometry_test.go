@@ -368,9 +368,12 @@ func TestLargeGeometryBerthIncidentAudit(t *testing.T) {
 			for i := range n.Lanes {
 				n.Lanes[i].SeparationGroup = tc.firstIncoming
 			}
+			// The second station is 65 m north of the first, so each
+			// small pair is at least 15 m apart, and the first berth is
+			// 15 m from second-through.
 			for i := range other.Nodes {
 				other.Nodes[i].ID = "second-" + other.Nodes[i].ID
-				other.Nodes[i].Position.X += 15
+				other.Nodes[i].Position.Y += 65
 			}
 			for i := range other.Lanes {
 				lane := &other.Lanes[i]

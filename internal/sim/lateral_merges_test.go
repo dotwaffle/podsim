@@ -1367,7 +1367,10 @@ func TestScenarioLateralMergesShortenExtents(t *testing.T) {
 // "b2" joins b to m. A destination station is far after the pair, and a
 // small origin station, not connected, gives the requests an origin. The
 // berths of the destination station are 200 m beyond its entry and 25 m
-// apart, so that each berth lane keeps 12 m from the next berth.
+// apart, so that each berth lane keeps 12 m from the next berth. Lane b is
+// on plane "ground", and lanes p and d, which continue a in line, are on
+// plane "upper": at a shallow angle, b passes them closer than 12 m, and
+// the planes keep that pair clear of the all-pairs audit.
 func laneEndNetwork(converging bool, degrees, short float64) Network {
 	radians := degrees * math.Pi / 180
 	far := Point{X: 300 * math.Cos(radians), Y: 300 * math.Sin(radians)}
@@ -1392,15 +1395,15 @@ func laneEndNetwork(converging bool, degrees, short float64) Network {
 			Node{ID: "p-start", Position: Point{X: -3000}}, Node{ID: "a-start", Position: Point{X: -short}},
 			Node{ID: "b-start", Position: Point{X: -far.X, Y: -far.Y}}, Node{ID: "m", Position: Point{X: end}})
 		network.Lanes = append(network.Lanes,
-			Lane{ID: "a", From: "a-start", To: "n", SpeedLimit: 14}, Lane{ID: "b", From: "b-start", To: "n", SpeedLimit: 14},
-			Lane{ID: "p", From: "p-start", To: "a-start", SpeedLimit: 14}, Lane{ID: "exit", From: "n", To: "m", SpeedLimit: 14})
+			Lane{ID: "a", From: "a-start", To: "n", SpeedLimit: 14}, Lane{ID: "b", From: "b-start", To: "n", SpeedLimit: 14, SeparationGroup: "ground"},
+			Lane{ID: "p", From: "p-start", To: "a-start", SpeedLimit: 14, SeparationGroup: "upper"}, Lane{ID: "exit", From: "n", To: "m", SpeedLimit: 14})
 	} else {
 		network.Nodes = append(network.Nodes,
 			Node{ID: "feed-start", Position: Point{X: -3000}}, Node{ID: "a-end", Position: Point{X: short}},
 			Node{ID: "b-end", Position: far}, Node{ID: "m", Position: Point{X: end}})
 		network.Lanes = append(network.Lanes,
-			Lane{ID: "a", From: "n", To: "a-end", SpeedLimit: 14}, Lane{ID: "b", From: "n", To: "b-end", SpeedLimit: 14},
-			Lane{ID: "feed", From: "feed-start", To: "n", SpeedLimit: 14}, Lane{ID: "d", From: "a-end", To: "m", SpeedLimit: 14},
+			Lane{ID: "a", From: "n", To: "a-end", SpeedLimit: 14}, Lane{ID: "b", From: "n", To: "b-end", SpeedLimit: 14, SeparationGroup: "ground"},
+			Lane{ID: "feed", From: "feed-start", To: "n", SpeedLimit: 14}, Lane{ID: "d", From: "a-end", To: "m", SpeedLimit: 14, SeparationGroup: "upper"},
 			Lane{ID: "b2", From: "b-end", To: "m", SpeedLimit: 14})
 	}
 	network.Nodes = append(network.Nodes,

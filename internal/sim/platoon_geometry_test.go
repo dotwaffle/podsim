@@ -227,7 +227,9 @@ func TestPlatoonGeometry(t *testing.T) {
 		// from there. Pods on the first lane and on the lanes after the
 		// fold come closer than Clearance also without platoons. No run
 		// can hold the two turns of 90 degrees before the return lane, so
-		// a follower does not share with a pod after the fold.
+		// a follower does not share with a pod after the fold. The first
+		// lane is on plane "ground", and the return lane and the last lane on
+		// plane "upper", so that the all-pairs audit accepts the close pass.
 		{name: "close fold", lanes: []geometryLane{
 			{to: Point{}}, {to: Point{Y: 29}}, {to: Point{X: -24, Y: 29}}, {to: Point{X: -24, Y: 5}}, {to: Point{X: -84, Y: 17}},
 		}, maxTurn: math.Pi / 2, close: true, berth: Point{X: -60, Y: 12}, exit: Point{X: -120}},
@@ -244,6 +246,16 @@ func TestPlatoonGeometry(t *testing.T) {
 			network := geometryNetwork(Point{X: -500}, test.lanes, pods)
 			if test.exit != (Point{}) {
 				network = stationNetwork(Point{X: -500}, test.lanes, pods, test.berth, test.exit)
+			}
+			if test.close {
+				for i := range network.Lanes {
+					switch network.Lanes[i].ID {
+					case "l0":
+						network.Lanes[i].SeparationGroup = "ground"
+					case "l3", "l4":
+						network.Lanes[i].SeparationGroup = "upper"
+					}
+				}
 			}
 			s := restoreGeometry(t, network, len(test.lanes), pods, 450, corridorQueueGap)
 			if err := s.SetPlatooning(PlatooningVirtual); err != nil {
