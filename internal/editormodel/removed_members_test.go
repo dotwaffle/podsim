@@ -32,18 +32,13 @@ func removedMemberDrafts() []removedMemberDraft {
 		removedMemberDraft{inserted: `"shapeClearance":false,"lateralMerges":null,`, first: "shapeClearance"})
 }
 
-// both reports whether the draft has both members.
-func (d removedMemberDraft) both() bool {
-	return strings.Count(d.inserted, ":") == 2
-}
-
 // TestEditorRefusesRemovedMembers pins the text of each editor operation on
 // a draft whose network has a removed member, for an explicit project and
 // for the synchronized project of the engine. Validation and each edit,
 // also an edit of a field that is not in the network, refuse the draft.
-// The checks report the error of the network decode. The checks encode
-// the network from a map, so with both members they can name either one.
-// The test compares the text of the editor reply (jsonerr.Text).
+// The checks report the error of the network decode. With both members,
+// each operation names the first member in document order. The test
+// compares the text of the editor reply (jsonerr.Text).
 func TestEditorRefusesRemovedMembers(t *testing.T) {
 	t.Parallel()
 	config := project.Default()
@@ -133,11 +128,22 @@ func TestEditorRefusesRemovedMembers(t *testing.T) {
 					t.Errorf("%s: error %v, want %s", name, err, text)
 				}
 			}
-			// The checks keep the library wording of the decode error, so
-			// the test does not pin its modal verb.
-			for index, prefix := range []string{"call ", "engine "} {
-				if len(checks) != 2 || !strings.HasPrefix(checks[index], prefix+"decode bank geometry: json: ") || !strings.HasSuffix(checks[index], member) && !draft.both() {
-					t.Errorf("checks %q, want the decode error of %s", checks, draft.first)
+			geometry := "decode bank geometry: json: invalid JSON object at /" + draft.first + ": " + member
+			if want := []string{"call " + geometry, "engine " + geometry}; !slices.Equal(checks, want) {
+				t.Errorf("checks %q, want %q", checks, want)
+			}
+		})
+	}
+	// A removed member after an earlier decode error: each operation
+	// refuses the draft, also an edit of a field that is not in the
+	// network, and names the earlier error, as the server does.
+	for _, member := range []string{"lateralMerges", "shapeClearance"} {
+		t.Run("after a type error "+member, func(t *testing.T) {
+			t.Parallel()
+			results, _ := run(t, strings.Replace(string(data), network, network+`"depots":false,"`+member+`":true,`, 1))
+			for name, err := range results {
+				if err == nil || !strings.Contains(jsonerr.Text(err), "/network/depots") || strings.Contains(err.Error(), member) {
+					t.Errorf("%s: error %v, want the decode error of depots", name, err)
 				}
 			}
 		})

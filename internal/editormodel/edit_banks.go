@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/dotwaffle/podsim/internal/jsonerr"
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
@@ -22,15 +23,25 @@ func hasBanks(network any) bool {
 	return false
 }
 
-// decodeDraftNetwork decodes a draft network as the server does.
+// decodeDraftNetwork decodes a draft network as the server does. The
+// encode of a map does not keep the member order of the draft, so with two
+// bad members the error can name either one. decodeNetworkBytes keeps the
+// order.
 func decodeDraftNetwork(network any) (sim.Network, error) {
 	raw, err := json.Marshal(network)
 	if err != nil {
 		return sim.Network{}, fmt.Errorf("encode bank geometry: %w", err)
 	}
+	return decodeNetworkBytes(raw)
+}
+
+// decodeNetworkBytes decodes the bytes of a draft network as the server
+// does. The error names the first bad member in document order, with the
+// fixed wording of jsonerr.
+func decodeNetworkBytes(raw jsontext.Value) (sim.Network, error) {
 	var typed sim.Network
 	if err := json.Unmarshal(raw, &typed, json.RejectUnknownMembers(true)); err != nil {
-		return sim.Network{}, fmt.Errorf("decode bank geometry: %w", err)
+		return sim.Network{}, fmt.Errorf("decode bank geometry: %w", jsonerr.Wrap(err))
 	}
 	return typed, nil
 }
@@ -43,7 +54,10 @@ func decodeDraftNetwork(network any) (sim.Network, error) {
 // none. check holds the server checks of the decoded network. A caller that
 // keeps the checks of this network sets typed, decoded and check.
 type serverDraft struct {
-	network     any
+	network any
+	// raw, when it is set, holds the bytes of network, and decode reads
+	// them.
+	raw         jsontext.Value
 	typed       sim.Network
 	decoded     bool
 	depotsValid bool
@@ -59,7 +73,13 @@ func (d *serverDraft) decode() (sim.Network, error) {
 	if d.decoded {
 		return d.typed, nil
 	}
-	typed, err := decodeDraftNetwork(d.network)
+	var typed sim.Network
+	var err error
+	if d.raw != nil {
+		typed, err = decodeNetworkBytes(d.raw)
+	} else {
+		typed, err = decodeDraftNetwork(d.network)
+	}
 	if err != nil {
 		return sim.Network{}, err
 	}

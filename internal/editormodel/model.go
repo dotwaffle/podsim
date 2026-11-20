@@ -138,7 +138,11 @@ func execute(input string) (response, error) {
 		if len(command.Edit) != 0 {
 			return response{}, errors.New("checks do not accept an edit command")
 		}
-		checks := draftChecks(draft)
+		network, err := draftNetworkBytes(command.Project)
+		if err != nil {
+			return response{}, err
+		}
+		checks := rawDraftChecks(draft, network)
 		return response{Checks: &checks}, nil
 	}
 	var config project.Config

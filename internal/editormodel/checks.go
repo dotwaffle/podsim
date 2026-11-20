@@ -1,6 +1,7 @@
 package editormodel
 
 import (
+	"encoding/json/jsontext"
 	"fmt"
 	"maps"
 	"math"
@@ -112,7 +113,14 @@ func label(value any) string {
 // draftChecks also accepts incomplete or incorrectly typed drafts. Only the
 // native project validator decides whether a draft can start a simulation.
 func draftChecks(value any) checkReport {
-	return preparedDraftChecks(value, nil)
+	return checkDraft(value, nil, nil)
+}
+
+// rawDraftChecks is draftChecks for a draft whose network has the bytes
+// raw. The server decode of the checks reads raw, so that its error names
+// the first bad member of the network in document order.
+func rawDraftChecks(value any, raw jsontext.Value) checkReport {
+	return checkDraft(value, nil, raw)
 }
 
 type preparedChecks struct {
@@ -124,6 +132,12 @@ type preparedChecks struct {
 }
 
 func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
+	return checkDraft(value, prepared, nil)
+}
+
+// checkDraft is preparedDraftChecks. raw, when it is not nil and prepared
+// is nil, holds the bytes of the network of value.
+func checkDraft(value any, prepared *preparedChecks, raw jsontext.Value) checkReport {
 	var errors, warnings checkList
 	if object(value) == nil {
 		errors.add("The scenario must be a JSON object.", nil)
@@ -161,7 +175,11 @@ func preparedDraftChecks(value any, prepared *preparedChecks) checkReport {
 	}
 	var g *draftNetwork
 	if prepared == nil {
-		g = checkNetwork(network, &errors)
+		var kept *keptNetwork
+		if raw != nil {
+			kept = &keptNetwork{raw: raw, clearance: newDraftClearance(network)}
+		}
+		g = kept.checkNetwork(network, &errors)
 	} else {
 		g = prepared.network
 		for _, item := range prepared.networkErrors {
@@ -202,8 +220,8 @@ type draftNetwork struct {
 }
 
 // checkNetwork checks a draft network.
-func checkNetwork(value any, errors *checkList) *draftNetwork {
-	return (*keptNetwork)(nil).checkNetwork(value, errors)
+func checkNetwork(value any, errors *checkList) {
+	(*keptNetwork)(nil).checkNetwork(value, errors)
 }
 
 // checkNetwork checks the draft network whose server checks kept holds. A
@@ -232,6 +250,9 @@ func (kept *keptNetwork) checkNetwork(value any, errors *checkList) *draftNetwor
 	g.checkStationRoles(errors)
 	if hasBanks(value) || draftGeometryClassesValid(value) && len(errors.items) == previousErrors {
 		server := &serverDraft{network: value, clearance: clearance.index}
+		if kept != nil {
+			server.raw = kept.raw
+		}
 		if kept != nil && kept.check != nil {
 			server.typed, server.decoded, server.check = kept.typed, true, kept.check
 		}

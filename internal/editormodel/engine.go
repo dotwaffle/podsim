@@ -282,26 +282,54 @@ func copyDecodedBranch(config *project.Config, key string, branch projectBranch)
 // the network has a member that the network decoder does not know, for
 // example a removed member. Each edit refuses such a draft, also an edit
 // that does not read the network.
+//
+// A removed member after an earlier decode error does not give an unknown
+// name error, so the check also looks for the removed members by name. The
+// refusal then gives the first decode error, as the server does.
 func unknownNetworkMember(branch projectBranch) error {
-	if errors.Is(branch.err, json.ErrUnknownName) {
+	if errors.Is(branch.err, json.ErrUnknownName) || branch.err != nil && hasRemovedMember(branch.raw) {
 		return fmt.Errorf("decode project branch network: %w", branch.err)
 	}
 	return nil
 }
 
-// draftNetworkMember is unknownNetworkMember for the network of an
-// explicit project.
-func draftNetworkMember(draft jsontext.Value) error {
+// removedNetworkMembers are the network members that the project format
+// removed.
+var removedNetworkMembers = []string{"lateralMerges", "shapeClearance"}
+
+// hasRemovedMember reports whether the network object raw has a removed
+// member.
+func hasRemovedMember(raw jsontext.Value) bool {
+	var members map[string]jsontext.Value
+	if json.Unmarshal(raw, &members) != nil {
+		return false
+	}
+	return slices.ContainsFunc(removedNetworkMembers, func(name string) bool {
+		_, ok := members[name]
+		return ok
+	})
+}
+
+// draftNetworkBytes returns the bytes of the network of an explicit
+// project, or nil when it has none.
+func draftNetworkBytes(draft jsontext.Value) (jsontext.Value, error) {
 	var branches struct {
 		Network jsontext.Value `json:"network"`
 	}
 	if err := json.Unmarshal(draft, &branches); err != nil {
-		return fmt.Errorf("decode editor draft: %w", err)
+		return nil, fmt.Errorf("decode editor draft: %w", err)
 	}
-	if len(branches.Network) == 0 {
-		return nil
+	return branches.Network, nil
+}
+
+// draftNetworkMember is unknownNetworkMember for the network of an
+// explicit project.
+func draftNetworkMember(draft jsontext.Value) error {
+	network, err := draftNetworkBytes(draft)
+	if err != nil || len(network) == 0 {
+		return err
 	}
-	branch, err := decodeBranch("network", projectBranch{raw: branches.Network})
+	branch, err := decodeBranch("network", projectBranch{raw: network})
 	if err != nil {
 		return err
 	}
