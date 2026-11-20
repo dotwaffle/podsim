@@ -443,7 +443,7 @@ The gates ran in the order of decision AO-D5 at `aac44c72`, the tip of slices 0 
 | Gate | Rows | Result | Wall time |
 | --- | --- | --- | ---: |
 | `mise run check` | SX1, E1, E5, A16, A17, the shared preset | Pass | 2,319 s |
-| `mise run test:london-express` | E2, E3, E4, E8, S1 | Pass | 864 s |
+| `mise run test:london-express` | E2, E3, E4, E6 in Go, E8, S1 | Pass | 864 s |
 | `go run ./cmd/projectcheck` on D | E2 | Pass | 5 s |
 | `PODSIM_SOAK_PRESETS=london-full-express mise run soak` | A15 | Pass | 673 s |
 | `PODSIM_SOAK_SEEDS=1 mise run soak:full`, the timing seed of decision AO-D8 | | Pass | 3,489 s |
@@ -470,7 +470,10 @@ The cached p95 was 106.2 ms for `rail-hub` and 108.1 ms for `rail-hub-incidents`
 This was a stop of decision AO-D9.
 The maintainer chose to profile the edit and to make the server check faster.
 Commits `17841e99`, `2a53972a`, `92cddf45`, and `407ce645` make the bank audit and the network preparation faster, with the same results.
-The wasm measurement at `407ce645` is in each limit of section 6.2:
+The wasm measurement at `407ce645` is in each limit of section 6.2.
+The record gives the wasm runs only, and the native measurement did not run again at `407ce645`.
+The wasm runtime had `GOMAXPROCS` 1, and the runs used Node 24.22.3.
+The load average was 1.88 before and 1.19 after the slice 0 run, 1.19 and 1.54 for the `aac44c72` run, and 1.70 and 1.16 for the `407ce645` run.
 
 | Network | Cached accepted p95, slice 0 | At `aac44c72` | At `407ce645` |
 | --- | ---: | ---: | ---: |
@@ -481,7 +484,7 @@ The wasm measurement at `407ce645` is in each limit of section 6.2:
 | `scale100` | 21.1 ms | 60.7 ms | 58.9 ms |
 | Plain network at the project limits | 428.9 ms | 1,138.3 ms | 1,008.0 ms |
 
-At `407ce645`, the largest p95 of the first group of section 6.2 is 17.4 ms, for a refused edit on `small`.
+At `407ce645`, the largest p95 of the first group of section 6.2 is 50.1 ms, for a cached refused edit on `compact-station`, which had 45.5 ms at slice 0.
 For the London presets and D, the largest ratio to slice 0 is 1.07 for a p95 and 1.18 for a maximum, against 1.25.
 
 `mise run check` passed at `65dcbd61`, the tip with these commits, in 2,525 s.
