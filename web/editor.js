@@ -1227,10 +1227,13 @@
   // 503, Retry-After and plain text when it is busy with other large
   // commands. HTTP 413 gives SERVER_TOO_LARGE_TEXT. A command that is too
   // large for the server throws a tooLargeError, and the editor does not
-  // send it.
+  // send it. A successful reply must be an acknowledgment of the command,
+  // as isAcknowledgment tells. Else postCommand throws an
+  // unconfirmedError, because the server can have applied the command.
   async function postCommand(connection, command) {
     connection.sequence += 1;
-    const { body: requestBody, headers } = await commandRequest(JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch: connection.epoch, ...command }));
+    const epoch = connection.epoch;
+    const { body: requestBody, headers } = await commandRequest(JSON.stringify({ client: connection.clientID, sequence: connection.sequence, epoch, ...command }));
     const response = await connection.fetch("/api/command", { method: "POST", headers, body: requestBody });
     if (response.status === 413) throw tooLargeError(SERVER_TOO_LARGE_TEXT);
     let text = ""; try { text = await response.text(); } catch (_) {}
@@ -1239,8 +1242,28 @@
       const error = new Error(body?.error || replyText(text, response.status));
       error.status = response.status; error.errorCode = body?.errorCode || ""; error.retryAfter = retryAfterSeconds(response); throw error;
     }
-    if (body?.epoch) connection.epoch = body.epoch;
+    if (!isAcknowledgment(body, epoch)) throw unconfirmedError("The server reply does not confirm the command.");
+    connection.epoch = body.epoch;
     return body;
+  }
+
+  // isAcknowledgment tells if body is the acknowledgment of a command
+  // with the session epoch epoch. It has that epoch, the state revision,
+  // the project revision and the generation as counts, and stateSaved is
+  // a boolean or absent.
+  function isAcknowledgment(body, epoch) {
+    return isObject(body) && typeof body.epoch === "string" && body.epoch !== "" && body.epoch === epoch &&
+      isCount(body.revision) && isCount(body.projectRevision) && isCount(body.generation) &&
+      (body.stateSaved === undefined || typeof body.stateSaved === "boolean");
+  }
+
+  // unconfirmedError gives the error of a command that the server can
+  // have applied, because the editor did not get a valid acknowledgment.
+  // It has unconfirmed set to true. Its status is not an HTTP status, so
+  // the editor does not think that the server rejected the command.
+  function unconfirmedError(message) {
+    const error = new Error(message);
+    error.status = 0; error.errorCode = ""; error.unconfirmed = true; return error;
   }
 
   // simulationID identifies one simulation. A server restart gives a new
@@ -1336,6 +1359,11 @@
   // - "left-paused": the editor paused the simulation and could not resume it.
   // - "restarted": the simulation restarted after the pause. The editor did
   //   not resume it.
+  //
+  // When the project command has no valid acknowledgment, the server can
+  // have applied the project or not. Then the error has unconfirmed set to
+  // true. An unconfirmed pause command does not set it, because the editor
+  // did not send the project.
   async function applyToServer(apply) {
     const { connection } = apply;
     let step = "check";
@@ -1362,9 +1390,10 @@
       step = "project";
       if (apply.onApplying) apply.onApplying();
       const reply = await postCommand(connection, { action: "project", projectRevision: apply.revision, project: apply.project, ...(apply.serverStart ? { serverStart: apply.serverStart } : {}) });
-      const revision = Number(reply?.projectRevision ?? apply.revision + 1);
-      return { revision, stateSaved: reply?.stateSaved, serverStart: liveStart };
+      if (reply.projectRevision < apply.revision) throw unconfirmedError("The server reply does not confirm the project.");
+      return { revision: reply.projectRevision, stateSaved: reply.stateSaved, serverStart: liveStart };
     } catch (error) {
+      if (step !== "project") error.unconfirmed = false;
       error.pause = await pauseAfterFailure({ connection, error, step, wasPaused, simulation });
       throw error;
     }
@@ -1416,6 +1445,21 @@
     ["session_changed", { reason: "The server session changed. Your draft is safe.", status: "Apply conflict. The server session changed." }],
   ]);
 
+  // APPLY_UNCONFIRMED gives the reason and the status line of an apply
+  // that the server did not confirm. The server can have applied the
+  // draft or not, so the page shows the apply conflict actions with the
+  // live revision, as readConflict tells.
+  const APPLY_UNCONFIRMED = {
+    reason: "The server did not confirm the apply. The live scenario can have your draft or not. Your draft is safe.",
+    status: "Apply not confirmed. Compare the live scenario with your draft.",
+  };
+
+  // applyFailure gives the reason and the status line of error from
+  // APPLY_UNCONFIRMED or APPLY_FAILURE, or undefined.
+  function applyFailure(error) {
+    return error.unconfirmed ? APPLY_UNCONFIRMED : APPLY_FAILURE.get(error.errorCode);
+  }
+
   // APPLY_FAILED_STATUS is the status line for an error code that is not in
   // APPLY_FAILURE. The toast with the reason hides after 4 seconds. The
   // status line stays.
@@ -1437,7 +1481,7 @@
   // the user that the draft is lost when they leave the page.
   function applyFailureText(error, note = "") {
     const text = String(error.message).replace(/\.?$/, ".");
-    const reason = APPLY_FAILURE.get(error.errorCode)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+    const reason = applyFailure(error)?.reason ?? `Apply failed. ${text.charAt(0).toUpperCase()}${text.slice(1)}`;
     const retry = error.status === 503 && !error.errorCode ? retryText(error.retryAfter) : "";
     return [reason, retry, APPLY_PAUSE_TEXT[error.pause], note].filter(Boolean).join(" ");
   }
@@ -1445,7 +1489,7 @@
   // applyFailureStatus gives the status line for an error from
   // applyToServer. note is as applyFailureText uses it.
   function applyFailureStatus(error, note = "") {
-    return [APPLY_FAILURE.get(error.errorCode)?.status ?? APPLY_FAILED_STATUS, note].filter(Boolean).join(" ");
+    return [applyFailure(error)?.status ?? APPLY_FAILED_STATUS, note].filter(Boolean).join(" ");
   }
 
   // applyToast gives the arguments of toast for an applied project. applied
@@ -1459,19 +1503,21 @@
   }
 
   // readConflict gives the apply conflict that the page shows after error,
-  // an error from applyToServer, or null. Only "stale_project" and
-  // "session_changed" give a conflict. Then readConflict reads the live
-  // state again. The conflict has code, the error code, revision, the live
+  // an error from applyToServer, or null. Only "stale_project",
+  // "session_changed" and an unconfirmed apply give a conflict. Then
+  // readConflict reads the live state again. The conflict has code, the
+  // error code or "unconfirmed", revision, the live
   // project revision, and serverStart, the server start ID of the same
   // read. revision is null when the live state did not load. readConflict
   // does not change the epoch of the connection. Only the conflict actions
   // do, after the user agrees.
   async function readConflict(connection, error, normalize) {
-    if (!APPLY_FAILURE.has(error.errorCode)) return null;
+    if (!applyFailure(error)) return null;
+    const code = error.unconfirmed ? "unconfirmed" : error.errorCode;
     try {
       const live = await readLive(connection, normalize);
-      return { code: error.errorCode, revision: live.revision, serverStart: live.serverStart };
-    } catch (_) { return { code: error.errorCode, revision: null, serverStart: "" }; }
+      return { code, revision: live.revision, serverStart: live.serverStart };
+    } catch (_) { return { code, revision: null, serverStart: "" }; }
   }
 
   // CONFLICT_UNLOADED_TEXT is the note of the status line when the live
@@ -1483,9 +1529,12 @@
   // the label of the Apply over button.
   function conflictView(conflict) {
     const applyLabel = `Apply over revision ${conflict.revision}`;
-    const reason = conflict.code === "session_changed" ? `The server session changed. The live scenario is now revision ${conflict.revision}.` : `The live scenario changed to revision ${conflict.revision}.`;
+    const texts = {
+      session_changed: `The server session changed. The live scenario is now revision ${conflict.revision}. Your draft is not applied.`,
+      unconfirmed: `The server did not confirm the apply. The live scenario is revision ${conflict.revision}. It can have your draft or not.`,
+    };
     return {
-      text: `${reason} Your draft is not applied.`,
+      text: texts[conflict.code] ?? `The live scenario changed to revision ${conflict.revision}. Your draft is not applied.`,
       hint: `Load live scenario replaces the changes in your draft. ${applyLabel} replaces the live scenario with your draft.`,
       applyLabel,
     };

@@ -1212,8 +1212,10 @@ test("the length of a lane follows its curve", () => {
 //
 // options.before(command, live) runs before the server gets a command. It
 // can change live, the values of the live session. It gives the rejection
-// of the command, "network" for a command that the server does not get, or
-// "lost" for a reply that the editor does not get. A rejection is an HTTP
+// of the command, "network" for a command that the server does not get,
+// "lost" for a reply that the editor does not get, or a reply object with
+// status and text for a command that the server applies and then gives
+// that reply instead of the acknowledgment. A rejection is an HTTP
 // status, which gets command_rejected and a project save error, or an
 // object with the status and the errorCode and error members of the
 // acknowledgment. The server rejects commands with the error codes of the
@@ -1263,9 +1265,10 @@ function fakeSession(options) {
     const failure = options.before ? options.before(command, live) : false;
     if (failure === "network") throw new TypeError("Failed to fetch");
     if (typeof failure === "number") return reply(failure, acknowledgment({ errorCode: "command_rejected", error: "save project: permission denied" }));
-    if (typeof failure === "object" && failure) return reply(failure.status, acknowledgment(failure));
+    if (typeof failure === "object" && failure && !("text" in failure)) return reply(failure.status, acknowledgment(failure));
     const rejection = handle(command);
     if (failure === "lost") throw new TypeError("Failed to fetch");
+    if (typeof failure === "object" && failure && "text" in failure) return new Response(failure.text, { status: failure.status });
     return reply(rejection ? 409 : 200, acknowledgment(rejection, command));
   };
   return { fetch, commands, live };
@@ -1421,6 +1424,44 @@ test("a failed apply shows the reason from the server", async () => {
   }
 });
 
+test("an apply without a valid acknowledgment keeps the outcome open and shows the live revision", async () => {
+  const unconfirmed = "The server did not confirm the apply. The live scenario can have your draft or not. Your draft is safe.";
+  const restarted = "The simulation restarted after the pause. The editor did not resume it.";
+  const ack = (fields) => JSON.stringify({ epoch: "epoch-1", revision: 2, projectRevision: 7, generation: 6, ...fields });
+  const project = (text) => failOn("project", { status: 200, text });
+  const cases = [
+    { name: "a proxy page", before: project("<html>OK</html>") },
+    { name: "an empty body", before: project("") },
+    { name: "an empty object", before: project("{}") },
+    { name: "another epoch", before: project(ack({ epoch: "epoch-2" })) },
+    { name: "no project revision", before: project(ack({ projectRevision: undefined })) },
+    { name: "a project revision before the draft", before: project(ack({ projectRevision: 2 })) },
+    { name: "a stateSaved that is not a boolean", before: project(ack({ stateSaved: "false" })) },
+  ];
+  for (const item of cases) {
+    const server = fakeSession({ paused: false, before: item.before });
+    const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+    const error = await editor.applyToServer({ connection, revision: 3, serverStart: "start-1", project: connectedScenario() }).then(() => null, (caught) => caught);
+    assert.ok(error, item.name);
+    assert.equal(error.unconfirmed, true, item.name);
+    assert.equal(error.pause, "restarted", item.name);
+    assert.equal(editor.applyFailureText(error), `${unconfirmed} ${restarted}`, item.name);
+    assert.equal(editor.applyFailureStatus(error), "Apply not confirmed. Compare the live scenario with your draft.", item.name);
+    const conflict = await editor.readConflict(connection, error, asServed);
+    assert.deepEqual(conflict, { code: "unconfirmed", revision: 7, serverStart: "start-1" }, item.name);
+    assert.equal(editor.conflictView(conflict).text, "The server did not confirm the apply. The live scenario is revision 7. It can have your draft or not.", item.name);
+  }
+
+  // An unconfirmed pause does not send the project, so the apply failed.
+  const server = fakeSession({ paused: false, before: failOn("pause", { status: 200, text: "" }, true) });
+  const connection = { fetch: server.fetch, clientID: "editor-test", sequence: 0, epoch: "" };
+  const error = await editor.applyToServer({ connection, revision: 3, project: connectedScenario() }).then(() => null, (caught) => caught);
+  assert.equal(error.unconfirmed, false);
+  assert.equal(editor.applyFailureText(error), "Apply failed. The server reply does not confirm the command. The editor resumed the simulation.");
+  assert.equal(await editor.readConflict(connection, error, asServed), null);
+  assert.equal(server.live.revision, 3);
+});
+
 // paddedScenario gives connectedScenario with a long name, so that its JSON
 // has bytes bytes. The fake session does not check the name.
 function paddedScenario(bytes) {
@@ -1434,7 +1475,7 @@ test("postCommand compresses a large command with gzip and sends a small command
   const requests = [];
   const connection = {
     clientID: "editor-test", sequence: 0, epoch: "epoch-1",
-    fetch: async (url, init) => { requests.push(init); return new Response(JSON.stringify({ epoch: "epoch-1" })); },
+    fetch: async (url, init) => { requests.push(init); return new Response(JSON.stringify({ epoch: "epoch-1", revision: requests.length, projectRevision: 3, generation: 5 })); },
   };
   const project = paddedScenario(editor.SERVER_PROJECT_BYTES);
   await editor.postCommand(connection, { action: "pause", paused: true });

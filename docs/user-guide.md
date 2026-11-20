@@ -831,6 +831,9 @@ To read the live project safely, the editor reads the live state before and afte
 It uses the project only when both state reads show the same server start ID and session epoch, and the project has the project revision of the second read.
 Otherwise it reads again, for a maximum of three attempts.
 
+If the reply to an apply is not a valid acknowledgment, for example a page from a proxy, the editor cannot know if the server applied the draft.
+The editor then keeps the draft, tells you that the server did not confirm the apply, and shows the **Apply conflict** bar.
+
 After a conflict, the editor reads the live project again, and the **Apply conflict** bar shows the live project revision N and two actions:
 
 - **Load live scenario** makes the live scenario the draft and the base of **Reset draft**.
