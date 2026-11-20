@@ -144,6 +144,10 @@
   const HAZE_TOP = [0.22, 0.42, 0.78];
   const SUN_GLOW = [1, 0.84, 0.6];
   const HAZE_DENSITY = 6e-4;
+  // The sky at dusk: a warm haze, a deep blue top, and a strong glow.
+  const DUSK_HAZE = [0.84, 0.62, 0.52];
+  const DUSK_TOP = [0.16, 0.22, 0.42];
+  const DUSK_GLOW = [1, 0.55, 0.25];
   // The pods reflect a cube texture of the sky, SKY_CUBE_SIZE texels on a
   // side. Below the horizon, they reflect GROUND_SHINE.
   const SKY_CUBE_SIZE = 32;
@@ -191,11 +195,32 @@
 
   // lookOptions reads the switches of the visual polish from a URL query.
   // Each switch is on, unless the query has name=0. polish=0 turns all of
-  // them off and gives the look from before the polish.
+  // them off and gives the look from before the polish. time is "dusk"
+  // when the query has time=dusk and the polished sky is on, and "day"
+  // otherwise.
   function lookOptions(search) {
     const params = new URLSearchParams(search);
     const all = params.get("polish") !== "0";
-    return Object.fromEntries(LOOK_SWITCHES.map((name) => [name, all && params.get(name) !== "0"]));
+    const look = Object.fromEntries(LOOK_SWITCHES.map((name) => [name, all && params.get(name) !== "0"]));
+    look.time = look.sky && params.get("time") === "dusk" ? "dusk" : "day";
+    return look;
+  }
+
+  // lightLook returns the sun and the fill light of a time of lookOptions:
+  // the direction of the sunlight, the sun color and intensity, and the
+  // sky and ground colors and the intensity of the hemispheric fill. The
+  // day is the light from before the visual polish. At dusk, a warm sun
+  // 15 degrees above the horizon in the west-southwest throws long
+  // shadows, and a cool fill lights the shade.
+  function lightLook(time) {
+    if (time === "dusk") {
+      // The azimuth turns from scene +z (north) toward +x (east).
+      const elevation = 15 * DEGREE, azimuth = 245 * DEGREE;
+      const toSun = [Math.cos(elevation) * Math.sin(azimuth), Math.sin(elevation), Math.cos(elevation) * Math.cos(azimuth)];
+      return { fromSun: toSun.map((value) => -value), sun: [1, 0.64, 0.38], sunIntensity: 1, fill: [0.42, 0.46, 0.66], fillGround: [0.2, 0.18, 0.18], fillIntensity: 0.45 };
+    }
+    const fromSun = [-0.5, -0.75, -0.35], length = Math.hypot(...fromSun);
+    return { fromSun: fromSun.map((value) => value / length), sun: [1, 0.96, 0.88], sunIntensity: 1.1, fill: SKY, fillGround: [0.32, 0.34, 0.3], fillIntensity: 0.5 };
   }
 
   // toScene maps a world point to the scene ground plane. World y points
@@ -1861,6 +1886,7 @@
   // the visual polish.
   function skyLook(polish) {
     if (!polish.sky) return { horizon: SKY, top: SKY_TOP, glow: null, below: SKY };
+    if (polish.time === "dusk") return { horizon: DUSK_HAZE, top: DUSK_TOP, glow: DUSK_GLOW, below: DUSK_HAZE };
     return { horizon: HAZE, top: HAZE_TOP, glow: SUN_GLOW, below: HAZE };
   }
 
@@ -2182,14 +2208,15 @@
       scene.fogEnd = FOG_END;
     }
     scene.skipPointerMovePicking = true;
-    const sunDirection = new B.Vector3(-0.5, -0.75, -0.35).normalize();
+    const light = lightLook(look.time);
+    const sunDirection = B.Vector3.FromArray(light.fromSun);
     const sun = new B.DirectionalLight("sun", sunDirection, scene);
-    sun.intensity = 1.1;
-    sun.diffuse = new B.Color3(1, 0.96, 0.88);
+    sun.intensity = light.sunIntensity;
+    sun.diffuse = color(B, light.sun);
     const fill = new B.HemisphericLight("fill", new B.Vector3(0, 1, 0), scene);
-    fill.intensity = 0.5;
-    fill.diffuse = color(B, SKY);
-    fill.groundColor = new B.Color3(0.32, 0.34, 0.3);
+    fill.intensity = light.fillIntensity;
+    fill.diffuse = color(B, light.fill);
+    fill.groundColor = color(B, light.fillGround);
     const toSun = sunDirection.negate().asArray();
     buildSky(B, scene, sky, toSun);
     const camera = new B.FreeCamera("seat", new B.Vector3(0, BEAM_TOP + EYE_HEIGHT, 0), scene);
@@ -2663,7 +2690,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, lightLook, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, skyLook, skyColor, cubeDirection, skyCubeFaces, podLightTexels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, drawStationSign, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

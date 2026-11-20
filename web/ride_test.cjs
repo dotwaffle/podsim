@@ -1098,11 +1098,11 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false, signs: false, fx: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true, taper: true, sky: true, gloss: true, lights: true, signs: true, fx: true, time: "day" });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false, taper: false, sky: false, gloss: false, lights: false, signs: false, fx: false, time: "day" });
 });
 
 test("railGeometry runs a strip along the middle of each beam top", () => {
@@ -1264,4 +1264,22 @@ test("drawStationSign fits the name beside the stop mark", () => {
   ride.drawStationSign(long, width, height, "Heathrow Terminals 2 and 3 Underground Station (Bus Station)");
   const [cut] = textsInside(long, width, height);
   assert.ok(!cut.includes("(") && cut.startsWith("Heathrow"), `cut name ${cut}`);
+});
+
+test("lightLook keeps the day light and gives a low warm sun at dusk", () => {
+  assert.equal(ride.lookOptions("?time=dusk").time, "dusk");
+  // Dusk needs the polished sky.
+  assert.equal(ride.lookOptions("?time=dusk&sky=0").time, "day");
+  assert.equal(ride.lookOptions("?time=noon").time, "day");
+  const day = ride.lightLook("day"), length = Math.hypot(-0.5, -0.75, -0.35);
+  [-0.5, -0.75, -0.35].forEach((value, i) => near(day.fromSun[i], value / length, `day sun ${i}`));
+  assert.deepEqual([day.sun, day.sunIntensity, day.fill, day.fillGround, day.fillIntensity], [[1, 0.96, 0.88], 1.1, [0.74, 0.82, 0.9], [0.32, 0.34, 0.3], 0.5]);
+  const dusk = ride.lightLook("dusk");
+  near(Math.hypot(...dusk.fromSun), 1, "unit direction");
+  near(Math.asin(-dusk.fromSun[1]) * 180 / Math.PI, 15, "elevation");
+  // The sun is in the west-southwest: to the west (-x) and south (-z).
+  assert.ok(-dusk.fromSun[0] < -0.8 && -dusk.fromSun[2] < 0, `sun at ${dusk.fromSun}`);
+  assert.ok(dusk.sun[0] > dusk.sun[2] + 0.5, "warm sun");
+  const sky = ride.skyLook(ride.lookOptions("?time=dusk"));
+  assert.ok(sky.horizon[0] > sky.horizon[2], "warm haze at dusk");
 });
