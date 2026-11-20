@@ -9,6 +9,10 @@
   const BEAM_TOP = 5;
   const BEAM_WIDTH = 1.4;
   const BEAM_DEPTH = 0.7;
+  // The light rail along the middle of the beam top. It is a little above
+  // the top, so it does not fight the top in the depth buffer.
+  const RAIL_WIDTH = 0.12;
+  const RAIL_RISE = 0.05;
   const PILLAR_SPACING = 60;
   // A beam with its bottom lower than this has no pillars.
   const PILLAR_MIN_HEIGHT = 1;
@@ -145,10 +149,12 @@
   const MODULE_LIMIT = 64 * 1024 * 1024;
   // LOOK_SWITCHES are the parts of the visual polish. lookOptions gives
   // each one, so the maintainer can compare the look with and without it.
-  const LOOK_SWITCHES = ["tint"];
+  const LOOK_SWITCHES = ["tint", "rail"];
   // The map tiles get this color, so the guideway stands out over the
   // bright map.
   const TILE_TINT = [0.78, 0.81, 0.85];
+  // The light rail has the accent color of the HUD.
+  const RAIL_COLOR = [0.21, 0.78, 1];
 
   // lookOptions reads the switches of the visual polish from a URL query.
   // Each switch is on, unless the query has name=0. polish=0 turns all of
@@ -488,27 +494,45 @@
     return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
   }
 
+  // guidewayProfiles returns the profiles of laneProfile for each lane and
+  // of pieceProfile for each piece of filletPlan, with null for a lane or
+  // a piece with a missing node.
+  function guidewayProfiles(lanes, nodes, levels, pieces = []) {
+    return [...lanes.map((lane) => laneProfile(lane, nodes, levels)), ...pieces.map((piece) => pieceProfile(piece, nodes, levels))];
+  }
+
+  // profileSides returns the horizontal unit vector to the left of travel
+  // at each scene point [x, z] of a profile.
+  function profileSides(points) {
+    const sides = [];
+    for (let i = 0; i < points.length; i++) {
+      const previous = points[Math.max(0, i - 1)], next = points[Math.min(points.length - 1, i + 1)];
+      let dx = next[0] - previous[0], dz = next[1] - previous[1];
+      const length = Math.hypot(dx, dz);
+      if (length === 0) { dx = 1; dz = 0; } else { dx /= length; dz /= length; }
+      sides.push([-dz, dx]);
+    }
+    return sides;
+  }
+
   // beamGeometry returns the vertex data of a box beam along each lane and
-  // each piece of filletPlan. Each face has its own vertices and normals, so
-  // the faces have flat shading. The texture coordinate u is the distance
-  // along the beam from its start, and v is the distance across the face,
-  // both over CONCRETE_TILE.
+  // each piece of filletPlan.
   function beamGeometry(lanes, nodes, levels, pieces = []) {
+    return profileBeams(guidewayProfiles(lanes, nodes, levels, pieces));
+  }
+
+  // profileBeams returns the vertex data of a box beam along each profile of
+  // guidewayProfiles. Each face has its own vertices and normals, so the
+  // faces have flat shading. The texture coordinate u is the distance along
+  // the beam from its start, and v is the distance across the face, both
+  // over CONCRETE_TILE.
+  function profileBeams(profiles) {
     const positions = [], normals = [], colors = [], uvs = [], indices = [];
     const half = BEAM_WIDTH / 2;
-    const profiles = [...lanes.map((lane) => laneProfile(lane, nodes, levels)), ...pieces.map((piece) => pieceProfile(piece, nodes, levels))];
     for (const profile of profiles) {
       if (!profile) continue;
       const points = profile.map((point) => toScene(point.x, point.y));
-      const sides = [];
-      for (let i = 0; i < points.length; i++) {
-        const previous = points[Math.max(0, i - 1)], next = points[Math.min(points.length - 1, i + 1)];
-        let dx = next[0] - previous[0], dz = next[1] - previous[1];
-        const length = Math.hypot(dx, dz);
-        if (length === 0) { dx = 1; dz = 0; } else { dx /= length; dz /= length; }
-        // left is the horizontal unit vector to the left of travel.
-        sides.push([-dz, dx]);
-      }
+      const sides = profileSides(points);
       const along = [0];
       for (let i = 1; i < points.length; i++) along.push(along[i - 1] + Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]));
       // Each face: two edges, given as [side sign, depth below the top],
@@ -539,6 +563,31 @@
       }
     }
     return { positions: new Float32Array(positions), normals: new Float32Array(normals), colors: new Float32Array(colors), uvs: new Float32Array(uvs), indices: new Uint32Array(indices) };
+  }
+
+  // railGeometry returns the vertex data of the light rail along the
+  // middle of each beam top: a flat strip RAIL_WIDTH wide, RAIL_RISE above
+  // the top of each profile of guidewayProfiles. At a fork, the rails of
+  // the two beams split as the beams do, so a rail does not cross the
+  // running surface of the other beam. The rail is unlit, so it has no
+  // normals.
+  function railGeometry(profiles) {
+    const positions = [], indices = [];
+    const half = RAIL_WIDTH / 2;
+    for (const profile of profiles) {
+      if (!profile) continue;
+      const points = profile.map((point) => toScene(point.x, point.y));
+      const sides = profileSides(points), base = positions.length / 3;
+      points.forEach(([x, z], i) => {
+        const [lx, lz] = sides[i], y = profile[i].h + RAIL_RISE;
+        positions.push(x + lx * half, y, z + lz * half, x - lx * half, y, z - lz * half);
+      });
+      for (let i = 0; i + 1 < points.length; i++) {
+        const a = base + 2 * i;
+        indices.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
   }
 
   // boxUVs returns texture coordinates for a mesh by a box projection: each
@@ -1530,8 +1579,8 @@
   // casters cast shadows, and receivers show them. With a pod model, each
   // class also gets a cabin, and the world gets the cabin screens. The
   // textures load in the background, and the surfaces keep their flat
-  // colors until then.
-  function buildWorld(B, scene, topology, model) {
+  // colors until then. look holds the switches of lookOptions.
+  function buildWorld(B, scene, topology, model, look) {
     const meshes = [], casters = [], receivers = [];
     const nodes = new Map(topology.nodes.map((node) => [node.id, node.position]));
     const beamMaterial = new B.StandardMaterial("beam", scene);
@@ -1548,8 +1597,11 @@
     const chunks = [];
     for (let start = 0; start < lanes.length; start += LANES_PER_CHUNK) chunks.push([`beams${start}`, lanes.slice(start, start + LANES_PER_CHUNK), []]);
     for (let start = 0; start < plan.pieces.length; start += LANES_PER_CHUNK) chunks.push([`joins${start}`, [], plan.pieces.slice(start, start + LANES_PER_CHUNK)]);
+    const railProfiles = [];
     for (const [name, chunkLanes, chunkPieces] of chunks) {
-      const geometry = beamGeometry(chunkLanes, nodes, levels, chunkPieces);
+      const profiles = guidewayProfiles(chunkLanes, nodes, levels, chunkPieces);
+      if (look.rail) railProfiles.push(...profiles);
+      const geometry = profileBeams(profiles);
       if (geometry.indices.length === 0) continue;
       const mesh = new B.Mesh(name, scene);
       const data = new B.VertexData();
@@ -1559,6 +1611,26 @@
       mesh.isPickable = false;
       mesh.freezeWorldMatrix();
       meshes.push(mesh); casters.push(mesh); receivers.push(mesh);
+    }
+    // The rails of all beams are one mesh, so they add one draw call. The
+    // rail is unlit, and it does not cast or receive shadows.
+    const rail = railGeometry(railProfiles);
+    if (rail.indices.length > 0) {
+      const mesh = new B.Mesh("rail", scene);
+      const data = new B.VertexData();
+      data.positions = rail.positions; data.indices = rail.indices;
+      data.applyToMesh(mesh);
+      const material = new B.StandardMaterial("rail", scene);
+      material.disableLighting = true;
+      material.emissiveColor = color(B, RAIL_COLOR);
+      material.specularColor = new B.Color3(0, 0, 0);
+      // Far from the camera, the depth buffer has less precision than the
+      // rise of the rail, so the rail moves a little toward the camera.
+      material.zOffset = -1;
+      mesh.material = material;
+      mesh.isPickable = false;
+      mesh.freezeWorldMatrix();
+      meshes.push(mesh);
     }
     for (const [index, hub] of hubs.entries()) {
       const geometry = deckGeometry(hub.hull, BEAM_TOP - HUB_DECK_DROP);
@@ -1632,15 +1704,15 @@
     ground.freezeWorldMatrix();
     meshes.push(ground); receivers.push(ground);
 
-    const look = { shell: [], cabin: [], seat: [] };
+    const textured = { shell: [], cabin: [], seat: [] };
     const pods = topology.classes.map((cls, index) => {
       const { mesh, shellMaterial } = buildPodMesh(B, scene, cls, CLASS_COLORS[index % CLASS_COLORS.length], model);
       meshes.push(mesh); casters.push(mesh);
       const cabin = model ? buildModelCabin(B, scene, cls, model) : null;
       if (cabin) {
         meshes.push(cabin.mesh);
-        look.shell.push(shellMaterial);
-        for (const [name, material] of Object.entries(cabin.materials)) look[name].push(material);
+        textured.shell.push(shellMaterial);
+        for (const [name, material] of Object.entries(cabin.materials)) textured[name].push(material);
       }
       return { mesh, cabin: cabin ? cabin.mesh : null, length: cls.lengthMeters, matrices: new Float32Array(0), count: 0 };
     });
@@ -1650,9 +1722,9 @@
     // only the model gets the pod textures.
     const textures = [
       attachTexture(B, scene, "textures/concrete.png", [beamMaterial, concrete, slabMaterial]),
-      attachTexture(B, scene, "textures/panel.png", look.shell),
-      attachTexture(B, scene, "textures/dash.png", look.cabin),
-      attachTexture(B, scene, "textures/fabric.png", look.seat),
+      attachTexture(B, scene, "textures/panel.png", textured.shell),
+      attachTexture(B, scene, "textures/dash.png", textured.cabin),
+      attachTexture(B, scene, "textures/fabric.png", textured.seat),
     ];
     return { meshes, casters, receivers, pods, slabs, screens, textures };
   }
@@ -2141,7 +2213,7 @@
         for (const texture of world.textures) texture.dispose();
       }
       if (tileLayer) tileLayer.dispose();
-      world = buildWorld(B, scene, topology, podModel);
+      world = buildWorld(B, scene, topology, podModel, look);
       // The sun does not light a cabin, because no roof shadows the floor.
       sun.excludedMeshes = world.pods.flatMap((pod) => (pod.cabin ? [pod.cabin] : []));
       shadows.getShadowMap().renderList = world.casters;
@@ -2388,7 +2460,7 @@
     root.addEventListener("resize", () => engine.resize());
   }
 
-  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
+  const api = { POSE_FIELDS, lookOptions, segmentIndex, segmentsNear, segmentsCross, convexHull, findHubs, deckGeometry, levelHeight, laneProfile, filletPlan, pieceProfile, uniqueLanes, miniMapArrow, snapShadowCenter, shadowFocus, stopPoints, shortLabel, placeLabels, platformView, tripView, nearestStop, autoHop, BEAM_TOP, GROUND_LAYERS, groundLayerOrder, toScene, worldToGeo, geoToWorld, groundTiles, tileQuad, nearestSlabs, yawOf, wrapAngle, newTurn, dampAngle, laneSamples, beamGeometry, guidewayProfiles, railGeometry, pillarPoints, stationSlabs, sceneBounds, writePodMatrix, parsePodModel, STRETCH_CUT, stretchZ, stretchPart, seatEye, choosePod, podLabel, springBack, chaseEye, smoothPodYaws, formatSpeed, formatDistance, formatDuration, hudView, boxUVs, screenQuad, fitText, stopLadder, ladderItems, gaugeView, hudMode, waitText, drawText, drawGauge, drawLadder, drawSpeedScreen, drawRouteScreen, drawBanner, attachTexture, createMiniMap, start };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.PodsimRide = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

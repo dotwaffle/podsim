@@ -1098,9 +1098,39 @@ test("the beams of the lanes meet the pieces of internal/ride", () => {
 });
 
 test("lookOptions turns each part of the polish off by name or all by polish=0", () => {
-  assert.deepEqual(ride.lookOptions(""), { tint: true });
-  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false });
+  assert.deepEqual(ride.lookOptions(""), { tint: true, rail: true });
+  assert.deepEqual(ride.lookOptions("?pod=01&tint=0"), { tint: false, rail: true });
   // Only 0 turns a switch off.
-  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true });
-  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false });
+  assert.deepEqual(ride.lookOptions("?tint=1"), { tint: true, rail: true });
+  assert.deepEqual(ride.lookOptions("?polish=0&tint=1"), { tint: false, rail: false });
+});
+
+test("railGeometry runs a strip along the middle of each beam top", () => {
+  // A lane to a fork at b: one branch goes on, and a curve turns away.
+  const nodes = new Map([["a", { x: 0, y: 0 }], ["b", { x: 40, y: 0 }], ["c", { x: 80, y: 0 }], ["d", { x: 80, y: -30 }]]);
+  const lanes = [{ id: "ab", from: "a", to: "b" }, { id: "bc", from: "b", to: "c" }, { id: "bd", from: "b", to: "d", control: { x: 60, y: 0 } }, { id: "lost", from: "a", to: "missing" }];
+  const profiles = ride.guidewayProfiles(lanes, nodes, null);
+  const rail = ride.railGeometry(profiles);
+  const drawn = profiles.filter(Boolean), points = drawn.flat();
+  assert.equal(rail.positions.length / 3, 2 * points.length);
+  assert.equal(rail.indices.length, 6 * (points.length - drawn.length));
+  points.forEach((point, i) => {
+    const a = rail.positions.subarray(6 * i, 6 * i + 3), b = rail.positions.subarray(6 * i + 3, 6 * i + 6);
+    const [x, z] = ride.toScene(point.x, point.y);
+    // The strip is centered on the beam, narrower than its top, and a
+    // little above it.
+    // The positions are float32.
+    assert.ok(Math.abs((a[0] + b[0]) / 2 - x) < 1e-5 && Math.abs((a[2] + b[2]) / 2 - z) < 1e-5, `center ${i}`);
+    assert.ok(Math.abs(Math.hypot(a[0] - b[0], a[2] - b[2]) - 0.12) < 1e-4, `width ${i}`);
+    assert.ok(Math.abs(a[1] - (ride.BEAM_TOP + 0.05)) < 1e-5 && a[1] === b[1], `height ${i}`);
+  });
+  // The rails of the two branches start together at the fork. The first
+  // side of a curve follows its first chord, so only the centers match.
+  const center = (profile) => {
+    const at = 6 * drawn.slice(0, drawn.indexOf(profile)).reduce((sum, p) => sum + p.length, 0), p = rail.positions;
+    return [(p[at] + p[at + 3]) / 2, (p[at + 2] + p[at + 5]) / 2];
+  };
+  const [, onward, turn] = drawn;
+  assert.deepEqual(center(onward), center(turn));
+  for (const index of rail.indices) assert.ok(index < rail.positions.length / 3);
 });
