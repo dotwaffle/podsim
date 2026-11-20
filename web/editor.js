@@ -1232,15 +1232,44 @@
   // the draft.
   const PRESET_QUESTION = "Load the preset? It replaces the changes in your draft. Undo brings them back.";
 
+  // PRESET_TOO_LARGE_TEXT is the message of a preset reply of more than
+  // SERVER_PROJECT_BYTES. The server does not accept a larger project.
+  const PRESET_TOO_LARGE_TEXT = `The preset reply is larger than ${mebibytes(SERVER_PROJECT_BYTES)}.`;
+
   // readPreset asks the server for a new project of the named preset. It
   // gives the text of the project, and projectFile, which is true when an
   // apply overwrites the project file of the server. A failed request
-  // throws an error with the text of the reply.
+  // throws an error with the text of the reply. The request and the body
+  // read have the time limit of withDeadline, and signal also stops them.
+  // A reply body of more than SERVER_PROJECT_BYTES throws
+  // PRESET_TOO_LARGE_TEXT after the first byte past that bound.
   async function readPreset(connection, name, signal) {
-    const response = await connection.fetch(`/api/presets/${encodeURIComponent(name)}`, { method: "POST", headers: { Accept: "application/json" }, signal });
-    const text = await response.text();
-    if (!response.ok) { const reason = replyText(text, response.status); throw new Error(`${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`); }
-    return { text, projectFile: response.headers.get("X-Podsim-Project-File") === "true" };
+    return withDeadline(async (deadline) => {
+      const stop = AbortSignal.any([signal, deadline]);
+      const response = await connection.fetch(`/api/presets/${encodeURIComponent(name)}`, { method: "POST", headers: { Accept: "application/json" }, signal: stop });
+      const text = await boundedText(response, SERVER_PROJECT_BYTES, PRESET_TOO_LARGE_TEXT);
+      if (!response.ok) { const reason = replyText(text, response.status); throw new Error(`${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`); }
+      return { text, projectFile: response.headers.get("X-Podsim-Project-File") === "true" };
+    }, () => new Error(TIMEOUT_TEXT));
+  }
+
+  // boundedText reads the body of response as UTF-8 text, as text() does.
+  // It reads at most one byte past limit. A larger body throws an error
+  // with the message tooLarge and cancels the rest of the body.
+  async function boundedText(response, limit, tooLarge) {
+    if (!response.body) return "";
+    const reader = response.body.getReader();
+    const chunks = []; let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > limit) { reader.cancel().catch(() => {}); throw new Error(tooLarge); }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+    return new TextDecoder().decode(bytes);
   }
 
   // postCommand sends one command. A rejected command throws an error with
@@ -2466,7 +2495,7 @@
     problemCountText, createCheckTimer, validationSummary, checkFocusKey, IMAGE_FILE_BYTES, IMAGE_MAX_SIDE, IMAGE_MAX_PIXELS, imageFacts, imageBytesFacts, dataURLToBytes, bytesToDataURL, checkImageSize,
     metadataURLFacts, IMAGE_KEY_PATTERN, newImageKey, FRAME_STATES, LICENSE_LIMITS, licenseError, assetError, backgroundRecordText, STORED_BACKGROUND_KEPT_TEXT, SERVER_PROJECT_BYTES, PROJECT_FILE_BYTES, SERVER_COMMAND_BYTES, SERVER_COMMAND_JSON_BYTES, GZIP_COMMAND_BYTES, SERVER_TOO_LARGE_TEXT, postCommand, dataURLBytes, serializeDocument, parseDocument, repeatedMember,
     networkBounds, fitView, zoomScale, nodeLabelSize, pairedLaneIDs, showsChevron, laneOffset, laneCurve, lanePathData, SNAPSHOT_ATTEMPTS, snapshotConsistent, draftBeforeRestart, LIVE_STATE_ACCEPT, MAX_STATE_DEPTH, MAX_STATE_ELEMENTS, liveStateFrame, readState, readSnapshot, applyToServer, applyFailureText, applyFailureStatus, applyToast,
-    REQUEST_TIMEOUT, readPreset, PRESET_QUESTION, readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
+    REQUEST_TIMEOUT, readPreset, PRESET_QUESTION, PRESET_TOO_LARGE_TEXT, readLive, readConflict, CONFLICT_UNLOADED_TEXT, conflictView, LOAD_LIVE_QUESTION, applyOverQuestion, loadLive, liveDraft, applyOverBase,
     DRAFT_SAVE_DELAY, DRAFT_STORE_TEXT, DRAFT_UNSAVED_TEXT, DRAFT_DISPLACED_TEXT, DRAFT_STORE, BACKGROUND_STORE, openRecordStore, createDraftKeeper, draftChanged, draftRecordFor, draftOffer, backgroundRecordFor, storedBackground, restoreStoredBackground,
     IMAGE_TABLE_BYTES, DEFAULT_OPACITY, freezeImage, createGoBackgroundModel, createDecoderSlot, checkImageBytes, resampleImage, FRAME_WARNING_TEXT, frameView, attributionParts, BACKGROUND_DURABLE_TEXT, backgroundFacts, exportBackground, STARTUP_EVENTS, createStartupGate, blockInput, startupExempt, startEditor, BACKGROUND_STORE_TEXT, DRAFT_RESTART_TEXT, draftOfferText, RESTORED_RESTART_TEXT, restoreStatusText, shellPage,
   };

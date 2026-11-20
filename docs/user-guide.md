@@ -794,6 +794,7 @@ The draft then works as after **Import JSON**: the preset becomes the base of **
 When the draft has scenario changes, the editor asks first.
 
 The draft stays as it was when the generation fails or when the server is generating another preset, and a message gives the reason.
+The draft also stays as it was when the reply does not come in 35 seconds or has more than 32 MiB, the largest project that the server accepts.
 The live simulation does not change until you select **Pause and apply**.
 
 When the server started with `-project`, the page shows a warning after the load: **Pause and apply** overwrites the project file of the server.

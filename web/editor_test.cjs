@@ -4002,10 +4002,9 @@ test("a project import keeps the scenario of the file", async () => {
   assert.equal(page.messages.at(-1), "The project was imported into the draft.");
 });
 
-// presetReply gives a reply of the preset endpoint. The fake has the members
-// that readPreset reads.
+// presetReply gives a reply of the preset endpoint.
 function presetReply(status, text, headers = {}) {
-  return { ok: status >= 200 && status < 300, status, text: async () => text, headers: { get: (name) => headers[name] ?? null } };
+  return new Response(text, { status, headers });
 }
 
 // presetScenario gives a scenario that differs from the draft of pageImports.
@@ -4028,17 +4027,74 @@ test("the preset menu has the presets of the server and the warning", () => {
 });
 
 test("readPreset posts no body and reads the project file header", async () => {
-  const calls = []; const signal = new AbortController().signal;
+  const calls = []; const caller = new AbortController();
   const connection = { fetch: async (url, init) => { calls.push({ url, init }); return presetReply(200, "{}", { "X-Podsim-Project-File": "true" }); } };
-  assert.deepEqual(await editor.readPreset(connection, "london-full", signal), { text: "{}", projectFile: true });
+  assert.deepEqual(await editor.readPreset(connection, "london-full", caller.signal), { text: "{}", projectFile: true });
   assert.equal(calls[0].url, "/api/presets/london-full");
   assert.equal(calls[0].init.method, "POST");
   assert.equal(calls[0].init.body, undefined);
-  assert.equal(calls[0].init.signal, signal);
+  assert.equal(calls[0].init.signal.aborted, false);
+  caller.abort();
+  assert.equal(calls[0].init.signal.aborted, true, "the signal of the caller stops the request");
+  const signal = new AbortController().signal;
   connection.fetch = async () => presetReply(200, "{}");
   assert.equal((await editor.readPreset(connection, "a/b", signal)).projectFile, false);
   connection.fetch = async (url) => { assert.equal(url, "/api/presets/a%2Fb"); return presetReply(404, "unknown preset\n"); };
   await assert.rejects(editor.readPreset(connection, "a/b", signal), { message: "Unknown preset." });
+});
+
+// endlessBody gives a stream of chunk bytes of "a" that does not end, and
+// a count of the chunks that it gave and of its cancels.
+function endlessBody(chunk) {
+  const counts = { pulls: 0, cancels: 0 };
+  const body = new ReadableStream({
+    pull(controller) { counts.pulls += 1; controller.enqueue(new Uint8Array(chunk).fill(97)); },
+    cancel() { counts.cancels += 1; },
+  });
+  return { body, counts };
+}
+
+test("readPreset refuses a reply past the project bound and stops the read", async () => {
+  const signal = new AbortController().signal;
+  const bound = editor.SERVER_PROJECT_BYTES;
+  const exact = { fetch: async () => presetReply(200, new Uint8Array(bound).fill(32)) };
+  assert.equal((await editor.readPreset(exact, "london-full", signal)).text.length, bound);
+  const over = { fetch: async () => presetReply(200, new Uint8Array(bound + 1).fill(32)) };
+  await assert.rejects(editor.readPreset(over, "london-full", signal), { message: "The preset reply is larger than 32 MiB." });
+  assert.equal(editor.PRESET_TOO_LARGE_TEXT, "The preset reply is larger than 32 MiB.");
+  const chunk = 1024 * 1024;
+  for (const status of [200, 500]) {
+    const { body, counts } = endlessBody(chunk);
+    const endless = { fetch: async () => new Response(body, { status }) };
+    await assert.rejects(editor.readPreset(endless, "london-full", signal), { message: editor.PRESET_TOO_LARGE_TEXT }, `HTTP ${status}`);
+    assert.ok(counts.pulls <= bound / chunk + 2, `HTTP ${status}: ${counts.pulls} chunks`);
+    assert.equal(counts.cancels, 1, `HTTP ${status}`);
+  }
+});
+
+test("readPreset stops a stalled reply after the time limit", { timeout: 20000 }, async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const timeout = "The server did not reply in 35 seconds.";
+  const aborted = () => new DOMException("The request was aborted.", "AbortError");
+  for (const where of ["headers", "body"]) {
+    const signals = [];
+    const connection = {
+      fetch: async (url, init) => {
+        signals.push(init.signal);
+        if (where === "headers") return new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(aborted())));
+        return new Response(new ReadableStream({ start(controller) { init.signal.addEventListener("abort", () => controller.error(aborted())); } }));
+      },
+    };
+    const reading = editor.readPreset(connection, "london-full", new AbortController().signal).then(() => null, (caught) => caught);
+    await new Promise((resolve) => setImmediate(resolve));
+    t.mock.timers.tick(editor.REQUEST_TIMEOUT - 1);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(signals[0].aborted, false, where);
+    t.mock.timers.tick(1);
+    const error = await reading;
+    assert.equal(error?.message, timeout, where);
+    assert.equal(signals[0].aborted, true, where);
+  }
 });
 
 test("a preset replaces the draft through the import path", async () => {
