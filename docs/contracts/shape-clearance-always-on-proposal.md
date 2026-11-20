@@ -1,7 +1,8 @@
 # Shape clearance always-on proposal
 
 Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
-Slices 0 to 4 landed, and section 7.2 records the decisions on the slice 2 stops.
+Slices 0 to 4 landed.
+Sections 7.2 and 7.3 record the decisions of the build.
 On 2026-11-20, the amendments of section 4 were applied to their target documents, with each `<date>` as 2026-11-20.
 Date: 2026-11-20.
 Revised on 2026-11-20 after an adversarial review: 6 major findings and 1 minor finding are folded in.
@@ -416,6 +417,21 @@ Each one is decided by the agent on that delegation, and each one waits for main
 | AO-S7 | `TestPlatoonEntryLaneRun/36` reaches no tick with two coasting heads | Slice 2 finds a fixture that reaches the case. If none does in a bounded search, it reaches the state through a test entry, as `TestRestore*` does with `newFleet`. Stop only if neither works. |
 | AO-S8 | The 12 m test helper `checkTraffic` (49 call sites) | Replace it with `Check` and the D6 oracle in slice 2. |
 | AO-S9 | New pins of slice 2 | Pin the corridor headways (8.633 s, 4.933 s, 2.993 s), the parallel chains in place, and the sampler trace. |
+
+### 7.3 Decisions in the build of slices 2 to 4
+
+The build of slices 2 to 4 and its adversarial review found the items below on 2026-11-20.
+Each one is decided by the agent on the delegation of section 7.2, and each one waits for maintainer review.
+
+| ID | Item | Decision |
+| --- | --- | --- |
+| AO-S10 | The fallback draft of the editor (`fallbackConfig` in `web/editor.js`) and the offline project fixture have a straight return lane, `lane-8`, through two station nodes, and the audit refuses it. | Give `lane-8` the control point (220, -120). A web test pins that the fallback draft has no refusal except its empty fleet. |
+| AO-S11 | Section 2.1 gives `decode bank geometry: ...` for an editor geometry edit. Under AO-D10, the guard of each edit refuses the draft first. | Each edit, geometry edits included, gives `decode project branch network: ...`. The checks keep `decode bank geometry: ...`. |
+| AO-S12 | A removed member after an earlier decode error of the network gives no unknown-member error, so the guard of AO-D10 did not refuse an edit of such a draft. | The guard also finds the removed members by name. The refusal gives the first decode error, as the server does. |
+| AO-S13 | The checks decoded the network again from a map, so with both members the check error named either one. | The checks decode the bytes of the network, and name the first member in document order. The check text uses the fixed wording of `jsonerr`. |
+| AO-S14 | The coverage count of A1 drops on D (section 5.1) was 0. The route envelope of the count left out the rule 1 fronts. | Count with the fronts of the current rules. The count on D is 116 pod ticks, and the test requires a count above 0. |
+| AO-S15 | The amendment AO24 removed the paragraph that "the case above" in `group-physics-design.md` refers to. | Replace the sentence with "The envelope reach holds each plane of the route window of the oracle, so the audit covers that window." The AO24 row gives the new text. |
+| AO-S16 | `TestTailRandomCurvedNetworks` checked a 20 m center distance for each pair, which the certified merge pairs fail under the rule. | Use the D6 body oracle (`LateralBodyCheckForTest`) and `Check`. The test no longer has a check of the center distance that is independent of `Check` for the other pairs. |
 
 ## 8. Decisions for the maintainer
 
