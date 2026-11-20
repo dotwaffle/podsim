@@ -1,6 +1,7 @@
 # Shape clearance always-on proposal
 
-Status: Proposed; maintainer decisions of 2026-11-20 recorded; waiting for approval of the text.
+Status: Approved by the maintainer on 2026-11-20, with decisions AO-D1 to AO-D10.
+The build has not started.
 Date: 2026-11-20.
 Revised on 2026-11-20 after an adversarial review: 6 major findings and 1 minor finding are folded in.
 Line references are for `b2114516`.
@@ -140,7 +141,7 @@ Slice 3 repeats each row with both real names and pins the text in a test.
 | Editor call, `validate` | `internal/editormodel/model.go:142` | `decode editor project: json: invalid JSON object at /network/<m>: unknown object member name "<m>"` | Refused. |
 | Editor `checks` | `internal/editormodel/model.go:117`, `checks.go:233` | Check error `decode bank geometry: json: cannot unmarshal JSON string into Go sim.Network: unknown object member name "<m>"` | At the tip, a plain draft with the member gets no check error. From slice 2, each draft runs the server check, which refuses it. |
 | Editor geometry edit | `internal/editormodel/edit_geometry.go:84` | `decode bank geometry: json: invalid JSON object at /<m>: unknown object member name "<m>"` | The edit is refused. |
-| Editor field edit, for example `name` | `internal/editormodel/model.go:124` | None | The edit is accepted, because its patch does not read the network. The next `validate` or apply refuses the draft. |
+| Editor field edit, for example `name` | `internal/editormodel/model.go:124` | The unknown-member text of the network decode | Refused, by decision AO-D10. Today the edit is accepted, because its patch does not read the network. Slice 3 makes each editor operation refuse a draft with a removed member, and a test pins it. |
 
 Precedence:
 
@@ -161,7 +162,7 @@ There is no migration and no exemption.
 A network with two independent refused pairs cannot be repaired one pair at a time in the editor.
 A geometry edit that repairs one pair still fails the server network check on the other pair, and the editor discards that patch (`edit_geometry.go:84` to `:86`).
 
-Supported repair route (decided in this proposal): repair in the project JSON.
+Supported repair route, approved by the maintainer on 2026-11-20: repair in the project JSON.
 
 1. Run `go run ./cmd/projectcheck -project <file>` to get the first refused pair.
 2. In the project JSON, move or remove a lane of that pair.
@@ -342,6 +343,7 @@ The forced-on audit refuses the limit network of `TestValidateAcceptsNetworkLimi
 
 ### 6.2 Limits
 
+The maintainer approved these limits on 2026-11-20.
 Each limit is for one edit, in each mode and for each verdict, in wasm and in the browser.
 
 | Network | p95 | Maximum |
@@ -411,6 +413,7 @@ The options stay for the record.
 | AO-D7 | Lane-end decision D for plain projects | A: the all-pairs audit in each network, and slice 1 moves the refused fixtures. B: keep the audit scope of today for plain networks (D12-B there). C: stop. | Decided 2026-11-20: A. |
 | AO-D8 | Release soak wall time | A: run one timing seed per preset first. If 2 seeds do not fit the 2-hour limit, the maintainer chooses fewer seeds, a higher limit, or a split run. B: run `soak:full` directly. | Decided 2026-11-20: A. The last release soak took 5,812 s of 7,200 s, and the D6 oracle now runs on `rail-hub`, `london-central`, and D too. |
 | AO-D9 | Editor cost | A: measure with the protocol and the limits of section 6. When any limit fails, stop, and design deferred validation as a separate change. B: a debounce fallback in this proposal. | Decided 2026-11-20: A. |
+| AO-D10 | Editor operations on a draft with a removed member | A: each editor operation refuses the draft, field edits included. B: only validate, checks, and geometry edits refuse it. | Decided 2026-11-20: A. |
 
 ## 9. Risks and stop conditions
 
