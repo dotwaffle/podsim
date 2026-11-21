@@ -114,7 +114,8 @@ Of the 1,456 roads of LondonFull, 676 are curved: 320 road-in lanes, 340 road-ou
 The median speed of a curved road is about 11 m/s.
 280 of the 309 passenger stations have a road slower than 14 m/s.
 The movement lanes at the junctions keep their chords.
-LondonCentral, `london-full-express`, and `london-full-shared-express` keep unfilleted roads.
+LondonCentral and `london-full-express` keep unfilleted roads.
+`london-full-shared-express` builds on the filleted LondonFull, with straight roads at Waterloo and Bank.
 `-road-fillets=false` gives LondonFull with straight roads, with the network SHA-256 `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` (see [capacity flags](reference.md#capacity-flags)).
 
 A virtual platoon needs one speed limit on its route and on each lane of its destination station (see [virtual platoons](model.md#virtual-platoons)).
@@ -130,8 +131,8 @@ Section 8.1 of the proposal gives the method and the results.
 
 `london-full-shared-express` is decision D11 of the [shape clearance](design/shape-clearance.md) design.
 It runs Express on the link 100 track between Waterloo and Bank, shared with Compact pods, in place of the dedicated trunks of `london-full-express`.
-It is a builder over LondonFull with straight roads: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
-Until the maintainer reads the evidence of the filleted LondonFull, the preset keeps the straight roads (decision FL-D4 of the fillets proposal).
+It is a builder over LondonFull: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
+It keeps the filleted roads of LondonFull, except the roads of Waterloo and Bank, which keep their chords and a speed limit of 14 m/s (decision FL-D5 of the fillets proposal).
 The [shared-track design](design/shared-track-preset.md) gives the measurements and the build record.
 
 ```sh
@@ -144,12 +145,12 @@ mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-lond
 | Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
 | Express parking | None | `express-parking`, 6.8 km from Waterloo | `express-parking`, a comb beside Waterloo |
 | Junction lanes | All chords | All chords | Two chords removed |
-| Station roads | Filleted | Straight | Straight, with a curve on `940GZZLUWLO-road-in-05` |
-| Network SHA-256 | `03d04786...` | `3aa0a2eb...` | `5961c702...` |
+| Station roads | Filleted | Straight | Filleted, with straight hub roads and a curve on `940GZZLUWLO-road-in-05` |
+| Network SHA-256 | `03d04786...` | `3aa0a2eb...` | `cba69149...` |
 
 The hub geometry changes are a Waterloo throat at 90 m, Bank turned by 5 degrees, a curve on `940GZZLUWLO-road-in-05`, and the removal of `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06`.
 Without them, the bank audit refuses 7 pairs on the Waterloo and Bank throats, and 33 hub lanes are under the 40 m of a large lane.
-Express free-flow routes grow by about 45 m from Waterloo to Bank and 48 m back, and 1,249 station pairs get a longer route.
+On the straight roads before the fillets, Express free-flow routes grow by about 45 m from Waterloo to Bank and 48 m back, and 1,249 station pairs get a longer route.
 The worst of them is 21.4 s longer, from Waterloo to St. Paul's.
 Wait and journey times are not measured.
 
@@ -158,7 +159,7 @@ The comb has 16 berths, parts of 41 m, and two roads to the link 100 portals at 
 The layout audit of the preset treats the comb as a Parking facility of Waterloo, because its road crosses the curved `road-in-05`.
 The preset has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.5 m is longer than its length of 39.1 m, so it holds one pod.
 The capacity flags do not apply to it.
-Its network SHA-256 is `5961c7021dcc4a13712cc8006bd060f94e25d38c4eec295056d6ee5cb9f8c687`.
+Its network SHA-256 is `cba69149281760dbba334323497b9d94cb1d3a980a631b68de0be45e78aac6bb`.
 
 ## Depots and Compact stations
 

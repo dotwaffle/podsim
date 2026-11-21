@@ -12,6 +12,8 @@ Slice 7, the study batch, is open.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 Note of 2026-11-20: the [fillets proposal](../contracts/london-fillets-proposal.md) changes the roads of LondonFull.
 D does not change.
+Note of 2026-11-21: the fillets proposal changes the roads of the preset too.
+The Waterloo and Bank roads stay straight (decision FL-D5), so the hub geometry of this design does not change.
 Note of 2026-11-20: the fields are removed, and S1, A1, and the compiled reach apply to each network.
 The text below records the design with the field.
 
@@ -80,7 +82,6 @@ The other numbers of sections 2 and 3 are in the log of the study, and the conta
 Two checks tie the copy to the code: its first refusal is the error of `ValidateBankGeometry`, and its spans with the built bound are the spans of the built index.
 The copy gives the counts of "Counts of the built audit" in section 2.2 of the shape clearance design: 40 shape pairs and 14 refusals with the built bound.
 With the index for each lane, it gives the 7 refusals that the shape clearance design gives for a front reach of 6 m (section 2.2).
-The wide network gives the same refusals.
 Since the road fillets of 2026-11-20, the tight input of the study has filleted roads and gives 9 refusals.
 The wide input keeps straight roads (`-road-fillets=false`), as the preset does, and gives these 7 refusals.
 For each refusal, the study runs the shape sweep, and each sweep finds a collision.

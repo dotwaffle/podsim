@@ -8,6 +8,7 @@ Note of 2026-11-16: a code review of slice 1 found a case with a lane of a maneu
 The maintainer approved a wider seed on 2026-11-16, and the applied text of ST3 in `docs/design/group-physics-design.md` changed.
 Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of LondonFull.
 D does not change.
+Note of 2026-11-21: the fillets proposal changes the roads of the preset too.
 The old sentence was "The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P into the From node of L."
 The new sentences are "The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P of the seed of L." and "The seed of L holds each lane whose To node is less than two slacks from the From node of L, by the shortest walk back along lanes."
 The ST3 text below records the text as first approved.

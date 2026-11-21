@@ -4,6 +4,8 @@ Status: approved by the maintainer on 2026-11-16, rows SX1 to SX13.
 The [shared-track amendment proposal](shared-track-amendment-proposal.md) gave the rows, and decision S6-A of the [shared-track](../design/shared-track-preset.md) design chose a new contract for them.
 The preset is not qualified while a row in the [Evidence](#evidence) section is open.
 On 2026-11-20, the maintainer passed the Chrome checks of rows SX6, SX7, and SX9 on the preset in desktop Chrome at `f5bf17a3`, so each row is closed and the preset is qualified.
+Note of 2026-11-21: the [fillets proposal](london-fillets-proposal.md) changes the geometry of the preset, so the preset is not qualified until the rows run again on the new geometry.
+The Chrome checks of SX6, SX7, and SX9 of 2026-11-20 stand (decision FL-D9).
 Amended 2026-11-16, by maintainer decision: SX3 compares the compiled envelope reach with an independent reference, in amendment ST22 of the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md).
 Amended 2026-11-17, by maintainer decision: the [Evidence](#evidence) section records the evidence, and the maintainer accepts that history rollover of SX8 is not reached on the preset.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
@@ -21,6 +23,7 @@ Each SX row keeps the limits and the requirements of the row that it follows, an
 Where the short text of section 5 of the design omits a clause of that row, the row below carries the clause, and marks it "carried from".
 The rows apply to the geometry whose network hash the preset test pins after slice 3 of the design.
 That geometry is the network of section 3.5 of the design, with the Express parking of decision S4.
+Since 2026-11-21, the rows apply to the geometry of the fillets proposal, and the [Evidence](#evidence) section records the reruns.
 Each evidence item below is evidence that the row needs, and the [Evidence](#evidence) section records the evidence that exists.
 
 - SX1, Foundation parity (from E1).
@@ -31,6 +34,7 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
   D changed by the shape clearance rule, and its evidence ran again.
   Since 2026-11-20, the roads of LondonFull are filleted ([fillets proposal](london-fillets-proposal.md)), so its network hash and its behavior changed.
   D did not change.
+  Since 2026-11-21, the roads of the preset are filleted too, so its network hash and its behavior changed.
   Carried from E1: idle Express pods keep their current behavior.
   Evidence: a test that pins the network hashes of LondonFull and D.
   The field-off test: on D and on each scenario network, the oracle and the reference construction give the envelopes of today, and `TestBerthEnvelopeMatchesReference` passes.
@@ -133,6 +137,10 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX10 | Evidence complete on the preset. |
 | SX11 | Evidence complete on the preset. The release soak of amendment A19 passed on 2026-11-20 at `9cfadfe2`, with queue promotion (section 9.3.1 of the emergency contract) and no late record. The earlier run, before queue promotion, failed (see SX11). |
 | SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
+
+Note of 2026-11-21: the table above is the status before the fillets reached the preset (fillets proposal, slice 4).
+On the filleted preset, `mise run test:shared-express` (SX2 to SX10), the London soak row (SX10), and the release soak (SX11) passed again (section 8.2 of the fillets proposal).
+The server measurement of SX7 and the timed runs of SX12 have not run again, so the preset is not qualified until they pass.
 
 ### Fixture
 

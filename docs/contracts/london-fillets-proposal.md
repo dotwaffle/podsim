@@ -5,6 +5,7 @@ The maintainer approved stage 1 of decision FL-D4: slices 0 to 3 and the evidenc
 Stage 2 waits until the maintainer reads the evidence of LondonFull.
 Slice 0 ran, and slices 1 to 3 landed.
 Section 8.1 records the evidence of stage 1.
+On 2026-11-21, the maintainer approved stage 2 locally: slice 4 landed at `ab445aad`, slice 5 applied rows FL-A1 to FL-A7, and section 8.2 records the evidence of slice 6.
 On 2026-11-21, the maintainer approved two corrections of section 2.1: the count of roads with rays behind an end, and the case of a vector with no direction (section 8.1).
 An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.

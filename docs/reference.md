@@ -577,7 +577,8 @@ The `london-full-shared-express` preset is decision D11 of the [shape clearance]
 It keeps D and adds a second Express project under the `express-v1` order contract.
 Its Express pods run on the lanes of link 100 between Waterloo and Bank, on the four hub roads of that route, and on the access, berth, and junction lanes of the two hubs, all shared with Legacy and Compact pods.
 There are no Express trunks.
-The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`, but with straight roads.
+The stations are tight, with parts of 41 meters at Waterloo and Bank, and each other station is as in `london-full`.
+The roads are filleted as in `london-full`, except the roads of Waterloo and Bank, which stay straight.
 The Waterloo throat is 90 meters from its junction, Bank is turned by 5 degrees, `road-in-05` at Waterloo is curved, and the junction lanes `940GZZLUWLO-move-05-01` and `940GZZLUBNK-move-08-06` are removed.
 Together, these changes leave the [bank audit](station-banks.md) with no refusal.
 There are two Express services, one in each direction between the two stations, with a party limit of 20.
