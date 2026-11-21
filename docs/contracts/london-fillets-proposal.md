@@ -693,6 +693,31 @@ The run had 300 trips, 99,616 pod-ticks on curved roads, and 681,810 pod-ticks o
 `mise run check` passed at `1188c43e` in 2,426 s.
 Stage 1 then waits for the maintainer to read this evidence (FL-D4 B).
 
+A review of stage 1 found two gaps in this evidence, and two runs at `f2655712` closed them.
+
+The edit times of `london-full` ran in wasm with the protocol of section 6.1 of the always-on proposal, against `b04eac36`, the commit before the fillets.
+The runs alternated the two builds for 3 rounds on an AMD Ryzen 5 3600 with GOMAXPROCS 1, Go 1.27.4, and Node 24.22.3, at a load average from 0.3 to 1.5.
+The table gives the median of the 3 rounds, in ms.
+
+| Mode and verdict | p95 before | p95 after | Max before | Max after |
+| --- | ---: | ---: | ---: | ---: |
+| Cold, accepted | 2,110.0 | 2,081.0 | 2,150.8 | 2,170.3 |
+| Cold, refused | 1,780.7 | 1,818.1 | 2,070.9 | 1,824.7 |
+| Cached, refused | 1,235.4 | 1,199.3 | 1,322.3 | 1,265.1 |
+| Cached, accepted | 1,358.7 | 1,364.5 | 1,411.7 | 1,395.0 |
+
+The largest ratio is 1.02 for a p95 and 1.01 for a maximum, against the limit of 1.25.
+
+A scratch probe ran debris incidents on three filleted roads of LondonFull, one at a time and then all three together, with demand and the targeted trips that use each road.
+The roads are `940GZZLUKSX-road-out-06`, with the largest growth of the debris footprint (1 to 18 resources), `940GZZLUKSX-road-in-04` near its arrival portal (9 to 17), and `parking-east-road-out-03` (3 to 12).
+Each incident saved and restored the session through the store at its start, in its middle, after the clear, and after the recovery, 16 times in all.
+Each restore took the physical tier at the same tick and lost no trip.
+Over 36,430 ticks, the fault records (F1 to F13, with F6 and F7), `Check`, the D6 oracle, and the fault transitions passed at each tick.
+The contract check and the footprint check passed at each second and at each restore.
+The footprint check compares the debris footprint, the fault owners, the owner rebuild, and the blocked resources.
+The debris records were the same before and after each restore.
+With the release of the neighbor cells removed from `releaseDebris`, the probe failed at the clear, so the checks can fail.
+
 #### Findings that differ from the text
 
 - Section 2.1 gives the check for rays behind an end before the check for a tangent end.
