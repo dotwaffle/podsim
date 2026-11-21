@@ -171,19 +171,22 @@ env = { PODSIM_REQUIRE_GO = "1" }
 run = "node --test web/editor-model_test.cjs web/place-search_test.cjs web/tiles_test.cjs web/simulation-map_test.cjs web/editor_test.cjs web/loader_test.cjs web/shell_test.cjs web/stream_test.cjs web/offline_test.cjs web/editor-history_test.cjs web/ride_test.cjs"
 
 # check runs qualify by itself, because its latency gates fail on a
-# loaded machine. The other test tasks have no wall-clock gate, so they run
-# after it in two parallel lanes. CI runs each part on its own runner, so
+# loaded machine. test:race:other also runs by itself, because the Express
+# remote tests in it have deadlines that failed at a load of 18 beside the
+# sim lane. The other test tasks have no wall-clock gate, so they run after
+# it in two parallel lanes. CI runs each part on its own runner, so
 # it does not use this task.
 [tasks.check]
 description = "Run tests, static analysis, and native and browser builds"
 run = [
   { task = "check:static" },
   { task = "qualify" },
+  { task = "test:race:other" },
   { task = "check:lanes" },
 ]
 
 [tasks."check:lanes"]
-description = "Run the test tasks of check other than qualify, in two parallel lanes"
+description = "Run the test tasks of check other than qualify and test:race:other, in two parallel lanes"
 depends = ["check:lane-sim", "check:lane-session"]
 
 [tasks."check:lane-sim"]
@@ -195,10 +198,9 @@ run = [
 ]
 
 [tasks."check:lane-session"]
-description = "Run the race tests of internal/session and the other packages, and test:shared-express"
+description = "Run the race tests of internal/session, and test:shared-express"
 run = [
   { task = "test:race:session" },
-  { task = "test:race:other" },
   { task = "test:shared-express" },
 ]
 
