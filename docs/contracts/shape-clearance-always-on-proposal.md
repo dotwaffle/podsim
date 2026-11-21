@@ -493,7 +493,10 @@ The release soak and the London soak row ran again at `e999af83`, the tip after 
 `mise run soak:full` with 2 seeds passed for each preset and seed in 6,427 s, in the limit of 7,200 s.
 After fillet stage 1 and the restore that uses one preparation, `mise run soak:full` ran again at `0598f78f` and passed for each preset and seed in 6,277 s.
 
-These items wait for the maintainer: the Chrome checks of E6 and E7 on the final build (decision AO-D4), the server measurement of E7, the timed runs of SX12, and the browser samples of section 6.1.
+On 2026-11-21, the Chrome checks of E6 and E7 and the server measurement of E7 passed on the final build, and the D proposal records them.
+The timed runs of SX12 passed, and the SX proposal records them.
+The maintainer made the edits of the browser row of section 6.1 in desktop Chrome at `89767755` and accepted their response time.
+That check gave no numbers.
 
 ## 8. Decisions for the maintainer
 

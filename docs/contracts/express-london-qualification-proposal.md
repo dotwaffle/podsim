@@ -9,7 +9,7 @@ On November 15, 2026, the maintainer passed both checks on D in desktop Chrome a
 The sentence above records the state of November 15, 2026.
 Note of 2026-11-20: the shape clearance rule applies to D since the [always-on proposal](shape-clearance-always-on-proposal.md), so D is not qualified until the rows of its section 5 pass and the maintainer repeats the Chrome checks of E6 and E7 on the final build (decision AO-D4).
 Section 7.4 of the always-on proposal records the reruns of 2026-11-20.
-The Chrome checks of E6 and E7 and the server measurement of E7 are pending.
+On 2026-11-21, the Chrome checks of E6 and E7 and the server measurement of E7 passed on the final build, so D is qualified (see [Evidence on the final build](#evidence-on-the-final-build)).
 Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of ordinary LondonFull.
 It does not change D.
 
@@ -160,6 +160,26 @@ D is not qualified again until the evidence of section 5 of the [always-on propo
 A shared-track preset is a new project, and its rows need their own evidence, also where the limits and the requirements do not change.
 Amended 2026-11-16, by maintainer decision: the evidence of D under the [shape clearance](../design/shape-clearance.md) design.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
+
+## Evidence on the final build
+
+On 2026-11-21, the maintainer passed the Chrome checks of E6 and E7 on D in desktop Chrome at `89767755`.
+
+The server measurement of E7 ran at `89767755`, with the method of the SX7 record of the [shared-track qualification](express-shared-track-qualification-proposal.md).
+Each run started `serve` from a project file with background demand on (10 orders/min, seed 20260929), with GOMAXPROCS 4, and measured 60 s at speed 60.
+The order was D, ordinary LondonFull, D without its 16 Express pods, and then the reverse, with no `nice`, at a host load average of 0.3 to 0.8.
+`projectcheck` reports D without its Express pods valid with 327 pods.
+
+| Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ordinary LondonFull | 60.0, 60.1 | 13.8 s, 13.7 s | 13, 13 | 313 MiB, 311 MiB | 126 kB/s |
+| D | 60.0, 60.0 | 15.3 s, 15.1 s | 14, 14 | 312 MiB, 313 MiB | 135 kB/s |
+| D without Express pods | 60.0, 60.0 | 14.5 s, 14.5 s | 12, 12 | 313 MiB, 313 MiB | 134 kB/s, 136 kB/s |
+
+Each case kept speed 60.
+D costs about 10 percent more server CPU than ordinary LondonFull, and its 16 Express pods add about 4 percent.
+The peak RSS is the same within 2 MiB.
+Retained frames and decoded client memory are not measured.
 
 ## London soak row
 
