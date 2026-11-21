@@ -29,6 +29,8 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
   LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay.
   Since 2026-11-20, the network hashes of LondonFull and the preset changed when the network fields left the format, and their behavior did not change (parity test of slice 0 of the always-on proposal).
   D changed by the shape clearance rule, and its evidence ran again.
+  Since 2026-11-20, the roads of LondonFull are filleted ([fillets proposal](london-fillets-proposal.md)), so its network hash and its behavior changed.
+  D did not change.
   Carried from E1: idle Express pods keep their current behavior.
   Evidence: a test that pins the network hashes of LondonFull and D.
   The field-off test: on D and on each scenario network, the oracle and the reference construction give the envelopes of today, and `TestBerthEnvelopeMatchesReference` passes.

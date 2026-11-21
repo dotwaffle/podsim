@@ -1,7 +1,7 @@
 # Incident stage 7 contract proposal
 
 Status: approved by the maintainer on November 4, 2026, as option B with amendments A1 to A4, after two review rounds.
-Amended through November 12, 2026.
+Amended through November 19, 2026 (amendment A19).
 Git history holds the dated amendment notes and the earlier text.
 It was drafted against `57902a7`.
 Each `file:line` reference is for that tree, unless it names a commit.

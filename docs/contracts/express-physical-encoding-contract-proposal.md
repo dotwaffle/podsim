@@ -511,6 +511,8 @@ The [Express London qualification proposal](express-london-qualification-proposa
 
 - E1, Foundation parity: qualification includes the opt-in preset `london-full-express`.
   Ordinary LondonFull, its fleet, and its defaults do not change.
+  Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of ordinary LondonFull.
+  It does not change D.
   Idle Express pods keep their current behavior.
 - E2, Route and station eligibility, and Physical geometry: D has banks at Waterloo and Bank, dedicated Express lanes, and separate Express-only parking that is not a depot.
   Qualification covers every bank berth and both parking directions.

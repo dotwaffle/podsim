@@ -384,7 +384,7 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | Behavior | The `london-full` entry of `preset_behavior_parity.json` (`TestPresetBehaviorParity`, `internal/session/preset_parity_test.go:128`) | Routine |
 | No tail warning | `internal/project/tail_warnings_test.go:190` | Must still pass |
 | Validation, layout audit, bank audit | `TestLondonFullPreset` (`london_full_test.go:19`), `TestAuditPresetsHaveNoHardConflicts` (`layout_audit_test.go:49`), `TestTailPairCoverage` (`tail_certificate_test.go:512`) | Must still pass |
-| Byte limits | `TestRunWritesImportableLondonFull` (`cmd/scenario/main_test.go:682`), `TestScenarioJSONFitsFileLimit` (`:629`) | Must still pass. A fillet adds a control point and a speed limit that is not an integer, under 100 bytes for each lane. |
+| Byte limits | `TestRunWritesImportableLondonFull` (`cmd/scenario/main_test.go:682`), `TestScenarioJSONFitsFileLimit` (`:629`) | Must still pass. A fillet adds a control point and a speed limit that is not an integer: about 74 bytes for each lane in compact JSON, and about 117 bytes in the indented file of `cmd/scenario`. |
 | Fleet qualification | `mise run qualify:london` (`TestLondonFleetQualification`), which builds from `DefaultLondonFullOptions` | Qualification record |
 
 ### 5.3 Pins of the preset that move
@@ -754,8 +754,10 @@ With the release of the neighbor cells removed from `releaseDebris`, the probe f
   This is true only for compact JSON, where the 676 curved lanes add 49,696 bytes, about 73.5 bytes for each lane.
   In the indented file of `cmd/scenario`, which `TestRunWritesImportableLondonFull` and `TestScenarioJSONFitsFileLimit` check, they add 78,764 bytes, about 117 bytes for each lane.
   Both files stay far below the limit of 32 MiB.
-  The text waits for the maintainer.
+  On 2026-11-21, the maintainer approved the correction of section 5.2.
 - Open item for the maintainer: the approved texts that say LondonFull and its hashes do not change (FL-A1, FL-A4, FL-A5, FL-A6) are now stale for LondonFull; slice 5 applies them, and the maintainer may want them before stage 2.
+  On 2026-11-21, the maintainer approved the LondonFull part of these rows before stage 2.
+  FL-A4 and FL-A5 are applied in full, and FL-A1 and FL-A6 have a LondonFull note; slice 5 adds the parts for the preset.
 
 ## 9. Decisions for the maintainer
 

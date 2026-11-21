@@ -6,10 +6,12 @@ On November 8, 2026, the maintainer approved row E7, after the bank routing work
 The approved rows are in the physical contract, the standee contract, the stage 7 contract, and the station banks document.
 D was not qualified until the Chrome check of row E6 and the browser readings of row E7 passed.
 On November 15, 2026, the maintainer passed both checks on D in desktop Chrome at `68a213f1`, so D is qualified.
+The sentence above records the state of November 15, 2026.
 Note of 2026-11-20: the shape clearance rule applies to D since the [always-on proposal](shape-clearance-always-on-proposal.md), so D is not qualified until the rows of its section 5 pass and the maintainer repeats the Chrome checks of E6 and E7 on the final build (decision AO-D4).
 Section 7.4 of the always-on proposal records the reruns of 2026-11-20.
 The Chrome checks of E6 and E7 and the server measurement of E7 are pending.
-The sentence above records the state of November 15, 2026.
+Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of ordinary LondonFull.
+It does not change D.
 
 ## Scope
 

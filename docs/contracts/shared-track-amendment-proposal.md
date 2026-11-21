@@ -6,6 +6,8 @@ Applied on 2026-11-16: the text of each ST item is in its target document, and t
 Files changed: `docs/design/shape-clearance.md` (ST1, ST5 to ST8, ST10, ST15, and its status line), `docs/design/group-physics-design.md` (ST2, ST3, ST9, ST14), `docs/contracts/service-contract-proposals.md` (ST4), `docs/contracts/express-standees-contract-proposal.md` (ST11), `docs/contracts/shape-clearance-amendment-proposal.md` (ST12 notes), `docs/station-banks.md` (ST13), `docs/contracts/express-shared-track-qualification-proposal.md` (new, SX1 to SX13), `docs/design/shared-track-preset.md`, and `README.md`.
 Note of 2026-11-16: a code review of slice 1 found a case with a lane of a maneuver group shorter than the slack, where the seed of ST3 misses a lane behind that lane.
 The maintainer approved a wider seed on 2026-11-16, and the applied text of ST3 in `docs/design/group-physics-design.md` changed.
+Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of LondonFull.
+D does not change.
 The old sentence was "The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P into the From node of L."
 The new sentences are "The reach bound of L is the largest of `F(L)` and of `F(P)` for each lane P of the seed of L." and "The seed of L holds each lane whose To node is less than two slacks from the From node of L, by the shortest walk back along lanes."
 The ST3 text below records the text as first approved.

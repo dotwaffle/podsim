@@ -57,7 +57,7 @@ When a tail bound of the network is not finite, such a pair skips the audit by p
 In that case, the locations of a lane are the lane, its incident lanes, and each berth at its From node.
 The audit reports a pair that only these locations refuse after its scan, and a network, a fleet, or a project reports that refusal after its other checks.
 The locations of a berth are the berth and its incident lanes.
-Maneuver groups and depots (`internal/sim/depot.go`) use the same audit.
+Maneuver groups and depots (`internal/sim/depot_network.go` and `internal/sim/depot_lateral.go`) use the same audit.
 The audit checks each pair, small pairs included, in each network.
 For a pair with a large class, the locations of a lane are the envelope reach at each position on the lane, as the [group physics design](design/group-physics-design.md) defines it, and not the whole lane with its incident lanes.
 For a pair with a large class, the locations of a berth are the berth, its incident lanes, and by rule 2 of the [group physics design](design/group-physics-design.md) each lane at a node of the cluster of a maneuver group lane among them.

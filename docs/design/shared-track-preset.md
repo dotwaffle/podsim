@@ -10,6 +10,8 @@ The [Express shared-track qualification](../contracts/express-shared-track-quali
 The CI soak and `soak:full` run the preset.
 Slice 7, the study batch, is open.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
+Note of 2026-11-20: the [fillets proposal](../contracts/london-fillets-proposal.md) changes the roads of LondonFull.
+D does not change.
 Note of 2026-11-20: the fields are removed, and S1, A1, and the compiled reach apply to each network.
 The text below records the design with the field.
 
