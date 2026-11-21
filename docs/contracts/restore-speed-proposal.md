@@ -1,6 +1,7 @@
 # Restore speed and platoon link proposal
 
 Status: decisions made, not built.
+Slice 0 ran, and a stop of section 8 fired (section 6.1).
 On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
 No row of section 5 is applied, and no code changes before the build.
 Date: 2026-11-21.
@@ -368,6 +369,37 @@ Slice 0 measures, on the `rail-hub` platoon arm, LondonFull, and the shared-trac
 
 Slice 0 runs under `nice`, with a memory cap, and the scratch tree is deleted after the record.
 
+### 6.1 Result of slice 0
+
+Slice 0 ran on 2026-11-21 at `fd1f7d17`, with 153 restores in 8 runs, under `nice` with a memory limit.
+The runs were the setups of `TestPlatoonRestore`, `TestPlatoonCorridorLinks` at platoon limits 2 and 4, `TestEmergencyQueueRestore`, the 4 sim and 15 session SX4 checkpoints of the shared-track preset, 60 minutes of the `rail-hub` platoon arm with 70 restores, and 60 minutes of LondonFull with 30 restores.
+The frontier that the scratch code derives matched `reservedThrough` of the real restore in 7,554 of 7,554 comparisons.
+
+- Items 1, 2, and 5: no restore lost a link at the restore tick.
+  The loss of Q1 reproduces on the fixture of `TestEmergencyQueueRestore`: after a restore at tick 151, the links of `p03` to `p02` and of `p04` to `p03` end at tick 152, and the clone keeps them.
+  Both links were draining.
+  The restored follower holds no resource of a pod ahead, because the restore keeps grants only to the derived frontier (`reservedThrough` 5 and 4 against 7 and 6 in the clone), so `maintainLink` ends the link at once through `over && !holdsPending` (`platoon.go:442`).
+  `maintainLink` has no speed term, so the cause is the lost forward grants and not the speed reset.
+  Row 6 of section 2 is the matching row, but the link ends at once and does not drain.
+  In the first 10 s after a restore, the restored copies formed 8 new links and the clones 10, so the extra links of section 2 did not appear.
+  LondonFull formed no link in 60 minutes.
+- Item 3: no live pod had a frontier below the derived frontier, in 641,360 samples of traveling pods at one tick in 30.
+  The largest lead was 19 blocks.
+- Item 4: with `restoreTolerance`, no pod failed the stop check, and no link failed the stop-point check, in 44,633 link samples.
+  With an exact comparison, 59 frontier samples and 653 lower-limit samples fail by at most 1.76e-12 m, so the checks of slice 1 need `restoreTolerance`.
+- Item 6: of 7,146 moving pods, option B keeps the speed of 791 and clamps none to 0, and it keeps 54 to 76 percent of the summed speed.
+- Item 7: only LondonFull has differences, and each live frontier is ahead of the derived frontier.
+  18 pods at a depot entry are 1 or 2 blocks ahead in 33 samples: the live frontier is the entry block, and the pod does not claim its destination.
+  6 pods on the lanes of a maneuver group (`<station>-bay-N-in-*`) are 13 to 19 blocks ahead in 25 samples, and the derived frontier ends at the end of `access-in`.
+  No restore checkpoint held such a pod, and the run did not trace the rule that grants these blocks.
+- Item 8: no live pod was above the speed limit of its lane.
+- `Check` ran at each tick for 60 s on each restored copy, and the D6 oracle on the shared-track copies, with no violation.
+  The envelope parity and E4 did not run.
+
+The stop "A depot or maneuver frontier differs from the derived one" fires for item 7, so slice 1 waits for the maintainer.
+Each difference is ahead of the derived frontier, so `reservedAhead` stays 0 or more.
+The open point is whether the restore claim accepts a saved frontier inside the run of a maneuver group, and which rule of the live run grants it.
+
 ## 7. Decisions for the maintainer
 
 | ID | Question | Options | Recommendation |
@@ -399,7 +431,7 @@ The maintainer decided on 2026-11-21: RL-D1 A, RL-D2 A, RL-D3 A, with the restor
 ## 9. Open questions
 
 - Q1, answered: the restore lockstep test of the emergency queue promotion (2026-11-18) found that a restored follower keeps its link at the restore and loses it one tick later, so the restored run and the live run differ from that tick.
-  The source keeps the link at a clean physical restore (section 2), so the speed reset is the likely cause, and slice 0 confirms it.
+  Slice 0 reproduced it and found the cause: the restore keeps grants only to the derived frontier, so a draining follower holds no resource of a pod ahead and its link ends (section 6.1).
 - Q2, answered: "stream restore" was a wording of the brief, and it means nothing here.
   Only the restart restore calls `RestoreState`, a rewind uses a clone, and a client never restores from the stream (section 1.2).
 - Q3, answered on 2026-11-21: the export writes no speed for a faulted pod, and the restore ignores a saved speed of a faulted pod.
