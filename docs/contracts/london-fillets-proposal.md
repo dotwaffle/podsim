@@ -792,6 +792,18 @@ The maintainer skipped the timing seed of each preset for this run on 2026-11-21
 The SX12 timed runs, the SX7 server measurement, and the edit times on the preset did not run, because they need a quiet host.
 The Chrome checks do not repeat (FL-D9).
 
+The gates ran again on 2026-11-21 at `cb35a88e`, which adds the "tight 3.5" reset, slice 5, and three changes to the speed of the checks and of `sim.Step` that keep the results byte for byte.
+The setup was the same as above.
+
+- In `mise run check`, `qualify`, `test:race:sim`, and `test:race:session` passed.
+  `TestLondonExpressRemoteRecovery` in `test:race:other` failed with "no terminal acknowledgement observation" at a load of 18 from the two parallel lanes.
+  It passed alone under `-race` in 44 s.
+  The other tasks of `check` then passed one at a time: `test:race:other` in 432 s, `test:long` in 98 s, `test:shared-express` in 267 s, and `test:london-express` in 388 s.
+- `mise run test:web` passed in 30 s.
+- The London soak row passed in 626 s.
+- The timing seed, `PODSIM_SOAK_SEEDS=1 mise run soak:full`, passed for each preset in 3,138 s.
+- `mise run soak:full` with 2 seeds passed for each preset and seed in 5,778 s, in the limit of 7,200 s.
+
 ## 9. Decisions for the maintainer
 
 | ID | Question | Options | Decision |

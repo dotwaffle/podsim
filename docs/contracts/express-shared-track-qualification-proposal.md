@@ -141,6 +141,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 Note of 2026-11-21: the table above is the status before the fillets reached the preset (fillets proposal, slice 4).
 On the filleted preset, `mise run test:shared-express` (SX2 to SX10), the London soak row (SX10), and the release soak (SX11) passed again (section 8.2 of the fillets proposal).
 The server measurement of SX7 and the timed runs of SX12 have not run again, so the preset is not qualified until they pass.
+The gates passed again at `cb35a88e`, with the timing seed of each preset (section 8.2 of the fillets proposal).
 
 ### Fixture
 
