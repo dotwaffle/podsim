@@ -975,7 +975,7 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, the three race tasks, `test:long`, `test:shared-express`, and `test:london-express` one after another, and stops at the first failure. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs two lanes in parallel: `test:race:sim`, `test:long`, and `test:london-express` in one, and `test:race:session`, `test:race:other`, and `test:shared-express` in the other. It stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test` | `go test ./...`, without the race detector. |
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `test:embedded` run them. |
