@@ -759,6 +759,35 @@ With the release of the neighbor cells removed from `releaseDebris`, the probe f
   On 2026-11-21, the maintainer approved the LondonFull part of these rows before stage 2.
   FL-A4 and FL-A5 are applied in full, and FL-A1 and FL-A6 have a LondonFull note; slice 5 adds the parts for the preset.
 
+### 8.2 Evidence of stage 2
+
+Slice 4 landed at `ab445aad` on 2026-11-21.
+The hub roads of Waterloo and Bank keep their chords at 14 m/s (FL-D5, section 3.7), and the geometry of the preset then curves `940GZZLUWLO-road-in-05` as before.
+Without this reset, validation of the preset refuses `940GZZLUWLO-road-out-01` against `london-link-183-ba-1`.
+No stop of section 7 fired.
+The shape pair count stays at 47, with the same tail warning, so it needs no maintainer decision.
+
+| Pin of section 5.3 | Before | After |
+| --- | --- | --- |
+| Network SHA-256 | `5961c702...` | `cba69149...` |
+| Network before the parking | `09b8fdea...` | `a407262a...` |
+| SX fixture | 262,717 bytes | 298,685 bytes |
+| Behavior parity of the preset, topology | `c6a58e80` | `28404d6a` |
+| Behavior parity of the preset, ticks | 10,350 and 12,210 | 10,380 and 12,240 |
+
+The gates of slice 6 ran on 2026-11-21 at `5d0e2e98`, which is slice 4 and a change that runs the test tasks of `mise run check` in two parallel lanes.
+The runs had no `nice`, in a systemd scope with a memory limit of 32 GiB, with Go 1.27.4.
+
+- `mise run check` passed in 1,535 s.
+  It includes `mise run test:shared-express`, `mise run test:london-express`, `qualify`, and the race tasks of each package.
+- `mise run test:web` passed in 31 s.
+- The London soak row, `PODSIM_SOAK_PRESETS=london-full-shared-express mise run soak`, passed in 691 s.
+- `mise run soak:full` with 2 seeds passed for each preset and seed in 6,373 s, in the limit of 7,200 s.
+
+The maintainer skipped the timing seed of each preset for this run on 2026-11-21.
+The SX12 timed runs, the SX7 server measurement, and the edit times on the preset did not run, because they need a quiet host.
+The Chrome checks do not repeat (FL-D9).
+
 ## 9. Decisions for the maintainer
 
 | ID | Question | Options | Decision |

@@ -481,6 +481,9 @@ As for D, this check gave no numbers, and retained frames and decoded client mem
 - The `incidents` arm of seeds 1 and 2 repeats the `promo` rows of the study above: the same records, trips, mean wait, and longest time.
 - On the other presets, the longest record not blocked by a fault was 223.0 s on `london-central`, 442.8 s on `london-full-express`, and 213.6 s on `rail-hub`.
 - Row SX11 passes.
+- After the London road fillets reached the preset (slice 4 of the fillet proposal), the London soak row passed at `5d0e2e98` in 691 s, and `mise run soak:full` with 2 seeds passed for each preset and seed in 6,373 s.
+  The maintainer skipped the timing seed of each preset for this run.
+  Section 8.2 of the fillet proposal has the record.
 
 #### SX12, Performance, Sampled-tick latency, Worst choice tick, and Web
 
