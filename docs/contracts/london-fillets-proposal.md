@@ -5,6 +5,7 @@ The maintainer approved stage 1 of decision FL-D4: slices 0 to 3 and the evidenc
 Stage 2 waits until the maintainer reads the evidence of LondonFull.
 Slice 0 ran, and slices 1 to 3 landed.
 Section 8.1 records the evidence of stage 1.
+On 2026-11-21, the maintainer approved two corrections of section 2.1: the count of roads with rays behind an end, and the case of a vector with no direction (section 8.1).
 An adversarial review on 2026-11-20 found 2 major and 6 minor text defects, and this text includes the fixes.
 Date: 2026-11-20.
 Line references are for `ddb2233a`.
@@ -111,9 +112,10 @@ This is at most the sum of the two kinks that it replaces.
 
 The rule leaves a road as it is in these cases:
 
+- A neighbor lane is missing, or `u`, `v`, or the chord from `a` to `b` has no direction: its length is zero or not finite.
 - The headings are parallel, so the rays do not meet (study tolerance `|u × v| < 1e-9`).
 - The rays meet behind `a` or behind `b` (`s` or `t` at most 1e-6).
-  The rerun finds 132 such roads on LondonFull and 128 on the preset.
+  The code finds 134 such roads on LondonFull, 2 of them Parking roads, and the rerun finds 128 on the preset.
 - One end is already tangent, within 1 degree (15 roads on LondonFull, 14 on the preset).
 - The road already has a control point.
   The pass runs on LondonFull before `apply`, so `940GZZLUWLO-road-in-05` has no control point when the pass reads it.
@@ -725,8 +727,12 @@ With the release of the neighbor cells removed from `releaseDebris`, the probe f
   On all 1,456 roads, this order gives 15 tangent roads and 134 roads with rays behind an end, because 2 Parking roads also have rays behind an end.
   With the check for rays behind an end first, the counts are 9 tangent roads and 140 roads with rays behind an end, because 6 of the 15 tangent roads also have `s` or `t` at most 1e-6.
   The two orders curve the same roads.
-- Section 2.1 gives 132 roads with rays behind an end; the code and its test give 134, which count the 2 Parking roads.
-  The text waits for the maintainer.
+- Section 2.1 gave 132 roads with rays behind an end; the code and its test give 134, which count the 2 Parking roads.
+  On 2026-11-21, the maintainer approved the change of section 2.1 to 134.
+- Section 2.1 did not list a heading or a chord with no direction.
+  A review of stage 1 found that such a vector made NaN values that pass each check, and the rule now keeps the chord for it (`londonDirected`).
+  No London road has such a vector.
+  On 2026-11-21, the maintainer approved the addition of this case to section 2.1.
 - Sections 5.2 and 8 do not list four tests that slice 2 changed:
   - `checkLondonParity` (`london_depot_test.go`), which `TestLondonDepots` and `TestLondonCompactStations` use.
     The curve and the speed of a road come from the heading of its access lane, and a depot or Compact layout changes that heading.
