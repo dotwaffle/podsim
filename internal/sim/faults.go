@@ -208,7 +208,7 @@ func (s *Simulation) surrenderServiceClaims(v *vehicle) {
 		return
 	}
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r].isPod(v.Pod.ID) && s.claimKind(v, r) == claimService {
+		if s.ownedServiceClaim(v, r) {
 			s.releaseOwned(v, r)
 		}
 	}

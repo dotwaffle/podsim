@@ -59,11 +59,21 @@ func (s *Simulation) ownsServiceClaim(v *vehicle) bool {
 		return false
 	}
 	for _, r := range berthResources(v.destination) {
-		if s.owners[r].isPod(v.Pod.ID) && s.claimKind(v, r) == claimService {
+		if s.ownedServiceClaim(v, r) {
 			return true
 		}
 	}
 	return false
+}
+
+// ownedServiceClaim reports whether v owns r and claimKind classifies r as
+// claimService. claimKind returns claimService only when v.claimService(r)
+// holds, so that test comes first. Most pods then skip the walk of their
+// body in claimOccupied. claimKind still runs, so a kind that it tests
+// first still wins. The tests that it skips write only block cursors,
+// which do not change a result.
+func (s *Simulation) ownedServiceClaim(v *vehicle, r resource) bool {
+	return s.owners[r].isPod(v.Pod.ID) && v.claimService(r) && s.claimKind(v, r) == claimService
 }
 
 // admissionWaits reports whether the second phase of admit would refuse
