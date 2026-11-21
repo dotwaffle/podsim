@@ -804,6 +804,21 @@ The setup was the same as above.
 - The timing seed, `PODSIM_SOAK_SEEDS=1 mise run soak:full`, passed for each preset in 3,138 s.
 - `mise run soak:full` with 2 seeds passed for each preset and seed in 5,778 s, in the limit of 7,200 s.
 
+On 2026-11-21, the runs that need a quiet host ran at `6f1ae05b`, one at a time.
+The SX12 rows and the SX7 server measurement of the preset passed, and the SX proposal records them.
+The edit times of the preset ran in wasm with the protocol of section 6.1 of the always-on proposal, against `6753590d`, the commit before slice 4.
+The runs alternated the two builds for 3 rounds on an AMD Ryzen 5 3600 with GOMAXPROCS 1, Go 1.27.4, and Node 24.22.3, at a load average from 1.2 to 1.8.
+The table gives the median of the 3 rounds, in ms.
+
+| Mode and verdict | p95 before | p95 after | Max before | Max after |
+| --- | ---: | ---: | ---: | ---: |
+| Cold, accepted | 2,233.2 | 2,260.2 | 2,238.7 | 2,376.7 |
+| Cold, refused | 1,898.7 | 1,824.1 | 1,910.1 | 1,857.2 |
+| Cached, refused | 1,311.9 | 1,396.7 | 1,362.1 | 1,509.1 |
+| Cached, accepted | 1,533.3 | 1,540.1 | 1,613.9 | 1,607.8 |
+
+The largest ratio is 1.06 for a p95 and 1.11 for a maximum, against the limit of 1.25.
+
 ## 9. Decisions for the maintainer
 
 | ID | Question | Options | Decision |

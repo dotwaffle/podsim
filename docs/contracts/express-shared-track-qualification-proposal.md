@@ -5,6 +5,7 @@ The [shared-track amendment proposal](shared-track-amendment-proposal.md) gave t
 The preset is not qualified while a row in the [Evidence](#evidence) section is open.
 On 2026-11-20, the maintainer passed the Chrome checks of rows SX6, SX7, and SX9 on the preset in desktop Chrome at `f5bf17a3`, so each row is closed and the preset is qualified.
 Note of 2026-11-21: the [fillets proposal](london-fillets-proposal.md) changes the geometry of the preset, so the preset is not qualified until the rows run again on the new geometry.
+The rows passed again on 2026-11-21, and the note after the status table records it.
 The Chrome checks of SX6, SX7, and SX9 of 2026-11-20 stand (decision FL-D9).
 Amended 2026-11-16, by maintainer decision: SX3 compares the compiled envelope reach with an independent reference, in amendment ST22 of the [second shared-track amendment proposal](shared-track-amendment-2-proposal.md).
 Amended 2026-11-17, by maintainer decision: the [Evidence](#evidence) section records the evidence, and the maintainer accepts that history rollover of SX8 is not reached on the preset.
@@ -142,6 +143,7 @@ Note of 2026-11-21: the table above is the status before the fillets reached the
 On the filleted preset, `mise run test:shared-express` (SX2 to SX10), the London soak row (SX10), and the release soak (SX11) passed again (section 8.2 of the fillets proposal).
 The server measurement of SX7 and the timed runs of SX12 have not run again, so the preset is not qualified until they pass.
 The gates passed again at `cb35a88e`, with the timing seed of each preset (section 8.2 of the fillets proposal).
+On 2026-11-21, the server measurement of SX7 and the rows of SX12 passed again at `6f1ae05b` (see SX7 and SX12), so the preset is qualified.
 
 ### Fixture
 
@@ -378,6 +380,19 @@ The runs had no hub parties.
 On 2026-11-20, the maintainer found the browser responsive on the preset in Chrome, with the tab memory and CPU of the Chrome task manager, at `f5bf17a3`.
 As for D, this check gave no numbers, and retained frames and decoded client memory are not measured.
 
+On 2026-11-21, the server measurement ran again on the filleted preset at `6f1ae05b`, with a new copy of the harness.
+It ran ordinary LondonFull and the preset in the order LondonFull, the preset, the preset, LondonFull, with no `nice`, at a host load average of 0.9 to 1.6.
+
+| Case | Achieved speed | Server CPU | GC cycles | Peak RSS | Stream rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Ordinary LondonFull | 60.0, 60.0 | 13.9 s, 13.8 s | 13, 13 | 312 MiB, 317 MiB | 126 kB/s |
+| The preset | 60.0, 60.0 | 14.1 s, 14.3 s | 13, 13 | 315 MiB, 318 MiB | 126 kB/s |
+
+Each case kept speed 60.
+The preset costs about 2 percent more server CPU than LondonFull, and its peak RSS is about 2 MiB higher.
+The gap of about 18 percent of 2026-11-16 does not repeat.
+The code changed between the runs, and the harness is a new copy, so compare only the rows of one run.
+
 #### SX10, the London soak row
 
 - `london-full-shared-express` is a named project of the soak (`PODSIM_SOAK_PRESETS`), with the shape of D: the arms `incidents`, `emergencies`, and `incidents-low-demand` with 3 branches each, and the references `reference` and `reference-low-demand`.
@@ -565,6 +580,20 @@ As for D, this check gave no numbers, and retained frames and decoded client mem
 - In the same run, the london-central row missed the median rule of A11 by 1.888 µs against a limit of 1.802 µs.
   Two runs of the row alone right after, at a load average of 2.7, passed, and this change does not touch its path.
 - Web: `mise run test:web` passed.
+- On 2026-11-21, the rows of the preset ran again on the filleted preset at `6f1ae05b`, each alone, with no `nice`, at a load average of 0.5 to 3.7.
+  `TestIncidentSoakTimed` ran with `PODSIM_SOAK_GATE=1`, at 3 seeds of 0.1 simulated hours, and passed.
+
+| The preset, seed | Median | Reference median | Slowest | Reference slowest |
+| --- | ---: | ---: | ---: | ---: |
+| 1 | 76.9 µs | 75.5 µs | 6.30 ms | 8.16 ms |
+| 2 | 79.3 µs | 77.8 µs | 8.47 ms | 8.18 ms |
+| 3 | 82.8 µs | 81.9 µs | 7.70 ms | 5.74 ms |
+
+- Each median is at most 1.9 percent above its reference.
+- `TestSampledTickLatency` with `PODSIM_QUALIFY=1` passed, with a slowest sampled tick of 0.99 ms cold and 1.84 ms warm on the preset network.
+  `TestEmergencyChoiceLatency` passed, with a slowest choice tick of 2.29 ms cold and 2.50 ms warm, and a median of 2.28 ms and 2.25 ms.
+- The emergency row of `TestIncidentWorstCaseStepTime` passed the rule of A11.
+  Its run medians were 42.3, 42.1, 40.9, and 41.4 µs, against 38.3, 39.0, 37.9, and 40.4 µs, and its slowest steps were 2.16, 2.08, 1.94, and 1.99 ms, against 2.01, 1.98, 1.94, and 2.04 ms.
 
 ### Wall times
 
