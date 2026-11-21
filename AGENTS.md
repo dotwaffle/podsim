@@ -47,6 +47,10 @@ It runs `qualify` and then `test:race:other` by itself, so that their latency te
   Run such a test again by itself before you treat the failure as real.
 - Do not call `Draw` in a loop on an offscreen Ebiten image in a test.
   Ebiten does not flush the queued commands outside its game loop, and such a test grew to 39 GB.
+- Many measurement tests skip unless an environment variable is set, for example `PODSIM_QUALIFY=1`, `PODSIM_SOAK=1`, `PODSIM_SOAK_TIMED`, `PODSIM_SOAK_WORST=1`, or `PODSIM_EDIT_TIMES=1`.
+  A skipped test passes, so read the `-v` log before you record a result.
+- A wasm test through `go_js_wasm_exec` can fail with "total length of command line and environment variables exceeds limit".
+  Run it with a small environment, for example `env -i PATH="$PATH" HOME="$HOME"`, and add the variables that the test needs.
 - `mise` does not load its configuration in a worktree outside the repository directory.
   There, call the tools by the paths that `mise which <tool>` gives in the repository.
 
