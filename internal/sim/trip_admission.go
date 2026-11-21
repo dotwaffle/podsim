@@ -162,7 +162,7 @@ func (s *Simulation) tripRefusal(options TripOptions, request Request, from, to 
 		if ValidateVehicleClassProfileWithOrderContract(class, s.orderContract) != nil {
 			continue
 		}
-		if CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: class, Request: options, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil {
+		if partyAdmits(PartyAdmissionInput{Class: class, Request: options, PartyLimit: s.partyLimit(request)}, s.orderContract) {
 			admits = true
 			continue
 		}
@@ -228,7 +228,7 @@ func (s *Simulation) podFitsRequest(v *vehicle, request Request) bool {
 	if err := serviceMatches(s.expressServices, request.options()); err != nil {
 		return false
 	}
-	if err := CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), PartyLimit: s.partyLimit(request)}, s.orderContract); err != nil {
+	if !partyAdmits(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), PartyLimit: s.partyLimit(request)}, s.orderContract) {
 		return false
 	}
 	from, fromOK := s.station(request.legOrigin())
@@ -320,7 +320,7 @@ func (s *Simulation) canJoin(v *vehicle, request Request) bool {
 	for _, rider := range v.Riders {
 		active = append(active, PartyFacts{TripOptions: rider.options(), Completed: rider.Completed})
 	}
-	return CheckPartyAdmissionWithOrderContract(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}, s.orderContract) == nil
+	return partyAdmits(PartyAdmissionInput{Class: v.Pod.Class, Request: request.options(), Active: active, PartyLimit: s.partyLimit(request)}, s.orderContract)
 }
 
 func (s *Simulation) hasFittingPod(request Request) bool {
