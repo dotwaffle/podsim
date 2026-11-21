@@ -491,6 +491,7 @@ For the London presets and D, the largest ratio to slice 0 is 1.07 for a p95 and
 The release soak and the London soak row ran again at `e999af83`, the tip after the commits of this record.
 `PODSIM_SOAK_PRESETS=london-full-express mise run soak` (A15) passed in 663 s.
 `mise run soak:full` with 2 seeds passed for each preset and seed in 6,427 s, in the limit of 7,200 s.
+After fillet stage 1 and the restore that uses one preparation, `mise run soak:full` ran again at `0598f78f` and passed for each preset and seed in 6,277 s.
 
 These items wait for the maintainer: the Chrome checks of E6 and E7 on the final build (decision AO-D4), the server measurement of E7, the timed runs of SX12, and the browser samples of section 6.1.
 
