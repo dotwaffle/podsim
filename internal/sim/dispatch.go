@@ -481,7 +481,7 @@ func (s *Simulation) localPickupForRequest(request Request, excluded string, pas
 		if v.inService() && (excluded == "" || v.Pod.ID != excluded) && !pass.assigned[v.Pod.ID] && s.podFitsRequest(v, request) {
 			station, _ := s.station(v.Pod.StationID)
 			berth, _ := station.berth(v.Pod.BerthID)
-			if _, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class); err != nil {
+			if !s.stationReachable(berth.Node, request.To, v.Pod.Class) {
 				continue
 			}
 			return v

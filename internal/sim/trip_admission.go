@@ -271,9 +271,15 @@ func (s *Simulation) pickupBerthFitsRequest(v *vehicle, request Request, berth B
 	if !ok || selected.Node != berth.Node {
 		return false
 	}
-	// The load does not change the error, and berthLoad reads the whole
-	// fleet for each berth.
-	_, err := s.stationApproachRouteOn(false, berth.Node, request.To, v.Pod.Class, noBerthLoad, nil)
+	return s.stationReachable(berth.Node, request.To, v.Pod.Class)
+}
+
+// stationReachable reports whether stationApproachRouteForClass finds a
+// route from the node to the station. It gives noBerthLoad, because the
+// load does not change whether the call fails (see stationApproachRouteOn),
+// and berthLoad reads the whole fleet for each berth.
+func (s *Simulation) stationReachable(fromNode, stationID string, class VehicleClass) bool {
+	_, err := s.stationApproachRouteOn(false, fromNode, stationID, class, noBerthLoad, nil)
 	return err == nil
 }
 

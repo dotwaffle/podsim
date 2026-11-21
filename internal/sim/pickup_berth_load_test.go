@@ -11,6 +11,9 @@ type pickupLoadCounts struct {
 	// compared counts the berth and request pairs, and refused the pairs
 	// with no onward route.
 	compared, refused int
+	// unviewed counts the pairs compared with no routing view, as
+	// localPickupForRequest checks them.
+	unviewed int
 	// rewritten counts the pairs from a berth of a bank to a station with
 	// banks, where stationBankEntryOn ranks the entries from the bank
 	// exit. departureRefused counts those that have an entry but no
@@ -59,6 +62,17 @@ func comparePickupLoadFree(t *testing.T, s *Simulation, hubs [2]string, counts *
 		}
 	}
 	for _, v := range pods {
+		// localPickupForRequest checks the same pairs with no routing view.
+		for _, request := range requests {
+			origin, _ := s.station(request.From)
+			for _, berth := range origin.Berths {
+				_, err := s.stationApproachRouteForClass(berth.Node, request.To, v.Pod.Class)
+				if got, want := s.stationReachable(berth.Node, request.To, v.Pod.Class), err == nil; got != want {
+					t.Fatalf("tick %d: pod %s (%s), no view, berth %s to %s: stationReachable %t, load-ranked %t", s.tick, v.Pod.ID, v.Pod.Class, berth.ID, request.To, got, want)
+				}
+				counts.unviewed++
+			}
+		}
 		func() {
 			defer s.leaveRouteView(s.enterRouteView(v))
 			for _, request := range requests {
@@ -233,7 +247,7 @@ func TestPickupBerthFitsLoadFree(t *testing.T) {
 			t.Parallel()
 			counts := runPickupLoadFree(t, p, c.network)
 			t.Logf("%+v", counts)
-			if counts.compared == 0 || counts.refused == 0 || counts.refused == counts.compared {
+			if counts.compared == 0 || counts.refused == 0 || counts.refused == counts.compared || counts.unviewed == 0 {
 				t.Fatalf("coverage %+v: need pairs with and without a route", counts)
 			}
 			if c.banked && (counts.rewritten == 0 || counts.departureRefused == 0 || counts.entryChanged == 0) {
