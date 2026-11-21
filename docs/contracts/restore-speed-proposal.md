@@ -1,7 +1,8 @@
 # Restore speed and platoon link proposal
 
-Status: PROPOSED, not approved.
-No decision of section 7 is made, and no row of section 5 is applied.
+Status: decisions made, not built.
+On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
+No row of section 5 is applied, and no code changes before the build.
 Date: 2026-11-21.
 Line references are for `4c1eaf23`.
 No test, build, or measurement ran for this draft.
@@ -240,7 +241,7 @@ The plain headroom is not in the documents, and slice 1 measures it.
 
 | Member | Type | Rule |
 | --- | --- | --- |
-| `simulation.pods[].speed` | number | Omitted at 0. Finite, at least 0, at most the speed limit of the lane of the pod. Only a traveling pod that is not faulted can have it. |
+| `simulation.pods[].speed` | number | Omitted at 0. Finite, at least 0, at most the speed limit of the lane of the pod. Only a traveling pod can have it. The export omits it for a faulted pod, and the restore ignores it for a faulted pod (RL-D3, Q3). |
 | `simulation.pods[].reservedAhead` | number | Omitted at 0. An integer from 0 to the number of blocks of the saved route. Only a traveling pod can have it. |
 
 The members list `state_v13_members.txt` gains both paths.
@@ -257,11 +258,10 @@ The texts are drafts for approval.
 | ---: | --- | --- |
 | 1 | `speed` is not finite, or is negative | `pod <id> has speed <v>, not a finite value of 0 or more` |
 | 2 | A pod that is not traveling has `speed` or `reservedAhead` | `pod <id> is not traveling and has a speed or a reservation ahead` |
-| 3 | A faulted pod has `speed` (RL-D3 A) | `pod <id> has a fault and has speed <v>` |
-| 4 | `reservedAhead` is negative | `pod <id> reserves <n> blocks ahead, not 0 or more` |
-| 5 | `speed` is more than the speed limit of the saved lane of the pod | `pod <id> has speed <v>, more than the speed limit <l> of lane <lane>` |
+| 3 | `reservedAhead` is negative | `pod <id> reserves <n> blocks ahead, not 0 or more` |
+| 4 | `speed` is more than the speed limit of the saved lane of the pod | `pod <id> has speed <v>, more than the speed limit <l> of lane <lane>` |
 
-A saved lane that the network does not have skips rule 5, because the physical tier demotes that pod (`state_physical.go:376` to `:380`).
+A saved lane that the network does not have skips rule 4, because the physical tier demotes that pod (`state_physical.go:376` to `:380`).
 A `reservedAhead` past the saved route, a failed stop check, or a conflict demotes the pod in the physical tier.
 These are not refusals, because the derived frontier and the route come from the network, as the existing demotions do.
 
@@ -364,7 +364,7 @@ Slice 0 measures, on the `rail-hub` platoon arm, LondonFull, and the shared-trac
 5. The new links in the first 10 s after a restore, against a clone.
 6. For option B, the distribution of the clamped speeds.
 7. Each depot entry and maneuver group lane where a saved frontier differs from what `placeTravelingPod` derives.
-8. The number of live pods above the speed limit of their current lane, for rule 5 of section 4.2.
+8. The number of live pods above the speed limit of their current lane, for rule 4 of section 4.2.
 
 Slice 0 runs under `nice`, with a memory cap, and the scratch tree is deleted after the record.
 
@@ -380,12 +380,14 @@ Slice 0 runs under `nice`, with a memory cap, and the scratch tree is deleted af
 | RL-D6 | The version | A: 13. B: keep 12 with members omitted at 0. | A. Version 12 is on `origin/main`, and the rule of `incident-stage7-contract-proposal.md:108` moves a pushed version once. B lets an older build read a new file as `invalid_state` instead of `unsupported_version`. |
 | RL-D7 | The evidence | A: rerun E4 and SX4 in full. B: rerun only the restore checkpoints of E4 and SX4. | B. The live runs do not change, and only the restored copies change. |
 
+The maintainer decided on 2026-11-21: RL-D1 A, RL-D2 A, RL-D3 A, with the restore ignoring the speed of a faulted pod (Q3), RL-D4 A, RL-D5 A, RL-D6 A, and RL-D7 B.
+
 ## 8. Stops
 
 | Condition | Action |
 | --- | --- |
 | Slice 0 cannot reproduce a lost link at a clean physical restore | Not a stop for A. Report the paths of section 2 that it found, with Q1. |
-| A live pod has a speed above the speed limit of its lane | Stop. Rule 5 of section 4.2 would refuse a valid file, so it needs a tolerance or a different lane. |
+| A live pod has a speed above the speed limit of its lane | Stop. Rule 4 of section 4.2 would refuse a valid file, so it needs a tolerance or a different lane. |
 | A live pod has a frontier below the derived frontier | Stop. RL-D2 needs a signed member or option B. |
 | A live pod fails the stop check, or a live link fails the stop-point check | Stop. The live rule and the proof differ, and that is a finding on its own. |
 | A depot or maneuver frontier differs from the derived one | Stop, and report the lane and the rule. |
@@ -400,5 +402,5 @@ Slice 0 runs under `nice`, with a memory cap, and the scratch tree is deleted af
   The source keeps the link at a clean physical restore (section 2), so the speed reset is the likely cause, and slice 0 confirms it.
 - Q2, answered: "stream restore" was a wording of the brief, and it means nothing here.
   Only the restart restore calls `RestoreState`, a rewind uses a clone, and a client never restores from the stream (section 1.2).
-- Q3: Under RL-D3 A, must the export write speed 0 for a faulted pod, or must the restore ignore its speed?
-  This draft writes 0 at export and refuses a nonzero value (section 4.2, rule 3).
+- Q3, answered on 2026-11-21: the export writes no speed for a faulted pod, and the restore ignores a saved speed of a faulted pod.
+  A speed that is not finite or is negative still refuses the file (section 4.2, rule 1).
