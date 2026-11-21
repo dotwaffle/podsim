@@ -51,12 +51,14 @@ const (
 // sharedTrackInputs are the project files of the study, from cmd/scenario
 // after the removal of the lateralMerges and shapeClearance members, with
 // the SHA-256 of the file and the network SHA-256 of the summary line of
-// cmd/scenario.
+// cmd/scenario. The "wide" input has straight roads, like the LondonFull
+// base of the preset (decision FL-D4 B). With filleted roads, the study
+// finds no A1 gate case in TestSharedTrackStudyContainment.
 var sharedTrackInputs = []struct {
 	name, flags, file, network string
 }{
 	{"tight", "-preset london-full", "66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa", "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5"},
-	{"wide", "-preset london-full -wide-stations", "80b1bb3c79e20df09beb6d5024957be13fb30324fc2d3adbe0ad95bd795c5a91", "413119c9bd469ccc50ab755683a6bcc1f27eb78ac5d6b1105b142a482f48b9d3"},
+	{"wide", "-preset london-full -wide-stations -road-fillets=false", "55a15f15bfe637ce429ea8a369c1ddf771326b5957b8b88e19a566e9ec137815", "c8a1cbb11fd6880c1da86f3a4b365370693660bb13e23566e81890cff4174726"},
 	{"ramps", "-preset london-full -junctions ramps", "e8519687a157b91b273ad52805ef3612b90505c1ceac812c9cc83d321c88218e", "9bd2aae1925bcdc2c8503f2e73be5ca9a8aef9c29720e1885108450af89e73f8"},
 }
 
@@ -66,7 +68,7 @@ var sharedTrackBuilt = map[string]string{
 	"tight 2.1": "8cbf62c9348af2f1706ccf4c49cb3fea40c9b1537650b3f619707757535e063f",
 	"tight 3.5": "41b3f9f521169842cf12c51164651155d410a5cadedd90feabf1da4fbc76b4d7",
 	"tight 3.6": "6ded06170cd20c972e6be7b116af5d00a4ccc10e67dc31758db811fc2cb47ca2",
-	"wide 2.1":  "019262cfdedc1a835082d25ee3bf276c193faa011d4ae0200f073acdc627c8e7",
+	"wide 2.1":  "45ad760fb65b47297e33fb5acb55a5b6f5ebf829b0ddb1825d87b987dc7409b9",
 	"ramps 2.1": "5dd64bb14d6efb29167829b65919d4646a31e5ac0ea571ee80cc2a0eb90cef43",
 }
 
@@ -79,8 +81,8 @@ var sharedTrackCounts = map[string][3]int{
 	"tight 3.5, each lane, small-pod rules": {3, 2, 35},
 	"tight 3.6, each lane":                  {3, 2, 20},
 	"tight 3.6, each lane, small-pod rules": {3, 2, 20},
-	"wide 2.1, each lane":                   {5, 4, 31},
-	"wide 2.1, each lane, small-pod rules":  {5, 4, 31},
+	"wide 2.1, each lane":                   {7, 5, 39},
+	"wide 2.1, each lane, small-pod rules":  {7, 5, 39},
 	"ramps 2.1, each lane":                  {14, 11, 14},
 	"ramps 2.1, each lane, small-pod rules": {14, 11, 14},
 }
@@ -2152,10 +2154,6 @@ func TestSharedTrackStudyContainment(t *testing.T) {
 			c.origins(kind)
 			c.stationary(kind)
 		}
-		// Since the road fillets, the "wide" input fails the A1 minimum
-		// below with a count of 0. The fillet moves 940GZZLUBNK-road-in-08,
-		// which gave the A1 count with straight roads. This is an open item
-		// for the maintainer (london-fillets-proposal.md, section 8.1).
 		run(c, map[string]int{
 			"poses small":                                             1,
 			"poses large":                                             1,

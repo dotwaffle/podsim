@@ -747,6 +747,9 @@ With the release of the neighbor cells removed from `releaseDebris`, the probe f
   With straight roads, the count was 624, from large pods on `940GZZLUBNK-road-in-08`, and the fillet moves that road.
   The study is opt-in, so CI does not run it.
   The maintainer chooses a minimum for each input, another A1 case on the "wide" input, or no change.
+  On 2026-11-21, the maintainer chose a new "wide" input with the minimum kept.
+  The input is now `-preset london-full -wide-stations -road-fillets=false`, the straight roads that the preset builds on (FL-D4 B), and its A1 count is 624 again.
+  No input of the study now has wide stations with filleted roads.
 - Section 5.2 says that a fillet adds under 100 bytes for each lane.
   This is true only for compact JSON, where the 676 curved lanes add 49,696 bytes, about 73.5 bytes for each lane.
   In the indented file of `cmd/scenario`, which `TestRunWritesImportableLondonFull` and `TestScenarioJSONFitsFileLimit` check, they add 78,764 bytes, about 117 bytes for each lane.

@@ -133,6 +133,7 @@ Values that come from a formula or from reasoning, and not from a probe, are mar
 
 The base is the default LondonFull preset: station scale 0.5, `lateralMerges` set, 5,740 nodes, 9,024 lanes, and network SHA-256 `441d6f3f70b16e7bcf433e315ec6735c2449e2de066975ccc1683aa95798362d`.
 Since November 16, 2026, `-wide-stations` gives this network, because the default stations are tight.
+Since November 20, 2026, it also needs `-road-fillets=false`, because LondonFull fillets its station roads.
 For each pair, the probe finds the free-flow route from the exit of one hub to the entry of the other in each direction, through no other station.
 It sets the classes Legacy, Compact, and Express on the route lanes, on each lane of the two hubs except the roads off the route, and on the hubs and their berths.
 It then runs a copy of the pair scan of `validateBankGeometry`.

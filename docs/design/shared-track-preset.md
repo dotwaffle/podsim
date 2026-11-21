@@ -79,6 +79,8 @@ Two checks tie the copy to the code: its first refusal is the error of `Validate
 The copy gives the counts of "Counts of the built audit" in section 2.2 of the shape clearance design: 40 shape pairs and 14 refusals with the built bound.
 With the index for each lane, it gives the 7 refusals that the shape clearance design gives for a front reach of 6 m (section 2.2).
 The wide network gives the same refusals.
+Since the road fillets of 2026-11-20, the tight input of the study has filleted roads and gives 9 refusals.
+The wide input keeps straight roads (`-road-fillets=false`), as the preset does, and gives these 7 refusals.
 For each refusal, the study runs the shape sweep, and each sweep finds a collision.
 The free-flow routes are 2,171.5 m from Waterloo to Bank and 2,102.8 m back, from the station exit to the station entry.
 
@@ -1031,7 +1033,7 @@ They skip unless their environment variables are set.
 D=$(mktemp -d)
 mkdir "$D/out"
 go run ./cmd/scenario -preset london-full -output "$D/lf.json"
-go run ./cmd/scenario -preset london-full -wide-stations -output "$D/lfw.json"
+go run ./cmd/scenario -preset london-full -wide-stations -road-fillets=false -output "$D/lfw.json"
 go run ./cmd/scenario -preset london-full -junctions ramps -output "$D/lfr.json"
 PODSIM_SHARED_TRACK_STUDY="$D/lf.json" PODSIM_SHARED_TRACK_OUT="$D/out" go test ./internal/sim -run 'TestSharedTrackStudy' -count=1 -v
 PODSIM_SHARED_TRACK_STUDY="$D/lfw.json" go test ./internal/sim -run 'TestSharedTrackStudyRefusals$' -count=1 -v
