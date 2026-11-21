@@ -30,7 +30,7 @@ mise exec -- go run ./cmd/scenario -preset independent-banks -output banks.json
 Open **Edit scenario** and import `banks.json`.
 Select **Hub**, then bank **b**.
 Add a berth to that bank.
-Set its row pitch, mouth spacing, approach length, or departure length.
+Set its **Berth pitch**, **Entry/exit spacing**, **Approach setback**, **Approach length**, or **Departure length**.
 Preview the edit and inspect **Checks** before applying it.
 Export the project to retain topology and membership together.
 Undo and redo restore both.
@@ -40,13 +40,14 @@ The bank membership control assigns existing berths to those gates.
 It changes metadata and alias gates without generating a whole station.
 The **Use legacy station gates** action removes metadata only when the resulting single-entry layout validates.
 
-Row pitch must be at least 25 meters.
-Mouth spacing must be at least 48 meters.
-Setback must be positive.
+Berth pitch must be at least 25 meters.
+Entry/exit spacing must be at least 48 meters.
+Approach setback must be positive.
 Approach and departure lengths must be at least 24 meters.
 Length edits need one straight lane and a dedicated external anchor with two incident lanes.
 Shared anchors and curves reject the edit.
-All changed lanes remain at least 24 meters long.
+Each changed lane must keep its minimum length.
+This is 24 meters, or 40 meters for a lane that admits a large class.
 A slow, straight small-class lane that meets the retention rules in `internal/sim/retention.go` needs only twice its reduced retention.
 Banked imports, edits, and simulation admission check the full network with the bank audit (`ValidateBankGeometry`).
 The audit compares the positions of each pair of nonincident paths.

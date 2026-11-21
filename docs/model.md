@@ -217,7 +217,7 @@ It acquires each continuous conflict section together, including the downstream 
 
 Each network has [lateral merge pairs](design/lateral-merge-zones.md), by the [shape clearance](design/shape-clearance.md) rule.
 Such a pair is two lanes that both end at a node or both start at it, with no loop and not the same two nodes.
-Neither lane can be in a Compact station or a depot.
+Neither lane can be in a maneuver group, such as the bay lanes of a Compact station, or in a depot.
 A lane that admits a large class, or that has a large-class tail, can be part of a pair, and a pair can have lanes of different classes.
 The body range of a lane is each position where the body of a pod can meet the body of a pod on the other lane.
 The body of a lane is the union of the bodies of the classes that it admits.

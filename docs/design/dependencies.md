@@ -22,7 +22,7 @@ Recheck the advisory and source before changing this dependency again; a clean s
 ## Toolchain and module versions
 
 The tool-version selectors keep their existing pin styles.
-Go is at 1.27.4, Ebitengine at 2.10.6, Go Cloud at 0.47.0, and x/image at 0.48.0.
+Go is at 1.27.4, Ebitengine at 2.10.6, Go Cloud at 0.48.0, and x/image at 0.48.0.
 The graphics dependencies require x/sync 0.25.0, x/sys 0.50.0, and x/text 0.44.0.
 Node stays on its 24.x line at 24.22.3; govulncheck is at 1.9.0, rumdl at 0.3.3, and golangci-lint at 2.15.0.
 

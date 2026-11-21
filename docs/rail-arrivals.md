@@ -81,7 +81,7 @@ The October 1 study compared six trains with evenly spaced demand at Rail Hub an
 Each train released 120 passengers after a 30-second walking delay, at simulated seconds 30, 630, 1,230, 1,830, 2,430, and 3,030.
 The control released the same 720 ordered passenger identities and endpoints every five seconds, through second 3,600.
 Both arms used seeds 1 and 2, a 200-order queue, and a fixed three-hour recovery cap.
-The arrival window ended at tick 216,001 so it included the control's final passenger.
+At 60 Hz, the arrival window ended at tick 216,001, so it included the control's final passenger.
 Rail Hub used 30 pods.
 LondonFull used its existing 287-pod fleet.
 Redistribution, sharing, platoons, station buffers, and pickup reassignment were off.
@@ -117,7 +117,7 @@ These are selected timing experiments, not sustained capacity measurements or po
 Release times differ, so the individual service limits serve as diagnostics here.
 No default changed.
 
-An observation-only test overlay checked separation, lane speed, and berth use after all 3,857,640 simulation ticks.
+An observation-only test overlay checked separation, lane speed, and berth use after all 3,857,640 simulation ticks at 60 Hz.
 It checked the saved-state contract each simulated second and verified request accounting and actual injection timestamps.
 The overlay did not change movement, dispatch, or release schedules.
 

@@ -183,7 +183,8 @@ Each of the three Parking facilities is a [depot](model.md#parking-depots) with 
 `-parking-berths` sets the slots of each lane, and `-berths parking-north=M` sets the slots of each lane of one facility.
 `-parking-lanes 0` gives ordinary Parking facilities with 12 berths each.
 With `-parking-lanes 0`, `-parking-berths` and `-berths parking-north=M` set the berths of the ordinary facilities.
-The depot lies outward from the through lane of the facility, with its entry and exit 200 meters from the station axis.
+The depot lies outward from the through lane of the facility.
+Its entry and exit are 200 meters from the junction along the station axis, and half the depot length to each side of the axis.
 The heading search uses the shape of an ordinary Parking facility with 12 berths, so the other stations keep their headings.
 
 A London depot is at most 200 meters long.
@@ -205,7 +206,8 @@ For a default Compact station, a `-berths` item needs `-compact-stations none` o
 A Compact station has 4 berths and at most 4 initial pods.
 Its berth count in the capacity options still sets its shape in the heading search, so the other stations keep their headings.
 The compact layout replaces the through lane as a rigid body.
-Its aisle is 200 meters from the station axis, its bays face outward, and its bypass curves toward the station throat.
+Its aisle is at the entry depth of the station: 140 meters out along the station axis at the preset station scale of 0.5, and 200 meters at station scale 1.
+Its bays face outward, and its bypass curves toward the station throat.
 With a Compact station, each pod of the project is Compact, because only a Compact pod can use the bays.
 
 One visit to a bay holds the aisle for about 30 to 43 seconds, so a Compact station serves about 1.4 to 2 visits per minute.
@@ -370,7 +372,7 @@ The network SHA-256 of the variant is `d17ae5c5a2c7743e07a572b8402190c8caab33ed2
 | 1,000 | 120 | 0.931 | 0.747 | 1.248 | 5.928 | 809 |
 
 The variant starts from the preset options, so it has had lateral merge pairs since November 15, 2026.
-One run of all six cases on Go 1.27.4, on November 15, 2026, at 60 Hz, passed without restore demotions.
+One run of all six cases on Go 1.27.4, on November 15, 2026, at 30 Hz, passed without restore demotions.
 The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c730cf59557a86afe7763e68`.
 
 | Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |
@@ -384,7 +386,7 @@ The network SHA-256 of the variant is `db3816c9353321ca1ab0af9b22f0f9a3c7a4ec00c
 
 The variant starts from the preset options, so it has tight stations since November 16, 2026.
 The two runs above are for the wide stations of the earlier preset.
-One run of all six cases on Go 1.27.4, on November 16, 2026, at 60 Hz, at `212c1b68`, passed without restore demotions.
+One run of all six cases on Go 1.27.4, on November 16, 2026, at 30 Hz, at `212c1b68`, passed without restore demotions.
 The network SHA-256 of the variant with tight stations is `1d65b3d547b3656355f3d37767b3e1181c557e146ccafe29debad731d398ff36`.
 
 | Pods | Requests/minute | Mean tick, ms | p50 tick, ms | p95 tick, ms | p99 tick, ms | Pods moving after restore |

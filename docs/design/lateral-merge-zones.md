@@ -31,8 +31,8 @@ The committed tests do not repeat this run.
 The [lane-end protection](lane-end-protection.md) design measured this gap on 2026-11-15.
 For each pair that clause 5 excludes, the two lanes on London have different separation groups and no shared node, so the model treats them as separate levels.
 The other lanes that join at a far end share a node with the partner lane, are in one maneuver group, are depot lanes, or are at least 12 m away.
-London and Express run the all-pairs bank audit, because they have maneuver groups.
-The gap stays open only in a project without banks or maneuver groups, where `Check` still reports a close pair.
+Since 2026-11-20, each network runs the all-pairs bank audit (decision AO-D7 of the [always-on proposal](../contracts/shape-clearance-always-on-proposal.md)).
+So the gap is closed in each project.
 The maintainer chose to keep this record and to add no check.
 
 This design shortens the junction conflict zones of shallow merges and splits.

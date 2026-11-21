@@ -93,6 +93,8 @@ The editor and the saved-state restore name the member and its place in the netw
 | Entry point | Error | Result |
 | --- | --- | --- |
 | Project file of `serve -project` | `read project <path>: json: unknown field "<m>"` | The server does not load the file. |
+| Project file of `projectcheck` | `decode project: json: unknown field "<m>"` | The command exits with status 1. |
+| Project file of the compare `-project` flag | `read project <path>: json: unknown field "<m>"` | The command exits with status 1. |
 | Project command | `invalid command JSON` | HTTP 400, and the session does not change. |
 | Saved state | `decode session state: json: ...unknown object member name "<m>"` | `invalid_state`. The file moves aside, and the server starts a new session. |
 | Topology of the stream, the HTTP state, or the Go client | `json: unknown field "<m>"` | The client refuses the topology. |
@@ -145,6 +147,9 @@ Thus x increases to the east, and y increases to the south.
 ### Live backdrop
 
 The optional `map` member selects the live backdrop, for example `{"provider":"osm","opacity":0.45}`, and it needs `geo`.
+The `provider` must be `osm`.
+The `opacity` must be a finite number from 0 to 1.
+An omitted opacity is zero, which requests no tiles.
 Leaving out `map` keeps the plain background.
 
 ## Validation and limits
@@ -247,7 +252,9 @@ The command gives the policy no configured rate, so the rate gate reads the mean
 At the first skipped arrival, the command turns the policy off for the rest of the arm.
 See [qualification results](studies/qualification.md#guarded-positioning-in-the-london-sweep).
 
-The command uses its own policy flags, and it ignores `redistribution`, `pickupReassignment`, the other experimental settings, and `generatedOrderConsent` in the input project.
+The command uses its own policy flags, and it ignores these members of the input project: `redistribution`, `pickupReassignment`, `generatedOrderConsent`, `sharedRidePartyLimit`, `sharedRideMode`, `sharedRideMaxStops`, `onboardPickups`, and `platoonLimit`.
+The flags `-redistribution-policies`, `-pickup-reassignment`, `-sharing-consent`, `-sharing-limits`, `-sharing-modes`, `-sharing-max-stops`, `-onboard-pickups`, and `-platoon-policies` set these values for each arm.
+With no sharing or platoon flags, each arm runs with one party for each pod, no onboard pickups, and no platoons.
 With no policy flags, it runs redistribution and pickup reassignment on, as the presets do.
 It keeps `faults` and `emergencies`.
 An arm of a project with a rate has both operations on and runs the samplers, from the seed of the arm, so arms with one seed get one event schedule.
@@ -277,7 +284,7 @@ The focus station is the `-focus` station, then the `demand.destination` of the 
 | Flag | Effect |
 | --- | --- |
 | `-project scenario.json` | Test another network. |
-| `-pattern`, `-patterns all` | The demand pattern, or a comma list or all of them. |
+| `-pattern`, `-patterns all` | The demand pattern, or a comma list of patterns. `all` runs `balanced`, `destination`, `hotspot`, `bursty-hotspot`, and `hub-burst`, and does not run the profile or rail patterns. |
 | `-seed`, `-seeds 1,2,3` | The seed, default 1, or a list of seeds. |
 | `-loads 30s,45s,60s` | The intervals between orders to run. |
 | `-request-every` | The interval between orders without `-loads`. Default 45s. |
@@ -409,13 +416,17 @@ Some columns show only when you ask for what they report.
 | --- | --- |
 | `wait_rule` | You give `-wait-rules`. |
 | `platoon_policy` | You give `-platoon-policies`. |
-| `sharing_mode` | Always. It gives the sharing mode of each arm. |
+| `sharing_mode` | Always in JSON and CSV. The table does not show it. |
+| `sharing_consent` | Always in JSON. The table (`SHARING CONSENT`) and CSV add it only when you give `-sharing-consent`. |
+| `onboard_pickups` | You give `-onboard-pickups`. The table names it `ONBOARD PICKUPS`. |
+| `daily_start_minute` | A `profile-daily` run, in JSON and CSV. The table prints the daily clock on a separate line. |
+| `energy`, `energy_*` | You give `-energy-file`. JSON has an `energy` object and CSV has the `energy_*` columns. The table prints one `energy` line for each arm after the table. |
 | `pickup_reassignment`, `pickup_reassignment_stats` | Always in JSON. The table and CSV add a policy column only when you give `-pickup-reassignment`. |
 | `fleet_class`, `served_percent_of_plain` | You give `-fleet-classes`. The table names them `FLEET` and `SERVED % PLAIN`. |
 | `interrupted`, `fault_started`, `fault_skipped`, `emergency_started`, `emergency_skipped` | The project has a fault rate or an emergency rate above 0. |
 
-The JSON report has `schema_version` 15.
-It is 16 with a `pickup_reassignment` value, 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
+The JSON report has `schema_version` 16, because each result has a `pickup_reassignment` value.
+It is 17 with an `onboard_pickups` column, 18 with energy estimates, and 19 with `fleet_class`.
 
 #### Waits and journeys
 
@@ -503,6 +514,10 @@ The scenario command writes a repeatable project file, which you can give to the
 mise run scenario -- -preset scale100 -output /tmp/podsim-scale100.json
 mise run serve -- -project /tmp/podsim-scale100.json
 ```
+
+`-preset` selects the preset, and the default is `scale100`.
+`-output` names the project file.
+Without `-output`, the command writes the project to standard output.
 
 Generated files hold raw server settings.
 The editor can export the loaded scenario with optional local background data.
@@ -604,7 +619,7 @@ They do not apply to `independent-banks`, `compact-station`, `london-full-expres
 | `-parking-pods N` | London presets only. Set the initial pods of each parking station. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. On a London preset, M is the pitch at station scale 1, and the station scale multiplies it. A tight London station keeps its pitch of 25 meters, so M sets only the wide stations, the Compact stations in the heading search, and the parking stations. |
 | `-station-scale S` | London presets only. Multiply the size of each wide or Compact passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. A tight station and the parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` with wide stations at scale 1, so its approved geometry does not change. With `-wide-stations`, some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
-| `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the stations then have the shape of the preset from before that date, and the roads are filleted. `-road-fillets=false` also gives the straight roads of that preset. |
+| `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the stations then have the shape of the preset from before that date. The roads keep the preset value of `-road-fillets`: `london-full` has filleted roads, and `london-central` has straight roads. `-road-fillets=false` gives `london-full` with straight roads. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
 | `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
 | `-road-fillets` | London presets only. Give each station road and each Parking facility road a quadratic curve that leaves the lane before it and joins the lane after it at their headings, by the [London road fillets proposal](contracts/london-fillets-proposal.md). The speed limit of a curved road is the smaller of 14 m/s and the square root of 2r, where r is its smallest radius in meters. A road keeps its chord at 14 m/s when an end is already tangent, when the headings do not meet ahead of both ends, or when its speed would be below 5 m/s. The movement lanes keep their chords. The flag has no effect with `-junctions ramps`. The preset value is on for `london-full` and off for `london-central`. `-road-fillets=false` gives `london-full` with straight roads, and the project name ends with " (custom capacity)". |

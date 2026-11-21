@@ -22,6 +22,11 @@ A one-row station has no berth-pitch control.
 A station without a recognized throat has no approach-setback control.
 The controls show the reason when the layout is unsupported.
 
+On a station with [independent banks](station-banks.md), select a bank in the **Bank** list first.
+The controls then change only that bank, and the editor refuses a layout change for the whole station.
+A bank also has **Approach length** and **Departure length** controls, each at least 24 m.
+See [independent station banks](station-banks.md#browser-editing-example) for these controls and the bank membership controls.
+
 A rejected preview leaves the draft unchanged.
 Every lane with a moved endpoint must remain at least 24 m long.
 A slow, straight small-class lane that the retention rules of `internal/sim/retention.go` certify needs only twice its reduced retention.

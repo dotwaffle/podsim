@@ -50,8 +50,8 @@ Their random streams remain independent, and existing arrival destination choice
 Combined plans permit 256 events, 10,000 passengers, and 200 offers at any normalized release tick.
 Outbound plans also have a separate 3,000-passenger cap.
 Arrival-only plans retain their 10,000-passenger cap.
-The outbound cap kept the conservative version 4 saved fixture at 83,301,572 bytes, below the 83,886,080-byte limit.
-No file or stream cap increased.
+The outbound cap bounds the saved connection ledger.
+`TestPlainStateFileWorstCaseSize` includes it and keeps plain saved JSON below the 128 MiB cap.
 
 The `rail-services` pattern releases offers after the physics of their exact tick.
 Simultaneous arrivals precede departures, followed by authored event and passenger order.
@@ -136,7 +136,7 @@ Trains departed 300 seconds after each window ended, with a 60-second transfer t
 The last offer occurred at second 3,600.
 
 Both forecast arms retained every offered identity, endpoint, release time, seed, and original limit.
-The half-open window ended at tick 216,001, and the recovery cap remained three hours.
+At 60 Hz, the half-open window ended at tick 216,001, and the recovery cap remained three hours.
 Each fixture used seeds 1 and 2, a 200-order queue, free-flow routing, and one party per pod.
 Redistribution, station buffers, and pickup reassignment were off.
 Rail Hub retained 30 pods without platoons.
@@ -177,7 +177,7 @@ A separate pre-release diagnostic sampled 65 checks and 160 nearest-source searc
 None found an eligible source within the remaining lead time, so none started a route.
 This describes those sampled states, not every possible LondonFull workload.
 
-The observation-only study checked separation, berth use, and lane speed after all 3,666,540 simulation ticks.
+The observation-only study checked separation, berth use, and lane speed after all 3,666,540 simulation ticks at 60 Hz.
 It checked the saved-state contract each simulated second and tested physical restore at five-minute intervals.
 Restore probes retained exact discrete saved values and berth occupants, with at most 1e-7-meter tolerance for distance reconstruction.
 Separate restored continuations checked safety, speed, completion receipts, and conservation.

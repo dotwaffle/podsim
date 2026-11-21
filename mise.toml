@@ -54,8 +54,9 @@ fi
 description = "Run the full test suite without the race detector"
 run = "go test ./..."
 
-# -short skips the long tests of sim, session, and compare.
-# No CI task passes -short, so CI still runs them.
+# -short skips the long tests of several packages.
+# CI runs them all: test:long runs PODSIM_LONG_PACKAGES in full, and
+# test:race:other runs the other packages without -short.
 [tasks."test:quick"]
 description = "Run the test suite without the long tests"
 run = "go test -short ./..."

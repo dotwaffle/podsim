@@ -496,6 +496,7 @@ Select the station to change its berth pitch, entry and exit spacing, or approac
 The controls keep the mainline throat fixed and keep the nodes, lanes, berths, and fleet placements of the station.
 Unsupported layouts keep manual node editing.
 See [station layout controls](station-layout-editor.md) for the limits and validation.
+On a station with banks, select a bank first, and the controls change only that bank (see [independent station banks](station-banks.md#browser-editing-example)).
 
 #### Berths
 
@@ -516,6 +517,7 @@ The editor refuses a change that would break the network, and a message gives th
 
 | Action | Refused when | The message gives |
 | --- | --- | --- |
+| **Add physical berth** on any station | The station already has 200 berths | The berth limit |
 | **Add physical berth** on any station | A node would get more than 64 lanes | The node and the lane limit |
 | **Add physical berth** on a berth chain | The network check of the server refuses the changed network, for example because a new lane crosses another lane or comes too near to it | The text of the server |
 | **Remove** on a berth row | A road lane or a lane of a different station uses the berth node. Each lane of the berth node must be a station lane of that station. | The first such lane, the berth node, and the station. Delete that lane first. |

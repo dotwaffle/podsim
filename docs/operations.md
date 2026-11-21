@@ -9,9 +9,9 @@ go generate ./...
 go build -trimpath -tags=embed_assets -o podsim-server ./cmd/serve
 ```
 
-The executable contains the HTML, CSS, JavaScript, and gzip WASM files.
+The executable contains the HTML, CSS, JavaScript, the ride page model and textures, and the gzip WASM files.
 It does not contain an uncompressed WASM module.
-This keeps the executable at about 41 MB, not 65 MB.
+This keeps the executable about 40 MB smaller.
 The server decompresses the module in memory only for a client without gzip or for a Range request.
 It does not need a `dist` directory at runtime.
 The `-dir` option overrides embedded files for development.
@@ -37,7 +37,10 @@ State stream messages always use gzip.
 HTTP snapshots and browser assets use gzip when the client supports it.
 Range responses remain uncompressed.
 
-The build keeps only `podsim.wasm.gz`, which it compresses at the maximum level one time.
+The build writes three WASM modules, and it keeps only the gzip copy of each: `podsim.wasm.gz`, `editor-model.wasm.gz`, and `ride.wasm.gz`.
+It compresses each module at the maximum level one time.
+The editor and the ride page get their modules as static files and decompress them in the browser.
+The rules below apply only to `podsim.wasm`.
 The server sends these bytes to browsers that accept gzip.
 For a client without gzip or for a Range request, the server decompresses the module on the first request and keeps it in memory.
 Byte ranges then use the offsets of the uncompressed module.
@@ -833,9 +836,11 @@ With `-state`, the server writes these log records at startup:
 - `Rejected saved session state` (WARN) gives the `reason` and the `error`.
 - `Restore failed with a panic` (ERROR) gives the `panic` and the `stack`.
   The server then rejects the file with reason `invalid_state`.
-- `Preserved saved session state` (ERROR) means that the saved state has more than 128 MiB, compressed or decompressed.
+- `Preserved saved session state` (ERROR) means that the decompressed saved state has more than 128 MiB.
   It gives the `error` and `saving=false`.
   The server keeps the file and fails to start.
+  A stored file of more than 128 MiB does not give this record.
+  The server keeps that file too, and `Serve prototype` (ERROR) gives the error when the server stops.
 - `Read saved session state` (ERROR) means that the read failed or timed out.
   It gives the `error` and `saving=false`.
 - `Move rejected session state` (ERROR) means that the move of a rejected file failed.
@@ -847,9 +852,11 @@ With `-state`, the server writes these log records at startup:
   If a power loss brings the file back, the next start rejects it again.
 - `Backed up saved session state` (INFO) and `Back up saved session state` (WARN, with the `error`) tell the result of the copy to `session.previous.json.gz`.
   A failed copy does not stop the restore.
-- `Stop during startup` (INFO) means that a signal came while the server read or restored the saved state, or made the startup save.
+- `Stop during startup` (INFO) means that a signal came before the server started to serve.
   It gives the `cause` and the `error`.
-  The server stops without serving and without a save.
+  The server stops without serving.
+  When the signal came during the read, the restore, or the startup save, the server does not save.
+  When the signal came after the startup save, the server makes a final save.
 
 It writes these records for each save:
 
@@ -946,7 +953,7 @@ See [server restarts](protocol.md#server-restarts).
 | `internal/view` | Ebitengine rendering and input against copied snapshots. |
 | `internal/ride` | Pod poses, headings, network geometry, the pod list, the HUD data, the auto mode choice, and the passenger flow for the first-person ride page. |
 | `internal/telemetry` | Optional OTLP traces, HTTP metrics, runtime metrics, session gauges, and session state metrics. |
-| `internal/cmd/buildweb` | Generated browser files and gzip WASM file. |
+| `internal/cmd/buildweb` | Generated browser files and gzip WASM files. |
 | `internal/cmd/podmodel` | The pod model of the ride page, `web/pod.glb`. |
 | `internal/cmd/texgen` | The textures of the ride page, `web/textures`. |
 | `cmd/podsim` | Desktop and WASM entry point. |
@@ -970,25 +977,26 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, `qualify`, the three race tasks, `test:long`, `test:shared-express`, and `test:london-express` one after another, and stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
+| `mise run test` | `go test ./...`, without the race detector. |
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `test:embedded` run them. |
-| `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and the check that `podsim.wasm` does not link cloud storage. |
+| `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and a `go list -deps` check of the `js/wasm` builds of `cmd/podsim`, `cmd/editormodel`, and `cmd/ride`. The check fails when they link cloud storage or the preset data in `internal/scenarios`. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
-| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and then the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
+| `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages other than `internal/sim`, `internal/session`, and `PODSIM_LONG_PACKAGES` in full. Then it runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
 | `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. The Station 19 drain tests skip there, because they run only when `PODSIM_QUALIFY=1`. |
 | `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so only this task runs them. |
 | `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
-| `mise run test:web` | Only the editor, loader, and page tests. |
+| `mise run test:web` | The Node tests of the browser files: the editor, the editor model and history, the loader, the shell, the stream, the map and tiles, place search, the offline tools, and the ride page. The offline tool tests run `cmd/parkride` and `cmd/compare`. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
 | `mise run soak` | The incident soak in the routine branch shape. See "Incident soak". |
-| `mise run soak:full` | The soak of amendment A6 with the full check at each tick. The limit of 2 hours can cut it, and it lists the seeds that finished. See "Incident soak". |
+| `mise run soak:full` | The release soak of amendments A6 and A19: 2 seeds of 6 simulated hours on each default preset, with the full check at each tick. A run that the 2-hour limit stops fails. It lists the seeds that finished. See "Incident soak". |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
 
 `mise.toml` tracks Go 1.27, rumdl 0.3, and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
 
-Some editor tests use Go to generate the `scale100` and `london-central` projects.
+Some editor tests use Go to generate the `london-central` and `london-full` projects or to build the editor model.
 If Go is not on `PATH`, `node --test web/editor_test.cjs` skips these tests and gives the reason.
 The `test:web` task sets `PODSIM_REQUIRE_GO=1`, so a missing Go makes the task and `mise run check` fail.
 
@@ -1052,6 +1060,7 @@ A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.
 The workflow uses major-version action tags and installs tools from `mise.lock`.
+The publish job is the exception: it uses `ko-build/setup-ko@v0.10` and pins ko `v0.19.1` outside `mise.lock`.
 Go module, build, and lint analysis caches use keys for each job and task, and refresh after successful runs.
 
 ### Lint and package boundaries

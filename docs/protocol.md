@@ -24,6 +24,7 @@ The client uses these message boundaries:
 | State | `GET /api/state` | Controls, demand, queues, berths, metrics, save points, the build, the server start ID, the restore result, and dynamic vehicle fields. |
 | Project | `GET /api/project` | Complete editable scenario data. |
 | Command | `POST /api/command` | Retry-safe mutation and compact acknowledgment. |
+| Place search | `GET /api/places?q=` | Geocoder results that move the editor map. It does not change the session. See [Place search](#place-search). |
 | Preset | `POST /api/presets/{name}` | A new project from a named preset. It does not change the session. See [Presets](#presets). |
 
 Every project has version 1, and the server refuses project versions 2 through 5.
@@ -56,6 +57,7 @@ The server does not convert files with other names.
 A request for a different `/api` path gets HTTP 404.
 A request with a different method gets HTTP 405 and an `Allow` header with the methods of the endpoint.
 A `GET` endpoint also accepts `HEAD`, except the WebSocket upgrade.
+A `HEAD` request for `/api/state/stream` gets HTTP 405 with no `Allow` header.
 All `/api` responses have `Cache-Control: no-store`, also the error responses.
 
 The stream and the HTTP state do not contain lane objects or network geometry.
@@ -100,7 +102,7 @@ A restore rejects any other speed, including 4 and 8.
 
 ## Shared state stream
 
-The server sends a text hello with `version`, `build`, and `serverStart` before any binary state message.
+The server sends a text hello with `kind` `hello`, `version`, `build`, and `serverStart` before any binary state message.
 The version is 10 for every project kind.
 The hello also has the `orderContract` marker of the project, when the project has it.
 The marker selects the Express bounds of each message on the connection.
@@ -108,6 +110,8 @@ A client refuses every other version, and it records the `build` of the hello be
 Then a page of an earlier build loads the files of the server.
 Each binary message contains one gzip member and one JSON envelope.
 The envelope contains `kind`, `stream`, `sequence`, `base`, `build`, and `source`.
+The `kind` is `full` or `delta`.
+A client refuses an envelope with another kind.
 The envelope has the same `orderContract` marker as the hello, the full frame, and the topology.
 A client refuses an envelope whose marker differs from the marker of the hello.
 A topology whose marker differs from the marker of the hello is also refused.
@@ -145,8 +149,9 @@ A stream starts a new baseline at sequence 1 after sequence 2^53-1.
 Each other counter grows by a small amount for each tick or command, so the server cannot reach 2^53-1 in practice.
 At 60 times real speed, 2^53 ticks take about 159,000 years.
 A full message omits base and carries a `full` object with `state` and `routes`.
-A delta carries replacement `groups`, vehicle changes by pod ID, and changed berths by ID.
-A replacement wrapper has a `value` member, so null, zero, and an empty list differ from an absent group.
+A delta omits `full` and carries a `delta` object with replacement `groups`, vehicle changes by pod ID in `vehicles`, and changed berths by ID in `berths`.
+Each delta group is the plain value under its name in `groups`, and a group is present only when it changed.
+A vehicle replacement has a `value` member, so null, zero, and an empty list differ from an absent vehicle group.
 
 The groups are controls, demand, restore, checkpoints, pending requests, global simulation state, and statistics.
 The `incident` group has the interrupted counters.
@@ -154,7 +159,7 @@ The `faults` group has the active faults and the fault counters (see [Faults](#f
 The `emergencies` group has the active emergencies and the emergency counters (see [Emergencies](#emergencies)).
 A delta sends only a changed group.
 A client applies the groups in the order of their names, so a delta with two bad groups gets the refusal of the first name.
-Vehicle groups are pod fields, motion, presentation route, riders, stops, and relocation, platoon, or incident metadata.
+Vehicle groups are pod fields, motion, presentation route, riders, boarding records, stops, and relocation, platoon, or incident metadata.
 A motion replacement has `position` with `x` and `y`, `laneDistance`, and `speed` inside its `value` object.
 Every motion field is present, including zero values, and every number is finite.
 Lane distance and speed are nonnegative.
@@ -199,8 +204,17 @@ It admits the waiting encoding only after those writes stop and release their le
 Unrelated subscribers remain connected.
 
 The server admits at most 64 sockets.
+An upgrade that breaks the Origin policy gets HTTP 403.
+When 64 sockets are open, an upgrade gets HTTP 503 with `Retry-After: 1`.
+During shutdown, an upgrade gets HTTP 503 with no `Retry-After`.
 Idle connections receive one application heartbeat per second, with at most one heartbeat outstanding.
 The heartbeat token is the decimal count of the heartbeats of the connection, starting at 1.
+The server heartbeat is a text message `{"kind":"heartbeat","token":"<token>"}`.
+The client replies with a text message `{"kind":"heartbeat","token":"<token>"}` with the same token.
+The client acknowledges a state message with a text message `{"kind":"ack","stream":"<stream>","sequence":"<sequence>"}`.
+The sequence is a decimal string.
+A control message has a limit of 1,024 bytes.
+The server closes the socket for a binary control message, an unknown kind, a heartbeat reply with a token other than the outstanding token, or an acknowledgment of a message that it did not send.
 State acknowledgments and heartbeat replies have separate 30-second progress deadlines.
 An old acknowledgment does not extend the state deadline.
 Socket writes have a 30-second outer deadline.
@@ -209,7 +223,7 @@ Shutdown closes upgraded sockets and waits for stream workers before the final s
 
 Stream JSON has a 64 MiB limit; HTTP-state JSON has a separate 128 MiB limit.
 The gzip limit is 64 MiB plus 32,832 bytes of block and wrapper overhead.
-Go 1.27.3 BestSpeed consumes blocks of at most 65,535 bytes and selects stored blocks when compression would cost more.
+Go BestSpeed consumes blocks of at most 65,535 bytes and selects stored blocks when compression would cost more.
 The allowance reserves 32 bytes per block for headers, pending end codes, and alignment, plus 32 bytes for the gzip wrapper and final empty block.
 `TestStreamGzipExpansionBound` checks an incompressible document at the JSON cap through the production compressor and inflater.
 The browser counts native decompression output before allocating the joined result.
@@ -412,6 +426,7 @@ A smaller plain command, such as a pause, does not need a place.
 Each array in the body must have no more items than the project limits permit, also for an action that does not use the project.
 For example, `project.network.lanes` can have at most 20,000 items.
 Each string and each member name in the body must have at most 1,024 bytes, including the quotes and the escapes.
+The body must have at most 64 levels of nesting, and each object in it must have at most 256 members.
 Commands and WebSocket upgrades share one Origin policy.
 Without `-public-origin`, Origin must match the request Host and local connection scheme.
 With that option, request Host must match the configured public authority, and Origin must match its normalized scheme and authority.
@@ -435,6 +450,22 @@ A lane counts at its start node and at its end node.
 The total of the lane pairs at the nodes, the node coordinates, and the total of the track cells of the lanes also have limits.
 Two lanes with the same start node, end node, and path also give `command_rejected`.
 See [validation and limits](reference.md#validation-and-limits) for all limits.
+
+## Place search
+
+`GET /api/places` sends one place query to the geocoder that `-geocoding-url` selects.
+The request must have exactly one query parameter, `q`, with 1 to 200 UTF-8 bytes after the server trims white space.
+A raw query of more than 1024 bytes, or any other query, gets HTTP 400.
+The request must pass the origin check of commands.
+A `Sec-Fetch-Site` header must be `same-origin` or `none`, and a `Referer` header must be one HTTP or HTTPS URL that passes the origin check.
+Otherwise the request gets HTTP 403.
+When `-geocoding-url` is empty, the request gets HTTP 503.
+When the shared request slot is in use, the request gets HTTP 429 with `Retry-After`.
+A provider timeout gets HTTP 504, and another provider failure gets HTTP 502.
+A successful reply is `{"results":[...]}`.
+Each result has `name`, `latitude`, `longitude`, and an optional `bounds` object with `south`, `north`, `west`, and `east`.
+An error reply is `{"error":"..."}`.
+See [Find a place](user-guide.md#find-a-place) for the request spacing and the cache.
 
 ## Presets
 
@@ -528,7 +559,7 @@ The `fault` command and a project [fault rate](operations.md#faults) start debri
 `simulation.faults` of a full frame and of the HTTP state has the members `active` and `counters`.
 A frame omits `faults` when no fault is active and each counter is 0.
 The `faults` group of a delta has the same members, and it is `{}` in that case.
-The group has no `value` wrapper.
+Like each delta group, it has no `value` wrapper.
 `active` has one record for each active fault, in the order of the fault serial.
 Each record has these members:
 
@@ -657,7 +688,7 @@ Then the pod returns to service, unless it has a fault.
 `simulation.emergencies` of a full frame and of the HTTP state has the members `active` and `counters`.
 A frame omits `emergencies` when no emergency is active and each counter is 0.
 The `emergencies` group of a delta has the same members, and it is `{}` in that case.
-The group has no `value` wrapper.
+Like each delta group, it has no `value` wrapper.
 `active` has one record for each active emergency, in the order of the incident serial.
 It is omitted when no emergency is active.
 Each record has all of these members:

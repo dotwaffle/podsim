@@ -101,9 +101,9 @@ It checks both orientations against the actual links and nearby stations, not a 
 A tie keeps the current orientation.
 The pass makes at most three sweeps.
 
-This reduces crossings among each station's access roads from 524 to 318 in LondonCentral and from 1,167 to 581 in LondonFull.
-It mirrors 82 and 246 station layouts, respectively, including Parking facilities.
-Acton Town in LondonFull decreases from 11 such crossings to 5.
+In the layout of September 29, 2026, this reduced crossings among each station's access roads from 524 to 318 in LondonCentral and from 1,167 to 581 in LondonFull.
+At that time, Acton Town in LondonFull decreased from 11 such crossings to 5.
+In the current presets, the pass mirrors 84 of 99 station layouts in LondonCentral and 288 of 312 in LondonFull, including Parking facilities.
 Some crossings remain because each arrival portal connects to the station and each departure portal connects from it.
 Existing saved projects keep their stored geometry.
 Historical capacity measurements describe the earlier geometry and do not qualify the mirrored presets.
@@ -218,7 +218,7 @@ A project can have at most 600 stations, 12,000 nodes, and 20,000 lanes.
 The lane pairs at the nodes can be at most 250,000 in total.
 The London preset has 21,132 pairs and the largest London capacity options in the tests have 29,336.
 The lanes can have at most 64,000 track cells of about 30 meters in total.
-The London preset has 16,976 cells and the largest London capacity options in the tests have 24,675.
+The London preset has 14,829 cells and the largest London capacity options in the tests have 24,674.
 These limits also apply to an edit of the London project in the editor.
 The `serve` and `compare` commands read a `-project` file of 32 MiB or less.
 The central generated file is indented, so it is about 2.6 MiB (2,701,745 bytes).
@@ -234,7 +234,7 @@ The view treats this project as a dense map because it has more than 30 stations
 Until the berths of a station separate on the screen, the station shows one marker.
 The marker of a passenger station is at its junction, at the mean position of its arrival portals.
 This point is within about 60 meters of the TfL station position.
-The berths are about 250 to 430 meters away, and their rings replace the marker when you zoom in.
+The berths are about 100 to 250 meters away, and their rings replace the marker when you zoom in.
 At the largest zoom, each station shows its berths, also the 6-meter slots of a depot and the Compact bays (see [Map navigation](user-guide.md#map-navigation)).
 A Parking marker stays at the center of its depot slots, so it does not cover the marker of its gateway station.
 The project also has more than 100 lanes, so the map sizes change with the zoom.

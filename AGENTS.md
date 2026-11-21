@@ -26,9 +26,9 @@ Keep this file short, and point to other documents instead of copying them.
 - `internal/remote` and `internal/view`: the presentation client.
 - `internal/ride`, `cmd/ride`, and `web/ride.*`: the first-person ride page.
 - `internal/editormodel` and `web/`: the browser editor and shell.
-  `cmd/podsim` and `cmd/editormodel` also build for `js/wasm`, and `cmd/ride` builds only for `js/wasm`.
+  `cmd/podsim` also builds for `js/wasm`, and `cmd/editormodel` and `cmd/ride` build only for `js/wasm`.
 - `cmd/serve`: the server.
-  `cmd/compare`, `cmd/scenario`, and `cmd/projectcheck` are tools for experiments and checks.
+  `cmd/compare`, `cmd/scenario`, `cmd/projectcheck`, and `cmd/parkride` are tools for experiments and checks.
 
 ## Checks
 
@@ -65,7 +65,7 @@ CI runs `test:race:*`, `test:long`, `test:shared-express`, `test:london-express`
 - A change to the saved-state version (`stateVersion`) or the stream version (`StreamVersion`) also changes the golden files in `internal/session/testdata` and the version text in `docs/operations.md` and `docs/protocol.md`.
 - Use the standard library first.
   JSON uses `encoding/json/v2`.
-- `podsim.wasm` must not link cloud storage.
+- The WASM builds (`cmd/podsim`, `cmd/editormodel`, and `cmd/ride`) must not link cloud storage or `internal/scenarios`.
   `mise run lint` checks this.
 
 ## Writing

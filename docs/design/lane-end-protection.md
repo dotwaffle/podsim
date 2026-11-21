@@ -7,6 +7,7 @@ Section 11 gives the measurements of C2 and C1 that changed the decision.
 The other decisions are the separation-group exemption for L1 and clause 5 for L4.
 L3 and L6 do not apply to D, and the record of L5 is corrected.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
+Since 2026-11-20, the all-pairs audit runs in each network, so the gap of option D is closed (decision AO-D7 of the always-on proposal).
 Code references are for `959912c7`.
 The counts come from a scratch test at `959912c7`, which did not land.
 A number in a table with the "Measured" heading, or a statement marked "measured", comes from that test.

@@ -29,7 +29,7 @@ Desktop Chrome is the browser target, so Firefox and Safari validation are not r
 Current development uses a local server, and hosted deployment checks are release-stage work.
 
 The first build downloads the Go dependencies.
-The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM file `podsim.wasm.gz`.
+The build creates static files in `dist/`, including the matching Go WebAssembly runtime and the gzip WASM files `podsim.wasm.gz`, `editor-model.wasm.gz`, and `ride.wasm.gz`.
 
 From there, order a journey under **ORDER A JOURNEY**, or open **Demand** and select **Start traffic demo** to see merge and station queues.
 Select **Edit scenario** to change the network.
@@ -99,7 +99,8 @@ The `physical` tier keeps the pod positions, the `logical` tier starts the pods 
 
 With `-project`, the project file has priority.
 If the saved project differs, the server starts a new session with the file.
-If only demand, pickup reassignment, or onboard pickup settings differ, the server restores the session and applies the settings of the file, unless the saved traffic demo is running, which starts a new session.
+If only demand, pickup reassignment, or onboard pickup settings differ, the server restores the session and applies the settings of the file.
+If the demand settings differ and the saved traffic demo runs, the server starts a new session.
 Without `-project`, the server restores the saved project.
 
 See [session state](docs/operations.md#session-state) for the file names, the restore rules, and the recovery steps, and [session state logs](docs/operations.md#session-state-logs) for the logs.
@@ -107,7 +108,7 @@ See [session state](docs/operations.md#session-state) for the file names, the re
 ### Production server
 
 `go generate ./...` builds the browser application and the gzip WASM file.
-An `embed_assets` server build holds all browser files in one executable of about 41 MB.
+An `embed_assets` server build holds all browser files in one executable.
 The project also has a non-root, multiarchitecture ko image and a workflow that publishes it to GHCR.
 The server provides `/healthz`, opt-in pprof on a separate listener, and opt-in OTLP telemetry.
 See [distribution and operations](docs/operations.md) for the build and runtime settings, graceful shutdown, save point memory use, and logs.
@@ -159,10 +160,10 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Generated-order consent](docs/contracts/generated-order-consent-contract-proposal.md) | The `generatedOrderConsent` setting. |
 | [Tick rate](docs/contracts/tick-rate-contract-proposal.md) | A lower tick rate. Implemented at 30 Hz. |
 | [Express standees](docs/contracts/express-standees-contract-proposal.md) | A 6 m Express with standees, and a curve tail from the lane polyline. The maintainer accepted its decisions. The seat and standee split, the motion rates, the load dwell, and the polyline tail are built. |
-| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The soak of amendment A6 ran, and its Progress row missed. The Suspension median row passes amendment A7. |
-| [Express London qualification](docs/contracts/express-london-qualification-proposal.md) | Qualification of the banked LondonFull Express project D as an opt-in preset. Rows approved; the browser checks passed on November 15, 2026. |
+| [Incident stage 7](docs/contracts/incident-stage7-contract-proposal.md) | Random faults and emergencies. Implemented. The release soak of amendment A19 has 2 seeds of 6 simulated hours on each default preset, and it passed on 2026-11-20 at `e999af83`. The Suspension median row passes amendment A7. |
+| [Express London qualification](docs/contracts/express-london-qualification-proposal.md) | Qualification of the banked LondonFull Express project D as an opt-in preset. Rows approved; the browser checks passed on November 15, 2026. Since 2026-11-20, D is not qualified until the reruns of the always-on proposal and the repeated Chrome checks of E6 and E7 on the final build pass. |
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Failed; D adoption stopped on November 9, 2026, and D is not adopted. |
-| [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved. |
+| [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved and built. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
 | [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. Stopped with D adoption. |
 | [Individual limits amendment](docs/contracts/individual-limits-amendment-proposal.md) | One physical move of one pod puts hundreds of requests over the individual limits in a saturated fleet. D keeps the current limits. Closed with no amendment; the shapes stay as a reference. |
@@ -179,7 +180,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 
 ### Studies
 
-[Qualification results](docs/studies/qualification.md) is the main record, and its [measurement reports](docs/studies/qualification.md#measurement-reports) table says what each study establishes.
+[Qualification results](docs/studies/qualification.md) is the main record, and its [measurement reports](docs/studies/qualification.md#measurement-reports) table summarizes the main measurement records and their limits.
 
 | Area | Studies |
 | --- | --- |

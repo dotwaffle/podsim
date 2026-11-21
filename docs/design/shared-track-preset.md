@@ -5,7 +5,10 @@ On 2026-11-16, the maintainer approved the contract amendment of this design as 
 On 2026-11-16, the maintainer approved ST16 to ST24 of the [second shared-track amendment proposal](../contracts/shared-track-amendment-2-proposal.md), for the shape of section 3.1, and the text was applied.
 Build record of 2026-11-16: slices 0 to 5 of section 7 are built, and the commit ids are in that section.
 The preset is `london-full-shared-express`, with 5,790 nodes, 9,089 lanes, and 343 pods.
-Slices 6 and 7, the qualification evidence and the study batch, are open, and no simulation has run on the preset.
+Note of 2026-11-20: slice 6 is done.
+The [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md) contract records the evidence of each row, and the preset is qualified.
+The CI soak and `soak:full` run the preset.
+Slice 7, the study batch, is open.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 Note of 2026-11-20: the fields are removed, and S1, A1, and the compiled reach apply to each network.
 The text below records the design with the field.
