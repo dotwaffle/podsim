@@ -101,6 +101,49 @@ type laneCells struct {
 	// the index in resources after the last resource of each cell.
 	resources []resource
 	ends      []int
+	// id and index are the ID of the lane and its index in the route
+	// graph, when indexed is true (see indexLaneNumbers). The cells of a
+	// prepared network have them. Other cells do not.
+	id      string
+	index   int
+	indexed bool
+}
+
+// networkIndex returns the index of the lane with ID id in the route graph,
+// when these cells are the prepared cells of that lane. ok is false for
+// other cells and for nil cells. Then the caller looks up the ID.
+func (c *laneCells) networkIndex(id string) (index int, ok bool) {
+	if c == nil || !c.indexed || c.id != id {
+		return 0, false
+	}
+	return c.index, true
+}
+
+// indexLaneNumbers gives the cells of each lane its ID and its index in the
+// route graph, which lanes holds by ID. The cells of a lane that lanes does
+// not hold get no index.
+func indexLaneNumbers(cells map[string]*laneCells, lanes map[string]int) {
+	for id, c := range cells {
+		if index, ok := lanes[id]; ok {
+			c.id, c.index, c.indexed = id, index, true
+		}
+	}
+}
+
+// routeLaneIndex returns the index in the route graph of lane, which is
+// the lane at route index position of a route, and whether the graph holds
+// it. When blocks holds the prepared cells of lane at position, it reads
+// the index from them. Otherwise it looks up the lane ID. Both give the
+// same result, because the prepared cells hold the index that the graph
+// holds for their ID. blocks can be nil.
+func (s *Simulation) routeLaneIndex(blocks *blockList, position int, lane *Lane) (int, bool) {
+	if blocks != nil && position < len(blocks.lanes)-1 {
+		if index, ok := blocks.lanes[position].cells.networkIndex(lane.ID); ok {
+			return index, true
+		}
+	}
+	index, ok := s.graph.lanes[lane.ID]
+	return index, ok
 }
 
 // count returns the number of cells.

@@ -305,8 +305,10 @@ func (state SavedState) checkContract(network Network) (int, error) {
 	if err := state.validateCounters(); err != nil {
 		return 0, err
 	}
-	// orders holds where each order ID is: in the queue, or with a pod.
-	orders := make(map[int]string)
+	// orders holds where each order ID is: in the queue, or with a pod. Its
+	// size hint is the number of orders, within the bounds that the checks
+	// below apply.
+	orders := make(map[int]string, state.ordersHint())
 	use := func(id int, where string) error {
 		if other, ok := orders[id]; ok {
 			return fmt.Errorf("order %d is %s and %s", id, other, where)
@@ -371,6 +373,17 @@ func (state SavedState) checkContract(network Network) (int, error) {
 func (state SavedState) validTrip(request SavedRequest, boarded bool) bool {
 	return state.validRequest(request) && request.From != request.To && request.LegFrom != request.To && !request.Completed &&
 		(boarded && request.BoardedTick >= request.RequestedTick || !boarded && request.BoardedTick == 0)
+}
+
+// ordersHint returns the number of orders of the saved state for a map
+// size hint: the riders of each pod and the waiting trips, each at most
+// the bound that checkContract applies.
+func (state SavedState) ordersHint() int {
+	count := min(len(state.Waiting), MaxSavedWaitingTrips)
+	for _, pod := range state.Pods {
+		count += min(len(pod.Riders), MaxStoredRidersForOrderContract(pod.Class, state.OrderContract))
+	}
+	return count
 }
 
 // checkPod checks a saved pod against the rule of its phase.

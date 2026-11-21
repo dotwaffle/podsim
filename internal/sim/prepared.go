@@ -227,6 +227,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	p.indexSafety()
 	p.envelopes = compileEnvelopeReach(owned, prepared.tails)
 	p.laneCells = indexLaneCells(laneCellsIndexInput{network: owned, tails: prepared.tails, geometry: p.geometry, conflicts: p.junctionConflicts, berths: p.berthResources, retention: p.retention, maneuvers: p.maneuvers, depots: p.depots})
+	indexLaneNumbers(p.laneCells, p.graph.lanes)
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
 	p.pickupBounds = p.indexPickupBounds()
@@ -237,22 +238,37 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 // the network, the berth index, and the planes of rule 2 of the safety
 // envelopes.
 func (n *networkIndexes) indexSafety() {
-	n.laneSafety = make(map[string]SafetyLocation, len(n.network.Lanes))
+	n.laneSafety = laneSafetyOf(n.network)
 	n.berthSafety = make(map[string]SafetyLocation)
 	n.berthNodes = make(map[string]string)
-	for _, lane := range n.network.Lanes {
-		n.laneSafety[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
-	}
 	for _, station := range n.network.Stations {
 		for _, berth := range station.Berths {
 			n.berthSafety[berth.ID] = SafetyLocation{SeparationGroup: berth.SeparationGroup, From: berth.Node, To: berth.Node}
 			n.berthNodes[berth.ID] = berth.Node
 		}
 	}
-	n.clusterSafety = nil
+	n.clusterSafety = clusterSafetyOf(n.network, n.laneSafety)
+}
+
+// laneSafetyOf returns the safety location of each lane of a network, by
+// lane ID.
+func laneSafetyOf(network Network) map[string]SafetyLocation {
+	locations := make(map[string]SafetyLocation, len(network.Lanes))
+	for _, lane := range network.Lanes {
+		locations[lane.ID] = SafetyLocation{SeparationGroup: lane.SeparationGroup, From: lane.From, To: lane.To}
+	}
+	return locations
+}
+
+// clusterSafetyOf returns the planes of rule 2 of a network by the plane of
+// each maneuver group lane (see networkIndexes.clusterSafety), from the
+// safety location of each lane in laneSafety. It returns nil when the
+// network has no maneuver group.
+func clusterSafetyOf(network Network, laneSafety map[string]SafetyLocation) map[SafetyLocation][]SafetyLocation {
+	var clusters map[SafetyLocation][]SafetyLocation
 	// The group lanes of one cluster share one slice of planes.
 	shared := make(map[*int][]SafetyLocation)
-	for index, cluster := range maneuverClusters(n.network) {
+	for index, cluster := range maneuverClusters(network) {
 		if cluster == nil {
 			continue
 		}
@@ -260,17 +276,18 @@ func (n *networkIndexes) indexSafety() {
 		if !done {
 			planes = make([]SafetyLocation, 0, len(cluster))
 			for _, lane := range cluster {
-				if location := n.laneSafety[n.network.Lanes[lane].ID]; !slices.Contains(planes, location) {
+				if location := laneSafety[network.Lanes[lane].ID]; !slices.Contains(planes, location) {
 					planes = append(planes, location)
 				}
 			}
 			shared[&cluster[0]] = planes
 		}
-		if n.clusterSafety == nil {
-			n.clusterSafety = make(map[SafetyLocation][]SafetyLocation)
+		if clusters == nil {
+			clusters = make(map[SafetyLocation][]SafetyLocation)
 		}
-		n.clusterSafety[n.laneSafety[n.network.Lanes[index].ID]] = planes
+		clusters[laneSafety[network.Lanes[index].ID]] = planes
 	}
+	return clusters
 }
 
 func (p *PreparedNetwork) check() error {

@@ -115,51 +115,116 @@ func (s *Simulation) appendSpanEnvelope(locations []SafetyLocation, v *vehicle, 
 	}
 	if len(candidates) > 0 && v.Pod.Activity == Traveling {
 		slices.Sort(candidates)
-		for _, lane := range v.Route {
-			if number, ok := s.graph.lanes[lane.ID]; ok {
+		for position := range v.Route {
+			if number, ok := s.routeLaneIndex(&v.blocks, position, &v.Route[position]); ok {
 				if _, found := slices.BinarySearch(candidates, number); found {
 					selected = append(selected, number)
 				}
 			}
 		}
 	}
-	slices.Sort(selected)
-	start := len(locations)
-	for _, number := range slices.Compact(selected) {
-		if location := r.locations[number]; !slices.Contains(locations[start:], location) {
-			locations = append(locations, location)
-		}
-	}
-	return s.appendClusters(locations, start)
+	return s.appendSelected(locations, selected)
 }
 
-// appendClusters applies rule 2 to the envelope locations[start:]: for each
-// plane of a maneuver group lane, it appends the planes of the lanes at the
-// nodes of the cluster of the lane (see maneuverClusters), each plane one
-// time. The planes come in the order of the envelope, and the planes of one
-// cluster in lane order. clusterSafety is empty when the network has no
-// maneuver group.
-func (n *networkIndexes) appendClusters(locations []SafetyLocation, start int) []SafetyLocation {
+// envelopePlanesStack is the number of plane numbers of an envelope that
+// appendSelected keeps on the stack.
+const envelopePlanesStack = 64
+
+// appendSelected appends the envelope of the selected location numbers to
+// locations: their planes in the order of the location numbers, each plane
+// one time, and then the planes of rule 2 (see appendClusters). It sorts
+// selected.
+func (n *networkIndexes) appendSelected(locations []SafetyLocation, selected []int) []SafetyLocation {
+	r := n.envelopes
+	slices.Sort(selected)
+	// planes holds the plane number of each plane of the envelope.
+	var stack [envelopePlanesStack]int
+	planes := stack[:0]
+	for _, number := range slices.Compact(selected) {
+		if plane := r.planeOf[number]; !slices.Contains(planes, plane) {
+			planes = append(planes, plane)
+			locations = append(locations, r.locations[number])
+		}
+	}
+	return n.appendClusters(locations, planes)
+}
+
+// appendClusters applies rule 2 to the envelope at the end of locations,
+// whose plane numbers are planes: for each plane of a maneuver group lane,
+// it appends the planes of the lanes at the nodes of the cluster of the
+// lane (see maneuverClusters), each plane one time. The planes come in the
+// order of the envelope, and the planes of one cluster in lane order. The
+// planes of rule 2 come from the envelope reach (see
+// envelopeReach.planeClusters), which holds the planes of clusterSafety by
+// plane number. clusterSafety is empty when the network has no maneuver
+// group.
+func (n *networkIndexes) appendClusters(locations []SafetyLocation, planes []int) []SafetyLocation {
 	if len(n.clusterSafety) == 0 {
 		return locations
 	}
-	end := len(locations)
-	var applied []*SafetyLocation
-	for index := start; index < end; index++ {
-		planes := n.clusterSafety[locations[index]]
-		// The group lanes of one cluster share one slice of planes, so the
-		// envelope adds each cluster one time.
-		if len(planes) == 0 || slices.Contains(applied, &planes[0]) {
+	r := n.envelopes
+	end := len(planes)
+	var applied []*int
+	for index := range end {
+		cluster := r.planeClusters[planes[index]]
+		// The group lanes of one cluster share one slice of plane numbers,
+		// so the envelope adds each cluster one time.
+		if len(cluster) == 0 || slices.Contains(applied, &cluster[0]) {
 			continue
 		}
-		applied = append(applied, &planes[0])
-		for _, extra := range planes {
-			if !slices.Contains(locations[start:], extra) {
-				locations = append(locations, extra)
+		applied = append(applied, &cluster[0])
+		for _, extra := range cluster {
+			if !slices.Contains(planes, extra) {
+				planes = append(planes, extra)
+				locations = append(locations, r.planes[extra])
 			}
 		}
 	}
 	return locations
+}
+
+// numberPlanes builds planeOf, planes, and planeClusters of r from the
+// planes of rule 2 of the network of r (see clusterSafetyOf).
+func (r *envelopeReach) numberPlanes(clusters map[SafetyLocation][]SafetyLocation) {
+	numbers := make(map[SafetyLocation]int, len(r.locations))
+	number := func(location SafetyLocation) int {
+		plane, ok := numbers[location]
+		if !ok {
+			plane = len(r.planes)
+			numbers[location] = plane
+			r.planes = append(r.planes, location)
+		}
+		return plane
+	}
+	r.planeOf = make([]int, len(r.locations))
+	for index, location := range r.locations {
+		r.planeOf[index] = number(location)
+	}
+	// The clusters of a network are planes of its lanes, which have plane
+	// numbers now. Each other plane gets a number before planeClusters is
+	// made.
+	for location, cluster := range clusters {
+		number(location)
+		for _, plane := range cluster {
+			number(plane)
+		}
+	}
+	r.planeClusters = make([][]int, len(r.planes))
+	shared := make(map[*SafetyLocation][]int)
+	for location, cluster := range clusters {
+		if len(cluster) == 0 {
+			continue
+		}
+		numbered, done := shared[&cluster[0]]
+		if !done {
+			numbered = make([]int, len(cluster))
+			for index, plane := range cluster {
+				numbered[index] = number(plane)
+			}
+			shared[&cluster[0]] = numbered
+		}
+		r.planeClusters[number(location)] = numbered
+	}
 }
 
 // maneuverClusters returns the lanes of rule 2 for each lane of a maneuver

@@ -65,6 +65,15 @@ type envelopeReach struct {
 	// maneuverClusters). clusterOf is nil when the network has no group.
 	clusterOf    []int
 	clusterLanes [][]int
+	// planeOf holds the plane number of each location number. Equal planes
+	// have one number. planes holds the plane of each plane number, and
+	// planeClusters the plane numbers of the planes of rule 2 of each plane
+	// number: the planes that clusterSafety holds for the plane, in the
+	// same order. The plane numbers of one cluster share one slice. The
+	// envelopes read them in place of the planes (see appendClusters).
+	planeOf       []int
+	planes        []SafetyLocation
+	planeClusters [][]int
 	// walk, near, between, marks, items, anchor, sorted, window, and
 	// closed are the storage of the lane builds. built counts the lanes that laneSpans
 	// built.
@@ -259,6 +268,7 @@ func newEnvelopeReach(n Network, tails map[string]geometryTails) *envelopeReach 
 		}
 	}
 	reach.clusterOf, reach.clusterLanes = locationClusters(n, reach.locations)
+	reach.numberPlanes(clusterSafetyOf(n, laneSafetyOf(n)))
 	reach.originKeys = make(map[[2]int]int)
 	for node, berths := range g.berthsAt {
 		for _, location := range slices.Concat(berths, g.incident[node]) {

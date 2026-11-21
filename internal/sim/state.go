@@ -527,13 +527,13 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	}
 	switch v.Pod.Activity {
 	case Boarding, DepartingEmpty, Continuing:
-		pod.Route = s.laneIndexes(v.Route, limits.pod)
+		pod.Route = s.routeLaneIndexes(v.Route, &v.blocks, 0, limits.pod)
 	case Traveling:
 		if v.blocks.len() == 0 {
 			break
 		}
 		start, offset, current := s.savedStart(v)
-		if pod.Route = s.laneIndexes(v.Route[start:], limits.pod); pod.Route != nil {
+		if pod.Route = s.routeLaneIndexes(v.Route[start:], &v.blocks, start, limits.pod); pod.Route != nil {
 			pod.RouteIndex = current - start
 			pod.Distance = v.distance - offset
 			if v.carriesPassengers() {
@@ -676,15 +676,24 @@ func newRouteLimits(network Network) routeLimits {
 	}
 }
 
-// laneIndexes returns the network index of each lane of a route. It returns
-// nil for an empty route and for a route with more than limit lanes.
+// laneIndexes returns the network index of each lane of a route, and 0 for
+// a lane that the network does not hold. It returns nil for an empty route
+// and for a route with more than limit lanes.
 func (s *Simulation) laneIndexes(route []Lane, limit int) []int {
+	return s.routeLaneIndexes(route, nil, 0, limit)
+}
+
+// routeLaneIndexes is laneIndexes for route, which starts at route index
+// first of a route whose blocks are blocks. It reads the index of each lane
+// from the cells of blocks where it can (see routeLaneIndex). blocks can be
+// nil.
+func (s *Simulation) routeLaneIndexes(route []Lane, blocks *blockList, first, limit int) []int {
 	if len(route) == 0 || len(route) > limit {
 		return nil
 	}
 	indexes := make([]int, len(route))
-	for index, lane := range route {
-		indexes[index] = s.graph.lanes[lane.ID]
+	for index := range route {
+		indexes[index], _ = s.routeLaneIndex(blocks, first+index, &route[index])
 	}
 	return indexes
 }
