@@ -119,9 +119,10 @@ func CheckPartyAdmissionWithOrderContract(input PartyAdmissionInput, contract Or
 	return checkPartyAdmission(input, contract).error()
 }
 
-// partyAdmits reports whether CheckPartyAdmissionWithOrderContract returns
-// nil. It makes no error for a refusal.
-func partyAdmits(input PartyAdmissionInput, contract OrderContract) bool {
+// PartyAdmitsWithOrderContract reports whether
+// CheckPartyAdmissionWithOrderContract returns nil. It makes no error for
+// a refusal.
+func PartyAdmitsWithOrderContract(input PartyAdmissionInput, contract OrderContract) bool {
 	return checkPartyAdmission(input, contract).refusal == admitted
 }
 

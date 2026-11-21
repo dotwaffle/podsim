@@ -149,7 +149,7 @@ func TestPartyAdmissionMatchesReference(t *testing.T) {
 		want := referenceCheckPartyAdmission(input, contract)
 		got := CheckPartyAdmissionWithOrderContract(input, contract)
 		seen[checkPartyAdmission(input, contract).refusal]++
-		if admits := partyAdmits(input, contract); admits != (want == nil) {
+		if admits := PartyAdmitsWithOrderContract(input, contract); admits != (want == nil) {
 			t.Fatalf("%+v %q: admits %v, reference error %v", input, contract, admits, want)
 		}
 		if (got == nil) != (want == nil) {

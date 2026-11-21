@@ -70,7 +70,7 @@ func (a *StreamAssembler) expressPendingOrders(frame StreamFrame) error {
 // order and its class has a passenger path for the order.
 func (a *StreamAssembler) servedOrder(r sim.Request, limit int, frame StreamFrame) bool {
 	for _, v := range frame.State.Simulation.Vehicles {
-		if sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) == nil && a.passengerPath(r, v.Pod.Class) {
+		if sim.PartyAdmitsWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) && a.passengerPath(r, v.Pod.Class) {
 			return true
 		}
 	}
@@ -142,7 +142,7 @@ func (a *StreamAssembler) strandedOrder(r sim.Request, frame StreamFrame) bool {
 		return false
 	}
 	return slices.ContainsFunc(frame.State.Simulation.Vehicles, func(v VehicleFrame) bool {
-		return sim.CheckPartyAdmissionWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract) == nil
+		return sim.PartyAdmitsWithOrderContract(sim.PartyAdmissionInput{Class: v.Pod.Class, Request: orderOptions(r), PartyLimit: limit}, a.topology.OrderContract)
 	})
 }
 
