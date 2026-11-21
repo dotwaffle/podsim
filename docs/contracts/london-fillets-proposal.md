@@ -766,6 +766,9 @@ The hub roads of Waterloo and Bank keep their chords at 14 m/s (FL-D5, section 3
 Without this reset, validation of the preset refuses `940GZZLUWLO-road-out-01` against `london-link-183-ba-1`.
 No stop of section 7 fired.
 The shape pair count stays at 47, with the same tail warning, so it needs no maintainer decision.
+On 2026-11-21, the maintainer chose to give the "tight 3.5" copy of the shared-track study the same reset (`sharedTrackStraightHubs`).
+Its network hash is now `a407262a...`, the hash of the preset before the parking, and its audit counts are 0 refusals, 0 under 4.0 m, and 38 shape pairs, as before stage 1.
+So the last sentence of section 5.3 and the "tight 3.5" finding of section 8.1 no longer hold.
 
 | Pin of section 5.3 | Before | After |
 | --- | --- | --- |

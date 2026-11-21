@@ -46,6 +46,9 @@ const (
 	// londonStationThroatOffset in internal/scenarios).
 	sharedThroatDepth  = 80.0
 	sharedThroatOffset = 30.0
+	// sharedStraightSpeed is the speed limit of a straight London road
+	// (speedLimit in internal/scenarios).
+	sharedStraightSpeed = 14.0
 )
 
 // sharedTrackInputs are the project files of the study, from cmd/scenario
@@ -67,7 +70,7 @@ var sharedTrackInputs = []struct {
 // builds, by input and network.
 var sharedTrackBuilt = map[string]string{
 	"tight 2.1": "8cbf62c9348af2f1706ccf4c49cb3fea40c9b1537650b3f619707757535e063f",
-	"tight 3.5": "41b3f9f521169842cf12c51164651155d410a5cadedd90feabf1da4fbc76b4d7",
+	"tight 3.5": "a407262a5937f6da1589fd8e5d879a92ce0e236e812a381042678477ba3a865c",
 	"tight 3.6": "6ded06170cd20c972e6be7b116af5d00a4ccc10e67dc31758db811fc2cb47ca2",
 	"wide 2.1":  "45ad760fb65b47297e33fb5acb55a5b6f5ebf829b0ddb1825d87b987dc7409b9",
 	"ramps 2.1": "5dd64bb14d6efb29167829b65919d4646a31e5ac0ea571ee80cc2a0eb90cef43",
@@ -78,8 +81,8 @@ var sharedTrackBuilt = map[string]string{
 var sharedTrackCounts = map[string][3]int{
 	"tight 2.1, each lane":                  {9, 7, 39},
 	"tight 2.1, each lane, small-pod rules": {9, 7, 39},
-	"tight 3.5, each lane":                  {3, 2, 35},
-	"tight 3.5, each lane, small-pod rules": {3, 2, 35},
+	"tight 3.5, each lane":                  {0, 0, 38},
+	"tight 3.5, each lane, small-pod rules": {0, 0, 38},
 	"tight 3.6, each lane":                  {3, 2, 20},
 	"tight 3.6, each lane, small-pod rules": {3, 2, 20},
 	"wide 2.1, each lane":                   {7, 5, 39},
@@ -156,6 +159,26 @@ func sharedTrackBase(t *testing.T, base Network) Network {
 		}
 	}
 	setShapeStudyClasses(&n, keep, false, first.ID, second.ID)
+	return n
+}
+
+// sharedTrackStraightHubs returns a copy of n in which each road-in and
+// road-out lane of Waterloo and Bank has its chord and the speed limit of a
+// straight road. It is the copy of straightenHubRoads of the preset
+// (decision FL-D5 of docs/contracts/london-fillets-proposal.md), so the
+// "3.5" network is the network of the preset before its parking. It must
+// run before the changes of section 3, which move the hub nodes.
+func sharedTrackStraightHubs(n Network) Network {
+	n = n.clone()
+	for i := range n.Lanes {
+		lane := &n.Lanes[i]
+		if lane.StationID != sharedWaterloo && lane.StationID != sharedBank {
+			continue
+		}
+		if strings.HasPrefix(lane.ID, lane.StationID+"-road-in-") || strings.HasPrefix(lane.ID, lane.StationID+"-road-out-") {
+			lane.Control, lane.SpeedLimit = nil, sharedStraightSpeed
+		}
+	}
 	return n
 }
 
@@ -324,7 +347,7 @@ func sharedTrackNetworks(t *testing.T, input sharedTrackInput) ([]string, map[st
 	if input.name != "tight" {
 		return []string{"2.1"}, networks
 	}
-	networks["3.5"] = sharedTrackAll().apply(t, base)
+	networks["3.5"] = sharedTrackAll().apply(t, sharedTrackStraightHubs(base))
 	networks["3.6"] = sharedTrackFallback().apply(t, base)
 	return []string{"2.1", "3.5", "3.6"}, networks
 }
