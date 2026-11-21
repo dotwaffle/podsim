@@ -51,9 +51,10 @@ const (
 // sharedTrackInputs are the project files of the study, from cmd/scenario
 // after the removal of the lateralMerges and shapeClearance members, with
 // the SHA-256 of the file and the network SHA-256 of the summary line of
-// cmd/scenario. The "wide" input has straight roads, like the LondonFull
-// base of the preset (decision FL-D4 B). With filleted roads, the study
-// finds no A1 gate case in TestSharedTrackStudyContainment.
+// cmd/scenario. The "wide" input has straight roads. With filleted roads,
+// the study finds no A1 gate case in TestSharedTrackStudyContainment. Its
+// A1 case is on a Bank hub road, which the preset keeps straight (decision
+// FL-D5).
 var sharedTrackInputs = []struct {
 	name, flags, file, network string
 }{

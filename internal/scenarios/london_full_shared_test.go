@@ -10,27 +10,11 @@ import (
 	"reflect"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/sim"
 )
-
-// sharedTrackTestBase builds the base of the preset once (see
-// sharedTrackBase).
-var sharedTrackTestBase = sync.OnceValues(sharedTrackBase)
-
-// sharedBase returns an owned copy of the base of the preset: LondonFull
-// with straight roads.
-func sharedBase(tb testing.TB) project.Config {
-	tb.Helper()
-	config, err := sharedTrackTestBase()
-	if err != nil {
-		tb.Fatal(err)
-	}
-	return project.Clone(config)
-}
 
 // TestLondonFullSharedExpress checks the static results of the shared-track
 // preset (docs/design/shared-track-preset.md, sections 3.5, 3.7, and 4):
@@ -40,8 +24,8 @@ func sharedBase(tb testing.TB) project.Config {
 // Express parking.
 func TestLondonFullSharedExpress(t *testing.T) {
 	t.Parallel()
-	base := sharedBase(t)
-	config, err := londonFullSharedExpressPreset(sharedBase(t))
+	base := LondonFull()
+	config, err := londonFullSharedExpressPreset(LondonFull())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,7 +91,7 @@ func TestLondonFullSharedExpress(t *testing.T) {
 // the comb to each hub and back.
 func TestLondonFullSharedExpressParking(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(sharedBase(t))
+	config, err := londonFullSharedExpressPreset(LondonFull())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,7 +207,7 @@ func expressCombBerth(i int) string {
 // the arrival portal of link 100 crosses the Waterloo road-in-05.
 func TestLondonFullSharedExpressLayout(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(sharedBase(t))
+	config, err := londonFullSharedExpressPreset(LondonFull())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,16 +231,14 @@ func TestLondonFullSharedExpressLayout(t *testing.T) {
 
 // TestLondonFullSharedExpressKeepsPresets checks that the shared-track
 // preset changes neither LondonFull nor project D (decision SX1). It builds
-// the preset first, from the cached base and with the generator, so that a
-// change to a shared base fails. The base is LondonFull with straight
-// roads (decision FL-D4 B of the fillets proposal), and LondonFull fillets
-// its roads. Until the fillets proposal, the construction before the
-// Express parking had the network of variant 3.5 of the shared-track
-// study. The study builds on the filleted LondonFull, so the two networks
-// now differ.
+// the preset first, from the cached LondonFull and with the generator, so
+// that a change to a shared base fails. Until the fillets proposal, the
+// construction before the Express parking had the network of variant 3.5
+// of the shared-track study. The study does not give the hub roads their
+// chords again (decision FL-D5), so the two networks now differ.
 func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	t.Parallel()
-	cached, err := londonFullSharedExpressPreset(sharedBase(t))
+	cached, err := londonFullSharedExpressPreset(LondonFull())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -265,9 +247,9 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(generated, cached) {
-		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached base")
+		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached LondonFull")
 	}
-	before, err := londonFullSharedExpress(sharedBase(t), sharedTrackPresetGeometry())
+	before, err := londonFullSharedExpress(LondonFull(), sharedTrackPresetGeometry())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,12 +259,11 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 		want    string
 	}{
 		{"LondonFull", LondonFull().Network, "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5"},
-		{"LondonFull with straight roads", sharedBase(t).Network, "69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225"},
 		{"LondonFull Express", LondonFullExpress().Network, "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5"},
 		// Before the fillets proposal, this was the network of variant 3.5
 		// of the shared-track study in internal/sim.
-		{"LondonFull Shared Express before the parking", before.Network, "09b8fdea19e1b87e438fe2539878e3bf232eaa13af5e4e954216919ff67614df"},
-		{"LondonFull Shared Express", generated.Network, "5961c7021dcc4a13712cc8006bd060f94e25d38c4eec295056d6ee5cb9f8c687"},
+		{"LondonFull Shared Express before the parking", before.Network, "a407262a5937f6da1589fd8e5d879a92ce0e236e812a381042678477ba3a865c"},
+		{"LondonFull Shared Express", generated.Network, "cba69149281760dbba334323497b9d94cb1d3a980a631b68de0be45e78aac6bb"},
 	} {
 		data, err := jsonv2.Marshal(test.network, json.DefaultOptionsV1())
 		if err != nil {
@@ -295,6 +276,66 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	}
 }
 
+// TestLondonFullSharedExpressHubRoads checks the roads of the preset
+// (decision FL-D5 of the fillets proposal, section 3.7). Each road of
+// Waterloo and Bank keeps its chord at 14 m/s, except the Waterloo
+// road-in-05, which gets the curve of the preset at 14 m/s. So each lane of
+// a hub has one speed limit. Each other road has the curve and the speed
+// of LondonFull.
+func TestLondonFullSharedExpressHubRoads(t *testing.T) {
+	t.Parallel()
+	base := LondonFull().Network
+	config, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lanes := make(map[string]sim.Lane, len(base.Lanes))
+	for _, lane := range base.Lanes {
+		lanes[lane.ID] = lane
+	}
+	hubs := []string{expressWaterloo, expressBank}
+	curve := sharedTrackPresetGeometry().curve
+	// filleted counts the hub roads that LondonFull curves, and others the
+	// other roads that it curves.
+	filleted, others := 0, 0
+	for _, lane := range config.Network.Lanes {
+		road := lane.StationID != "" && (strings.HasPrefix(lane.ID, lane.StationID+"-road-in-") || strings.HasPrefix(lane.ID, lane.StationID+"-road-out-"))
+		hub := slices.Contains(hubs, lane.StationID)
+		if hub && lane.SpeedLimit != speedLimit {
+			t.Fatalf("hub lane %s has %v m/s, want %v", lane.ID, lane.SpeedLimit, speedLimit)
+		}
+		if !road || lane.StationID == expressParking {
+			continue
+		}
+		before, ok := lanes[lane.ID]
+		if !ok {
+			t.Fatalf("road %s is not in LondonFull", lane.ID)
+		}
+		switch {
+		case hub && before.Control != nil:
+			filleted++
+		case !hub && before.Control != nil:
+			others++
+		}
+		switch {
+		case lane.ID == curve:
+			if lane.Control == nil {
+				t.Fatalf("%s has no control point", lane.ID)
+			}
+		case hub:
+			if lane.Control != nil {
+				t.Fatalf("hub road %s has control point %v", lane.ID, *lane.Control)
+			}
+		case !reflect.DeepEqual(lane.Control, before.Control) || lane.SpeedLimit != before.SpeedLimit:
+			t.Fatalf("road %s has control %v and %v m/s, want those of LondonFull", lane.ID, lane.Control, lane.SpeedLimit)
+		}
+	}
+	// LondonFull curves 676 roads, 9 of them at the hubs.
+	if filleted != 9 || others != 667 {
+		t.Fatalf("LondonFull curves %d hub roads and %d other roads, want 9 and 667", filleted, others)
+	}
+}
+
 // TestLondonFullSharedExpressRoutes is the route evidence of row SX2: each
 // hub berth admits Express, and an Express route goes from the node of each
 // berth of each hub to the node of each berth of the other hub,
@@ -302,7 +343,7 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 // each berth of the Express parking to each hub berth and back.
 func TestLondonFullSharedExpressRoutes(t *testing.T) {
 	t.Parallel()
-	config, err := londonFullSharedExpressPreset(sharedBase(t))
+	config, err := londonFullSharedExpressPreset(LondonFull())
 	if err != nil {
 		t.Fatal(err)
 	}

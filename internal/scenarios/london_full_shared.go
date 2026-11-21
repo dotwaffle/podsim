@@ -58,22 +58,13 @@ var sharedTrackRoute = []string{
 // Express preset without a cache. It is decision D11 of the shape
 // clearance design: LondonFull with Express on the main-line track of link
 // 100 between Waterloo and Bank, shared with Compact pods. Its 16 Express
-// pods start in the Express parking of decision S4 beside Waterloo. It
-// builds on LondonFull with straight roads (see sharedTrackBase).
+// pods start in the Express parking of decision S4 beside Waterloo.
 func GenerateLondonFullSharedExpress() (project.Config, error) {
-	config, err := sharedTrackBase()
+	config, err := GenerateLondonFull()
 	if err != nil {
 		return project.Config{}, err
 	}
 	return londonFullSharedExpressPreset(config)
-}
-
-// sharedTrackBase returns the LondonFull project that the preset builds
-// on: LondonFull with straight roads. Decision FL-D4 B of
-// docs/contracts/london-fillets-proposal.md keeps the preset on this base
-// until the maintainer accepts the evidence of the filleted LondonFull.
-func sharedTrackBase() (project.Config, error) {
-	return generateLondonFull(func(options *LondonOptions) { options.RoadFillets = false })
 }
 
 // londonFullSharedExpressPreset returns the preset from c, which is a
@@ -168,8 +159,8 @@ func addSharedTrackParking(c *project.Config, parking sharedTrackParking) error 
 
 // londonFullSharedExpress adds the shared route, the geometry changes, and
 // the Express services to c, which is a LondonFull project that the caller
-// owns. It adds no Express pod: its network is that of variant 3.5 of the
-// shared-track study.
+// owns. It adds no Express pod. Its network is that of variant 3.5 of the
+// shared-track study, except for the hub roads (see straightenHubRoads).
 func londonFullSharedExpress(c project.Config, geometry sharedTrackGeometry) (project.Config, error) {
 	mixed, err := sim.NewClassSet("legacy", "compact", "express")
 	if err != nil {
@@ -177,6 +168,7 @@ func londonFullSharedExpress(c project.Config, geometry sharedTrackGeometry) (pr
 	}
 	n := &c.Network
 	setSharedTrackClasses(n, mixed)
+	straightenHubRoads(n)
 	if err := geometry.apply(n); err != nil {
 		return project.Config{}, err
 	}
@@ -188,6 +180,23 @@ func londonFullSharedExpress(c project.Config, geometry sharedTrackGeometry) (pr
 	}
 	c.OrderContract = sim.ExpressOrderContract
 	return c, nil
+}
+
+// straightenHubRoads gives each road-in and road-out lane of Waterloo and
+// Bank its chord and the speed limit of a straight road. Decision FL-D5 of
+// docs/contracts/london-fillets-proposal.md keeps the hub roads straight
+// (section 3.7). It must run before sharedTrackGeometry.apply, which moves
+// the hub nodes and then curves the Waterloo road-in-05.
+func straightenHubRoads(n *sim.Network) {
+	for i := range n.Lanes {
+		lane := &n.Lanes[i]
+		if lane.StationID != expressWaterloo && lane.StationID != expressBank {
+			continue
+		}
+		if strings.HasPrefix(lane.ID, lane.StationID+"-road-in-") || strings.HasPrefix(lane.ID, lane.StationID+"-road-out-") {
+			lane.Control, lane.SpeedLimit = nil, speedLimit
+		}
+	}
 }
 
 // setSharedTrackClasses sets classes on the lanes of the shared route, on

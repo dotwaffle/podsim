@@ -189,15 +189,18 @@ func TestLondonRoadFillets(t *testing.T) {
 }
 
 // TestLondonRoadFilletsOnLondonFull checks the rule on the roads of
-// LondonFull with straight roads, the base of the shared-track preset: the
-// count of each outcome, and the network of LondonFull, which sets the
-// option. Each curved road leaves the link lane before it and joins the
-// lane after it at their headings, with the speed of its curve. Each other
-// road keeps its chord at 14 m/s, and each other lane and node does not
-// change.
+// LondonFull with straight roads: the count of each outcome, and the
+// network of LondonFull, which sets the option. Each curved road leaves the
+// link lane before it and joins the lane after it at their headings, with
+// the speed of its curve. Each other road keeps its chord at 14 m/s, and
+// each other lane and node does not change.
 func TestLondonRoadFilletsOnLondonFull(t *testing.T) {
 	t.Parallel()
-	base := sharedBase(t).Network
+	straight, err := generateLondonFull(func(options *LondonOptions) { options.RoadFillets = false })
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := straight.Network
 	fillets := londonRoadFillets(base)
 	counts := make(map[londonFilletOutcome]int)
 	for _, fillet := range fillets {
