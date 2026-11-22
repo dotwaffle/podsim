@@ -1,7 +1,7 @@
 # Restore speed and platoon link proposal
 
 Status: decisions made, not built.
-Slice 0 ran, and a stop of section 8 fired (section 6.1).
+Slice 0 ran, and a stop of section 8 fired (section 6.1); the trace of section 6.2 answers it.
 On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
 No row of section 5 is applied, and no code changes before the build.
 Date: 2026-11-21.
@@ -398,7 +398,23 @@ The frontier that the scratch code derives matched `reservedThrough` of the real
 
 The stop "A depot or maneuver frontier differs from the derived one" fires for item 7, so slice 1 waits for the maintainer.
 Each difference is ahead of the derived frontier, so `reservedAhead` stays 0 or more.
-The open point is whether the restore claim accepts a saved frontier inside the run of a maneuver group, and which rule of the live run grants it.
+On 2026-11-22, the maintainer asked for a trace of the rule before the build.
+
+### 6.2 The grant rule of item 7
+
+A grant takes the blocks from its request to `reservationEnd` of the request (`traffic.go:759` to `:761`).
+`reservationEnd` adds the first block of the next lane at the end of a lane, and the whole run of blocks that share a junction resource (`traffic.go:851` to `:889`).
+Each cell of a maneuver group lane holds the junction resource of its group (`maneuverIndex.everyCell`, `maneuver_groups.go:114`), so one grant takes the whole group run.
+The restore derives its frontier from the current block of the pod (`state_physical.go:825`), so a run that a later grant took is ahead of it.
+A pod bound for a depot slot has a frontier at the depot entry until it claims its slot, and the restore keeps that rule (`state_physical.go:830` to `:836`).
+
+A grant can end at a block F exactly when `reservationEnd(F) == F`.
+At F, a last block of a lane or a junction run past F would carry a grant past F, and both also make `reservationEnd(F)` larger than F.
+So a chain of grants from the derived frontier stops at each such block.
+The restore accepts a saved frontier F, the derived frontier plus `reservedAhead`, when F is in the saved route, `reservationEnd(F) == F`, and F does not pass the depot entry of a pod that does not claim its destination.
+Any other saved frontier demotes the pod, as a `reservedAhead` past the saved route does.
+The footprint and link claims of `placeTravelingPod` then check the blocks to F, so a group junction that another pod owns demotes the pod, and no new claim rule is needed.
+This answers the stop of item 7, and the build goes on.
 
 ## 7. Decisions for the maintainer
 
