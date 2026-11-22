@@ -249,16 +249,19 @@ The plain headroom is not in the documents, and slice 1 measures it.
 | --- | --- | --- |
 | `simulation.pods[].speed` | number | Omitted at 0. Finite, at least 0, at most the speed limit of the lane of the pod. Only a traveling pod can have it. The export omits it for a faulted pod, and the restore ignores it for a faulted pod (RL-D3, Q3). |
 | `simulation.pods[].reservedAhead` | number | Omitted at 0. An integer from 0 to the number of blocks of the saved route. Only a traveling pod can have it. |
-| `simulation.pods[].routeBase` | number | Omitted at 0. Finite, at least 0. The live route distance of the start of the first saved lane. Only a traveling pod can have it. Added on 2026-11-22. |
 
-The members list `state_v13_members.txt` gains these paths.
+The members list `state_v13_members.txt` gains both paths.
 
-On 2026-11-22, the maintainer approved `routeBase` after a boundary sweep found that the export and the restore of a trimmed route disagree by one float step.
-The live route sums its lane lengths in order from 0 (`routeBlocks`).
-The export trimmed the route and subtracted its length, and the restore summed the trimmed lanes from 0, so a release distance and the saved distance could fall on different sides.
-With `routeBase`, the restore starts its sums at the live start of the first saved lane, and the saved distance is the live route distance.
-The restore then has the live block starts, block ends, and release distances bit for bit, so no snap is needed for a traveling pod.
-A live route keeps base 0, so no live tick changes.
+On 2026-11-22, a boundary sweep found that the export and the restore of a trimmed route can disagree by one float step.
+The live route sums its lane lengths in order from 0 (`routeBlocks`), and the restore sums the trimmed lanes from 0.
+A based route frame would remove this, but it changes about 20 live-path sites, so the maintainer chose a bounded residual instead.
+The restore can differ from the live owners in two ways only:
+
+- A moving pod within 1e-9 m of a block end restores on the block end, and releases what the live pod releases there.
+- A pod exactly on a release distance on a trimmed route can keep a cell that the live pod has released, for one more tick or until it moves.
+
+`TestRestoreBoundarySweep` counts both kinds and refuses any other difference.
+The speed and the frontier stay exact, as section 3.1 claims.
 A traveling pod at speed 0 with no grant past the derived frontier saves neither member, so its saved form does not change.
 
 ### 4.2 Refusals
