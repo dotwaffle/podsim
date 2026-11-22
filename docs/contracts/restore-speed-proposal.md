@@ -310,7 +310,9 @@ When both restores fail, the outcome of the second restore decides between a ref
 Thus no pod restores worse than before this proposal.
 
 The new physical-tier error is the stop-point check of section 3.1.
-Like the gap check of `state_physical.go:920`, it fails the tier, and the logical tier follows.
+Like the gap check of `state_physical.go:920`, it fails the first physical restore.
+The second restore has no saved speeds, so it never fails this check, and its outcome decides the tier.
+Thus the text below appears only inside the first restore, and `RestoreState` gives it to no caller.
 Its text is `the stop point of the pod is <d> m behind the stop point of its platoon predecessor, less than the clearance <c> m`.
 
 ## 5. Contract text, documents, pins, and gates
