@@ -175,6 +175,10 @@ A waiting pod keeps `pending = through + 1`, as today.
 
 The trajectory after a restore can still differ from the live one.
 `restoredDistance` can move a distance by up to `restoreTolerance` (`state_physical.go:962`).
+Slice 1 review found that its snap to a block end within `restoreTolerance` can put a moving pod past a release distance that the live pod has not reached, so that the restore drops a cell that the live pod owns.
+On 2026-11-22, the maintainer approved a separate drift tolerance of 1e-9 m for that snap, 500 times the largest drift measured (2.1e-12 m).
+The other comparisons keep `restoreTolerance`.
+The lane-limit demotion runs before the stop-point check of a link, after its position check, so that an overspeed follower demotes alone and does not fail the physical tier.
 The proposal claims the same speed and the same frontier, and not an identical trajectory.
 
 Costs and risks:
