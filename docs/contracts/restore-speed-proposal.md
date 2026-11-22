@@ -255,12 +255,22 @@ The members list `state_v13_members.txt` gains both paths.
 On 2026-11-22, a boundary sweep found that the export and the restore of a trimmed route can disagree by one float step.
 The live route sums its lane lengths in order from 0 (`routeBlocks`), and the restore sums the trimmed lanes from 0.
 A based route frame would remove this, but it changes about 20 live-path sites, so the maintainer chose a bounded residual instead.
-The restore can differ from the live owners in two ways only:
+The sweep found the restore differs from the live owners in two ways:
 
 - A moving pod within 1e-9 m of a block end restores on the block end, and releases what the live pod releases there.
 - A pod exactly on a release distance on a trimmed route can keep a cell that the live pod has released, for one more tick or until it moves.
 
-`TestRestoreBoundarySweep` counts both kinds and refuses any other difference.
+`TestRestoreBoundarySweep` counts both kinds and refuses any other difference on its fixtures.
+
+Review round 4 found three more cases on built geometry, outside the fixtures of the sweep:
+
+- A pod at rest exactly on a release distance keeps a cell, so the restore can demote another pod with a valid grant through that cell, or hold a follower while the pod stays at rest.
+- A backward snap to a block end can give a moving pod a cell that it has released, also on a route that is not trimmed.
+- A snap can move a pod back across its origin tail on a trimmed route, so the restore demotes it.
+
+The trim, the snap, and the origin-tail check are older than this proposal, and the snap was then 1e-6 m wide, so these cases are pre-existing.
+This proposal narrows them and does not fix them.
+On 2026-11-22, the maintainer moved them to a separate follow-up for exact restore coordinates.
 The speed and the frontier stay exact, as section 3.1 claims.
 A traveling pod at speed 0 with no grant past the derived frontier saves neither member, so its saved form does not change.
 
