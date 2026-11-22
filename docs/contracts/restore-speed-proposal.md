@@ -251,8 +251,10 @@ A traveling pod at speed 0 with no grant past the derived frontier saves neither
 
 ### 4.2 Refusals
 
-The new check `checkSavedMotion` goes last in `restoreInputChecks` (`state.go:345` to `:359`).
-Thus each existing refusal keeps its place and its text, and `TestRestoreInputCheckOrder` (`internal/sim/state_test.go:258`) gains one entry.
+The new check `checkSavedMotion` runs after `restoreInputChecks` (`state.go:345` to `:359`) and after `checkSavedFaultFootprints`.
+Thus each existing refusal keeps its place and its text, and `TestRestoreInputCheckOrder` (`internal/sim/state_test.go:258`) does not change.
+The session decoder refuses only a `null` member.
+It gives the sim the presence of each member, so that rule 2 also refuses an explicit 0, in the order of this table.
 The check reads the pods in saved order, and for each pod it applies these rules in this order.
 The texts are drafts for approval.
 
@@ -261,9 +263,13 @@ The texts are drafts for approval.
 | 1 | `speed` is not finite, or is negative | `pod <id> has speed <v>, not a finite value of 0 or more` |
 | 2 | A pod that is not traveling has `speed` or `reservedAhead` | `pod <id> is not traveling and has a speed or a reservation ahead` |
 | 3 | `reservedAhead` is negative | `pod <id> reserves <n> blocks ahead, not 0 or more` |
-| 4 | `speed` is more than the speed limit of the saved lane of the pod | `pod <id> has speed <v>, more than the speed limit <l> of lane <lane>` |
 
-A saved lane that the network does not have skips rule 4, because the physical tier demotes that pod (`state_physical.go:376` to `:380`).
+A speed above the speed limit of the lane of the pod is not a refusal.
+A live lane crossing can publish a speed above the limit of the new lane by rounding: review found 8e-15 m/s on a 5 m/s lane and 3.25e-6 m/s on a slow lane at a long route distance.
+The physical tier demotes a pod whose speed is more than the limit of the lane at its saved route index plus 1e-3 m/s.
+That margin is more than 10 times the largest rounding excess for any practical route length, and less than one tick of braking of any class (Express: 1.15 m/s² / 30 = 0.038 m/s).
+The first tick after the restore commands at most the lane limit, so an accepted excess costs one tick of deceleration below the braking rate.
+The maintainer approved this change of rule 4 on 2026-11-22.
 A `reservedAhead` past the saved route, a failed stop check, or a conflict demotes the pod in the physical tier.
 These are not refusals, because the derived frontier and the route come from the network, as the existing demotions do.
 
@@ -442,7 +448,7 @@ The maintainer decided on 2026-11-21: RL-D1 A, RL-D2 A, RL-D3 A, with the restor
 | Condition | Action |
 | --- | --- |
 | Slice 0 cannot reproduce a lost link at a clean physical restore | Not a stop for A. Report the paths of section 2 that it found, with Q1. |
-| A live pod has a speed above the speed limit of its lane | Stop. Rule 4 of section 4.2 would refuse a valid file, so it needs a tolerance or a different lane. |
+| A live pod has a speed above the speed limit of its lane plus 1e-3 m/s | Stop. The physical tier would demote a valid pod (section 4.2). |
 | A live pod has a frontier below the derived frontier | Stop. RL-D2 needs a signed member or option B. |
 | A live pod fails the stop check, or a live link fails the stop-point check | Stop. The live rule and the proof differ, and that is a finding on its own. |
 | A depot or maneuver frontier differs from the derived one | Stop, and report the lane and the rule. |
