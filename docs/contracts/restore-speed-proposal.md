@@ -298,6 +298,12 @@ The maintainer approved this change of rule 4 on 2026-11-22.
 A `reservedAhead` past the saved route, a failed stop check, or a conflict demotes the pod in the physical tier.
 These are not refusals, because the derived frontier and the route come from the network, as the existing demotions do.
 
+On 2026-11-22, review round 5 found that a saved frontier can conflict with the extra cell of the pre-existing residual, so that the restore demoted a pod that the earlier restore kept.
+The maintainer approved a fallback for each pod.
+Wherever this proposal says that a motion check demotes a pod (a saved frontier that is not valid, a conflict through the saved frontier, the stop check, or the lane limit), the restore first places the pod as before this proposal, at speed 0 with the derived frontier.
+It demotes the pod only when that placement also fails.
+Thus no pod restores worse than before this proposal.
+
 The new physical-tier error is the stop-point check of section 3.1.
 Like the gap check of `state_physical.go:920`, it fails the tier, and the logical tier follows.
 Its text is `the stop point of the pod is <d> m behind the stop point of its platoon predecessor, less than the clearance <c> m`.
