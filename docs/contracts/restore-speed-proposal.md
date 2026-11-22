@@ -305,6 +305,8 @@ It demotes the pod only when that placement also fails.
 A pod placed earlier can still take a cell from a later pod, and a leader that falls back can fail the stop-point check of its moving follower, so a fallback for each pod alone is not enough.
 Thus, when the restore still demotes a pod that the restore without the saved speeds and leads keeps, or fails the physical tier where that restore passes, the whole save restores without the saved speeds and leads, as before this proposal.
 The second restore runs only when the first demotes a pod or fails the physical tier.
+On 2026-11-22, after review round 6, the maintainer approved that the second restore is the restore before this proposal: no saved speeds or leads, and the block-end snap at `restoreTolerance`.
+When both restores fail, the outcome of the second restore decides between a refusal and the logical tier.
 Thus no pod restores worse than before this proposal.
 
 The new physical-tier error is the stop-point check of section 3.1.
