@@ -2,6 +2,7 @@
 
 Status: decisions made, not built.
 Slice 0 ran, and a stop of section 8 fired (section 6.1); the trace of section 6.2 answers it.
+On 2026-11-22, slice 1 fired a stop on the parity goldens, and the maintainer amended sections 5.3, 5.4, and 6.2.
 On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
 No row of section 5 is applied, and no code changes before the build.
 Date: 2026-11-21.
@@ -322,6 +323,7 @@ The study records `docs/studies/express-qualification.md:47` and `docs/studies/p
 | Members golden | `internal/session/testdata/state_v12_members.txt`, `order_state_test.go:65` | Becomes `state_v13_members.txt` with two paths |
 | Version constant | `internal/session/state_file.go:29` | 13 |
 | Byte proofs | `internal/session/plain_byte_proof_test.go:26`, `:45`, `internal/session/express_byte_proof_test.go:40` | Fill both members at their widest |
+| Saved-state digests of the behavior goldens | `internal/session/testdata/preset_behavior_parity.json`, `london_express_parity.json` | The `savedState` digests move, because the hashed JSON holds the version (approved 2026-11-22) |
 
 ### 5.4 Pins that must not move
 
@@ -331,7 +333,7 @@ The study records `docs/studies/express-qualification.md:47` and `docs/studies/p
 | Stream goldens | `internal/session/testdata/stream_*.json` |
 | Stream byte proofs | `TestPlainStreamMaximumEncoding`, `TestExpressStreamMaximumEncoding` |
 | Faulted pod restore | `internal/sim/fault_suspension_test.go:743` (under RL-D3 A) |
-| Live behavior goldens | `internal/session/testdata/preset_behavior_parity.json`, `london_express_parity.json`, `command_digests.txt` |
+| Live behavior goldens | The stream digests of `internal/session/testdata/preset_behavior_parity.json` and `london_express_parity.json`, and `command_digests.txt` |
 
 ### 5.5 Gates
 
@@ -415,6 +417,11 @@ The restore accepts a saved frontier F, the derived frontier plus `reservedAhead
 Any other saved frontier demotes the pod, as a `reservedAhead` past the saved route does.
 The footprint and link claims of `placeTravelingPod` then check the blocks to F, so a group junction that another pod owns demotes the pod, and no new claim rule is needed.
 This answers the stop of item 7, and the build goes on.
+
+Slice 1 found one exception, which the maintainer approved on 2026-11-22.
+A pod bound for a depot slot that it does not claim has its live frontier at the depot entry, and there `reservationEnd(entry)` is past the entry.
+The restore accepts F at the entry for such a pod.
+Below the entry, F must satisfy `reservationEnd(F) == F`, and an F past the entry demotes the pod.
 
 ## 7. Decisions for the maintainer
 
