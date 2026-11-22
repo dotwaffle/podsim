@@ -302,6 +302,9 @@ On 2026-11-22, review round 5 found that a saved frontier can conflict with the 
 The maintainer approved a fallback for each pod.
 Wherever this proposal says that a motion check demotes a pod (a saved frontier that is not valid, a conflict through the saved frontier, the stop check, or the lane limit), the restore first places the pod as before this proposal, at speed 0 with the derived frontier.
 It demotes the pod only when that placement also fails.
+A pod placed earlier can still take a cell from a later pod, and a leader that falls back can fail the stop-point check of its moving follower, so a fallback for each pod alone is not enough.
+Thus, when the restore still demotes a pod that the restore without the saved speeds and leads keeps, or fails the physical tier where that restore passes, the whole save restores without the saved speeds and leads, as before this proposal.
+The second restore runs only when the first demotes a pod or fails the physical tier.
 Thus no pod restores worse than before this proposal.
 
 The new physical-tier error is the stop-point check of section 3.1.
