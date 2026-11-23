@@ -1,6 +1,8 @@
 # Debris refusal proposal
 
-Status: draft, not approved.
+Status: decided on 2026-11-23, with no change.
+The maintainer chose option D of DR-D1 and option A of DR-D2 (section 7).
+Nothing in section 5 applies.
 Date: 2026-11-23.
 Line references are for `11302d32`.
 No code changed for this draft.
@@ -106,7 +108,7 @@ Only the two follow-up subtests that assert the refusal failed.
 - **C, clamp**: The frontier drops to the last block before the debris, so the restore is exact in the two cases it covers.
   The rule gives a frontier that a live grant can have only after a route change, so its legality depends on the history of the route.
   That is the reason for the withdrawal of the signed lead (EC-D10).
-- **D, no change**: The refusal stays, and `docs/operations.md` describes it.
+- **D, no change**: The refusal stays, as `docs/operations.md:449` describes it.
   It costs nothing, and it is reasonable while no exported path to the pod state is known.
 
 ## 4. Recommendation
@@ -163,3 +165,8 @@ The byte proofs do not change, because the format does not change.
 | --- | --- | --- | --- |
 | DR-D1 | The rule for debris in the derived blocks | A: demote. B: logical tier. C: clamp. D: no change. | A |
 | DR-D2 | The no-tick cases from the stale lane distance | A: leave them refused, recorded. B: a separate proposal for D3. | A |
+
+Decided on 2026-11-23: option D of DR-D1 and option A of DR-D2 together.
+The draft recommended A for DR-D1.
+No exported path to the pod state is known, so the maintainer kept the contract as it is.
+A refused save from a real session opens DR-D1 again.
