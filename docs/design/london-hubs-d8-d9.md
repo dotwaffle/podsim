@@ -676,7 +676,7 @@ Against the preset with those roads straight, the totals are +4,691 s and -4,390
 
 Baker Street does not prevent Paddington and Liverpool Street.
 Its other 10 refusals are three at each of Paddington, King's Cross St. Pancras, and Moorgate, and one at Liverpool Street.
-Their fixes are not studied, so this does not show that the pair can be built.
+Section 11 studies them.
 
 - The angles come from a screen with steps of 5 to 10 degrees, so they are not an optimum.
 - The study has no simulation run, so the effect on Compact traffic at Baker Street is not measured.
@@ -692,4 +692,56 @@ PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./int
 PODSIM_BAKER_LAYOUT="$D/fixes/baker.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 ```
 
-Delete `baker.json` before `TestHubPairStudySites`, which reads each network in its directory.
+Delete `baker.json` and the files of section 11.4 before `TestHubPairStudySites`, which reads each network in its directory.
+
+## 11. Paddington and Liverpool Street
+
+This study, from 2026-11-23, continues section 10 with the other 10 refusals.
+It has the Baker Street change and the method of section 10.2, and no preset has the changes.
+
+### 11.1 Changes
+
+| Station | Change | Refusals with only this change left out |
+| --- | --- | ---: |
+| Baker Street | That of section 10.2 | 25 |
+| Paddington | Link 190 turns by -30 degrees | 3 |
+| King's Cross St. Pancras | `move-03-04`, `move-04-04`, and `move-04-07` removed | 3 |
+| Moorgate | Station turns by -15 degrees, link 284 by +25 | 3 |
+| Liverpool Street | Link 096 turns by -10 degrees | 1 |
+
+With all the changes there are 0 refusals and 134 shape pairs, and `ValidateBankGeometry` accepts the network.
+Preparation passes, and the layout audit has no conflict and no exemption for the changes.
+The same changes on the preset, with no Express on the pair, pass the bank audit, the layout audit, and project validation, with no parking gap.
+
+Two arms with no refusal fail the layout audit:
+
+- Link 194 at King's Cross St. Pancras by +40 degrees, with no lane removed.
+  The link then crosses a station road of Euston, and the refusals of King's Cross St. Pancras and Oxford Circus go from 15 to 19.
+- Moorgate at -20 degrees, with link 284 at +20 or +30.
+  Its access lane then crosses link 292.
+
+### 11.2 Effects
+
+With all the changes, no pair of section 9.1 has more refusals than before.
+King's Cross St. Pancras and Liverpool Street goes from 4 to 0, King's Cross St. Pancras and Paddington from 32 to 1, and Paddington and Tottenham Court Road from 10 to 4.
+
+Against the hub shape with no change, 20,954 of 97,656 station routes are longer in free flow (total +17,613 s) and 17,545 are shorter (total -16,229 s).
+75 routes are longer by more than 10 s, and the worst is +114.6 s.
+The arm that turns link 194, with the first Moorgate arm, has a worst of +5.2 s, so the removed lanes at King's Cross St. Pancras give the long detours.
+Against the same shape with straight roads at the five stations, the totals are +17,769 s and -9,114 s.
+With Express on the pair, the network has 5 tail warnings, and the preset has 1.
+
+### 11.3 Limits
+
+- The network has no comb for the pair, so its 8 hub berths have no Express parking, and project validation refuses the pair for that.
+  A comb site is not studied.
+- There is no simulation run, and the effect of the removed lanes on fault reroutes is not measured.
+- The limits of section 10.3 apply: the angles come from a coarse screen, and a build needs the changes in the generator.
+
+### 11.4 Commands
+
+```sh
+PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./internal/sim -run TestPairTwo -count=1 -v
+PODSIM_BAKER_LAYOUT="$D/fixes/pair-two.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
+PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
+```
