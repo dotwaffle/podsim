@@ -4,7 +4,7 @@ Status: **approved, implemented, and qualified on October 3, 2026**.
 The user approved item 8b and the contract below with the 6b/8b batch.
 Deployment, runtime enablement, and default changes require a separate batch.
 The [Express qualification](../studies/express-qualification.md) records the qualification conclusions.
-Amended through November 20, 2026.
+Amended through November 23, 2026.
 Git history holds the dated amendment notes and the earlier text.
 
 Station buffers and compact station queues were removed on October 7, 2026, because measurements showed that they lowered station entry throughput.
@@ -30,7 +30,7 @@ The approved batch covers implementation and qualification of the following cont
 
 | Decision | Proposed bound or rule |
 | --- | --- |
-| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 12 and stream hello version 10 |
+| Opt-in contract | `express-v1` in a version 1 project. It selects the Express bounds in saved-state version 13 and stream hello version 10 |
 | Express profile under that contract | 12 seats, 8 standee places, new whole-party size 1 through 20, centered 6 m body, maximum width 2.5 m |
 | Large interaction candidate | Existing 6 m envelope radius, 20 m separation (the side-by-side distance for merge, split, and shape pairs), and 20 m retention, lanes at least 40 m, actual cells at least 20 m |
 | Stored Express records | At most 20 rider records, including completed history, with at most 20 aligned boarding records |
@@ -59,7 +59,7 @@ At the reviewed baseline, `order_state.go` recognized 6,200 waiting records and 
 Those parser limits do not authorize such native operating states.
 Without the Express contract, [`state.go`](../../internal/sim/state.go) and [`state_contract.go`](../../internal/sim/state_contract.go) enforce 8,200 pending records and eight stored riders.
 Stream publication also retains those operating bounds.
-Saved-state version 12 and stream hello version 10 take their array bounds from the contract markers.
+Saved-state version 13 and stream hello version 10 take their array bounds from the contract markers.
 The bounds are 8,200 waiting records and eight riders per pod, or 17,000 and 20 with `express-v1`.
 
 The plain bound is `200 + 1,000 * 8 = 8,200`, from the plain fleet limit of 1,000 pods.
@@ -152,16 +152,22 @@ Repeated recovery must conserve the same identities, effective options, aggregat
 The pending bound therefore remains 17,000 after any number of requeues.
 
 Retain the current ordinary physical reconstruction in [`state_physical.go`](../../internal/sim/state_physical.go).
-Ordinary `ExportState` does not save speed or the exact future reservation frontier.
-A physical restore resets ordinary speed to zero and reconstructs forward grants from route geometry.
+Ordinary `ExportState` saves the speed and the reservation frontier of each traveling pod.
+A physical restore keeps both when it proves the stopping frontier of the pod.
+A pod whose saved speed or frontier fails a check restores at speed zero with forward grants from route geometry, as before the restore speed proposal.
+The earlier restore can keep a pod that the new restore demotes, or pass where the new restore fails.
+Then the whole save restores the earlier way.
+A faulted pod restores at speed zero.
 Preserve position, current footprint, retained past ownership, riders, timing, and accounting when their physical proof is valid.
-Classify the speed reset and forward-grant differences in restore evidence.
-Do not claim identical speed or trajectory across that boundary.
+Report each pod that the restore demotes, and each pod or save that restores the earlier way.
+Do not claim an identical trajectory across that boundary.
 
-The restored zero-speed stopping frontier must be owned continuously.
+The restored stopping frontier, at the maximum braking rate of the class from the restored speed, must be owned continuously.
 Every subsequent tick must satisfy the acceleration and braking rates of the class, the speed limits, and the large-separation rules.
 Existing compact speed certificates keep their separate approved behavior.
-No new ordinary speed or stopping-ownership certificate enters the saved state.
+The saved speed and frontier are the only new ordinary motion members.
+The restore checks them against the network, the class rates, and the other pods.
+Amended 2026-11-23, by maintainer decision RL-D1 A of the [restore speed proposal](restore-speed-proposal.md): saves keep the speed and the reservation frontier of each traveling pod, and the restore keeps both under the checks and the fallbacks of that proposal.
 
 Unsupported classes, changed immutable classes, bad consent, incompatible endpoints, or invalid resource certificates must reject before logical fallback can erase evidence.
 Recoverable physical placement failures may use the logical tier only after the shared semantic checks pass.
@@ -245,7 +251,7 @@ Test the retained 20 m influence of a large neighbor without changing those comp
 
 The project marker is `orderContract: "express-v1"` in a version 1 project.
 The decoder refuses project versions 2 through 5 and does not migrate them.
-Saved-state version 12 carries that marker at its root.
+Saved-state version 13 carries that marker at its root.
 Stream hello version 10 carries the marker and binds it to its source epoch and topology.
 Express topology carries `orderContract` and a bounded `expressServices` array, copied from the project registry.
 It retains project version, epoch, and revision binding.
@@ -485,9 +491,9 @@ Amendments E1 to E8 below and section 7.2 of the [standee contract](express-stan
 | Storage and recovery | 300 Express pods, manual 200, session total 6,200, native total 8,600, aggregate overflow, completed-history rollover, aligned 20 boardings, repeated ID-ordered logical requeue, and conservation without double accounting. Qualify cached waiting-route cleanup on every assignment or release path. |
 | Route and station eligibility | Omitted and explicit allowlists, wrong normalized class, parking endpoints, incompatible source and destination berths, alternate berth selection, every display and motion lane, unreachable paths, and malformed native masks. |
 | Physical geometry | Centered 10 m body within the 6 m envelope, 40 m lane boundary, every 20 m actual cell boundary, positive curve projection, short or nonfinite paths, crossings, merges, banks, parking, and all occupied planes. |
-| Motion and ownership | Each tick checks current lane speed, acceleration, braking, zero-speed stopping frontier, continuous ownership, at least 20 m release tails, lower limits across several cells and lanes, and no snap. |
+| Motion and ownership | Each tick checks current lane speed, acceleration, braking, stopping frontier, also at a restore, continuous ownership, at least 20 m release tails, lower limits across several cells and lanes, and no snap. |
 | Independent safety oracle | Following and crossing bodies, retained resource identities, both class orders, Express/Group mixtures, small neighbors, and compact groups. Oracle failures must identify tick, route location, bodies, and resource owner. |
-| Physical restore | Idle, departing, boarding, braking, stopped, traveling, unloading, and continuing. Preserve Group/Express position, current and retained past ownership, routes, riders, timing, distance, and policy settings. Classify speed reset and reconstructed forward grants. Check safe mixed continuation. |
+| Physical restore | Idle, departing, boarding, braking, stopped, traveling, unloading, and continuing. Preserve Group/Express position, current and retained past ownership, routes, riders, timing, distance, and policy settings. Keep speed and forward grants, except for a faulted pod. Report each pod or save that restores as before the restore speed proposal. Check safe mixed continuation. |
 | Rejection and disabled policies | Unsupported foundation Express, mismatched class or contract, large virtual and buffer links, compact links, bad consent, invalid physical certificates, logical-only misuse, and no new admissions under disabled policies. |
 | Save bytes and shape | Actual save-7 widest-shape files, escaped and multibyte text, both boarding forms, optional history, exponents, malformed base64, UTF-8 and decoded limits, exact gzip caps, parser prescan, and atomic rejection. |
 | Stream and public consumers | Full and replacement delta assets, pending replacement groups, sequence and epoch recovery, topology and registry binding, normalized class lane caches, raw and gzip caps, Go remote consumer, compact HTTP negotiation, browser/WASM roundtrip, and fail-closed old readers. |
@@ -522,6 +528,9 @@ The [Express London qualification proposal](express-london-qualification-proposa
 - E4, Physical restore, and Rejection and disabled policies: each planned D checkpoint restores at the physical tier with no demotion, requeue, drop, or interruption.
   A restored route distance may differ from the saved value by at most `restoreTolerance`, and all other saved pod members are equal.
   Speed resets and rebuilt forward grants are reported apart.
+  Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
+  The report counts the kept speeds and finds no rebuilt grant.
+  The rerun table is in section ... of the restore speed proposal.
   After a restore with the policies off, the current members finish and no new member forms.
 - E5, Save bytes and shape: use the current formats and Express limits.
   Prove the bounds of the save, the full stream, the replacement delta, the HTTP state, the topology, and the gzip expansion with the current adapters.

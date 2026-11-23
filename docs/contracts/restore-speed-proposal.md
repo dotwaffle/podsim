@@ -1,10 +1,12 @@
 # Restore speed and platoon link proposal
 
-Status: decisions made, not built.
+Status: decisions made, and slice 1 is built at `1baf8f90`.
 Slice 0 ran, and a stop of section 8 fired (section 6.1); the trace of section 6.2 answers it.
 On 2026-11-22, slice 1 fired a stop on the parity goldens, and the maintainer amended sections 5.3, 5.4, and 6.2.
 On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
-No row of section 5 is applied, and no code changes before the build.
+Slice 3 applies the RL-A rows of section 5.1 with the date 2026-11-23.
+Where a row no longer matched the built design, the applied text follows the built design and adds the fallbacks of section 4.2.
+The evidence of slice 4 is open.
 Date: 2026-11-21.
 Line references are for `4c1eaf23`.
 No test, build, or measurement ran for this draft.

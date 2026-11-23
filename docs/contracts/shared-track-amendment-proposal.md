@@ -563,6 +563,9 @@ No simulation has run on the preset, so each evidence item below is evidence tha
   Pass: each planned checkpoint restores at the physical tier with no demotion, requeue, drop, or interruption, with the shape table, and the D6 oracle runs in restored continuation.
   Carried from E4: a restored route distance may differ from the saved value by at most `restoreTolerance`, and all other saved pod members are equal.
   Speed resets and rebuilt forward grants are reported apart.
+  Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
+  The report counts the kept speeds and finds no rebuilt grant.
+  The rerun table is in section ... of the restore speed proposal.
   After a restore with the policies off, the current members finish and no new member forms.
   Evidence: a checkpoint test on the preset, as `TestLondonExpressPhysicalCheckpoints` is for D, with a fault, an emergency, and a pod on the shared lanes among the states.
 - SX5, Save bytes and shape (from E5).
