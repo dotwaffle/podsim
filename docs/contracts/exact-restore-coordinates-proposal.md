@@ -631,6 +631,23 @@ So a large file can build about 1,000,000 lanes, against about 256,000 today.
 | EC-D8 | The reversal dwell latch | Version 14 saves the latch of a traveling pod, and the restore keeps it. The lockstep test then needs no exclusion for a dwell. The restore checks of the latch, and their place in the refusal order, are part of slice 1. |
 | EC-D9 | The pickup swap controller | Not in this build. It goes to a separate follow-up. The lockstep test runs with pickup swaps off. |
 
+Review rounds 7 to 10 of slice 1, and a step-back review after them, found the cases below.
+Each case was run on this tree and on version 13 (`691f1f6b`), and each gave the same result on both.
+
+- M1: on a depot route that passes the depot entry three times, a second restart with no tick can release the cells past the entry.
+  The second save trims the first pass away, so the first saved entry moves.
+- M2: a pod diverted at a full depot entry restores with a frontier past its live frontier (the note of 2026-11-23 in `restore-speed-proposal.md`).
+  If debris lies in the extension that the live pod was denied, the restore refuses the valid save with the debris footprint error, with or without a fault on the pod.
+- M3: a pod that a trimmed restore snapped to a block end can move back by about 1e-6 m on a second restart.
+- D3: right after a redirect, the published lane distance of a pod can differ from its route distance by more than 1e-6 m.
+  A restore then places the pod behind its live position.
+
+| ID | Decision | Decided on 2026-11-23 |
+| --- | --- | --- |
+| EC-D10 | A frontier below the derived frontier | No change. The export writes 0 for a negative difference, as version 13 does. A signed `reservedAhead` was built and withdrawn after review (`restore-speed-proposal.md`). M2 and its fault refusal are follow-ups, and a test asserts the current result of each. |
+| EC-D11 | The position on a whole route | The export saves the whole route of a pod only when the restore of that route places the pod at its live route distance, bit for bit, as well as in its live block with its live frontier. Otherwise the pod saves its trimmed route with the marker, as version 13 saves it. A restore that trusts the route distance over the lane distance was built and withdrawn: each check that reads the lane distance (separation, the depot slot order) then needs a second check. D3 is a follow-up, and a test asserts its current result. |
+| EC-D12 | M1, M3, and D3 | Accepted as version 13 behavior. A follow-up test asserts the current result, so a later fix changes it. A restart with no tick is exact for a pod that a whole-route restore placed exactly, not for every placement. |
+
 ## 9. Stops
 
 | Condition | Action |

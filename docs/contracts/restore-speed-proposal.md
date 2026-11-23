@@ -472,6 +472,15 @@ A pod bound for a depot slot that it does not claim has its live frontier at the
 The restore accepts F at the entry for such a pod.
 Below the entry, F must satisfy `reservationEnd(F) == F`, and an F past the entry demotes the pod.
 
+Note of 2026-11-23: the exact-coordinates build found a live pod with a frontier below the derived frontier.
+A trip command can divert an unbound pod that waits at a full depot entry to a passenger pickup.
+The redirect keeps the grant that ends at the old route end, and on the new route `reservationEnd` of that block is past it.
+Version 13 writes 0 for the negative difference, and the restore then claims cells that the live pod does not hold.
+A signed `reservedAhead` was built and reviewed.
+Review found that a frontier below the derived frontier is a legal grant only by the history of the route: it depends on where the old route ended, and the save does not keep that.
+Each rule over the saved route either refused a legal frontier or accepted a frontier that leaves a junction without its owner.
+The maintainer kept RL-D2 A as it is, and the case is a follow-up (EC-D10 in `exact-restore-coordinates-proposal.md`).
+
 ### 6.3 Evidence of the build
 
 Slice 1 is `1baf8f90`.
