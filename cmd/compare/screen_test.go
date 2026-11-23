@@ -183,7 +183,7 @@ func TestScreenCompare(t *testing.T) {
 
 func TestScreenConfigs(t *testing.T) {
 	t.Parallel()
-	configs, err := screenConfigs([]string{screenLondonFull, screenGeometry, screenExpress})
+	configs, err := screenConfigs([]string{screenLondonFull, screenGeometry, screenExpress, screenSharedPlain, screenShared})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,6 +204,12 @@ func TestScreenConfigs(t *testing.T) {
 	}
 	if len(configs[1].config.Fleet) != len(configs[0].config.Fleet) || len(configs[1].config.Network.Lanes) != len(configs[2].config.Network.Lanes) {
 		t.Fatal("D0 does not have the fleet of LF and the network of D")
+	}
+	if express(3) != 0 || express(4) != 16 || configs[3].config.OrderContract != "" || len(configs[3].config.ExpressServices) != 0 || configs[4].config.OrderContract != sim.ExpressOrderContract {
+		t.Fatal("S0 keeps an Express member, or S has none")
+	}
+	if len(configs[3].config.Fleet) != len(configs[0].config.Fleet) || len(configs[3].config.Network.Lanes) != len(configs[4].config.Network.Lanes) || len(configs[4].config.Network.Lanes) == len(configs[2].config.Network.Lanes) {
+		t.Fatal("S0 does not have the fleet of LF and the network of S")
 	}
 }
 
@@ -284,8 +290,8 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 // status 1, also when a deciding gate failed.
 func TestScreenSummaryWriteError(t *testing.T) {
 	t.Parallel()
-	report := screenReport{SchemaVersion: 2, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
-		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Decides: true, Gates: []screenGate{{Name: "g"}}}}, Result: screenFailed}
+	report := screenReport{SchemaVersion: 3, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
+		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Reference: screenLondonFull, Decides: true, Gates: []screenGate{{Name: "g"}}}}, Result: screenFailed}
 	// The summary has an arm line, a gate line, and the result line.
 	for ok := range 3 {
 		err := writeScreenSummary(&failingWriter{ok: ok}, report)
@@ -341,6 +347,8 @@ func TestScreenResult(t *testing.T) {
 		{"D alone", []screenArm{failD}, 0, screenUnevaluated, 4},
 		{"LF and D0", []screenArm{reference, passD0}, 1, screenUnevaluated, 4},
 		{"D0 and D", []screenArm{passD0, passD}, 0, screenUnevaluated, 4},
+		{"LF, S0, and S do not decide", []screenArm{reference, arm(screenSharedPlain, 0, true), arm(screenShared, 1, true)}, 3, screenUnevaluated, 4},
+		{"a failed S does not decide", []screenArm{reference, passD, arm(screenShared, 1, true)}, 3, screenPassed, 0},
 	} {
 		pairs, result := screenPairs(test.arms, events)
 		if len(pairs) != test.pairs || result != test.want {
@@ -349,7 +357,7 @@ func TestScreenResult(t *testing.T) {
 		}
 		var stdout bytes.Buffer
 		output := filepath.Join(t.TempDir(), "screen.json")
-		report := screenReport{SchemaVersion: 2, Arms: test.arms, Pairs: pairs, Result: result}
+		report := screenReport{SchemaVersion: 3, Arms: test.arms, Pairs: pairs, Result: result}
 		if code := writeScreenResults(report, output, &stdout, &bytes.Buffer{}); code != test.code {
 			t.Errorf("%s: exit %d, want %d", test.name, code, test.code)
 		}

@@ -29,14 +29,25 @@ type screenGate struct {
 	Detail string `json:"detail"`
 }
 
-// screenPair compares a candidate arm with the LF arm of the same band and
-// seed. Only the pair of D decides the screen. The pair of D0 explains it.
+// screenPair compares a candidate arm with a reference arm of the same band
+// and seed. Only the pair of D and LF decides the screen.
 type screenPair struct {
 	Band      string       `json:"band"`
 	Seed      int64        `json:"seed"`
 	Candidate string       `json:"candidate"`
+	Reference string       `json:"reference"`
 	Decides   bool         `json:"decides"`
 	Gates     []screenGate `json:"gates"`
+	// Matched has no gate.
+	Matched screenMatched `json:"matched"`
+}
+
+// screenReferences gives the candidates of each reference. S0 isolates the
+// Express pods of S. D and S differ in the network too.
+var screenReferences = map[string][]string{
+	screenLondonFull:  {screenGeometry, screenExpress, screenSharedPlain, screenShared},
+	screenSharedPlain: {screenShared},
+	screenExpress:     {screenShared},
 }
 
 // screenResult is the result of a screen.
@@ -98,7 +109,7 @@ func screenCompare(candidate, reference screenArm, events []screenEvent) []scree
 		switch {
 		case r.WaitTicks >= 0 && c.WaitTicks < 0:
 			waitCensored++
-		case r.WaitTicks >= 0 && float64(c.WaitTicks-r.WaitTicks) > max(screenWaitFloor, screenShare*float64(r.WaitTicks)):
+		case r.WaitTicks >= 0 && screenWaitOver(c.WaitTicks, r.WaitTicks):
 			waits++
 		}
 		switch {
@@ -165,7 +176,7 @@ func writeScreenResults(report screenReport, output string, stdout, stderr io.Wr
 	}
 }
 
-// screen runs every arm and compares each candidate with LF.
+// screen runs every arm and compares the pairs of screenReferences.
 func screen(opts screenOptions) (screenReport, error) {
 	configs, err := screenConfigs(opts.configs)
 	if err != nil {
@@ -198,26 +209,24 @@ func screen(opts screenOptions) (screenReport, error) {
 		return screenReport{}, err
 	}
 	pairs, result := screenPairs(arms, events)
-	return screenReport{SchemaVersion: 2, Arms: arms, Pairs: pairs, Result: result}, nil
+	return screenReport{SchemaVersion: 3, Arms: arms, Pairs: pairs, Result: result}, nil
 }
 
-// screenPairs compares each candidate arm with the LF arm of the same band
-// and seed, and returns the pairs and the result. Only the pairs of D
+// screenPairs compares the arms of the same band and seed that
+// screenReferences pairs, and returns the pairs and the result. Only the pairs of D
 // decide. A screen with no pair of D is unevaluated, so that a run of the
 // diagnostic configurations alone cannot pass.
 func screenPairs(arms []screenArm, events map[screenKey][]screenEvent) ([]screenPair, screenResult) {
 	var pairs []screenPair
 	decided, failed := false, false
 	for _, reference := range arms {
-		if reference.Config != screenLondonFull {
-			continue
-		}
 		for _, candidate := range arms {
-			if candidate.Config == screenLondonFull || candidate.Band != reference.Band || candidate.Seed != reference.Seed {
+			if !slices.Contains(screenReferences[reference.Config], candidate.Config) || candidate.Band != reference.Band || candidate.Seed != reference.Seed {
 				continue
 			}
-			pair := screenPair{Band: candidate.Band, Seed: candidate.Seed, Candidate: candidate.Config, Decides: candidate.Config == screenExpress,
-				Gates: screenCompare(candidate, reference, events[screenKey{candidate.Band, candidate.Seed}])}
+			offered := events[screenKey{candidate.Band, candidate.Seed}]
+			pair := screenPair{Band: candidate.Band, Seed: candidate.Seed, Candidate: candidate.Config, Reference: reference.Config, Decides: candidate.Config == screenExpress,
+				Gates: screenCompare(candidate, reference, offered), Matched: newScreenMatched(candidate, reference, offered)}
 			if pair.Decides {
 				decided = true
 				failed = failed || slices.ContainsFunc(pair.Gates, func(gate screenGate) bool { return !gate.Pass })
@@ -251,7 +260,7 @@ func writeScreenSummary(w io.Writer, report screenReport) error {
 	}
 	for _, pair := range report.Pairs {
 		for _, gate := range pair.Gates {
-			printf("pair %s vs LF band=%s seed=%d decides=%t gate=%q pass=%t %s\n", pair.Candidate, pair.Band, pair.Seed, pair.Decides, gate.Name, gate.Pass, gate.Detail)
+			printf("pair %s vs %s band=%s seed=%d decides=%t gate=%q pass=%t %s\n", pair.Candidate, pair.Reference, pair.Band, pair.Seed, pair.Decides, gate.Name, gate.Pass, gate.Detail)
 		}
 	}
 	printf("screen result=%s\n", report.Result)

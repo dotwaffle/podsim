@@ -376,12 +376,17 @@ See [Express against plain](studies/express-standees.md#express-against-plain) f
 `go run ./cmd/compare screen` runs the screen of the [Express London adoption screen proposal](contracts/express-london-adoption-screen-proposal.md).
 It ignores the other flags of the command.
 It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express pods, its Express services, and its order contract), and `D` (`london-full-express`) on the same offered events.
+It can also run `S` (`london-full-shared-express`) and `S0` (`S` without its Express pods, its Express services, and its order contract).
+The report compares each other arm with `LF`, and `S` with `S0` and with `D`.
+Only the pair of `D` and `LF` decides the result.
+Each arm also has measures with no gate: the hub passengers and parties of each direction, the waits, the queue, the empty distance, and the time of Compact pods blocked by Express and by Compact pods.
+A pair has the changes of the matched background waits.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-seeds` | `1,2,3` | The seeds, at most 100. |
 | `-bands` | `busy,quiet` | The LondonFull bands. `busy` and `quiet` select the bands with the most and the fewest observed journeys a minute. |
-| `-configs` | `LF,D0,D` | The configurations. |
+| `-configs` | `LF,D0,D` | The configurations, from `LF`, `D0`, `D`, `S0`, and `S`. |
 | `-arrivals` | `2h` | The simulated time with offered events. |
 | `-clear` | `2h` | The longest simulated time after the arrivals. A run stops when every accepted order is terminal. |
 | `-background-per-minute` | 0 | The background requests a minute. 0 uses the rate of the LondonFull preset. |

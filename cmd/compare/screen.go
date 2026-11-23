@@ -26,6 +26,10 @@ const (
 	screenLondonFull = "LF"
 	screenGeometry   = "D0"
 	screenExpress    = "D"
+	// screenShared and screenSharedPlain are the shared-track Express
+	// project with and without its Express pods.
+	screenShared      = "S"
+	screenSharedPlain = "S0"
 	// screenHubMean is the mean time between two hub events, and
 	// screenHubOutbound the share of the events from Waterloo. The values are
 	// the hub stream of the D soak.
@@ -59,7 +63,7 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	flags.SetOutput(stderr)
 	seeds := flags.String("seeds", "1,2,3", "comma-separated seeds")
 	bands := flags.String("bands", "busy,quiet", "comma-separated bands: busy, quiet, or LondonFull band IDs")
-	configs := flags.String("configs", "LF,D0,D", "comma-separated configurations: LF, D0, D")
+	configs := flags.String("configs", "LF,D0,D", "comma-separated configurations: LF, D0, D, S0, S")
 	opts := screenOptions{}
 	flags.DurationVar(&opts.arrivals, "arrivals", 2*time.Hour, "simulated time with offered events")
 	flags.DurationVar(&opts.clear, "clear", 2*time.Hour, "longest simulated time after the arrivals")
@@ -87,7 +91,9 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	opts.bands = strings.Split(*bands, ",")
 	opts.configs = strings.Split(*configs, ",")
 	for _, name := range opts.configs {
-		if name != screenLondonFull && name != screenGeometry && name != screenExpress {
+		switch name {
+		case screenLondonFull, screenGeometry, screenExpress, screenShared, screenSharedPlain:
+		default:
 			return screenOptions{}, fmt.Errorf("unknown screen configuration %q", name)
 		}
 	}
@@ -171,8 +177,16 @@ type screenConfig struct {
 	config project.Config
 }
 
-// screenConfigs returns the named configurations. D0 is D with no Express
-// pod, no Express service, and the plain order contract.
+// screenWithoutExpress returns config with no Express pod, no Express
+// service, and the plain order contract.
+func screenWithoutExpress(config project.Config) project.Config {
+	config.Fleet = slices.DeleteFunc(config.Fleet, func(pod sim.Placement) bool { return pod.Class == sim.ExpressClass })
+	config.ExpressServices, config.OrderContract = nil, ""
+	return config
+}
+
+// screenConfigs returns the named configurations. D0 is D, and S0 is S,
+// without Express.
 func screenConfigs(names []string) ([]screenConfig, error) {
 	configs := make([]screenConfig, 0, len(names))
 	for _, name := range names {
@@ -183,9 +197,15 @@ func screenConfigs(names []string) ([]screenConfig, error) {
 		case screenExpress:
 			config = scenarios.LondonFullExpress()
 		case screenGeometry:
-			config = scenarios.LondonFullExpress()
-			config.Fleet = slices.DeleteFunc(config.Fleet, func(pod sim.Placement) bool { return pod.Class == sim.ExpressClass })
-			config.ExpressServices, config.OrderContract = nil, ""
+			config = screenWithoutExpress(scenarios.LondonFullExpress())
+		case screenShared, screenSharedPlain:
+			var err error
+			if config, err = scenarios.GenerateLondonFullSharedExpress(); err != nil {
+				return nil, fmt.Errorf("screen configuration %s: %w", name, err)
+			}
+			if name == screenSharedPlain {
+				config = screenWithoutExpress(config)
+			}
 		}
 		config.Demand.Enabled = false
 		if err := project.Validate(config); err != nil {
@@ -372,6 +392,7 @@ type screenArm struct {
 	Partial     int     `json:"partial"`
 	// Refusal is the first error of the simulation for a refused order.
 	Refusal  string          `json:"refusal,omitempty"`
+	Measures screenMeasures  `json:"measures"`
 	Outcomes []screenOutcome `json:"-"`
 }
 
@@ -401,6 +422,10 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 		return screenArm{}, fmt.Errorf("%s: %w", input.config.name, err)
 	}
 	arm := screenArm{Config: input.config.name, Band: input.bandID, Seed: input.seed, Outcomes: make([]screenOutcome, len(input.events))}
+	classes := make(map[string]sim.VehicleClass, len(config.Fleet))
+	for _, pod := range config.Fleet {
+		classes[pod.ID] = pod.Class
+	}
 	next := 0
 	for tick := range input.arrivalTicks + input.clearTicks {
 		for ; next < len(input.events) && input.events[next].Tick == tick; next++ {
@@ -416,6 +441,7 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 			arm.Failure = failure
 			break
 		}
+		arm.Measures.sample(simulation.MetricsSnapshot(), screenSample{arrivalTicks: input.arrivalTicks, ticks: input.checkTicks, classes: classes})
 		if tick >= input.arrivalTicks && next == len(input.events) && screenOutstanding(simulation.MetricsSnapshot()) == 0 {
 			break
 		}
@@ -423,6 +449,7 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 	state := simulation.MetricsSnapshot()
 	arm.Ticks, arm.Submitted, arm.Completed, arm.Outstanding = state.Tick, state.Submitted, state.Completed, screenOutstanding(state)
 	screenTimes(arm.Outcomes, input.events, simulation.RequestTimings())
+	arm.Measures.finish(arm.Outcomes, input.events, input.arrivalTicks)
 	for _, outcome := range arm.Outcomes {
 		if outcome.Refused {
 			arm.Refused++
