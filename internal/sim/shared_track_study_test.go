@@ -169,10 +169,15 @@ func sharedTrackBase(t *testing.T, base Network) Network {
 // "3.5" network is the network of the preset before its parking. It must
 // run before the changes of section 3, which move the hub nodes.
 func sharedTrackStraightHubs(n Network) Network {
+	return straightStudyHubs(n, sharedWaterloo, sharedBank)
+}
+
+// straightStudyHubs is sharedTrackStraightHubs for the given hubs.
+func straightStudyHubs(n Network, hubs ...string) Network {
 	n = n.clone()
 	for i := range n.Lanes {
 		lane := &n.Lanes[i]
-		if lane.StationID != sharedWaterloo && lane.StationID != sharedBank {
+		if !slices.Contains(hubs, lane.StationID) {
 			continue
 		}
 		if strings.HasPrefix(lane.ID, lane.StationID+"-road-in-") || strings.HasPrefix(lane.ID, lane.StationID+"-road-out-") {
@@ -184,6 +189,8 @@ func sharedTrackStraightHubs(n Network) Network {
 
 // sharedTrackChange is a set of the geometry changes of section 3.
 type sharedTrackChange struct {
+	// hubs holds the hubs of the change. Nil is Waterloo and Bank.
+	hubs []string
 	// part is the size of each part of the tight shape at the two hubs:
 	// side, throat to entry, entry to the first row, and pitch. Zero keeps
 	// the shape of the generator.
@@ -251,7 +258,11 @@ func (c sharedTrackChange) apply(t *testing.T, base Network) Network {
 		n.Nodes[index].Position = position
 	}
 	frames := make(map[string]sharedTrackFrame)
-	for _, id := range []string{sharedWaterloo, sharedBank} {
+	hubs := c.hubs
+	if hubs == nil {
+		hubs = []string{sharedWaterloo, sharedBank}
+	}
+	for _, id := range hubs {
 		positions := indexNodePositions(n.Nodes)
 		station, _ := n.Station(id)
 		frame := sharedTrackStationFrame(t, positions, station)
@@ -547,10 +558,11 @@ type sharedTrackAuditResult struct {
 	shapes   int
 }
 
-func (r sharedTrackAuditResult) under(limit float64) int {
+// underFour counts the refusals under 4.0 m.
+func (r sharedTrackAuditResult) underFour() int {
 	count := 0
 	for _, refusal := range r.refusals {
-		if refusal.distance < limit {
+		if refusal.distance < 4 {
 			count++
 		}
 	}
@@ -750,9 +762,9 @@ func sharedTrackRefusals(t *testing.T, name string, n Network, options sharedTra
 	tails := indexGeometryTails(n)
 	index, _ := sharedTrackReach(n, tails, options)
 	result := sharedTrackAudit(t, n, tails, index)
-	t.Logf("%s, %s: %d refusals, %d under 4.0 m, %d shape pairs", name, options, len(result.refusals), result.under(4), result.shapes)
+	t.Logf("%s, %s: %d refusals, %d under 4.0 m, %d shape pairs", name, options, len(result.refusals), result.underFour(), result.shapes)
 	key := fmt.Sprintf("%s, %s", name, options)
-	if got, want := [3]int{len(result.refusals), result.under(4), result.shapes}, sharedTrackCounts[key]; got != want {
+	if got, want := [3]int{len(result.refusals), result.underFour(), result.shapes}, sharedTrackCounts[key]; got != want {
 		t.Errorf("%s: refusals, under 4.0 m, and shape pairs %v, want %v", key, got, want)
 	}
 	for _, refusal := range result.refusals {
@@ -771,7 +783,7 @@ func sharedTrackBuiltRefusals(t *testing.T, name string, n Network) {
 	tails := indexGeometryTails(n)
 	result := sharedTrackAudit(t, n, tails, newEnvelopeReach(n, tails))
 	key := fmt.Sprintf("%s, %s", name, sharedTrackReachOptions{small: true})
-	got := [3]int{len(result.refusals), result.under(4), result.shapes}
+	got := [3]int{len(result.refusals), result.underFour(), result.shapes}
 	t.Logf("%s, index of the code: %d refusals, %d under 4.0 m, %d shape pairs", name, got[0], got[1], got[2])
 	if want := sharedTrackCounts[key]; got != want {
 		t.Errorf("%s, index of the code: refusals, under 4.0 m, and shape pairs %v, want %v of %s", name, got, want, key)
