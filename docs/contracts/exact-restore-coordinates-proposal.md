@@ -530,6 +530,40 @@ For each run it reports:
 
 Slice 0 runs under `nice`, with a memory limit, and the scratch tree is deleted after the record.
 
+### 6.2 Evidence of the build
+
+Slice 0 ran on 2026-11-23 against `c33ad6b8`, with whole routes written into the save in memory.
+
+| Network | Samples trimmed today | Longest route, whole and trimmed | Over the limit | Largest block sum: all lanes, EC-D7 B, trimmed | Restores with a difference | Lockstep locks with a difference |
+| --- | ---: | --- | ---: | --- | --- | --- |
+| LondonFull, 327 pods, 35 min | 98.6% of 547,451 | 121 and 101 | 0 | 179,565, 101,738, 101,738 | 0 of 35 | 0 of 35 |
+| `rail-hub` | 88.0% of 33,224 | 13 and 13 | 0 | 5,762, 3,963, 3,963 | 0 of 40 | 0 of 40 |
+| Project D | 95.5% of 54,635 | 131 | 0 | 8,716, 5,185, 5,194 | 0 of 40 | 0 of 40 after the latch copy (1 before) |
+| Shared track | 97.5% of 66,863 | 40 and 40 | 0 | 12,840, 6,643, 6,675 | 0 of 40 | 0 of 40 after the latch copy (2 before) |
+| Fixtures | 54% to 98% | | 0 | EC-D7 B equal to trimmed | 0 of about 12,000 | 0, apart from 9 reversal dwells before the latch copy |
+
+A difference is a refusal, a demotion, a restore that is worse than today, an owner difference, or a whole-route distance difference.
+`ExportState` with whole routes was not slower than with trimmed routes on any network.
+The lockstep differences came from the reversal dwell latch and the pickup swap controller, and led to EC-D7 (amended), EC-D8, and EC-D9 (section 8.1).
+
+Slice 1 is `855caa94`.
+Review took 15 rounds.
+Rounds 3, 6, and 10 each led to a step-back review of the whole problem, and section 8.1 records the decisions.
+The gates on the slice 1 tree gave these results:
+
+- `TestRestoreBoundarySweep` with `PODSIM_QUALIFY=1`: no residual on a whole route.
+  On trimmed routes, residuals (a) and (b) were 0 and 0 (release), 70 and 9 (boundary), 28 and 0 (Express), 160 and 0 (maneuver group), and 108 and 18 (depot).
+- The 371 saved states of the codec checkpoints were byte-identical across the last six review rounds.
+- A LondonFull scan of 40,532 exports of each kind kept 48,966 whole-route and 2,541 trimmed-route latches, dropped none, and found no mismatch in 44 restore checks.
+  No live pod in that scan or in the checkpoints failed the whole-route check of EC-D11.
+- The byte proofs are 126,045,565 bytes for the plain state (8,172,163 bytes of headroom) and 105,217,223 bytes for the Express state (29,000,505 bytes of headroom).
+  The stream, delta, and HTTP proofs did not change.
+- `ExportState` at the busiest LondonFull tick (49,890, 162 traveling pods) took a median of about 215 us.
+
+On 2026-11-23, `mise run check` passed on `855caa94`.
+It runs each gate of section 7.5: `check:static`, `qualify` (with `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:shared-express`, and `test:london-express`.
+The commits after it change only documents and comments.
+
 ## 7. Contract text, documents, pins, and gates
 
 ### 7.1 Contract text
