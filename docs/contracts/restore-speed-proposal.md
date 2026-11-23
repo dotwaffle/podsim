@@ -307,6 +307,8 @@ Thus, when the restore still demotes a pod that the restore without the saved sp
 The second restore runs only when the first demotes a pod or fails the physical tier.
 On 2026-11-22, after review round 6, the maintainer approved that the second restore is the restore before this proposal: no saved speeds or leads, and the block-end snap at `restoreTolerance`.
 When both restores fail, the outcome of the second restore decides between a refusal and the logical tier.
+On 2026-11-23, after review round 7, the maintainer approved that the fault-footprint refusal before the tiers is also the check before this proposal, with no saved speeds or leads and the snap at `restoreTolerance`.
+Thus no file is refused before the tiers unless the earlier restore refuses it, and a saved lead that reaches debris fails only the first restore.
 Thus no pod restores worse than before this proposal.
 
 The new physical-tier error is the stop-point check of section 3.1.
