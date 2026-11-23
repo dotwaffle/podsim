@@ -1,6 +1,7 @@
 # Exact restore coordinates proposal
 
-Status: Proposed on 2026-11-23, not approved.
+Status: approved on 2026-11-23.
+The maintainer chose option D (EC-D1), option B of EC-D7, and the recommendation of each other decision (section 8).
 Date: 2026-11-23.
 Line references are for `691f1f6b`.
 Sections 1.4, 2.3, 2.4, and 2.5 hold the measurements of this draft.
@@ -605,6 +606,8 @@ Slice 1 checks each other stream golden for a restore before it.
 | EC-D5 | The second restore of a whole route | A: keep the snap at `restoreTolerance`, as the restore before the restore speed proposal. B: no snap there too. | A. The second restore is the lower bound of each outcome (`restore-speed-proposal.md:309` to `:315`), and it must stay the restore before that proposal. |
 | EC-D6 | The residual classifier of the sweep | A: keep it, for the fixtures over the limit only. B: remove it, and require residual 0 on each fixture. | A, under EC-D2 B. A route over the limit keeps the residual, and the test must still bound it. |
 | EC-D7 | The restore block budget for a whole route | A: count each lane of the saved route, as today. B: count the blocks from the first lane that can still hold a resource, and start the restore walks there. The restore finds that lane from the saved position with the rule of `savedRouteStart` (`state.go:723`). C: raise `budgetMaxBlocks` so that whole routes fit. | B. Under A, whole routes took 68 percent of the budget on LondonFull at Interpeak, and a busier save can demote pods that the restore of today keeps. On a whole route, the rule of B reads the live frame, so it finds the same lane as the live pod. The `savedStart` rules only move the start back, so the sum of B is at most the sum of the trimmed routes of today. B is a new restore rule that this draft did not measure. C changes a cap and the work bound of the restore (`state_physical.go:38` to `:58`). The text of `docs/operations.md:276` to `:278` changes under B and C. |
+
+Decided on 2026-11-23: EC-D1 D, EC-D2 B, EC-D3 A, EC-D4 A, EC-D5 A, EC-D6 A, and EC-D7 B.
 
 ## 9. Stops
 
