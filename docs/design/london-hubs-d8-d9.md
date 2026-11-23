@@ -619,3 +619,77 @@ PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./int
 PODSIM_HUB_PAIR_LAYOUT="$D/fixes" go test ./internal/scenarios -run TestHubPairStudySites -count=1 -v
 rm -r "$D"
 ```
+
+## 10. Baker Street
+
+This is the study of HB-D15, from 2026-11-23.
+It is a study only: no preset has the change.
+The input is that of section 9, and `internal/sim/baker_study_test.go` pins the refusal counts.
+
+### 10.1 Causes
+
+25 of the 35 refusals of Paddington and Liverpool Street have a lane of Baker Street or of one of its links.
+
+- 22 are on the east side.
+  The portals of link 110 (Great Portland Street) and link 112 (Regent's Park) are 3 m apart.
+- 3 are on the west side.
+  The lanes of link 108 (Edgware Road) and link 111 (Marylebone) cross 68 m from the portal of link 108.
+
+Without the movement lanes between links 110 and 112 and the U-turns on them, 19 of the 25 remain.
+
+### 10.2 Change
+
+The two portals of a link turn about the junction center, and the middle nodes of the link stay halfway.
+The movement lanes get the control points of the generator rule.
+The roads of Baker Street become straight at 14 m/s, because the fillets are for the portals of the generator.
+
+The selected change has these parts:
+
+- Link 112 turns by +40 degrees, link 111 by +30, and link 090 (Bond Street) by +20.
+- Baker Street turns by -10 degrees about its junction center.
+- `940GZZLUBST-road-out-04` gets a curve of -20 m.
+
+| Change | Pair | Refusals at Baker Street | All refusals |
+| --- | --- | ---: | ---: |
+| Straight roads only | Paddington and Liverpool Street | 25 | 35 |
+| Selected | Paddington and Liverpool Street | 0 | 10 |
+| No turn of the station | Paddington and Liverpool Street | 2 | 12 |
+| No curve | Paddington and Liverpool Street | 1 | 11 |
+| No turn of link 111 | Paddington and Liverpool Street | 4 | 14 |
+| No turn of link 112 | Paddington and Liverpool Street | 21 | 31 |
+| No turn of link 090 | Paddington and Liverpool Street | 0 | 10 |
+| Selected | King's Cross St. Pancras and Paddington | 0 | 7 |
+| Selected | Paddington and Tottenham Court Road | 0 | 7 |
+| No turn of link 090 | Paddington and Tottenham Court Road | 9 | 16 |
+
+Before the change, the last two pairs have 32 and 10 refusals.
+Link 090 turns only for Paddington and Tottenham Court Road: without it, the new portals of link 112 are among those of link 090.
+
+The preset with the change passes the layout audit, the bank audit, and project validation.
+It has no parking gap and the one tail warning of the preset.
+Preparation passes for each row of the table.
+Against the preset, 9,285 of 97,656 station routes are longer in free flow (worst +5.2 s, total +4,559 s), and 6,272 are shorter (total -7,693 s).
+Part of the gain is from the straight roads.
+Against the preset with those roads straight, the totals are +4,691 s and -4,390 s, and the worst is +5.2 s.
+
+### 10.3 Result and limits
+
+Baker Street does not prevent Paddington and Liverpool Street.
+Its other 10 refusals are three at each of Paddington, King's Cross St. Pancras, and Moorgate, and one at Liverpool Street.
+Their fixes are not studied, so this does not show that the pair can be built.
+
+- The angles come from a screen with steps of 5 to 10 degrees, so they are not an optimum.
+- The study has no simulation run, so the effect on Compact traffic at Baker Street is not measured.
+- A build needs the turned portals in the generator, with new fillets for the roads.
+  Its network then differs from this one.
+
+### 10.4 Commands
+
+`$D/lfs.json` and `$D/fixes` are those of section 9.5.
+
+```sh
+PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./internal/sim -run TestBakerStudy -count=1 -v
+PODSIM_BAKER_LAYOUT="$D/fixes/baker.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
+```
+
+Delete `baker.json` before `TestHubPairStudySites`, which reads each network in its directory.
