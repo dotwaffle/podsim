@@ -4,6 +4,7 @@ Status: approved on 2026-11-23.
 The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, with option B of HB-D5 (section 6).
 The maintainer granted the static slices (0 to 2) on 2026-11-23.
 Slice 0 is built in `c426595a`, and section 9 holds its results and the decisions HB-D13 to HB-D15.
+Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists, and `TestSharedTrackLineStacks` adds the pair to the preset.
 The preset and its rows wait for batch 2 (HB-D5).
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
