@@ -191,13 +191,19 @@ func TestHubPairStudyFixes(t *testing.T) {
 		}
 		t.Logf("%s: %d refusals, %d shape pairs, %d of %d station routes longer, %d unreachable, worst +%.1f s, total +%.1f s", fix.name, len(result.refusals), result.shapes, longer, len(before.cost)*(len(before.cost)-1), unreachable, worst, total)
 		if dir := os.Getenv(hubPairOutEnv); dir != "" && fix.refusals == 0 {
-			data, err := json.Marshal(map[string]Network{"network": n}, jsonv1.DefaultOptionsV1())
-			if err == nil {
-				err = os.WriteFile(filepath.Join(dir, fix.name+".json"), data, 0o600)
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
+			writeStudyNetwork(t, dir, fix.name, n)
 		}
+	}
+}
+
+// writeStudyNetwork writes a network for the study of internal/scenarios.
+func writeStudyNetwork(t *testing.T, dir, name string, n Network) {
+	t.Helper()
+	data, err := json.Marshal(map[string]Network{"network": n}, jsonv1.DefaultOptionsV1())
+	if err == nil {
+		err = os.WriteFile(filepath.Join(dir, name+".json"), data, 0o600)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 }

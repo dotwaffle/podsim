@@ -19,6 +19,8 @@ import (
 // docs/design/london-hubs-d8-d9.md, and they skip without it.
 const hubPairLayoutEnv = "PODSIM_HUB_PAIR_LAYOUT"
 
+const bakerLayoutEnv = "PODSIM_BAKER_LAYOUT"
+
 const (
 	hubPairLondonBridge = "940GZZLULNB"
 	hubPairCanaryWharf  = "940GZZLUCYF"
@@ -157,4 +159,41 @@ func hubPairCheck(t *testing.T, c project.Config, source londonSource) (string, 
 		t.Logf("chord route meters of %s: from the comb %s, to the comb %s", id, length("xq-01-node", hub.Berths[0].Node), length(hub.Berths[0].Node, "xq-01-node"))
 	}
 	return "", nil
+}
+
+// TestBakerStudyLayout runs the layout audit and project validation on the
+// preset with the Baker Street change. The variable that bakerLayoutEnv
+// names holds the network file of TestBakerStudyCosts of internal/sim.
+func TestBakerStudyLayout(t *testing.T) {
+	path := os.Getenv(bakerLayoutEnv)
+	if path == "" {
+		t.Skip("set " + bakerLayoutEnv + " to the network file of TestBakerStudyCosts")
+	}
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(project.TailWarnings(config.Network))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file struct {
+		Network sim.Network `json:"network"`
+	}
+	if err := jsonv2.Unmarshal(data, &file); err != nil {
+		t.Fatal(err)
+	}
+	config.Network = file.Network
+	if err := layoutError(config.Network, auditLondonLayout(config.Network, sharedTrackLayoutInput(source, sharedTrackPresetParking()))); err != nil {
+		t.Error(err)
+	}
+	if err := project.Validate(config); err != nil {
+		t.Error(err)
+	}
+	t.Logf("%d tail warnings (%d in the preset), %d parking gaps", len(project.TailWarnings(config.Network)), before, len(project.ParkingGaps(config)))
 }
