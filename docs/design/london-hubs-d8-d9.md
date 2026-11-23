@@ -2,8 +2,9 @@
 
 Status: approved on 2026-11-23.
 The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, with option B of HB-D5 (section 6).
-Nothing in this design is built.
-A build needs a separate grant.
+The maintainer granted the static slices (0 to 2) on 2026-11-23.
+Slice 0 is built in `c426595a`, and section 9 holds its results and the decisions HB-D13 to HB-D15.
+The preset and its rows wait for batch 2 (HB-D5).
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
 
@@ -530,3 +531,90 @@ Waterloo and Canary Wharf repeats slices 0 to 8 on top of the first new preset, 
    In D, the Express pods stay at the hubs during service.
 4. How many Express pods does each new service need, and does each comb keep 16 berths (HB-D10)?
 5. Does the study of a new stage use `cmd/compare`, which names Waterloo and Bank today, or the soak driver?
+
+## 9. Results of slice 0
+
+The results are of 2026-11-23, at `c426595a`, with the preset network `cba69149...` as the base.
+Each pair has Express on its routes and hubs, straight hub roads, and 41 m parts at the new hubs.
+The audit copy uses the index of the code.
+
+### 9.1 Pairs
+
+| Pair | Journeys | Refusals | Under 4.0 m | Shape pairs | Large lanes under 40 m |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| London Bridge and Waterloo | 9,821 | 0 | 0 | 60 | 0 |
+| London Bridge and Canary Wharf | 11,121 | 1 | 1 | 49 | 0 |
+| Waterloo and Canary Wharf | 11,766 | 1 | 1 | 62 | 0 |
+| King's Cross St. Pancras and Liverpool Street | 7,411 | 4 | 2 | 72 | 0 |
+| Euston and Waterloo | 5,648 | 7 | 5 | 80 | 1 |
+| King's Cross St. Pancras and Waterloo | 6,688 | 7 | 6 | 98 | 1 |
+| Paddington and Tottenham Court Road | 7,944 | 10 | 8 | 107 | 0 |
+| Victoria and Oxford Circus | 11,565 | 11 | 10 | 79 | 0 |
+| King's Cross St. Pancras and Oxford Circus | 7,946 | 15 | 15 | 98 | 1 |
+| Liverpool Street and Tottenham Court Road | 11,583 | 18 | 15 | 84 | 0 |
+| King's Cross St. Pancras and Victoria | 7,675 | 24 | 23 | 118 | 1 |
+| Canary Wharf and Stratford | 6,098 | 31 | 29 | 134 | 0 |
+| King's Cross St. Pancras and Paddington | 6,575 | 32 | 30 | 124 | 0 |
+| Paddington and Liverpool Street | 12,346 | 35 | 31 | 145 | 0 |
+
+The refusals are before any fix, so a pair with few refusals can still need more changes.
+At Baker Street, about 25 of the refusals of each of the last two rows are near the station.
+This is a screen of the names and positions of the refused lanes.
+
+### 9.2 London Bridge and Canary Wharf
+
+The one refusal is `940GZZLULNB-road-out-01` and `london-link-089-ab-2`, at 0.00 m.
+The last part of the link holds `940GZZLULNB-move-01-01`, the reversal between the two portals of link 089.
+The 41 m parts remove each large lane under 40 m, and preparation then has no error.
+The cost is against the same shape with no fix, over 97,656 station routes.
+
+| Change at London Bridge | Refusals | Shape pairs | Routes longer | Worst | Layout audit |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `move-01-01` removed | 0 | 49 | 0 | 0 s | No conflict |
+| `road-out-01` curved by +30 m | 0 | 50 | 4 | +0.5 s | No conflict |
+| `road-out-01` curved by +50 m | 0 | 49 | 4 | +1.3 s | No conflict |
+| `road-out-01` curved by -20 m | 0 | 50 | 4 | +0.2 s | No conflict, but no comb site at London Bridge passes |
+| Hub turned by -20 degrees | 0 | 52 | 42 | +1.5 s | No conflict, but no comb site at London Bridge passes |
+| Hub turned by +30 degrees | 0 | 55 | 580 | +2.1 s | One hard conflict |
+| Throat at 140 m | 1 | 49 | 622 | +4.3 s | Not run |
+
+"No comb site" means the four London Bridge sites of section 9.3.
+The effect of a removed lane on fault reroutes is not measured.
+
+### 9.3 Comb sites
+
+A scratch screen of centers and headings gave the sites, so they are not an optimum.
+The roads of each comb use the portals of link 089 (London Bridge) and link 154 (Canary Wharf), as site P4 uses link 100.
+With the curve of +30 m, each site passes the layout audit with no exemption (HB-D12 B), the bank audit, and project validation with 16 more Express pods and both services.
+No site has a parking gap, and each has the one tail warning of the preset.
+
+| Site | Center | Heading | Mirrored | Meters to the hub | Meters from the hub | Shape pairs |
+| --- | --- | ---: | --- | ---: | ---: | ---: |
+| LB1 | (2678.6, 290.1) | 50 | Yes | 450 | 326 | 53 |
+| LB2 | (2728.3, 273.3) | 80 | Yes | 396 | 328 | 55 |
+| LB3 | (2695.7, 302.1) | 70 | Yes | 443 | 339 | 53 |
+| LB4 | (2627.1, 351.4) | 30 | No | 449 | 487 | 53 |
+| CW1 | (7390.9, 548.8) | 90 | No | 479 | 559 | 50 |
+
+The distances use the chord of each lane, between the first berth of the comb and the first berth of the hub.
+"Mirrored" swaps the sides of the entry and the exit of the comb.
+The comb and the Waterloo comb share no Express route, so HB-D11 does not matter in this preset.
+
+### 9.4 Decisions
+
+| ID | Decision | Decided on 2026-11-23 |
+| --- | --- | --- |
+| HB-D13 | The change that removes the refusal | `940GZZLULNB-road-out-01` gets a curve of +30 m, at 14 m/s. No lane is removed. The other new hub roads stay straight (HB-D8). |
+| HB-D14 | The comb of the pair | Site LB3, with no exemption. |
+| HB-D15 | The pairs after Waterloo and Canary Wharf | By refusals: London Bridge and Waterloo, King's Cross St. Pancras and Liverpool Street, and then Victoria and Oxford Circus. A separate study of Baker Street comes with them, because it decides if Paddington and Liverpool Street can be built. This replaces the order of stages 3 and 4. |
+
+### 9.5 Commands
+
+```sh
+D=$(mktemp -d)
+go run ./cmd/scenario -preset london-full-shared-express -output "$D/lfs.json"
+mkdir "$D/fixes"
+PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./internal/sim -run TestHubPairStudy -count=1 -v
+PODSIM_HUB_PAIR_LAYOUT="$D/fixes" go test ./internal/scenarios -run TestHubPairStudySites -count=1 -v
+rm -r "$D"
+```
