@@ -932,7 +932,27 @@ The study records means over seeds and paired changes.
 5. If batch 2 passes the adoption gates, a later batch adds London Bridge and Canary Wharf, and Waterloo and Canary Wharf, as one arm.
 
 Each batch has at most 3 arms and 3 seeds, inside the cap of 6 arms and 3 seeds.
+Section 8.1 replaces this for batch 2.
 A station layout arm, and a large depot arm, come back as proposals.
+
+### 8.1 Batch 2, amended 2026-11-23
+
+The maintainer decided these rules before any run, because the adoption gates need seeds 1 to 10, all bands, and six-hour runs, so this batch cannot pass them.
+The batch is not adoption evidence, and it does not reopen the screen result of D.
+
+- BT-D1: the preset of the next stage can start if each seed has these results.
+  No arm has a safety or accounting failure, and each arm finishes each accepted order inside the clear.
+  S finishes more hub passengers than S0.
+  All other measures are for the maintainer to judge, with no gate: the individual limits, the mean and tail waits, the refusals, the queues, and the measures of section 4.3 of the [hubs design](london-hubs-d8-d9.md).
+- BT-D2: the arms are LF (LondonFull), D, S (`london-full-shared-express`), and S0 (S with no Express pod, service, or order contract), with seeds 1 to 3.
+- BT-D3: the workload is that of `compare screen` in the `am-peak` band: 2 hours of arrivals at the preset rate, the hub stream of the screen, the queue limit of 200, and at most 2 hours of clear.
+  The overlay of the hub fixture has more tidal rates, and its runner is not in the repository.
+- BT-D4: the timed pilot is S, seed 1.
+  A projection over 1 hour, or a safety failure, goes back to the maintainer.
+- The field of steps 1 and 2 is removed, so those steps are not in the plan.
+
+S against S0 gives the effect of the Express pods.
+D and S differ in the network too, so their difference is not the effect of the shared track alone.
 
 ## 9. Review
 
