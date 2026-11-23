@@ -11,9 +11,9 @@ const reversalDwellTicks = TicksPerSecond
 //
 // lane is the route index k of the latched lane, 0 when the latch is
 // empty, and -k after the dwell at k. ticks counts the ticks at rest at the
-// start of lane k. The latch is a value, so Clone copies it. A restore
-// leaves it empty: the search below finds a saved pod at the start of lane
-// k, and the full dwell runs again.
+// start of lane k. The latch is a value, so Clone copies it. A save keeps
+// the latch of a traveling pod, and the restore sets it again (see
+// savedReversal).
 type reversal struct {
 	lane, ticks int
 }
@@ -39,18 +39,8 @@ func (s *Simulation) reversalLimit(v *vehicle, current int, limit float64) float
 	}
 	blocks := &v.blocks
 	if v.reversal.lane <= 0 {
-		from := current
-		if current > 0 && v.distance == blocks.lanes[current].start {
-			from = current - 1
-		}
-		from = max(from, -v.reversal.lane)
-		k := from + 1
-		for ; k < len(blocks.route) && blocks.lanes[k].start <= limit; k++ {
-			if s.maneuvers.reverse[blocks.route[k].ID] != s.maneuvers.reverse[blocks.route[k-1].ID] {
-				break
-			}
-		}
-		if k >= len(blocks.route) || blocks.lanes[k].start > limit {
+		k := s.nextReversal(blocks, current, v.distance, -v.reversal.lane, limit)
+		if k < 0 {
 			return limit
 		}
 		v.reversal = reversal{lane: k}
@@ -64,4 +54,26 @@ func (s *Simulation) reversalLimit(v *vehicle, current int, limit float64) float
 		}
 	}
 	return min(limit, point)
+}
+
+// nextReversal returns the lane that a pod with no latched lane latches
+// (see reversalLimit), or -1 when it latches no lane. The pod is at
+// distance on blocks, in the lane at route index current, done is the
+// route index of the last lane with a dwell, or 0, and limit is the limit
+// of its move.
+func (s *Simulation) nextReversal(blocks *blockList, current int, distance float64, done int, limit float64) int {
+	if s.maneuvers == nil {
+		return -1
+	}
+	from := current
+	if current > 0 && distance == blocks.lanes[current].start {
+		from = current - 1
+	}
+	from = max(from, done)
+	for k := from + 1; k < len(blocks.route) && blocks.lanes[k].start <= limit; k++ {
+		if s.maneuvers.reverse[blocks.route[k].ID] != s.maneuvers.reverse[blocks.route[k-1].ID] {
+			return k
+		}
+	}
+	return -1
 }

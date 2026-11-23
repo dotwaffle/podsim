@@ -222,7 +222,9 @@ func testCommittedStationAccessChainFinishesBeforePickup(t *testing.T, parkingOn
 				}
 				lead = s.findVehicle("01")
 				if test.lane == "parking-arrival-next" {
-					for _, lane := range lead.Route {
+					// The restored route is the whole route, so only the
+					// lanes from the lane of the pod on count.
+					for _, lane := range lead.Route[lead.blocks.locate(lead.blockIndex, lead.blocks.scan):] {
 						if lane.From == station.Entry {
 							t.Fatal("restored chain still includes the station entry")
 						}

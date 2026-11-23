@@ -2,12 +2,14 @@ package sim
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"fmt"
 	"maps"
 	"math"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -756,7 +758,7 @@ func roundTripUsing(t *testing.T, s *Simulation, restore func(SavedState) (*Simu
 			continue
 		}
 		live := &s.vehicles[index]
-		start, _, _ := s.savedStart(live)
+		start := len(live.Route) - len(saved.Pods[index].Route)
 		want, got := linkCertificate(live, start+link.Lane), linkCertificate(&restored.vehicles[index], link.Lane)
 		if got != want {
 			t.Fatalf("tick %d: pod %s has certificate %s after the restore, want %s", s.tick, saved.Pods[index].ID, got, want)
@@ -802,6 +804,374 @@ func pendingOwners(s *Simulation, v *vehicle) map[resource]string {
 		}
 	}
 	return owners
+}
+
+// approachForkNetwork returns the merge corridor with the approach lane
+// cut in three lanes, and a branch from the end of the first of them to a
+// second station. A route to the destination station has two lanes more
+// than the shared lanes, and a route to the fork station has one.
+func approachForkNetwork() Network {
+	network := mergeCorridor(false, 0)
+	for index, lane := range network.Lanes {
+		if lane.ID == "approach" {
+			network.Lanes[index].To = "approach-mid"
+		}
+	}
+	mid := Point{X: corridorExitLength + corridorApproachLength/4}
+	radians := math.Pi / 6
+	entry := Point{X: mid.X + 2000*math.Cos(radians), Y: -2000 * math.Sin(radians)}
+	network.Nodes = append(network.Nodes,
+		Node{ID: "approach-mid", Position: mid}, Node{ID: "approach-end", Position: Point{X: corridorExitLength + corridorApproachLength/2}},
+		Node{ID: "fork-entry", Position: entry},
+		Node{ID: "fork-berth", Position: Point{X: entry.X + 100, Y: entry.Y - 60}},
+		Node{ID: "fork-exit", Position: Point{X: entry.X + 200, Y: entry.Y}})
+	network.Lanes = append(network.Lanes,
+		Lane{ID: "approach-b", From: "approach-mid", To: "approach-end", SpeedLimit: 14},
+		Lane{ID: "approach-c", From: "approach-end", To: "dest-entry", SpeedLimit: 14},
+		Lane{ID: "branch", From: "approach-mid", To: "fork-entry", SpeedLimit: 14},
+		Lane{ID: "fork-through", From: "fork-entry", To: "fork-exit", SpeedLimit: 14},
+		Lane{ID: "fork-in", From: "fork-entry", To: "fork-berth", SpeedLimit: 14},
+		Lane{ID: "fork-out", From: "fork-berth", To: "fork-exit", SpeedLimit: 14})
+	network.Stations = append(network.Stations, Station{
+		ID: "fork", Name: "Fork", Entry: "fork-entry", Exit: "fork-exit", Berths: []Berth{{ID: "fork-1", Node: "fork-berth"}},
+	})
+	return network
+}
+
+// TestPlatoonRestoreMixedRoutes saves a linked pair at the pod route limit:
+// the follower saves its whole route and the predecessor a trimmed route.
+// The predecessor has passed the second lane of the run, and the follower
+// has not. The trimmed route of the predecessor keeps that lane for the
+// follower, and then holds the limit exactly. The follower link must not
+// move that start back, so the predecessor saves the route of an export
+// with no whole route, and the saved run starts at the start of that route.
+// The save must restore with the link.
+func TestPlatoonRestoreMixedRoutes(t *testing.T) {
+	t.Parallel()
+	network := approachForkNetwork()
+	head := corridorFeedLength - 100
+	s := restoreCorridor(t, network, []corridorPod{
+		{route: []string{"main", "exit", "approach", "approach-b", "approach-c"}, station: "dest", distance: head},
+		{route: []string{"main", "exit", "approach", "branch"}, station: "fork", distance: head - corridorQueueGap},
+	})
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	leader, follower := &s.vehicles[0], &s.vehicles[1]
+	for range 600 * TicksPerSecond {
+		s.Step()
+		own, _, _ := leader.savedRouteStart()
+		if start := s.savedStart(leader); follower.link.leader == 1 && follower.Pod.LaneID == "exit" && own == 2 && start < own {
+			break
+		}
+	}
+	start := s.savedStart(leader)
+	limits := newRouteLimits(network)
+	limits.pod = len(leader.Route) - start
+	if follower.link.leader != 1 || start != 1 || len(follower.Route) != limits.pod {
+		t.Fatalf("tick %d: the predecessor route starts at %d, with the link %+v and %d follower lanes", s.tick, start, follower.link, len(follower.Route))
+	}
+	export := func(budget int) []SavedPod {
+		plan := s.planSavedRoutes(limits, budget, nil)
+		return []SavedPod{s.exportPod(0, &plan), s.exportPod(1, &plan)}
+	}
+	trimmed, whole := export(-1), export(math.MaxInt)
+	if !reflect.DeepEqual(whole[0], trimmed[0]) || len(whole[0].Route) != limits.pod || !whole[0].RouteTrimmed {
+		t.Fatalf("the predecessor saves %+v, want %+v", whole[0], trimmed[0])
+	}
+	want := &SavedPlatoonLink{Leader: leader.Pod.ID, Lane: 1, Lanes: 2, Turn: follower.link.turn}
+	if whole[1].RouteTrimmed || len(whole[1].Route) != len(follower.Route) || !reflect.DeepEqual(whole[1].Platoon, want) {
+		t.Fatalf("the follower saves %d lanes, the marker %t, and the link %+v, want the whole route and %+v", len(whole[1].Route), whole[1].RouteTrimmed, whole[1].Platoon, want)
+	}
+	state := s.ExportState()
+	state.Pods = whole
+	restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: roundTripState(t, state)})
+	if err != nil || !cleanRestore(result) {
+		t.Fatalf("the save restores %+v, %v, want each pod in place", result, err)
+	}
+	if got, want := linkCertificate(&restored.vehicles[1], 1), linkCertificate(follower, 1); got != want {
+		t.Fatalf("the follower has the link %s after the restore, want %s", got, want)
+	}
+}
+
+// TestPlatoonRestoreEndGrant saves a follower in the tick where a grant
+// took the end block of its link after the link maintenance, so its
+// draining flag is still false. The save keeps that flag, and the restore
+// with the saved frontier restores it. The restore before the saved motion
+// derives a shorter frontier, so it restores the link draining, as live
+// link maintenance finds it in the next tick.
+func TestPlatoonRestoreEndGrant(t *testing.T) {
+	t.Parallel()
+	network := mergeCorridor(true, 30)
+	s := restoreCorridor(t, network, corridorQueues(corridorFeedLength-100))
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	follower := -1
+	for follower < 0 && s.tick < 900*TicksPerSecond {
+		s.Step()
+		follower = slices.IndexFunc(s.vehicles, func(v vehicle) bool {
+			return v.link.leader != 0 && !v.link.draining && v.reservedThrough >= v.link.end
+		})
+	}
+	if follower < 0 {
+		t.Fatal("no grant of an end block")
+	}
+	state := s.ExportState()
+	live := &s.vehicles[follower]
+	if link := state.Pods[follower].Platoon; link == nil || link.Draining {
+		t.Fatalf("tick %d: pod %s saves the link %+v, want a link that does not drain", s.tick, live.Pod.ID, link)
+	}
+	input := RestoreStateInput{Network: network, Fleet: s.initial, State: roundTripState(t, state)}
+	restored, result, err := RestoreState(input)
+	if err != nil || !cleanRestore(result) || restored.vehicles[follower].link != live.link {
+		t.Fatalf("restore %+v, %v, with the link %+v, want %+v", result, err, restored.vehicles[follower].link, live.link)
+	}
+	earlier, _, err := beforeMotion(input, restoreFleets(input, func() (*PreparedNetwork, error) { return PrepareNetwork(network) }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := &earlier.vehicles[follower]; v.link.leader == 0 || !v.link.draining || v.reservedThrough >= live.reservedThrough {
+		t.Fatalf("the restore before the saved motion has the link %+v and the frontier %d, want a draining link and a frontier before %d", v.link, v.reservedThrough, live.reservedThrough)
+	}
+	prepare := func() (*PreparedNetwork, error) { return PrepareNetwork(network) }
+	saved := state.Pods[follower]
+	// A plan at rest with the derived frontier loses the end block, so the
+	// link drains. A plan with the saved frontier keeps the saved flag.
+	r := placedBefore(t, input, follower)
+	leader := r.leaders[follower] - 1
+	retry, placed, err := r.planTravelPlacement(follower, leader, r.placementInput(follower, atRestRetry))
+	if !placed || err != nil || retry.through >= retry.link.end || !retry.link.draining {
+		t.Fatalf("the plan at rest places %t, %v, with the link %+v and the frontier %d", placed, err, retry.link, retry.through)
+	}
+	kept, placed, err := r.planTravelPlacement(follower, leader, r.placementInput(follower, primaryWhole))
+	if !placed || err != nil || kept.through != live.reservedThrough || kept.link.draining {
+		t.Fatalf("the primary plan places %t, %v, with the link %+v and the frontier %d", placed, err, kept.link, kept.through)
+	}
+	// A saved lead past the route is not valid, so it gives no evidence of
+	// the grant of the end block, and the link keeps the saved flag.
+	invalid := withPod(input.State, follower, func(pod *SavedPod) { pod.ReservedAhead = live.blocks.len() })
+	r = placedBefore(t, RestoreStateInput{Network: network, Fleet: s.initial, State: invalid}, follower)
+	retry, placed, err = r.planTravelPlacement(follower, leader, r.placementInput(follower, atRestRetry))
+	if r.projected[follower] || !placed || err != nil || retry.link.draining {
+		t.Fatalf("with a lead that is not valid, the plan at rest places %t, %v, with the link %+v", placed, err, retry.link)
+	}
+	// One representable distance past an interior block end, the primary
+	// frame finds the next block, and the earlier frame snaps back to the
+	// block end. The saved lead reaches the end block from the next block
+	// only. The projection decodes the frontier in the primary frame, so
+	// the restore before the saved motion drains the link. The primary
+	// restore keeps the frontier and the saved flag.
+	first, _ := routeLaneBlocks(&live.blocks, saved.RouteIndex)
+	tie := -1
+	for block := live.blockIndex - 1; block >= first && tie < 0; block-- {
+		if reservationEnd(&live.blocks, block) < reservationEnd(&live.blocks, block+1) {
+			tie = block
+		}
+	}
+	if tie < 0 || live.reservedThrough < live.link.end || live.reservedThrough-(reservationEnd(&live.blocks, tie+1)-reservationEnd(&live.blocks, tie)) >= live.link.end {
+		t.Fatalf("no block end behind the follower for the projection: blocks %d to %d, frontier %d, end %d", first, live.blockIndex, live.reservedThrough, live.link.end)
+	}
+	past := withPod(input.State, follower, func(pod *SavedPod) {
+		pod.Distance = math.Nextafter(live.blocks.end(tie), math.Inf(1))
+		pod.LaneDistance = pod.Distance - live.blocks.lanes[saved.RouteIndex].start
+		pod.ReservedAhead = live.reservedThrough - reservationEnd(&live.blocks, tie+1)
+	})
+	pastInput := RestoreStateInput{Network: network, Fleet: s.initial, State: past}
+	primary, result, err := RestoreState(pastInput)
+	if v := &primary.vehicles[follower]; err != nil || !cleanRestore(result) || v.blockIndex != tie+1 || v.reservedThrough != live.reservedThrough || v.link.draining {
+		t.Fatalf("the primary restore %+v, %v, is at block %d with the link %+v and the frontier %d, want block %d", result, err, v.blockIndex, v.link, v.reservedThrough, tie+1)
+	}
+	earlier, _, err = beforeMotion(pastInput, restoreFleets(pastInput, prepare))
+	if v := &earlier.vehicles[follower]; err != nil || v.blockIndex != tie || v.reservedThrough >= v.link.end || !v.link.draining {
+		t.Fatalf("the restore before the saved motion, %v, is at block %d with the link %+v and the frontier %d, want block %d and a draining link", err, v.blockIndex, v.link, v.reservedThrough, tie)
+	}
+	// The primary frame of a trimmed route snaps the distance back to the
+	// block end, so the saved lead does not reach the end block, and the
+	// projection keeps the saved flag.
+	trimmed := withPod(past, follower, func(pod *SavedPod) { pod.RouteTrimmed = true })
+	for _, test := range []struct {
+		name  string
+		state SavedState
+		want  bool
+	}{{"whole", past, true}, {"trimmed", trimmed, false}} {
+		r = placedBefore(t, RestoreStateInput{Network: network, Fleet: s.initial, State: test.state}, follower)
+		if r.projected[follower] != test.want {
+			t.Fatalf("one distance past the block end, the %s route projects the drain %t, want %t", test.name, r.projected[follower], test.want)
+		}
+	}
+}
+
+// TestPlatoonFallbackProjectsOnce saves the end-grant fixture with the
+// follower at the speed limit of its lane and its predecessor at rest, so
+// that the stop point of the follower is too close to that of its
+// predecessor and the first physical restore fails. The
+// restore before the saved motion then restores the fleet. The first
+// restore projects the draining flag of each saved link once, and the
+// second takes those flags, so the follower, which had the grant of the
+// end block, drains. Each traveling pod of the second restore places with
+// no saved speed, lead, or latch, in the earlier frame.
+func TestPlatoonFallbackProjectsOnce(t *testing.T) {
+	t.Parallel()
+	network := mergeCorridor(true, 30)
+	s := restoreCorridor(t, network, corridorQueues(corridorFeedLength-100))
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	follower := -1
+	for follower < 0 && s.tick < 900*TicksPerSecond {
+		s.Step()
+		follower = slices.IndexFunc(s.vehicles, func(v vehicle) bool {
+			return v.link.leader != 0 && !v.link.draining && v.reservedThrough >= v.link.end
+		})
+	}
+	if follower < 0 {
+		t.Fatal("no grant of an end block")
+	}
+	leader := s.vehicles[follower].link.leader - 1
+	state := withPod(roundTripState(t, s.ExportState()), follower, func(pod *SavedPod) {
+		pod.Speed = s.vehicles[follower].blocks.route[pod.RouteIndex].SpeedLimit
+	})
+	state = withPod(state, leader, func(pod *SavedPod) { pod.Speed = 0 })
+	input := RestoreStateInput{Network: network, Fleet: s.initial, State: state}
+	projected := make(map[int]int)
+	input.linkProjected = func(index int) { projected[index]++ }
+	restored, result, err := RestoreState(input)
+	if err != nil || !result.EarlierRestore {
+		t.Fatalf("restore %+v, %v, want the restore before the saved motion", result, err)
+	}
+	// The follower had the grant of the end block, so its link drains in
+	// the restore before the saved motion, which derives a frontier short
+	// of that block.
+	if v := &restored.vehicles[follower]; v.link.leader != leader+1 || !v.link.draining || v.reservedThrough >= v.link.end {
+		t.Fatalf("the follower restores with the link %+v and the frontier %d, want a draining link to pod %d and a frontier before its end", v.link, v.reservedThrough, leader+1)
+	}
+	links, leads := 0, 0
+	for index, pod := range state.Pods {
+		if pod.Platoon != nil {
+			links++
+			if projected[index] != 1 {
+				t.Fatalf("pod %s projects the draining flag of its link %d times, want once", pod.ID, projected[index])
+			}
+		}
+		if pod.ReservedAhead > 0 {
+			leads++
+		}
+	}
+	if links == 0 || leads == 0 || len(projected) != links {
+		t.Fatalf("%d links and %d saved leads, with the projections %v", links, leads, projected)
+	}
+	newFleet := restoreFleets(input, func() (*PreparedNetwork, error) { return PrepareNetwork(network) })
+	r, _, err := newRestoreEngine(input, newFleet, &earlierEngine{projected: make([]bool, len(state.Pods))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := range state.Pods {
+		if r.s.vehicles[index].Pod.Activity != Traveling {
+			continue
+		}
+		want := earlierWholeFrame
+		if state.Pods[index].RouteTrimmed {
+			want = earlierTrimmedFrame
+		}
+		if in := r.placementInput(index, r.firstPolicy(index)); in.speed != 0 || in.lead != 0 || in.latch != (reversal{}) || in.frame != want {
+			t.Fatalf("pod %s places before the saved motion with %+v", state.Pods[index].ID, in)
+		}
+	}
+}
+
+// placedBefore returns the physical restore of input, before the
+// placement of the traveling pods, with each traveling pod that
+// placeTraveling places before the pod at index placed.
+func placedBefore(t *testing.T, input RestoreStateInput, index int) *physicalRestore {
+	t.Helper()
+	newFleet := restoreFleets(input, func() (*PreparedNetwork, error) { return PrepareNetwork(input.Network) })
+	r, _, err := newRestoreEngine(input, newFleet, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var order []int
+	for pod := range r.state.Pods {
+		if r.s.vehicles[pod].Pod.Activity == Traveling {
+			order = append(order, pod)
+		}
+	}
+	slices.SortStableFunc(order, func(a, b int) int { return cmp.Compare(r.linkDepth(a), r.linkDepth(b)) })
+	for _, pod := range order[:slices.Index(order, index)] {
+		if _, err := r.placeTravelingPod(pod, r.leaders[pod]-1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return r
+}
+
+// TestFailedPlanLeavesThePod plans a placement of the follower of the
+// end-grant fixture that cannot stop within its derived frontier. The plan
+// fails, and the pod, its predecessor, the claims, and the restore are as
+// in a restore that did not plan it. Then the follower places as in that
+// restore. A failed plan of the head of the platoon, at its frontier,
+// also leaves the head as it was.
+func TestFailedPlanLeavesThePod(t *testing.T) {
+	t.Parallel()
+	network := mergeCorridor(true, 30)
+	s := restoreCorridor(t, network, corridorQueues(corridorFeedLength-100))
+	if err := s.SetPlatooning(PlatooningVirtual); err != nil {
+		t.Fatal(err)
+	}
+	follower := -1
+	for follower < 0 && s.tick < 900*TicksPerSecond {
+		s.Step()
+		follower = slices.IndexFunc(s.vehicles, func(v vehicle) bool {
+			return v.link.leader != 0 && !v.link.draining && v.reservedThrough >= v.link.end && v.Pod.Speed > 0
+		})
+	}
+	if follower < 0 {
+		t.Fatal("no moving follower at the grant of an end block")
+	}
+	input := RestoreStateInput{Network: network, Fleet: s.initial, State: roundTripState(t, s.ExportState())}
+	planned, reference := placedBefore(t, input, follower), placedBefore(t, input, follower)
+	leader := planned.leaders[follower] - 1
+	saved := planned.state.Pods[follower]
+	input0 := placementInput{frame: wholeFrame, speed: saved.Speed, latch: reversal{lane: saved.ReversalLane, ticks: saved.ReversalTicks}}
+	if _, placed, err := planned.planTravelPlacement(follower, leader, input0); placed || err != nil {
+		t.Fatalf("the plan at speed %v with the derived frontier placed %t, %v, want a failed plan", saved.Speed, placed, err)
+	}
+	same := func(stage string) {
+		t.Helper()
+		switch {
+		case !reflect.DeepEqual(planned.s.vehicles[follower], reference.s.vehicles[follower]):
+			t.Fatalf("%s: the follower differs", stage)
+		case !reflect.DeepEqual(planned.s.vehicles[leader], reference.s.vehicles[leader]):
+			t.Fatalf("%s: the predecessor differs", stage)
+		case !maps.Equal(planned.s.owners, reference.s.owners) || planned.s.platoonLinks != reference.s.platoonLinks:
+			t.Fatalf("%s: the claims or the links differ", stage)
+		case !slices.Equal(planned.latchDropped, reference.latchDropped) || !slices.Equal(planned.atRest, reference.atRest):
+			t.Fatalf("%s: the restore differs", stage)
+		}
+	}
+	same("after the failed plan")
+	for _, r := range []*physicalRestore{planned, reference} {
+		if placed, err := r.placeTravelingPod(follower, leader); !placed || err != nil {
+			t.Fatalf("the follower places %t, %v", placed, err)
+		}
+	}
+	same("after the placement")
+
+	// The head of the platoon has no predecessor, and no restore looked
+	// up its blocks before its plan. A lead past its route fails the plan
+	// at the frontier, after the decoder has read the blocks.
+	head := leader
+	planned, reference = placedBefore(t, input, head), placedBefore(t, input, head)
+	if planned.leaders[head] != 0 {
+		t.Fatalf("the predecessor of the follower has a predecessor %d", planned.leaders[head])
+	}
+	invalid := placementInput{frame: wholeFrame, lead: planned.s.vehicles[head].blocks.len()}
+	if _, placed, err := planned.planTravelPlacement(head, -1, invalid); placed || err != nil {
+		t.Fatalf("the plan of the head with a lead past its route placed %t, %v, want a failed plan", placed, err)
+	}
+	if !reflect.DeepEqual(planned.s.vehicles[head], reference.s.vehicles[head]) {
+		t.Fatal("the failed plan changed the head")
+	}
 }
 
 // TestPlatoonRestoreRoundTrip saves and restores a platoon of two pods at

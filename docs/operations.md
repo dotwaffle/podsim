@@ -217,6 +217,7 @@ The server saves the session state at these times:
 A save copies the state while it holds the session lock.
 It encodes, compresses, and writes the copy after it releases the lock.
 Each saved pod or waiting trip route has at most 1,024 lanes.
+A traveling pod saves the whole route of its journey when it fits, and the lanes of its route that can still hold a resource when it does not.
 Smaller networks keep the lower bounds: lanes plus nodes for a pod, and nodes for a trip.
 The server omits a longer route without changing live routing or motion.
 Physical restore moves a pod with an omitted or over-limit route to a free berth.
@@ -271,10 +272,14 @@ It reports them as unaccounted orders at each restore, together with the orders 
 
 - `physical`: The pods keep their lane positions, their speeds, and their track reservations.
   A traveling pod keeps its speed only when it can stop within its reservation at the braking rate of its class.
-  Otherwise it restores at rest with the reservation that its position gives, as the version 13 rules below describe.
+  Otherwise it restores at rest with the reservation that its position gives, as the version 14 rules below describe.
   A traveling pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
   The routes of the restore must fit in a budget of track cells.
   The budget is 32 times the cells of the network plus 4 cells for each lane, but at most 256,000 cells.
+  A save keeps whole routes only when they fit the budget.
+  Otherwise it saves the lanes of each route that can still hold a resource, and marks each such route with `routeTrimmed`.
+  A pod that its whole route would not restore at its route distance, in its block, with its reservation and its reversal dwell latch, also saves its trimmed route with `routeTrimmed`.
+  This can occur after a restore with a trimmed route, with no saved motion, right after a redirect, or with a fault at the start of a lane after a reversal dwell.
   When the saved routes do not fit, the pods with the longest routes go to a free berth first.
   The tier fails when two pods at berths conflict, or when a traveling pod finds no free berth.
   Its parties board again at their origin station, or go back to the queue.
@@ -308,7 +313,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Each session writes saved-state version 13, and this server accepts only version 13.
+Each session writes saved-state version 14, and this server accepts only version 14.
 The root `orderContract` marker `express-v1` selects the Express order bounds.
 The project and the simulation must have the same marker as the root.
 The file can have these incident members, and it omits each one at 0 or when it is absent:
@@ -374,20 +379,20 @@ The order text of each queued order and each rider is canonical base64 text, for
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-An intact file of version 1 through 12, or of version 14 or later, gets reason `unsupported_version`.
+An intact file of version 1 through 13, or of version 15 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
 It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
-Thus a version 13 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
-Likewise, a version 13 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
-A version 13 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
+Thus a version 14 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 14 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+A version 14 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
-Likewise, a version 13 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
+Likewise, a version 14 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
 Its error starts with `decode session state: json:` and ends with the clause `unknown object member name "<m>"`, where `<m>` is the first of these members in the file.
-A version 13 file without these members restores under the shape clearance rule.
+A version 14 file without these members restores under the shape clearance rule.
 When the audit of that rule refuses the saved network, the file gets `invalid_state` with the error `saved project: ...`.
 Until the first release, a narrower set of accepted values also keeps the version.
 By maintainer decision, version 12 was an exception to both rules, because it removed `journeyOrigin` of a pod and needs a boarding record for each party in a pod.
@@ -395,20 +400,39 @@ Version 13 adds the `speed` and the `reservedAhead` members of a traveling pod.
 A file with either member on a pod that does not travel, also with the value 0, or with either member `null`, gets `invalid_state`.
 A traveling pod whose saved speed is more than 1e-3 m/s above the speed limit of its lane, or whose saved motion fails another check of the restore, restores at rest with the reservation that its position gives, as before version 13.
 The pod moves to a berth only when that placement also fails, as other demoted pods do.
-When the `physical` tier moves a pod to a berth or fails, the restore also runs it as before version 13: without the saved speeds and leads, and with a pod within 1e-6 m of a block end moved to the block end.
+Version 14 adds the `routeTrimmed`, `reversalLane`, and `reversalTicks` members of a traveling pod.
+`routeTrimmed` is true on a trimmed route, and the save omits it when it is false.
+A trimmed route usually starts after the first lane of the journey.
+A pod with a whole route restores at its saved distance, and a pod with a trimmed route moves to a block end within 1e-9 m.
+`reversalLane` and `reversalTicks` keep the 1 second stop at a change of the reverse flag, and the save omits each one at 0.
+`reversalLane` is the index in the saved route of the lane where the stop is due, or that index negated after the stop.
+`reversalTicks` counts the ticks of the stop, from 0 to 29.
+A file with one of these members on a pod that does not travel, also with the value 0 or false, or with one of them `null`, gets `invalid_state`.
+So does a file with `routeTrimmed` on a pod with no route, and a file with a stop that is not on the route ahead of the pod, or not at a change of the reverse flag.
+The `physical` tier keeps a saved stop only when it agrees with the restored position and speed of the pod.
+A pod is not past the lane start of a stop that is due, and it is at rest at that lane start when the stop has ticks.
+A pod is not short of the lane start of a stop that is done.
+A stop that is due is at the first change of the reverse flag that the pod finds from its restored position, within its reservation.
+A pod at the lane start of an earlier change finds that change, because a live pod latches the next change only in a tick in which it can move on from that lane start.
+Otherwise the restore drops the saved stop, and the pod stops again at the next change of the reverse flag that it has not passed.
+A trimmed route restores in its own frame, so the restore can drop a stop at a lane start of such a route.
+A pod that waits at the end of a whole route with no berth, as at a full depot entry, restores at that end with the lane distance that it showed before it stopped there.
+The decoder refuses a `null` `speed` or `reservedAhead` before it checks `withdrawn` and the operational destination of the pod, and a `null` `routeTrimmed`, `reversalLane`, or `reversalTicks` after them.
+The restore refuses the saved motion first, then `routeTrimmed`, and then the stop.
+When the `physical` tier moves a pod to a berth or fails, the restore also runs it as before version 13: without the saved speeds, leads, and stops, and with a pod within 1e-6 m of a block end moved to the block end.
 The restore uses that second result when the first fails, or when the first moves a pod to a berth that the second keeps.
 When both fail, the second failure decides between a refusal and the `logical` tier.
 At startup, the server logs the fallbacks that the selected `physical` restore used in the `Restored pods without their saved motion` record.
 When both `physical` restores fail and the `logical` tier runs, the server writes no such record.
-Thus a version 12 file gets `unsupported_version`, and a version 13 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
-Each integer of a version 13 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+Thus a version 12 file gets `unsupported_version`, and a version 14 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
+Each integer of a version 14 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
 The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
 Within the scan, the depth and the size checks of a value come before its integer check.
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
-Each ID of a version 13 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each ID of a version 14 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
 Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
 After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
 After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
@@ -448,13 +472,16 @@ Then it refuses a parked tick on a pod that is not parked in a depot lane.
 Last, it refuses a depot lane whose pods are not in slot order from the head to the tail.
 After all of these checks, an Express save with a dispatch reason of more than 90 bytes gets `invalid_state` with the error `saved Express dispatch reason is too long`.
 The simulation writes no longer reason, and the Express stream byte bound depends on this limit.
-In the physical tier, a pod that left a slot keeps the lanes of its route that its origin still holds.
+In the physical tier, a pod that left a slot keeps its whole route, or the lanes that its origin still holds on a trimmed route.
 A pod bound at the entry keeps its reservation up to the end of the incoming lane, or through its slot when it held that grant.
+When the route passes the incoming lane more than once, a whole route takes its last pass as the entry, as the live route does.
+A trimmed route takes the first pass of the saved lanes, as version 13 did.
+The second `physical` restore without the saved motion, and the check of the faulted pods before it, take that first pass on a trimmed route, and the next pass ahead of the pod on a whole route.
 A pod that the tier must move takes a slot only when no pod of that lane moves, and only the slot behind the rearmost taken slot.
 Its parked tick is then the saved tick.
-The file does not keep the 1 second stop at a change of the reverse flag.
-Thus a pod that was in this stop stops for the full second again after a restore.
-An older server rejects version 13 with `unsupported_version` and moves the file aside.
+The file keeps the 1 second stop at a change of the reverse flag.
+Thus a pod that was in this stop waits only for the rest of the second after a restore.
+An older server rejects version 14 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.

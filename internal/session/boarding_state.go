@@ -174,16 +174,25 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	if present && (len(wire.Boardings) < 1 || len(wire.Boardings) > sim.MaxStoredRidersForOrderContract(wire.Class, contract) || len(wire.Boardings) != len(wire.Riders)) {
 		return savedPodRefs{}, errors.New("invalid saved boarding tuple alignment")
 	}
-	speed, ahead, membersErr := savedMotionMembers(members, decoder.StackPointer())
-	if membersErr != nil {
-		return savedPodRefs{}, membersErr
+	pointer := decoder.StackPointer()
+	if err := refuseNullMembers(members, pointer, "speed", "reservedAhead"); err != nil {
+		return savedPodRefs{}, err
 	}
 	*pod = sim.SavedPod(wire.savedPodFields)
-	pod.SetMotionMembers(speed, ahead)
 	pod.Boardings = nil
 	if err := checkSavedOperational(*pod, wire.Operational); err != nil {
 		return savedPodRefs{}, err
 	}
+	// The null checks of the members of the exact restore coordinates come
+	// after the checks of the older members, so that they hide no older
+	// refusal.
+	if err := refuseNullMembers(members, pointer, "routeTrimmed", "reversalLane", "reversalTicks"); err != nil {
+		return savedPodRefs{}, err
+	}
+	motion := savedMotionMembers(members)
+	pod.SetMotionMembers(motion.speed, motion.reservedAhead)
+	pod.SetMarkerMember(motion.routeTrimmed)
+	pod.SetReversalMembers(motion.reversalLane, motion.reversalTicks)
 	if wire.Operational != nil {
 		pod.Purpose, pod.Owner, pod.Interrupt = wire.Operational.Purpose, wire.Operational.Owner, wire.Operational.Interrupt
 	}
@@ -194,20 +203,42 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	return refs, nil
 }
 
-// savedMotionMembers reports whether the raw members of the saved pod at
-// pointer have the speed and the reservedAhead members. It refuses a null
-// member. A null or an explicit 0 decodes as an absent member, so only the
-// raw members show them. The simulation applies the rules of the members
-// (restore speed proposal, section 4.2).
-func savedMotionMembers(members map[string]jsontext.Value, pointer jsontext.Pointer) (speed, reservedAhead bool, err error) {
-	for _, name := range [...]string{"speed", "reservedAhead"} {
+// savedPodMembers tells which of the members of a saved pod whose value 0
+// or false the simulation refuses on a pod that is not traveling the file
+// has.
+type savedPodMembers struct {
+	speed, reservedAhead, routeTrimmed, reversalLane, reversalTicks bool
+}
+
+// refuseNullMembers refuses the first of the named raw members of the
+// saved pod at pointer that is null. A null or an explicit 0 decodes as an
+// absent member, so only the raw members show a null. decodeBoardingPodContract
+// checks speed and reservedAhead, then the holds and the operational
+// destination, and then routeTrimmed, reversalLane, and reversalTicks,
+// which is the order of the restore checks of these members.
+func refuseNullMembers(members map[string]jsontext.Value, pointer jsontext.Pointer, names ...string) error {
+	for _, name := range names {
 		if field, ok := members[name]; ok && field.Kind() == jsontext.KindNull {
-			return false, false, fmt.Errorf("saved member %s/%s is null", pointer, name)
+			return fmt.Errorf("saved member %s/%s is null", pointer, name)
 		}
 	}
-	_, speed = members["speed"]
-	_, reservedAhead = members["reservedAhead"]
-	return speed, reservedAhead, nil
+	return nil
+}
+
+// savedMotionMembers reports whether the raw members of a saved pod have
+// the speed, the reservedAhead, the routeTrimmed, the reversalLane, and
+// the reversalTicks members. An explicit 0 or false decodes as an absent
+// member, so only the raw members show them. The simulation applies the
+// rules of the members (restore speed proposal, section 4.2, and exact
+// restore coordinates proposal, EC-D3 and EC-D8).
+func savedMotionMembers(members map[string]jsontext.Value) savedPodMembers {
+	var present savedPodMembers
+	_, present.speed = members["speed"]
+	_, present.reservedAhead = members["reservedAhead"]
+	_, present.routeTrimmed = members["routeTrimmed"]
+	_, present.reversalLane = members["reversalLane"]
+	_, present.reversalTicks = members["reversalTicks"]
+	return present
 }
 
 // resolveBoardings binds the saved references only after the caller

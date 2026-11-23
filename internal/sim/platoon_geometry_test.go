@@ -71,6 +71,20 @@ func stationNetwork(start Point, lanes []geometryLane, fleet int, berth, exit Po
 // along the whole path to the destination station.
 func restoreGeometry(tb testing.TB, network Network, lanes, pods int, head, gap float64) *Simulation {
 	tb.Helper()
+	fleet, state := geometrySave(network, lanes, pods, head, gap)
+	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
+	if err != nil {
+		tb.Fatal(err)
+	}
+	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
+		tb.Fatalf("the pods did not restore in place: %+v", result)
+	}
+	return s
+}
+
+// geometrySave returns the fleet and the saved state that restoreGeometry
+// restores.
+func geometrySave(network Network, lanes, pods int, head, gap float64) ([]Placement, SavedState) {
 	laneIndex := make(map[string]int, len(network.Lanes))
 	for index, lane := range network.Lanes {
 		laneIndex[lane.ID] = index
@@ -95,14 +109,7 @@ func restoreGeometry(tb testing.TB, network Network, lanes, pods int, head, gap 
 			Route:     route, LaneID: "l0", LaneDistance: distance, Distance: distance,
 		})
 	}
-	s, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state})
-	if err != nil {
-		tb.Fatal(err)
-	}
-	if result.Tier != RestorePhysical || len(result.Demoted) != 0 {
-		tb.Fatalf("the pods did not restore in place: %+v", result)
-	}
-	return s
+	return fleet, state
 }
 
 // TestPlatoonTurnSum checks the total turn of a run of lanes. Each change of

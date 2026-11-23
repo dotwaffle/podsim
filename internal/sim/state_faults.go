@@ -238,11 +238,17 @@ func checkSavedFaultFootprints(input RestoreStateInput, newFleet func() (*Simula
 	}
 	// The check runs once, before both physical restores, so it places the
 	// pods as the restore before the saved motion does (see
-	// restoreBeforeMotion): with no saved speed or lead, and with its snap.
-	// It then refuses only a save that that restore refuses. The first
-	// physical restore finds a saved lead that meets debris.
-	r := newPhysicalRestore(s, stateBeforeMotion(input.State))
-	r.snap = restoreTolerance
+	// restoreBeforeMotion): with the earlier placement policy, which reads
+	// no saved speed, lead, or latch. It then refuses only a save that that
+	// restore refuses. The first physical restore finds a saved lead that
+	// meets debris.
+	// The scratch fleet builds the route of each faulted traveling pod (see
+	// routeFaultedPod) before limitWork, so it can build a route that the
+	// physical tier demotes over the block budget. This predates saved-state
+	// version 14, and a follow-up changes it. RestoreStateInput.routeBuilt
+	// does not count these builds.
+	r := newPhysicalRestore(s, input.State)
+	r.earlier = true
 	r.restoreCounters()
 	if err := r.placeDebris(); err != nil {
 		return err

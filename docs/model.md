@@ -313,6 +313,8 @@ It also checks the stop points, as when a link forms.
 The stop point of the follower must be at least the clearance behind the stop point of its predecessor.
 When this check fails, the whole save restores as before saved-state version 13, with each pod at rest.
 A link that drains before the save also drains after the restore.
+In the tick when the follower reserves the end block of the run, the saved flag is still false, because the link starts to drain in the next tick.
+A restore that gives such a follower a shorter reservation drains the link.
 See [session state](operations.md#session-state) for the restore tiers.
 
 ## Stations and parking

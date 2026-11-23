@@ -103,6 +103,9 @@ type sweepCounts struct {
 	placed, skipped, checked, trimmed, resting, descending int
 	snapped, held, second                                  int
 	moved                                                  float64
+	// whole counts the restores of a whole route that differ from the
+	// live owners. It must stay 0.
+	whole int
 }
 
 // placeSweepPod returns a restore of state with the pod at index at the
@@ -280,7 +283,7 @@ func sweepFleet(t *testing.T, fixture sweepFixture) {
 		t.Fatalf("%s: pod %s is %s", fixture.c.name, pod.ID, pod.Activity)
 	}
 	live := &fixture.c.s.vehicles[fixture.index]
-	if start, _, _ := fixture.c.s.savedStart(live); start != 0 {
+	if start := fixture.c.s.savedStart(live); start != 0 {
 		t.Fatalf("%s: the saved route starts at lane %d", fixture.c.name, start)
 	}
 	boundaries := sweepBoundaries(live, fixture.boundaries)
@@ -336,8 +339,8 @@ func sweepFleet(t *testing.T, fixture sweepFixture) {
 	if counts.second == 0 {
 		t.Fatalf("%s: no second round trip", fixture.c.name)
 	}
-	t.Logf("%s: %d boundaries of the kinds %v, %d placements, %d skipped, %d checks, %d with a later route start, %d at rest, %d at a descending limit; residual (a) %d (largest move %v m), residual (b) %d; %d second round trips",
-		fixture.c.name, len(boundaries), slices.Sorted(maps.Keys(checkedKinds)), counts.placed, counts.skipped, counts.checked, counts.trimmed, counts.resting, counts.descending, counts.snapped, counts.moved, counts.held, counts.second)
+	t.Logf("%s: %d boundaries of the kinds %v, %d placements, %d skipped, %d checks, %d with a later route start, %d at rest, %d at a descending limit; whole-route residual %d; trimmed residual (a) %d (largest move %v m), residual (b) %d; %d second round trips",
+		fixture.c.name, len(boundaries), slices.Sorted(maps.Keys(checkedKinds)), counts.placed, counts.skipped, counts.checked, counts.trimmed, counts.resting, counts.descending, counts.whole, counts.snapped, counts.moved, counts.held, counts.second)
 }
 
 // sweepCheck places the pod of fixture at distance and speed, steps it
@@ -352,21 +355,33 @@ func sweepCheck(t *testing.T, fixture sweepFixture, state SavedState, distance, 
 	counts.placed++
 	c := fixture.c
 	c.s, c.noJSON = s, true
+	// The restore of the whole route must keep the owners exactly (exact
+	// restore coordinates proposal, section 7.3). The restore of the
+	// trimmed routes of a save over the budget can differ from them only
+	// in the two ways of classifyResidual.
 	check := func(when string) {
 		v := &s.vehicles[fixture.index]
 		stats := newRoundTripStats()
-		got := roundTripCheck(t, c, &stats)
+		got := roundTripCheck(t, c, &stats, true)
 		counts.checked++
 		if v.Pod.Speed == 0 {
 			counts.resting++
 		}
-		if start, _, _ := s.savedStart(v); start > 0 {
-			counts.trimmed++
+		reason := got.failure
+		if reason == "" && len(got.dropped)+len(got.extra) != 0 {
+			counts.whole++
+			reason = fmt.Sprintf("the restore of the whole route drops the owners of %v and adds owners of %v", got.dropped, got.extra)
 		}
-		reason := sweepResidual(s, fixture.index, got, counts)
 		if reason == "" && got.restored != nil {
 			reason = secondRoundTrip(t, c, got.restored)
 			counts.second++
+		}
+		if reason == "" {
+			trimmed := roundTripCheck(t, c, &stats, false)
+			if start := s.savedStart(v); start > 0 {
+				counts.trimmed++
+			}
+			reason = sweepResidual(s, fixture.index, trimmed, counts)
 		}
 		if reason != "" {
 			t.Errorf("%s: %s, placed at %v at %v m/s, %s at %v at %v m/s: %s", c.name, where, distance, speed, when, v.distance, v.Pod.Speed, reason)
@@ -395,7 +410,7 @@ func sweepResidual(s *Simulation, index int, got roundTripResult, counts *sweepC
 		return ""
 	}
 	v, copied := &s.vehicles[index], &got.restored.vehicles[index]
-	start, _, _ := s.savedStart(v)
+	start := s.savedStart(v)
 	pod := residualPod{
 		moving: v.Pod.Speed > 0, trimmed: start > 0, distance: v.distance,
 		end: math.Inf(1), restoredDistance: copied.distance, restoredEnd: math.NaN(),
@@ -462,11 +477,13 @@ type residualOwner struct {
 // restore of pod, 'a' or 'b', or 0 and the reason (restore speed
 // proposal, section 4.1).
 //
-// (a) The pod moves, and it is short of the live block end by at most
-// restoreDriftTolerance. The restore puts it exactly on the matching
-// restored block end and drops the owners that the live pod releases
-// there: each is a resource of the pod with its live release distance in
-// (distance, end].
+// (a) The pod moves, or it is at rest on a trimmed route, and it is short
+// of the live block end by at most restoreDriftTolerance. The restore puts
+// it exactly on the matching restored block end and drops the owners that
+// the live pod releases there: each is a resource of the pod with its live
+// release distance in (distance, end]. A whole route restores with no
+// snap, so a pod at rest on it has no residual (exact restore coordinates
+// proposal, EC-D1 D).
 //
 // (b) The saved route of the pod starts at a later lane, and the live
 // distance is a release distance. The restore keeps the live owners and
@@ -474,7 +491,7 @@ type residualOwner struct {
 // equal to the live distance.
 func classifyResidual(pod residualPod) (byte, string) {
 	switch {
-	case len(pod.extra) == 0 && pod.moving:
+	case len(pod.extra) == 0 && (pod.moving || pod.trimmed):
 		if pod.end-pod.distance > restoreDriftTolerance || pod.restoredDistance != pod.restoredEnd {
 			return 0, fmt.Sprintf("the restore drops %v, the pod is %v m short of the block end %v, and it restores at %v, not at the restored end %v",
 				pod.dropped, pod.end-pod.distance, pod.end, pod.restoredDistance, pod.restoredEnd)
@@ -538,7 +555,11 @@ func TestClassifyResidual(t *testing.T) {
 		{name: "(a) short of the end by one float step more than the tolerance", pod: edit(snapped, func(pod *residualPod) { pod.distance = beyond })},
 		{name: "(a) with a release one float step past the end", pod: edit(snapped, func(pod *residualPod) { pod.dropped[0].release = math.Nextafter(100, 200) })},
 		{name: "(a) with a release at the distance", pod: edit(snapped, func(pod *residualPod) { pod.dropped[0].release = pod.distance })},
-		{name: "(a) at rest", pod: edit(snapped, func(pod *residualPod) { pod.moving = false })},
+		{name: "(a) at rest on a trimmed route", pod: edit(snapped, func(pod *residualPod) { pod.moving, pod.trimmed = false, true }), want: 'a'},
+		{name: "(a) at rest on a whole route", pod: edit(snapped, func(pod *residualPod) { pod.moving = false })},
+		{name: "(a) at rest on a trimmed route short of the end by one float step more than the tolerance", pod: edit(snapped, func(pod *residualPod) {
+			pod.moving, pod.trimmed, pod.distance = false, true, beyond
+		})},
 		{name: "(b) with an extra owner one float step from the distance", pod: edit(held, func(pod *residualPod) { pod.extra[0].release = math.Nextafter(336.4, 400) })},
 		{name: "(b) with a dropped owner", pod: edit(held, func(pod *residualPod) {
 			pod.dropped = []residualOwner{{held: resource{kind: trackResource, id: "l1"}, own: true, found: true, release: 336.4}}

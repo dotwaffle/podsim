@@ -80,6 +80,11 @@ type networkIndexes struct {
 	// pickupBounds holds the free-flow bounds of each station, by station
 	// ID (see stationPickupBounds).
 	pickupBounds map[string][]float64
+	// laneBlocks holds the blocks of each network lane, and blockBudget the
+	// block budget of the physical restore (see physicalBlockBudget). An
+	// export reads both, so the prepared network keeps them.
+	laneBlocks  []int
+	blockBudget int
 }
 
 // PrepareNetwork validates and copies network, then builds its immutable indexes.
@@ -231,6 +236,7 @@ func newPreparedNetwork(prepared networkPreparation) *PreparedNetwork {
 	p.resourceLanes = indexResourceLanes(owned, p.laneCells)
 	p.platoonData = newPlatoonIndexData(owned)
 	p.pickupBounds = p.indexPickupBounds()
+	p.laneBlocks, p.blockBudget = laneBlockBudget(p.graph.lengths)
 	return p
 }
 

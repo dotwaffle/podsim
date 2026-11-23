@@ -46,12 +46,15 @@ func withPod(state SavedState, index int, edit func(*SavedPod)) SavedState {
 	return state
 }
 
-// withoutMotion returns state with a copy of its pods, each with speed 0
-// and no reservation lead, as a save before the saved motion has them.
+// withoutMotion returns state with a copy of its pods, each with speed 0,
+// no reservation lead, and an empty reversal dwell latch, as a save before
+// the saved motion has them.
 func withoutMotion(state SavedState) SavedState {
 	state.Pods = slices.Clone(state.Pods)
 	for index := range state.Pods {
-		state.Pods[index].Speed, state.Pods[index].ReservedAhead = 0, 0
+		pod := &state.Pods[index]
+		pod.Speed, pod.ReservedAhead = 0, 0
+		pod.ReversalLane, pod.ReversalTicks = 0, 0
 	}
 	return state
 }
@@ -71,7 +74,7 @@ func headRestore(input RestoreStateInput) (*Simulation, RestoreResult, error) {
 	}
 	var physicalErr error
 	if !input.LogicalOnly {
-		s, result, err := restoreBeforeMotion(input, newFleet)
+		s, result, err := beforeMotion(input, newFleet)
 		if err == nil {
 			return s, result, nil
 		}
@@ -214,8 +217,8 @@ func TestRestoreMotionTrimmedFrontier(t *testing.T) {
 	v.blockIndex = first + 2
 	v.Pod.LaneDistance = v.distance - v.blocks.lanes[1].start
 	v.Pod.Position = live.position(v.blocks.route[1], v.Pod.LaneDistance)
-	saved := live.ExportState()
-	if pod := saved.Pods[0]; pod.RouteIndex != 0 || network.Lanes[pod.Route[0]].ID != "l1" {
+	saved := live.exportTrimmed()
+	if pod := saved.Pods[0]; pod.RouteIndex != 0 || network.Lanes[pod.Route[0]].ID != "l1" || !pod.RouteTrimmed {
 		t.Fatalf("the saved route starts at lane %s, route index %d", network.Lanes[pod.Route[0]].ID, pod.RouteIndex)
 	}
 	restored, result := restoreMotion(t, network, fleet, saved)
@@ -227,6 +230,127 @@ func TestRestoreMotionTrimmedFrontier(t *testing.T) {
 		t.Fatalf("the restored frontier is block %d on lane %s, want the third cell of l1", got.reservedThrough, lane)
 	}
 	checkRestoredMatches(t, live, restored)
+}
+
+// TestRestoreTrimmedTiedBlock restores a trimmed save of a pod at rest at
+// exactly 60 m on a lane of 120 m with four cells, with the third cell
+// reserved. The trimmed frame places the pod in the second cell. The whole
+// frame places a pod at the exact end of a cell in the next cell when it
+// holds that cell (see tiedBlock), so the save of the restore keeps the
+// trimmed route with the marker.
+func TestRestoreTrimmedTiedBlock(t *testing.T) {
+	t.Parallel()
+	lanes := []geometryLane{{to: Point{X: 120}}, {to: Point{X: 240}}, {to: Point{X: 360}}}
+	network := geometryNetwork(Point{}, lanes, 1)
+	fleet, state := geometrySave(network, len(lanes), 1, 60, 0)
+	state = withPod(state, 0, func(pod *SavedPod) { pod.RouteTrimmed, pod.ReservedAhead = true, 1 })
+	input := func(state SavedState) RestoreStateInput {
+		return RestoreStateInput{Network: network, Fleet: fleet, State: state}
+	}
+	source, result := restoreMotion(t, network, fleet, state)
+	v := source.findVehicle("p01")
+	if !cleanRestore(result) || len(result.AtRest) != 0 || v.blocks.lanes[0].cells.count() != 4 || v.distance != 60 || v.blockIndex != 1 || v.reservedThrough != 2 {
+		t.Fatalf("restore %+v gives %d cells, the distance %v, the block %d, and the frontier %d, want 4 cells, 60 m, block 1, and frontier 2",
+			result, v.blocks.lanes[0].cells.count(), v.distance, v.blockIndex, v.reservedThrough)
+	}
+	if pod := resaveFixpoint(t, source, "p01", input).Pods[0]; !pod.RouteTrimmed || pod.ReservedAhead != 1 {
+		t.Fatalf("the save of the restore has the marker %t and %d blocks ahead, want a trimmed route with 1", pod.RouteTrimmed, pod.ReservedAhead)
+	}
+}
+
+// TestRestoreTrimmedCellEnd is case 2 of review round 6. The path has a
+// lane l0 of 33554432 m, a lane l1 of 30.3 m, and a lane l2 of 122 m with
+// five cells of 24.4 m (see trimmedCellEndLive). p01 is at rest at the end
+// of the third cell of l2, 73.2 m into the lane, and its grant ends at that
+// cell. Its follower p02 is on l1, so the trimmed route of p01 starts at
+// l1. The live route distance less the start of l1 is 103.5 m. The end of
+// the third cell in the trimmed route is 103.50000000000001 m, within the
+// snap of the trimmed frame, so the restore finds the pod in the third
+// cell and gives it no other cell. A saved distance of the start of l2 in
+// the trimmed route plus the live distance into l2 is 103.50000000298023
+// m, past the snap, and the restore then grants the fourth cell.
+func TestRestoreTrimmedCellEnd(t *testing.T) {
+	t.Parallel()
+	network, fleet, live := trimmedCellEndLive(t, 30.3)
+	v := &live.vehicles[0]
+	saved := live.ExportState()
+	pod := saved.Pods[0]
+	if !pod.RouteTrimmed || network.Lanes[pod.Route[0]].ID != "l1" || pod.RouteIndex != 1 || pod.Distance != 103.5 || pod.ReservedAhead != 0 {
+		t.Fatalf("p01 saves the route from %s, index %d, at %v with %d blocks ahead, want the trimmed route from l1, index 1, at 103.5 with 0",
+			network.Lanes[pod.Route[0]].ID, pod.RouteIndex, pod.Distance, pod.ReservedAhead)
+	}
+	if pod.RiddenMeters != v.riddenBase+v.blocks.lanes[1].start {
+		t.Fatalf("p01 saves %v ridden meters, want %v", pod.RiddenMeters, v.riddenBase+v.blocks.lanes[1].start)
+	}
+	input := RestoreStateInput{Network: network, Fleet: fleet, State: saved}
+	if _, first, err := firstRestore(input); err != nil || !cleanRestore(first) || len(first.AtRest) != 0 {
+		t.Fatalf("the restore with the saved motion gives %v, %+v, want each pod in place", err, first)
+	}
+	restored, result := restoreMotion(t, network, fleet, saved)
+	got := &restored.vehicles[0]
+	if !cleanRestore(result) || result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("result %+v, want each pod in place with no retry and no fallback", result)
+	}
+	// The restored route starts at l1, so the third cell of l2 is its
+	// third cell after the two cells of l1.
+	if lane, cell := got.blocks.lane(got.reservedThrough).ID, got.reservedThrough-got.blocks.lanes[1].first; got.blocks.lanes[1].first != 2 || lane != "l2" || cell != 2 {
+		t.Fatalf("the restored frontier is cell %d of lane %s, want cell 2 of l2", cell, lane)
+	}
+	if !maps.Equal(restored.owners, live.owners) {
+		t.Fatalf("the restored owners\n%v\nwant\n%v", restored.owners, live.owners)
+	}
+	if got.riddenMeters() != v.riddenMeters() {
+		t.Fatalf("p01 has %v ridden meters, want %v", got.riddenMeters(), v.riddenMeters())
+	}
+}
+
+// trimmedCellEndLive returns the network, the fleet, and a restored
+// simulation of two pods on a path of a lane l0 of 33554432 m, a lane l1
+// of first meters, and a lane l2 of about 122 m with five cells. p01 is at
+// rest at the end of the third cell of l2, with its grant through that
+// cell. p02 is at rest 20 m into l1, linked to p01 in a run of l1 and l2.
+// The whole routes have more blocks than the block budget of the network,
+// so the restore uses a larger budget, and ExportState saves trimmed
+// routes.
+func trimmedCellEndLive(t *testing.T, first float64) (Network, []Placement, *Simulation) {
+	t.Helper()
+	const prefix = 33554432.0
+	lanes := []geometryLane{{to: Point{}}, {to: Point{X: first}}, {to: Point{X: first + 122}}, {to: Point{X: first + 422}}}
+	network := geometryNetwork(Point{X: -prefix}, lanes, 2)
+	fleet, state := geometrySave(network, len(lanes), 2, 100, 50)
+	route := make([]Lane, len(lanes))
+	for index := range lanes {
+		route[index] = network.Lanes[state.Pods[0].Route[index]]
+	}
+	s, err := NewFleet(network, fleet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blocks, _ := s.routeBlocks(route)
+	if blocks.lanes[1].start != prefix || blocks.lanes[1].length != first || blocks.lanes[2].first+5 != blocks.lanes[3].first {
+		t.Fatalf("l1 starts at %v and is %v m long, and l2 has %d cells", blocks.lanes[1].start, blocks.lanes[1].length, blocks.lanes[3].first-blocks.lanes[2].first)
+	}
+	at := blocks.cellEnd(2, 2)
+	ids := []string{"l1", "l2", "l3"}
+	link := savedRunLink(network, ids, ids, "p01", 2)
+	link.Lane, link.LeaderLane = 1, 1
+	state = withPod(state, 0, func(pod *SavedPod) {
+		pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance = 2, "l2", at-blocks.lanes[2].start, at
+	})
+	state = withPod(state, 1, func(pod *SavedPod) {
+		pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance, pod.Platoon = 1, "l1", 20, prefix+20, link
+	})
+	live, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: state, blockBudget: 3_000_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := &live.vehicles[0]
+	third := v.blocks.lanes[2].first + 2
+	if !cleanRestore(result) || v.distance != at || v.Pod.Speed != 0 || v.reservedThrough != third || v.follower != 2 {
+		t.Fatalf("result %+v: p01 at %v at %v m/s with the frontier %d and the follower %d, want %v at rest with %d and p02",
+			result, v.distance, v.Pod.Speed, v.reservedThrough, v.follower, at, third)
+	}
+	return network, fleet, live
 }
 
 // TestRestoreMotionStopCheck checks that a restored pod at speed must stop
@@ -602,9 +726,10 @@ func TestRestoreMotionLinkStopPoint(t *testing.T) {
 // firstRestore runs the physical tier of input with the saved motion,
 // without the restore before the saved motion (see restorePhysicalMotion).
 func firstRestore(input RestoreStateInput) (*Simulation, RestoreResult, error) {
-	return restorePhysical(input, restoreFleets(input, func() (*PreparedNetwork, error) {
+	s, result, _, err := restorePhysical(input, restoreFleets(input, func() (*PreparedNetwork, error) {
 		return prepareContractNetwork(input.Network, input.Fleet, input.OrderContract)
 	}))
+	return s, result, err
 }
 
 // TestRestoreMotionOverspeedFollower restores a saved link whose follower
@@ -874,8 +999,79 @@ func TestRestoreMotionRefusals(t *testing.T) {
 	}
 }
 
+// TestRestoreMarkerAndLatchRefusals pins the refusal of each malformed
+// trimmed route marker and reversal dwell latch, and the order of the
+// rules for one pod (exact restore coordinates proposal, EC-D3 and EC-D8).
+// These checks come after the checks of the saved motion. The network of
+// the moving pod has no reverse lane.
+func TestRestoreMarkerAndLatchRefusals(t *testing.T) {
+	t.Parallel()
+	idle := RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: newTraffic(t).ExportState()}
+	network, fleet, traveling := motionFixture(t, 1, 100, 0, nil)
+	moving := RestoreStateInput{Network: network, Fleet: fleet, State: traveling}
+	const idleLatch = "pod 01 is not traveling and has a reversal dwell latch"
+	for _, test := range []struct {
+		name string
+		base RestoreStateInput
+		edit func(*SavedPod)
+		want string
+	}{
+		{"a marker at a berth", idle, func(pod *SavedPod) { pod.RouteTrimmed = true }, "pod 01 is not traveling and has a trimmed route"},
+		{"an explicit false marker at a berth", idle, func(pod *SavedPod) { pod.SetMarkerMember(true) }, "pod 01 is not traveling and has a trimmed route"},
+		{"an explicit false marker before a latch", idle, func(pod *SavedPod) { pod.SetMarkerMember(true); pod.ReversalLane = 1 }, "pod 01 is not traveling and has a trimmed route"},
+		{"a marker with no route", moving, func(pod *SavedPod) { pod.RouteTrimmed, pod.Route = true, nil }, "pod p01 has a trimmed route and no saved route"},
+		{"a latched lane at a berth", idle, func(pod *SavedPod) { pod.ReversalLane = 1 }, idleLatch},
+		{"latch ticks at a berth", idle, func(pod *SavedPod) { pod.ReversalTicks = 1 }, idleLatch},
+		{"an explicit 0 lane at a berth", idle, func(pod *SavedPod) { pod.SetReversalMembers(true, false) }, idleLatch},
+		{"an explicit 0 tick at a berth", idle, func(pod *SavedPod) { pod.SetReversalMembers(false, true) }, idleLatch},
+		{"negative ticks", moving, func(pod *SavedPod) { pod.ReversalLane, pod.ReversalTicks = 1, -1 }, "pod p01 has -1 reversal dwell ticks, not 0 to 29"},
+		{"a full dwell of ticks", moving, func(pod *SavedPod) { pod.ReversalLane, pod.ReversalTicks = 1, reversalDwellTicks }, "pod p01 has 30 reversal dwell ticks, not 0 to 29"},
+		{"ticks with no lane", moving, func(pod *SavedPod) { pod.ReversalTicks = 1 }, "pod p01 has reversal dwell ticks and no latched lane"},
+		{"ticks after the dwell", moving, func(pod *SavedPod) { pod.ReversalLane, pod.ReversalTicks = -1, 1 }, "pod p01 has reversal dwell ticks and no latched lane"},
+		{"a latched lane past the route", moving, func(pod *SavedPod) { pod.ReversalLane = 4 }, "pod p01 has the reversal dwell lane 4 outside its saved route ahead of it"},
+		{"a latched lane behind the pod", moving, func(pod *SavedPod) {
+			pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance, pod.ReversalLane = 2, "l2", 100, 700, 1
+		}, "pod p01 has the reversal dwell lane 1 outside its saved route ahead of it"},
+		{"the largest lane", moving, func(pod *SavedPod) { pod.ReversalLane = math.MaxInt }, fmt.Sprintf("pod p01 has the reversal dwell lane %d outside its saved route ahead of it", math.MaxInt)},
+		{"the smallest lane", moving, func(pod *SavedPod) { pod.ReversalLane = math.MinInt }, fmt.Sprintf("pod p01 has the reversal dwell lane %d outside its saved route ahead of it", math.MinInt)},
+		{"a done lane two lanes ahead", moving, func(pod *SavedPod) { pod.ReversalLane = -2 }, "pod p01 has the reversal dwell lane -2 outside its saved route ahead of it"},
+		{"a done lane past the route", moving, func(pod *SavedPod) {
+			pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance, pod.ReversalLane = 3, "l3", 100, 1000, -4
+		}, "pod p01 has the reversal dwell lane -4 outside its saved route ahead of it"},
+		{"a lane with no reverse flag change", moving, func(pod *SavedPod) { pod.ReversalLane = 1 }, "pod p01 has the reversal dwell lane 1, where the reverse flag does not change"},
+		{"a done lane with no reverse flag change", moving, func(pod *SavedPod) { pod.ReversalLane = -1 }, "pod p01 has the reversal dwell lane -1, where the reverse flag does not change"},
+		{"a marker before a latch", idle, func(pod *SavedPod) { pod.RouteTrimmed, pod.ReversalLane = true, 1 }, "pod 01 is not traveling and has a trimmed route"},
+		{"a speed before a marker", idle, func(pod *SavedPod) { pod.RouteTrimmed, pod.Speed = true, 1 }, "pod 01 is not traveling and has a speed or a reservation ahead"},
+		{"an earlier refusal", idle, func(pod *SavedPod) { pod.ParkedSince, pod.RouteTrimmed, pod.ReversalLane = -1, true, 1 }, `pod "01" has the negative parked tick -1`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			input := test.base
+			input.State = withPod(input.State, 0, test.edit)
+			s, result, err := RestoreState(input)
+			if s != nil || err == nil || err.Error() != test.want || result.Tier != "" {
+				t.Fatalf("got %v, %+v, want %q", err, result, test.want)
+			}
+		})
+	}
+	// An explicit 0 or false on a traveling pod is not a refusal, also with
+	// no route, and nor is the marker on a traveling pod with a route.
+	for _, edit := range []func(*SavedPod){
+		func(pod *SavedPod) { pod.SetReversalMembers(true, true) },
+		func(pod *SavedPod) { pod.SetMarkerMember(true); pod.Route = nil },
+		func(pod *SavedPod) { pod.RouteTrimmed = true },
+	} {
+		input := moving
+		input.State = withPod(input.State, 0, edit)
+		if err := checkRestoreInput(input, restoreFleets(input, func() (*PreparedNetwork, error) { return PrepareNetwork(network) })); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // TestRestoreFootprintsBeforeMotion checks that a refusal of the saved
-// debris before either tier comes before a refusal of the saved motion.
+// debris before either tier comes before a refusal of the saved motion,
+// and before a refusal of the reversal dwell latch.
 // The scratch placement of checkSavedFaultFootprints also sees the
 // negative lead of a faulted pod. With debris that meets nothing, the
 // motion refusal is the result. So is it with debris on a pod without a
@@ -921,6 +1117,8 @@ func TestRestoreFootprintsBeforeMotion(t *testing.T) {
 	}{
 		{"a negative speed", func(pod *SavedPod) { pod.Speed = -1 }, "pod 02 has speed -1, not a finite value of 0 or more"},
 		{"a negative lead", func(pod *SavedPod) { pod.ReservedAhead = -1 }, "pod 02 reserves -1 blocks ahead, not 0 or more"},
+		{"a full dwell of ticks", func(pod *SavedPod) { pod.ReversalLane, pod.ReversalTicks = 1, reversalDwellTicks }, "pod 02 has 30 reversal dwell ticks, not 0 to 29"},
+		{"the smallest lane", func(pod *SavedPod) { pod.ReversalLane = math.MinInt }, fmt.Sprintf("pod 02 has the reversal dwell lane %d outside its saved route ahead of it", math.MinInt)},
 	} {
 		live, saved := build(t, true, test.edit)
 		if got := refusal(t, live, saved); got != onFaulted {
@@ -1098,7 +1296,7 @@ func TestRestoreDepotEntryFrontier(t *testing.T) {
 	}
 	checkRestoredMatches(t, s, restored)
 	got := &restored.vehicles[index]
-	entry, ok := restored.depotEntryBlock(got, 0)
+	entry, ok := restored.depotEntryBlock(got, 0, got.blockIndex, lastEntry)
 	if !ok || got.reservedThrough != entry || reservationEnd(&got.blocks, entry) == entry {
 		t.Fatalf("the restored frontier is %d, want the entry %d, which is not a grant end", got.reservedThrough, entry)
 	}
@@ -1123,10 +1321,11 @@ func TestRestoreDepotEntryFrontier(t *testing.T) {
 // TestRestoreMotionFallbackGrant is the two-pod case of review round 5.
 // On trimLanes, p01 is at rest at 336.4 m, on the release of the first
 // cell of l1. Unlinked p02 is at 260 m in the ninth cell of l0, with a
-// grant through the last cell of l0 and the first cell of l1. The export
-// trims the route of p01, so the restore gives p01 the track cell of
-// that cell again (see TestRestoreExactCoordinatesFollowUpReleaseAtRest),
-// and the saved frontier of p02 meets it. The restore then places p02 at
+// grant through the last cell of l0 and the first cell of l1. A save over
+// the restore budget trims the route of p01 (see exportTrimmed), so the
+// restore gives p01 the track cell of that cell again (see
+// TestRestoreExactCoordinatesFollowUpReleaseAtRest), and the saved
+// frontier of p02 meets it. The restore then places p02 at
 // rest with the derived frontier, as the restore before the saved motion
 // does, and demotes no pod.
 func TestRestoreMotionFallbackGrant(t *testing.T) {
@@ -1149,7 +1348,7 @@ func TestRestoreMotionFallbackGrant(t *testing.T) {
 	if !live.owners[cell].isPod("p02") {
 		t.Fatalf("the first cell of l1 is held by %v, want p02", live.owners[cell])
 	}
-	saved := live.ExportState()
+	saved := live.exportTrimmed()
 	if pod := saved.Pods[1]; pod.ReservedAhead != 2 || network.Lanes[saved.Pods[0].Route[0]].ID != "l1" {
 		t.Fatalf("p02 saves %d blocks ahead, and the saved route of p01 starts at %s, want 2 and l1", pod.ReservedAhead, network.Lanes[saved.Pods[0].Route[0]].ID)
 	}
@@ -1172,8 +1371,8 @@ func TestRestoreMotionFallbackGrant(t *testing.T) {
 // with the pods in the other order. p01 is at 260 m with the grant
 // through the first cell of l1, and p02 is at rest at 336.4 m. The
 // restore places p01 first with its saved frontier, and p02 then needs
-// the track cell of that cell again, at rest, so the fallback of p02 does
-// not help. The whole save then restores without the saved motion, and
+// the track cell of that cell again on its trimmed route, at rest, so the
+// fallback of p02 does not help. The whole save then restores without the saved motion, and
 // keeps both pods.
 func TestRestoreMotionWholeFallbackOrder(t *testing.T) {
 	t.Parallel()
@@ -1189,7 +1388,7 @@ func TestRestoreMotionWholeFallbackOrder(t *testing.T) {
 	if !cleanRestore(result) || v.distance != 260 || v.reservedThrough != first || live.vehicles[1].distance != 336.4 {
 		t.Fatalf("result %+v: p01 at %v with the frontier %d, p02 at %v, want 260 with %d, and 336.4", result, v.distance, v.reservedThrough, live.vehicles[1].distance, first)
 	}
-	saved := live.ExportState()
+	saved := live.exportTrimmed()
 	if saved.Pods[0].ReservedAhead != 2 {
 		t.Fatalf("p01 saves %d blocks ahead, want 2", saved.Pods[0].ReservedAhead)
 	}
@@ -1209,8 +1408,8 @@ func TestRestoreMotionWholeFallbackOrder(t *testing.T) {
 // TestRestoreMotionHeadSnap is case 1 of review round 6, with no saved
 // motion. p01 is at rest at 336.4 m, and unlinked p02 is at rest at
 // 270.0000005 m, in the last cell of l0, with its grant through the first
-// cell of l1. The export trims the route of p01, so the restore gives p01
-// that cell again, and the restore demotes p02. The restore before the
+// cell of l1. A save over the restore budget trims the route of p01, so
+// the restore gives p01 that cell again, and the restore demotes p02. The restore before the
 // saved motion snaps p02 to the block end at 270 m, in the ninth cell, and
 // keeps both pods, so the whole save restores that way.
 func TestRestoreMotionHeadSnap(t *testing.T) {
@@ -1228,7 +1427,7 @@ func TestRestoreMotionHeadSnap(t *testing.T) {
 	if !cleanRestore(result) || v.distance != at || v.blockIndex != first-1 || v.reservedThrough != first {
 		t.Fatalf("result %+v: p02 at %v in block %d with the frontier %d, want %v in %d with %d", result, v.distance, v.blockIndex, v.reservedThrough, at, first-1, first)
 	}
-	state := live.ExportState()
+	state := live.exportTrimmed()
 	if pod := state.Pods[1]; pod.Speed != 0 || pod.ReservedAhead != 0 || pod.Distance != at {
 		t.Fatalf("p02 saves %v m/s, %d blocks ahead, at %v, want no motion at %v", pod.Speed, pod.ReservedAhead, pod.Distance, at)
 	}
@@ -1403,7 +1602,7 @@ func TestRestoreMotionFaultedLeadOverDebris(t *testing.T) {
 }
 
 // TestRestoreMotionWholeFallbackMixed saves the pods of
-// TestRestoreMotionWholeFallbackOrder and p03 at 200 m, and then puts p03
+// TestRestoreMotionWholeFallbackOrder and p03 at 200 m, with trimmed routes, and then puts p03
 // at rest at 340 m, in the second cell of l1, which p02 also holds. The
 // restore with the saved motion demotes p02, so p03 takes the cell. The
 // restore without the saved motion keeps p02 and demotes p03. The first
@@ -1422,7 +1621,7 @@ func TestRestoreMotionWholeFallbackMixed(t *testing.T) {
 	if !cleanRestore(result) {
 		t.Fatalf("result %+v", result)
 	}
-	saved := withPod(live.ExportState(), 2, func(pod *SavedPod) { pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance = 1, "l1", 40, 340 })
+	saved := withPod(live.exportTrimmed(), 2, func(pod *SavedPod) { pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance = 1, "l1", 40, 340 })
 	input := RestoreStateInput{Network: network, Fleet: base.initial, State: saved}
 	if _, first, err := firstRestore(input); err != nil || !slices.Equal(first.Demoted, []string{"p02"}) {
 		t.Fatalf("the restore with the saved motion gives %v, %+v, want p02 demoted", err, first)
@@ -1562,13 +1761,13 @@ func TestRestoreMotionPodFallbackKeepsMotion(t *testing.T) {
 	}
 }
 
-// TestRestoreExactCoordinatesFollowUpReleaseAtRest documents a case of
-// review round 4 for the follow-up for exact restore coordinates (restore
-// speed proposal, section 4.1). A pod at rest at 336.4 m on trimLanes is
-// exactly on the release of the first cell of l1 (300 + 122/5 + 12). The
-// export trims l0 and saves 36.39999999999998 m, and the restore holds
-// the cell again. The test logs the owners that the restore adds, and it
-// skips, so it does not fail the suite.
+// TestRestoreExactCoordinatesFollowUpReleaseAtRest is a case of review
+// round 4 (restore speed proposal, section 4.1). A pod at rest at 336.4 m
+// on trimLanes is exactly on the release of the first cell of l1
+// (300 + 122/5 + 12). A trimmed save drops l0 and saves 36.39999999999998
+// m, and the restore holds the cell again. The whole save keeps the live
+// frame, so its restore adds no owner (exact restore coordinates proposal,
+// section 7.3).
 func TestRestoreExactCoordinatesFollowUpReleaseAtRest(t *testing.T) {
 	t.Parallel()
 	network := geometryNetwork(Point{}, trimLanes, 1)
@@ -1578,18 +1777,138 @@ func TestRestoreExactCoordinatesFollowUpReleaseAtRest(t *testing.T) {
 	})
 	live, result := restoreMotion(t, network, base.initial, at)
 	if !cleanRestore(result) || live.vehicles[0].distance != 336.4 {
-		t.Skipf("the setup does not place the pod: result %+v, the pod at %v", result, live.vehicles[0].distance)
+		t.Fatalf("the setup does not place the pod: result %+v, the pod at %v", result, live.vehicles[0].distance)
+	}
+	added := func(restored *Simulation) []resource {
+		var extra []resource
+		for held := range restored.owners {
+			if _, ok := live.owners[held]; !ok {
+				extra = append(extra, held)
+			}
+		}
+		return extra
 	}
 	saved := live.ExportState()
+	if pod := saved.Pods[0]; pod.RouteTrimmed || pod.Distance != 336.4 {
+		t.Fatalf("the whole save has the marker %t and the distance %v, want no marker and 336.4", pod.RouteTrimmed, pod.Distance)
+	}
 	restored, result := restoreMotion(t, network, base.initial, saved)
-	var extra []resource
-	for held := range restored.owners {
-		if _, ok := live.owners[held]; !ok {
-			extra = append(extra, held)
+	if extra := added(restored); !cleanRestore(result) || len(extra) != 0 || !maps.Equal(restored.owners, live.owners) {
+		t.Fatalf("restore %+v adds the owners %v", result, extra)
+	}
+	trimmed := live.exportTrimmed()
+	restored, result = restoreMotion(t, network, base.initial, trimmed)
+	if extra := added(restored); !trimmed.Pods[0].RouteTrimmed || !cleanRestore(result) || len(extra) != 1 {
+		t.Fatalf("the trimmed restore %+v adds the owners %v, want the first cell of l1", result, extra)
+	}
+}
+
+// TestRestoreExactCoordinatesCases restores the cases 2 and 3 of review
+// round 4 (restore speed proposal, section 4.1) on a route whose lane l1 is
+// 39.999999999 m, with two cells, and whose lane l0 takes only the
+// legacy, compact, and express classes. In case 2, a pod is on l2, on the release of the first cell
+// of l1, 5e-10 m past the end of l1. A trimmed save starts at l1, and its
+// restore snaps the pod back to the end of l1 and holds the cell and the
+// node g1 again. In case 3, a pod is on l1 at 320 m, on the origin tail of
+// l1. A trimmed save starts at l1, and its restore demotes the pod. In both
+// cases, the whole save restores the pod at its live distance with the
+// live owners, also with a speed (exact restore coordinates proposal,
+// section 1.3).
+func TestRestoreExactCoordinatesCases(t *testing.T) {
+	t.Parallel()
+	const short = 39.999999999
+	lanes := []geometryLane{{to: Point{X: 300}}, {to: Point{X: 300 + short}}, {to: Point{X: 600 + short}}, {to: Point{X: 900 + short}}}
+	for _, test := range []struct {
+		name           string
+		speeds         []float64
+		at             func(v *vehicle) float64
+		trimmedDemotes bool
+		trimmedAdds    []resource
+	}{
+		{"case 2", []float64{0, 0.5, 14}, func(v *vehicle) float64 {
+			first := v.blocks.laneFirst(1)
+			b := v.blocks.at(first)
+			index := slices.IndexFunc(b.resources, func(held resource) bool { return held.kind == trackResource })
+			if end := v.blocks.end(first + 1); end != 300+short {
+				t.Fatalf("l1 ends at %v", end)
+			}
+			return resourceReleaseDistance(b, b.resources[index])
+		}, false, []resource{{kind: nodeResource, id: "g1"}, {kind: trackResource, id: "l1"}}},
+		{"case 3", []float64{0, 0.5}, func(v *vehicle) float64 {
+			if tail := v.originTailFrom(1); tail != 20 {
+				t.Fatalf("the origin tail of l1 is %v m", tail)
+			}
+			return 320
+		}, true, nil},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			network := geometryNetwork(Point{}, lanes, 1)
+			classes, err := NewClassSet("legacy", "compact", "express")
+			if err != nil {
+				t.Fatal(err)
+			}
+			network.Lanes[slices.IndexFunc(network.Lanes, func(lane Lane) bool { return lane.ID == "l0" })].VehicleClasses = classes
+			base := restoreGeometry(t, network, len(lanes), 1, 100, 0)
+			c := roundTripCase{name: test.name, s: base, input: func(state SavedState) RestoreStateInput {
+				return RestoreStateInput{Network: network, Fleet: base.initial, State: state}
+			}}
+			at := test.at(&base.vehicles[0])
+			for _, speed := range test.speeds {
+				live := placeSweepPod(t, c, base.ExportState(), &base.vehicles[0], 0, at, speed)
+				if live == nil || live.vehicles[0].distance != at {
+					t.Fatalf("the pod at %v m/s is not placed at %v", speed, at)
+				}
+				whole := live.ExportState()
+				restored, result := restoreMotion(t, network, base.initial, roundTripState(t, whole))
+				if got := &restored.vehicles[0]; whole.Pods[0].RouteTrimmed || !cleanRestore(result) || got.distance != at || got.Pod.Speed != speed || !maps.Equal(restored.owners, live.owners) {
+					t.Fatalf("at %v m/s, the whole save restores %+v, the pod at %v m and %v m/s, with the live owners %t", speed, result, got.distance, got.Pod.Speed, maps.Equal(restored.owners, live.owners))
+				}
+				trimmed := live.exportTrimmed()
+				restored, result = restoreMotion(t, network, base.initial, trimmed)
+				var added []resource
+				for held := range restored.owners {
+					if _, ok := live.owners[held]; !ok && !test.trimmedDemotes {
+						added = append(added, held)
+					}
+				}
+				slices.SortFunc(added, compareResources)
+				if !trimmed.Pods[0].RouteTrimmed || (len(result.Demoted) == 1) != test.trimmedDemotes || !slices.Equal(added, test.trimmedAdds) {
+					t.Fatalf("at %v m/s, the trimmed save restores %+v and adds the owners %v", speed, result, added)
+				}
+			}
+		})
+	}
+}
+
+// TestRestoreWholeRouteNearBlockEnd saves a pod on a whole route of
+// motionLanes, 5e-10 m before and after the interior block end at 150 m of
+// l0, at rest and moving. The export derives the saved lead at the exact
+// distance, as the restore of a whole route does. A snap of the export to
+// the block end moves a pod past it to the block before, so the export
+// would derive an earlier frontier and save a longer lead than the restore
+// reads.
+func TestRestoreWholeRouteNearBlockEnd(t *testing.T) {
+	t.Parallel()
+	network := geometryNetwork(Point{}, motionLanes, 1)
+	base := restoreGeometry(t, network, len(motionLanes), 1, 100, 0)
+	c := roundTripCase{name: "near", s: base, input: func(state SavedState) RestoreStateInput {
+		return RestoreStateInput{Network: network, Fleet: base.initial, State: state}
+	}}
+	for _, at := range []float64{150 - 5e-10, 150 + 5e-10} {
+		for _, speed := range []float64{0, 0.5, 14} {
+			live := placeSweepPod(t, c, base.ExportState(), &base.vehicles[0], 0, at, speed)
+			if live == nil || live.vehicles[0].distance != at {
+				t.Fatalf("the pod at %v m/s is not placed at %v", speed, at)
+			}
+			restored, result := restoreMotion(t, network, base.initial, roundTripState(t, live.ExportState()))
+			v, got := &live.vehicles[0], &restored.vehicles[0]
+			if !cleanRestore(result) || got.distance != at || got.Pod.Speed != speed || got.reservedThrough != v.reservedThrough || !maps.Equal(restored.owners, live.owners) {
+				t.Fatalf("at %v and %v m/s, the restore %+v puts the pod at %v with the frontier %d, want %v and %d",
+					at, speed, result, got.distance, got.reservedThrough, at, v.reservedThrough)
+			}
 		}
 	}
-	t.Logf("saved distance %v, restore %+v, owners that the restore adds %v", saved.Pods[0].Distance, result, extra)
-	t.Skip("the follow-up for exact restore coordinates fixes this case")
 }
 
 // TestRestoredPositionSearch checks that the binary searches of
@@ -1615,7 +1934,7 @@ func TestRestoredPositionSearch(t *testing.T) {
 				distances = append(distances, sweepDistances(b.end)...)
 			}
 			for _, distance := range distances {
-				for _, snap := range []float64{restoreDriftTolerance, restoreTolerance} {
+				for _, snap := range []float64{0, restoreDriftTolerance, restoreTolerance} {
 					input := restoredDistanceInput{blocks: blocks, first: first, last: last, laneDistance: distance - start, saved: distance, snap: snap}
 					got := restoredDistance(input)
 					want := walkedDistance(input)

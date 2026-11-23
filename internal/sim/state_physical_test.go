@@ -589,7 +589,7 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	at := findVehicle(t, alone, "05").Pod.Position
 	at.X += 6
 	moved := movedBerthFleet(f, "parking-2", at)
-	s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}, moved)
+	s, result, _, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}, moved)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	}
 	index := slices.IndexFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == "05" })
 	lead := withPod(state, index, func(pod *SavedPod) { pod.ReservedAhead = 1 << 20 })
-	if _, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: lead}, moved); err != nil ||
+	if _, result, _, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: lead}, moved); err != nil ||
 		!slices.Equal(result.Demoted, []string{"05"}) || len(result.AtRest) != 0 {
 		t.Fatalf("restore with the saved lead: %v, %+v, want 05 demoted and no pod at rest", err, result)
 	}
@@ -615,7 +615,7 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	follower.Platoon.Lane, follower.Platoon.LeaderLane = follower.RouteIndex, follower.RouteIndex
 	follower.ReservedAhead = 1 << 20
 	linked := f.state(f.idle(t, "01", "garden-1"), f.idle(t, "02", "market-1"), lead.Pods[index], follower)
-	if s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: linked}, moved); err != nil ||
+	if s, result, _, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: linked}, moved); err != nil ||
 		!slices.Equal(result.Demoted, []string{"03", "05"}) || len(result.AtRest) != 0 || s.platoonLinks != 0 {
 		t.Fatalf("restore of the platoon: %v, %+v, want 03 and 05 demoted and no pod at rest", err, result)
 	}
@@ -660,8 +660,10 @@ func TestRestorePicksTheSavedLaneAtABoundary(t *testing.T) {
 }
 
 // TestRestoreSnapsToBlockEnds restores a pod at positions that differ from a
-// block end or from the saved distance in the last bits. The pod must hold
-// the resources that it holds at the exact position.
+// block end or from the saved distance in the last bits. On a trimmed route,
+// the pod must hold the resources that it holds at the exact position. A
+// whole route is in the live frame, so the pod stays at its saved distance
+// (exact restore coordinates proposal, EC-D1).
 func TestRestoreSnapsToBlockEnds(t *testing.T) {
 	t.Parallel()
 	f := newRestoreFixture(t, Example())
@@ -678,47 +680,61 @@ func TestRestoreSnapsToBlockEnds(t *testing.T) {
 		name string
 		// laneDistance and distance are the saved position of the pod.
 		laneDistance, distance float64
-		// want is the restored route distance, in the block at index.
-		want  float64
-		index int
+		// want is the restored route distance on a trimmed route, in the
+		// block at index, and wholeIndex is the block on a whole route.
+		want              float64
+		index, wholeIndex int
 	}{
-		{name: "block end", laneDistance: interior.end - laneStart, distance: interior.end, want: interior.end, index: first + 1},
+		{name: "block end", laneDistance: interior.end - laneStart, distance: interior.end, want: interior.end, index: first + 1, wholeIndex: first + 1},
 		{
 			name: "just before a block end", laneDistance: interior.end - laneStart - 1e-9, distance: interior.end - 1e-9,
-			want: interior.end, index: first + 1,
+			want: interior.end, index: first + 1, wholeIndex: first + 1,
 		},
 		{
 			name: "just after a block end", laneDistance: interior.end - laneStart + 1e-9, distance: interior.end + 1e-9,
-			want: interior.end, index: first + 1,
+			want: interior.end, index: first + 1, wholeIndex: first + 2,
 		},
-		{name: "just after the lane start", laneDistance: 1e-9, distance: laneStart + 1e-9, want: blocks.at(first - 1).end, index: first},
+		{name: "just after the lane start", laneDistance: 1e-9, distance: laneStart + 1e-9, want: blocks.at(first - 1).end, index: first, wholeIndex: first},
 		{
 			name: "lane distance off the saved distance", laneDistance: middle - laneStart + restoreTolerance/2, distance: middle,
-			want: middle, index: first + 1,
+			want: middle, index: first + 1, wholeIndex: first + 1,
 		},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			pod := base
-			pod.LaneDistance, pod.Distance = tc.laneDistance, tc.distance
-			s, result, err := f.restore(f.state(pod))
-			if err != nil || !cleanRestore(result) {
-				t.Fatalf("%v, %+v", err, result)
-			}
-			v := findVehicle(t, s, "01")
-			if v.distance != tc.want || v.blockIndex != tc.index || v.reservedThrough != reservationEnd(&v.blocks, tc.index) {
-				t.Fatalf("pod 01 at %v in block %d through %d, want %v in block %d", v.distance, v.blockIndex, v.reservedThrough, tc.want, tc.index)
-			}
-			held := make(map[resource]resourceOwner)
-			for _, claimed := range v.footprint(v.reservedThrough, tc.want) {
-				held[claimed] = podResourceOwner("01")
-			}
-			owned := maps.Clone(s.owners)
-			maps.DeleteFunc(owned, func(_ resource, owner resourceOwner) bool { return owner != podResourceOwner("01") })
-			if !maps.Equal(owned, held) {
-				t.Fatalf("pod 01 holds %v, want %v", owned, held)
-			}
-		})
+		for _, trimmed := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s trimmed %t", tc.name, trimmed), func(t *testing.T) {
+				t.Parallel()
+				pod := base
+				pod.LaneDistance, pod.Distance, pod.RouteTrimmed = tc.laneDistance, tc.distance, trimmed
+				want, index := tc.want, tc.index
+				if !trimmed {
+					want, index = tc.distance, tc.wholeIndex
+				}
+				s, result, err := f.restore(f.state(pod))
+				if err != nil || !cleanRestore(result) {
+					t.Fatalf("%v, %+v", err, result)
+				}
+				v := findVehicle(t, s, "01")
+				if v.distance != want || v.blockIndex != index || v.reservedThrough != reservationEnd(&v.blocks, index) {
+					t.Fatalf("pod 01 at %v in block %d through %d, want %v in block %d", v.distance, v.blockIndex, v.reservedThrough, want, index)
+				}
+				checkSnapOwners(t, s, v, want)
+			})
+		}
+	}
+}
+
+// checkSnapOwners requires that the pod 01 of s holds the resources of its
+// footprint at the route distance want.
+func checkSnapOwners(t *testing.T, s *Simulation, v *vehicle, want float64) {
+	t.Helper()
+	held := make(map[resource]resourceOwner)
+	for _, claimed := range v.footprint(v.reservedThrough, want) {
+		held[claimed] = podResourceOwner("01")
+	}
+	owned := maps.Clone(s.owners)
+	maps.DeleteFunc(owned, func(_ resource, owner resourceOwner) bool { return owner != podResourceOwner("01") })
+	if !maps.Equal(owned, held) {
+		t.Fatalf("pod 01 holds %v, want %v", owned, held)
 	}
 }
 
@@ -905,7 +921,7 @@ func TestRestoreFailsForInvalidState(t *testing.T) {
 	// preparation.
 	t.Run("two pods at berths within clearance", func(t *testing.T) {
 		t.Parallel()
-		_, _, err := restorePhysical(RestoreStateInput{Network: example.network, Fleet: example.fleet, State: example.state()}, movedBerthFleet(example, "parking-2", Point{480, 412}))
+		_, _, _, err := restorePhysical(RestoreStateInput{Network: example.network, Fleet: example.fleet, State: example.state()}, movedBerthFleet(example, "parking-2", Point{480, 412}))
 		if want := "check the restored pods at berths: tick 600: pods 03 and 04 are 8.00000 meters apart"; err == nil || err.Error() != want {
 			t.Fatalf("error %v, want %q", err, want)
 		}

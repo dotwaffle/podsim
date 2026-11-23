@@ -187,21 +187,8 @@ func TestDepotChainBinding(t *testing.T) {
 // ParkingUnavailable, and it binds when a lane becomes eligible.
 func TestDepotEntryWait(t *testing.T) {
 	t.Parallel()
-	network := shortDepotNetwork(2, 3)
-	// Lane 1 is full, the head of lane 2 is the mover, and a withdrawn pod
-	// at slot 2 of lane 2 stops that lane.
-	placements := depotPlacements(network, 0)
-	for _, slot := range []string{depotSlotID(1, 1), depotSlotID(1, 2), depotSlotID(1, 3), depotSlotID(2, 1), depotSlotID(2, 2)} {
-		placements = append(placements, Placement{ID: "pod-" + slot, StationID: "parking", BerthID: slot})
-	}
-	s, err := NewFleet(network, placements)
-	if err != nil {
-		t.Fatal(err)
-	}
+	s := depotEntryWaitFleet(t, emergencyHold)
 	stopper := s.findVehicle("pod-" + depotSlotID(2, 2))
-	if err := s.withdrawService(stopper, emergencyHold); err != nil {
-		t.Fatal(err)
-	}
 	mover := sendToDepot(t, s, "pod-"+depotSlotID(2, 1))
 	stepDepot(t, s, 300*TicksPerSecond, func() bool {
 		return mover.Pod.WaitReason == ParkingUnavailable
@@ -220,6 +207,161 @@ func TestDepotEntryWait(t *testing.T) {
 	if mover.Pod.BerthID != depotSlotID(2, 2) || stopper.Pod.BerthID != depotSlotID(2, 1) {
 		t.Fatalf("mover idle at %s", mover.Pod.BerthID)
 	}
+	// A save at the first tick of the wait restores the mover at the end of
+	// its route, with the lane coordinate that it published before it
+	// stopped there. The restored fleet then goes on as the live fleet,
+	// through the return of the withdrawn pod and the slot grant. A
+	// withdrawn pod with an emergency hold needs an emergency record to
+	// restore, so this fleet withdraws it with a fault hold.
+	live := depotEntryWaitFleet(t, faultHold)
+	mover = sendToDepot(t, live, "pod-"+depotSlotID(2, 1))
+	stepDepot(t, live, 300*TicksPerSecond, func() bool { return mover.Pod.WaitReason == ParkingUnavailable })
+	if mover.distance != mover.blocks.end(mover.blocks.len()-1) || mover.Pod.LaneDistance == mover.distance-mover.blocks.lanes[len(mover.Route)-1].start {
+		t.Fatalf("the mover waits at %v with the lane distance %v", mover.distance, mover.Pod.LaneDistance)
+	}
+	restored, result, err := RestoreState(RestoreStateInput{Network: live.network, Fleet: live.initial, State: roundTripState(t, live.ExportState())})
+	if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 {
+		t.Fatalf("restore %+v, %v", result, err)
+	}
+	for ticks := 0; ticks < 120*TicksPerSecond && mover.Pod.Activity != Idle; ticks++ {
+		if ticks > 0 {
+			if ticks == 2*TicksPerSecond {
+				for _, s := range []*Simulation{live, restored} {
+					if err = s.restoreService(s.findVehicle("pod-"+depotSlotID(2, 2)), faultHold); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			live.Step()
+			restored.Step()
+		}
+		if d := lockstepDiff(live, restored, ticks == 0, ticks%TicksPerSecond == 0); d != "" {
+			t.Fatalf("%d ticks after the restore: %s", ticks, d)
+		}
+	}
+	if mover.Pod.BerthID != depotSlotID(2, 2) {
+		t.Fatalf("the live mover is idle at %q", mover.Pod.BerthID)
+	}
+	// The save and the restore find the block of the waiting pod at the
+	// route end, also when its lane distance is in an earlier block.
+	live = depotEntryWaitFleet(t, faultHold)
+	mover = sendToDepot(t, live, "pod-"+depotSlotID(2, 1))
+	stepDepot(t, live, 300*TicksPerSecond, func() bool { return mover.Pod.WaitReason == ParkingUnavailable })
+	mover.Pod.LaneDistance = mover.blocks.end(mover.blocks.len()-2) - mover.blocks.lanes[len(mover.Route)-1].start - 1
+	state := live.ExportState()
+	restored, result, err = RestoreState(RestoreStateInput{Network: live.network, Fleet: live.initial, State: roundTripState(t, state)})
+	if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 {
+		t.Fatalf("restore with the lane distance %v: %+v, %v", mover.Pod.LaneDistance, result, err)
+	}
+	if v := restored.findVehicle(mover.Pod.ID); v.distance != mover.distance || v.Pod.LaneDistance != mover.Pod.LaneDistance || v.reservedThrough != mover.reservedThrough {
+		t.Fatalf("restored at %v, lane distance %v, frontier %d, want %v, %v, %d", v.distance, v.Pod.LaneDistance, v.reservedThrough, mover.distance, mover.Pod.LaneDistance, mover.reservedThrough)
+	}
+	// A trimmed save decodes the position in the trimmed frame at both
+	// ends, so its lead counts from the block of the lane distance, and the
+	// restore keeps the frontier.
+	trimmed := live.exportState(-1)
+	restored, result, err = RestoreState(RestoreStateInput{Network: live.network, Fleet: live.initial, State: roundTripState(t, trimmed)})
+	if v := restored.findVehicle(mover.Pod.ID); err != nil || !cleanRestore(result) || len(result.AtRest) != 0 || v.blocks.len()-v.reservedThrough != mover.blocks.len()-mover.reservedThrough {
+		t.Fatalf("the trimmed save restores %+v, %v, with the frontier %d of %d blocks, want %d of %d", result, err, v.reservedThrough, v.blocks.len(), mover.reservedThrough, mover.blocks.len())
+	}
+	// The published lane distance of the waiting pod stays within
+	// restoreTolerance of its lane, as on each other placement. The route
+	// distance and the block stay at the route end.
+	index := live.vehicleIndexes[mover.Pod.ID]
+	length := live.laneLength(mover.Route[len(mover.Route)-1])
+	for _, test := range []struct{ saved, want float64 }{
+		{-restoreTolerance, -restoreTolerance},
+		{-100, -restoreTolerance},
+		{length + restoreTolerance, length + restoreTolerance},
+		{length + 100, length + restoreTolerance},
+	} {
+		edited := withPod(state, index, func(pod *SavedPod) { pod.LaneDistance = test.saved })
+		restored, result, err = RestoreState(RestoreStateInput{Network: live.network, Fleet: live.initial, State: roundTripState(t, edited)})
+		if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 {
+			t.Fatalf("restore with the lane distance %v: %+v, %v", test.saved, result, err)
+		}
+		v := &restored.vehicles[index]
+		if v.Pod.LaneDistance != test.want || v.distance != mover.distance || v.blockIndex != v.blocks.len()-1 {
+			t.Fatalf("the lane distance %v restores as %v at %v in block %d, want %v at %v in block %d", test.saved, v.Pod.LaneDistance, v.distance, v.blockIndex, test.want, mover.distance, v.blocks.len()-1)
+		}
+	}
+	// The decoder clamps the published lane distance on its other return
+	// too, in each frame.
+	lane := state.Pods[index]
+	lane.RouteIndex = 0
+	laneLength := live.laneLength(mover.blocks.route[0])
+	for _, frame := range []positionFrame{wholeFrame, trimmedFrame, earlierTrimmedFrame, earlierWholeFrame} {
+		for _, test := range []struct{ saved, want float64 }{
+			{-100, -restoreTolerance},
+			{laneLength + 100, laneLength + restoreTolerance},
+		} {
+			lane.LaneDistance = test.saved
+			if got := live.decodeTravelPosition(&mover.blocks, lane, frame).laneDistance; got != test.want {
+				t.Fatalf("in the frame %+v, the first lane distance %v decodes as %v, want %v", frame, test.saved, got, test.want)
+			}
+		}
+	}
+	// The restore before the saved motion places the waiting pod at its
+	// lane distance, as before version 14.
+	input := RestoreStateInput{Network: live.network, Fleet: live.initial, State: roundTripState(t, state)}
+	earlier, _, err := beforeMotion(input, restoreFleets(input, func() (*PreparedNetwork, error) { return PrepareNetwork(live.network) }))
+	if v := &earlier.vehicles[index]; err != nil || v.distance != v.blocks.lanes[len(mover.Route)-1].start+mover.Pod.LaneDistance {
+		t.Fatalf("the restore before the saved motion, %v, places the pod at %v, want %v", err, v.distance, v.blocks.lanes[len(mover.Route)-1].start+mover.Pod.LaneDistance)
+	}
+}
+
+// TestExportKeepsCursors saves the mover of TestDepotEntryWait on the last
+// lane of its route, short of its end, with no destination berth. The
+// export decodes the position of each pod on the blocks of its live route,
+// and it does not move a lookup cursor or a scan hint of any pod.
+func TestExportKeepsCursors(t *testing.T) {
+	t.Parallel()
+	live := depotEntryWaitFleet(t, faultHold)
+	mover := sendToDepot(t, live, "pod-"+depotSlotID(2, 1))
+	stepDepot(t, live, 300*TicksPerSecond, func() bool {
+		return mover.Pod.Activity == Traveling && mover.destination.ID == "" && mover.Pod.LaneID == mover.Route[len(mover.Route)-1].ID &&
+			mover.distance < mover.blocks.peekEnd(mover.blocks.len()-1) && mover.reservedThrough < mover.blocks.len()-1
+	})
+	if mover.destination.ID != "" || mover.Pod.LaneID != mover.Route[len(mover.Route)-1].ID || mover.distance >= mover.blocks.peekEnd(mover.blocks.len()-1) {
+		t.Fatalf("the mover is at %v in lane %s with the destination %q", mover.distance, mover.Pod.LaneID, mover.destination.ID)
+	}
+	type hints struct {
+		cursors [2]blockCursor
+		scan    int
+	}
+	read := func() []hints {
+		var all []hints
+		for index := range live.vehicles {
+			blocks := &live.vehicles[index].blocks
+			all = append(all, hints{cursors: blocks.cursors, scan: blocks.scan})
+		}
+		return all
+	}
+	before := read()
+	live.ExportState()
+	if after := read(); !slices.Equal(before, after) {
+		t.Fatalf("the export moves the cursors from %+v to %+v", before, after)
+	}
+}
+
+// depotEntryWaitFleet returns a depot of two lanes of three slots. Lane 1
+// is full, the head of lane 2 is the mover, and a withdrawn pod at slot 2
+// of lane 2, with hold, stops that lane.
+func depotEntryWaitFleet(t *testing.T, hold serviceHold) *Simulation {
+	t.Helper()
+	network := shortDepotNetwork(2, 3)
+	placements := depotPlacements(network, 0)
+	for _, slot := range []string{depotSlotID(1, 1), depotSlotID(1, 2), depotSlotID(1, 3), depotSlotID(2, 1), depotSlotID(2, 2)} {
+		placements = append(placements, Placement{ID: "pod-" + slot, StationID: "parking", BerthID: slot})
+	}
+	s, err := NewFleet(network, placements)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.withdrawService(s.findVehicle("pod-"+depotSlotID(2, 2)), hold); err != nil {
+		t.Fatal(err)
+	}
+	return s
 }
 
 // TestDepotEntryRedirect checks a pod that reaches a full depot: it does

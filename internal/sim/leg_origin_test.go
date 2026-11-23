@@ -2,6 +2,7 @@ package sim
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"testing"
 )
@@ -389,7 +390,8 @@ func TestLegOriginRiderReaders(t *testing.T) {
 	t.Run("checkBoardingBerths", func(t *testing.T) {
 		t.Parallel()
 		s, v := boardLeg(t)
-		pod := s.exportPod(v, newRouteLimits(s.network))
+		plan := s.planSavedRoutes(newRouteLimits(s.network), math.MaxInt, nil)
+		pod := s.exportPod(s.vehicleIndexes[v.Pod.ID], &plan)
 		pod.Boardings = []RiderBoarding{{BerthID: "s1-1"}}
 		if err := checkBoardingBerths(s.network, pod); err != nil {
 			t.Fatal(err)

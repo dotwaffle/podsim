@@ -181,7 +181,7 @@ func TestSavedVersionRefusals(t *testing.T) {
 		"plain": decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
 	}
 	for name, raw := range bases {
-		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14} {
+		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15} {
 			t.Run(name+"/"+strconv.Itoa(version), func(t *testing.T) {
 				t.Parallel()
 				data := compressTestJSON(t, setRootMember(t, raw, "version", strconv.Itoa(version)))
@@ -210,10 +210,10 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 			"gzip header cut":  encoded[:5],
 			"gzip trailer cut": encoded[:len(encoded)-4],
 			"gzip checksum":    checksum,
-			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":13,`, `,`)),
+			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":14,`, `,`)),
 			"array limit":      compressTestJSON(t, insertAfter(t, raw, `{`, padding)),
 			"format type":      compressTestJSON(t, setRootMember(t, raw, "format", "1")),
-			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"13"`)),
+			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"14"`)),
 			"decode error":     compressTestJSON(t, setRootMember(t, raw, "speed", `"fast"`)),
 			"validation error": encodeTestState(t, speed),
 			"missing version": compressTestJSON(t, joinObject(t, slices.DeleteFunc(splitObject(t, raw),
@@ -250,7 +250,7 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 	})
 }
 
-// TestSavedRemovedMembersMovedAside checks a version 13 file with a member
+// TestSavedRemovedMembersMovedAside checks a version 14 file with a member
 // of a removed feature: physical coupling, compact station queues, station
 // buffers, or the journey origin of a pod.
 // Before the first release a removed member keeps the version, so the
@@ -336,13 +336,16 @@ func motionTestFile(t *testing.T) (file stateFile, traveling, other string) {
 	return file, traveling, other
 }
 
-// TestSavedMotionMembers checks the speed and the reservedAhead members of
-// a saved pod in the file. The decode refuses only a null member. It gives
-// the simulation the presence of each member, and the restore input checks
-// apply the rules of section 4.2 of the restore speed proposal, in saved
-// pod order, after the other input checks. A pod that does not travel
-// refuses either member, also with the value 0. A traveling pod accepts an
-// explicit 0.
+// TestSavedMotionMembers checks the speed, the reservedAhead, the
+// routeTrimmed, the reversalLane, and the reversalTicks members of a saved
+// pod in the file. The decode refuses only a null member, in that order of
+// the members. It gives the simulation the presence of each member,
+// and the restore input checks apply the rules of section 4.2 of
+// the restore speed proposal and of EC-D3 and EC-D8 of the exact restore
+// coordinates proposal, in saved pod order, after the other input checks,
+// and the motion before the marker before the latch. A pod that does not
+// travel refuses each member, also with the value 0 or false. A
+// traveling pod accepts an explicit 0 or false.
 func TestSavedMotionMembers(t *testing.T) {
 	t.Parallel()
 	file, traveling, other := motionTestFile(t)
@@ -360,6 +363,15 @@ func TestSavedMotionMembers(t *testing.T) {
 		{"a null speed", pod(raw, traveling, `"speed":null,`), fmt.Sprintf("saved member /simulation/pods/%d/speed is null", position)},
 		{"a null lead", pod(raw, traveling, `"reservedAhead":null,`), fmt.Sprintf("saved member /simulation/pods/%d/reservedAhead is null", position)},
 		{"a null lead of a pod that does not travel", pod(raw, other, `"reservedAhead":null,`), "/reservedAhead is null"},
+		{"a null marker", pod(raw, traveling, `"routeTrimmed":null,`), fmt.Sprintf("saved member /simulation/pods/%d/routeTrimmed is null", position)},
+		{"a null latched lane", pod(raw, traveling, `"reversalLane":null,`), fmt.Sprintf("saved member /simulation/pods/%d/reversalLane is null", position)},
+		{"a null latch tick", pod(raw, traveling, `"reversalTicks":null,`), fmt.Sprintf("saved member /simulation/pods/%d/reversalTicks is null", position)},
+		{"a null marker before a null tick", pod(raw, traveling, `"reversalTicks":null,"routeTrimmed":null,`), fmt.Sprintf("saved member /simulation/pods/%d/routeTrimmed is null", position)},
+		// The null checks of speed and reservedAhead come before the check
+		// of the holds, and the null checks of the newer members after it.
+		{"a null speed before unknown hold bits", pod(raw, traveling, `"withdrawn":4,"speed":null,`), fmt.Sprintf("saved member /simulation/pods/%d/speed is null", position)},
+		{"unknown hold bits before a null marker", pod(raw, traveling, `"withdrawn":4,"routeTrimmed":null,`), "saved pod holds 4 have an unknown bit"},
+		{"unknown hold bits before a null latch", pod(raw, traveling, `"withdrawn":4,"reversalLane":null,"reversalTicks":null,`), "saved pod holds 4 have an unknown bit"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -385,6 +397,14 @@ func TestSavedMotionMembers(t *testing.T) {
 		{"a negative parked tick", pod(raw, other, `"parkedSince":-1,`), fmt.Sprintf("pod %q has the negative parked tick -1", other)},
 		{"a speed of 0 and a negative parked tick", pod(raw, other, `"speed":0,"parkedSince":-1,`), fmt.Sprintf("pod %q has the negative parked tick -1", other)},
 		{"an earlier negative speed", pod(pod(raw, other, `"speed":0,`), traveling, `"speed":-1,`), fmt.Sprintf("pod %s has speed -1, not a finite value of 0 or more", traveling)},
+		{"a marker at a berth", pod(raw, other, `"routeTrimmed":true,`), fmt.Sprintf("pod %s is not traveling and has a trimmed route", other)},
+		{"a false marker at a berth", pod(raw, other, `"routeTrimmed":false,`), fmt.Sprintf("pod %s is not traveling and has a trimmed route", other)},
+		{"a speed of 0 before a false marker", pod(raw, other, `"speed":0,"routeTrimmed":false,`), idle},
+		{"a lane of 0 at a berth", pod(raw, other, `"reversalLane":0,`), fmt.Sprintf("pod %s is not traveling and has a reversal dwell latch", other)},
+		{"a tick of 0 at a berth", pod(raw, other, `"reversalTicks":0,`), fmt.Sprintf("pod %s is not traveling and has a reversal dwell latch", other)},
+		{"a speed before a marker and a latch", pod(raw, other, `"speed":0,"routeTrimmed":true,"reversalLane":0,`), idle},
+		{"a marker before a latch", pod(raw, other, `"routeTrimmed":true,"reversalLane":0,`), fmt.Sprintf("pod %s is not traveling and has a trimmed route", other)},
+		{"a negative parked tick before a latch", pod(raw, other, `"reversalLane":0,"parkedSince":-1,`), fmt.Sprintf("pod %q has the negative parked tick -1", other)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -409,7 +429,7 @@ func TestSavedMotionMembers(t *testing.T) {
 	}
 	t.Run("an explicit 0 on a traveling pod", func(t *testing.T) {
 		t.Parallel()
-		store := &fakeStore{data: compressTestJSON(t, pod(raw, traveling, `"speed":0,"reservedAhead":0,`))}
+		store := &fakeStore{data: compressTestJSON(t, pod(raw, traveling, `"speed":0,"reservedAhead":0,"reversalLane":0,"reversalTicks":0,"routeTrimmed":false,`))}
 		s, err := NewFromStore(t.Context(), StoreInput{Store: store})
 		if err != nil {
 			t.Fatal(err)

@@ -96,9 +96,28 @@ type physicalRestore struct {
 	leaders []int
 	// faulted marks the pods that a saved pod fault names.
 	faulted []bool
-	// snap is the block-end snap of a restored distance (see
-	// restoredDistance).
-	snap float64
+	// earlier is true in the restore before the saved motion (see
+	// restoreBeforeMotion) and in the scratch placement of
+	// checkSavedFaultFootprints: each traveling pod places with the earlier
+	// placement policy.
+	earlier bool
+	// projected holds the projected draining flag of the saved link of each
+	// pod (see projectDraining). The restore before the saved motion takes
+	// the flags of the first physical restore.
+	projected []bool
+	// latchDropped marks the traveling pods whose committed placement
+	// dropped the saved reversal dwell latch (see latchAgrees).
+	latchDropped []bool
+	// routeBuilt is RestoreStateInput.routeBuilt, and linkProjected is
+	// RestoreStateInput.linkProjected.
+	routeBuilt, linkProjected func(index int)
+}
+
+// earlierEngine is the input of the restore before the saved motion (see
+// restoreBeforeMotion): the projected draining flags of the first
+// physical restore.
+type earlierEngine struct {
+	projected []bool
 }
 
 // restorePhysical rebuilds a running simulation with each pod where the saved
@@ -106,88 +125,42 @@ type physicalRestore struct {
 // the saved positions and the saved frontiers. A traveling pod that cannot
 // keep its place moves to a berth, which is a demotion. restorePhysical
 // fails when the saved state is not valid, when two pods at berths
-// conflict, or when a demoted pod finds no free berth.
-func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
-	return restorePhysicalSnap(input, newFleet, restoreDriftTolerance)
+// conflict, or when a demoted pod finds no free berth. It also returns the
+// projected draining flags of the saved links (see projectDraining), or
+// nil when it fails before it projects them.
+func restorePhysical(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, []bool, error) {
+	return restorePhysicalEngine(input, newFleet, nil)
 }
 
-// restorePhysicalSnap is restorePhysical with snap as the block-end snap
-// of a restored distance (see restoredDistance).
-func restorePhysicalSnap(input RestoreStateInput, newFleet func() (*Simulation, error), snap float64) (*Simulation, RestoreResult, error) {
-	unaccounted, err := validateSavedState(input.State, input.Network)
+// restorePhysicalEngine is restorePhysical. With earlier not nil, each
+// traveling pod places with the earlier placement policy, and the saved
+// links take the projected draining flags of earlier (see
+// restoreBeforeMotion).
+func restorePhysicalEngine(input RestoreStateInput, newFleet func() (*Simulation, error), earlier *earlierEngine) (*Simulation, RestoreResult, []bool, error) {
+	r, unaccounted, err := newRestoreEngine(input, newFleet, earlier)
 	if err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, nil, err
 	}
-	s, err := newFleet()
-	if err != nil {
-		return nil, RestoreResult{}, fmt.Errorf("create the fleet: %w", err)
-	}
-	if err := s.SetExpressServices(input.ExpressServices); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := s.setRestoredFaults(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := s.setRestoredEmergencies(input); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := s.checkSavedClasses(input.State); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkSavedPodIDs(s.initial, input.State); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := checkFleetSaved(s.initial, input.State); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	r := newPhysicalRestore(s, input.State)
-	r.snap = snap
-	r.restoreCounters()
-	if err := s.SetOnboardPickups(input.OnboardPickups); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := r.decodePods(); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	// The saved pods can differ from the fleet that NewFleet indexed.
-	s.vehicleIndexes = indexVehicles(s.vehicles)
-	if err := r.checkRoutes(); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	r.limitWork()
-	if err := r.buildRoutes(); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := r.checkLinks(); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	// Debris has its footprint before the pods take their resources
-	// (section 7.6 of the incident suspension contract).
-	if err := r.placeDebris(); err != nil {
-		return nil, RestoreResult{}, err
-	}
-	if err := r.claimBerths(); err != nil {
-		return nil, RestoreResult{}, err
-	}
+	s := r.s
 	if err := r.placeTraveling(); err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, r.projected, err
 	}
 	r.claimDestinations()
 	if err := r.separate(); err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, r.projected, err
 	}
 	if err := r.restoreFaultedPods(); err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, r.projected, err
 	}
 	if err := r.restoreEmergencies(); err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, r.projected, err
 	}
 	for index, demoted := range r.demoted {
 		if !demoted {
 			continue
 		}
 		if err := r.placeDemoted(index); err != nil {
-			return nil, RestoreResult{}, err
+			return nil, RestoreResult{}, r.projected, err
 		}
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
@@ -196,13 +169,90 @@ func restorePhysicalSnap(input RestoreStateInput, newFleet func() (*Simulation, 
 			r.result.AtRest = append(r.result.AtRest, s.vehicles[index].Pod.ID)
 		}
 	}
+	for index, dropped := range r.latchDropped {
+		if dropped && !r.demoted[index] {
+			r.result.DroppedLatches = append(r.result.DroppedLatches, s.vehicles[index].Pod.ID)
+		}
+	}
 	r.restoreWaiting()
 	slices.Sort(r.result.Interrupted)
 	if err := s.verifyRestore(input.State, nil, r.result.Interrupted, r.result.Dropped, unaccounted); err != nil {
-		return nil, RestoreResult{}, err
+		return nil, RestoreResult{}, r.projected, err
 	}
 	r.result.Tier, r.result.Unaccounted = RestorePhysical, unaccounted
-	return s, r.result, nil
+	return s, r.result, r.projected, nil
+}
+
+// newRestoreEngine runs the steps of the physical tier before it places the
+// traveling pods: it decodes the pods, admits and builds their routes,
+// checks the links, projects the draining flags, or takes those of
+// earlier, and places the debris and the pods at berths. It returns the
+// restore and the unaccounted orders of the saved state.
+func newRestoreEngine(input RestoreStateInput, newFleet func() (*Simulation, error), earlier *earlierEngine) (*physicalRestore, int, error) {
+	unaccounted, err := validateSavedState(input.State, input.Network)
+	if err != nil {
+		return nil, 0, err
+	}
+	s, err := newFleet()
+	if err != nil {
+		return nil, 0, fmt.Errorf("create the fleet: %w", err)
+	}
+	if err := s.SetExpressServices(input.ExpressServices); err != nil {
+		return nil, 0, err
+	}
+	if err := s.setRestoredFaults(input); err != nil {
+		return nil, 0, err
+	}
+	if err := s.setRestoredEmergencies(input); err != nil {
+		return nil, 0, err
+	}
+	if err := s.checkSavedClasses(input.State); err != nil {
+		return nil, 0, err
+	}
+	if err := checkSavedPodIDs(s.initial, input.State); err != nil {
+		return nil, 0, err
+	}
+	if err := checkFleetSaved(s.initial, input.State); err != nil {
+		return nil, 0, err
+	}
+	r := newPhysicalRestore(s, input.State)
+	r.earlier, r.routeBuilt, r.linkProjected = earlier != nil, input.routeBuilt, input.linkProjected
+	if input.blockBudget > 0 {
+		r.budget = input.blockBudget
+	}
+	r.restoreCounters()
+	if err := s.SetOnboardPickups(input.OnboardPickups); err != nil {
+		return nil, 0, err
+	}
+	if err := r.decodePods(); err != nil {
+		return nil, 0, err
+	}
+	// The saved pods can differ from the fleet that NewFleet indexed.
+	s.vehicleIndexes = indexVehicles(s.vehicles)
+	if err := r.checkRoutes(); err != nil {
+		return nil, 0, err
+	}
+	r.limitWork()
+	if err := r.buildRoutes(); err != nil {
+		return nil, 0, err
+	}
+	if err := r.checkLinks(); err != nil {
+		return nil, 0, err
+	}
+	if earlier == nil {
+		r.projectDraining()
+	} else {
+		r.projected = earlier.projected
+	}
+	// Debris has its footprint before the pods take their resources
+	// (section 7.6 of the incident suspension contract).
+	if err := r.placeDebris(); err != nil {
+		return nil, 0, err
+	}
+	if err := r.claimBerths(); err != nil {
+		return nil, 0, err
+	}
+	return r, unaccounted, nil
 }
 
 // validateSavedState checks the bounds of the queue and the contract of the
@@ -308,9 +358,9 @@ func checkFleetSaved(fleet []Placement, state SavedState) error {
 func newPhysicalRestore(s *Simulation, state SavedState) *physicalRestore {
 	r := &physicalRestore{
 		s: s, state: state, berths: make(map[string]berthRef),
-		demoted: make([]bool, len(state.Pods)), atRest: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
+		demoted: make([]bool, len(state.Pods)), atRest: make([]bool, len(state.Pods)), latchDropped: make([]bool, len(state.Pods)), projected: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
 		tripRoutes: make([][]int, len(state.Waiting)), unbound: make([]bool, len(state.Waiting)),
-		faulted: savedFaultedPods(state), snap: restoreDriftTolerance,
+		faulted: savedFaultedPods(state),
 	}
 	r.laneBlocks, r.budget = physicalBlockBudget(s)
 	for _, station := range s.network.Stations {
@@ -321,15 +371,33 @@ func newPhysicalRestore(s *Simulation, state SavedState) *physicalRestore {
 	return r
 }
 
+// physicalBlockBudget returns the blocks of each network lane of s and the
+// block budget of the physical restore, from the prepared network of s
+// (see laneBlockBudget). No caller writes to the slice. A simulation that
+// a test builds without a prepared network gets them from its lanes.
 func physicalBlockBudget(s *Simulation) ([]int, int) {
-	laneBlocks := make([]int, len(s.network.Lanes))
+	if s.laneBlocks == nil {
+		lengths := make([]float64, len(s.network.Lanes))
+		for index, lane := range s.network.Lanes {
+			lengths[index] = s.laneLength(lane)
+		}
+		return laneBlockBudget(lengths)
+	}
+	return s.laneBlocks, s.blockBudget
+}
+
+// laneBlockBudget returns the blocks of each network lane, with the lane
+// lengths in lengths, and the block budget of the physical restore: the
+// blocks of the network budgetNetworkMultiple times, plus budgetLaneBlocks
+// for each lane, but at most budgetMaxBlocks.
+func laneBlockBudget(lengths []float64) ([]int, int) {
+	laneBlocks := make([]int, len(lengths))
 	networkBlocks := 0
-	for index, lane := range s.network.Lanes {
-		laneBlocks[index] = laneBlockCount(s.laneLength(lane))
+	for index, length := range lengths {
+		laneBlocks[index] = laneBlockCount(length)
 		networkBlocks += laneBlocks[index]
 	}
-	budget := min(budgetNetworkMultiple*networkBlocks+budgetLaneBlocks*len(s.network.Lanes), budgetMaxBlocks)
-	return laneBlocks, budget
+	return laneBlocks, min(budgetNetworkMultiple*networkBlocks+budgetLaneBlocks*len(lengths), budgetMaxBlocks)
 }
 
 func (r *physicalRestore) restoreCounters() {
@@ -602,6 +670,9 @@ func (r *physicalRestore) buildRoutes() error {
 // that checkRoutes accepted. It demotes a traveling pod whose route does
 // not connect it to its destination.
 func (r *physicalRestore) buildRoute(index int, indexes []int) error {
+	if r.routeBuilt != nil {
+		r.routeBuilt(index)
+	}
 	v := &r.s.vehicles[index]
 	route, ok := r.lanes(indexes)
 	if ok {
@@ -835,113 +906,314 @@ func (r *physicalRestore) placeTraveling() error {
 	return nil
 }
 
-// placeTravelingPod places the traveling pod at index with its saved
-// motion (see placeTravelingPodAt). When that placement fails without an
-// error, it places the pod as the restore did before the saved motion: at
-// rest, with the derived frontier. It returns false only when that
-// placement also fails (restore speed proposal, section 4.2). A failure
-// that does not come from the saved motion fails both placements. An
-// error of the first placement stays an error. leader is the index of the
-// placed predecessor of the pod, or -1.
+// placeTravelingPod places the traveling pod at index. It plans the
+// placement with the first policy of the pod (see firstPolicy). When that
+// plan fails without an error and its input gave the pod a speed or a
+// lead, it plans the placement at rest (see atRestRetry). It commits the
+// plan that succeeds, and returns false only when both plans fail
+// (restore speed proposal, section 4.2). A failed plan leaves the pod as
+// it was, so the second plan starts from the same pod. An error of a plan
+// is an error of the placement. leader is the index of the placed
+// predecessor of the pod, or -1.
 func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
-	saved, speed := r.state.Pods[index], r.restoredSpeed(index)
-	placed, err := r.placeTravelingPodAt(index, leader, saved, speed)
-	if placed || err != nil || speed == 0 && saved.ReservedAhead <= 0 {
-		return placed, err
+	first := r.placementInput(index, r.firstPolicy(index))
+	plan, placed, err := r.planTravelPlacement(index, leader, first)
+	if !placed && err == nil && (first.speed != 0 || first.lead > 0) {
+		plan, placed, err = r.planTravelPlacement(index, leader, r.placementInput(index, atRestRetry))
+		r.atRest[index] = placed && err == nil
 	}
-	saved.Speed, saved.ReservedAhead = 0, 0
-	placed, err = r.placeTravelingPodAt(index, leader, saved, 0)
-	r.atRest[index] = placed && err == nil
-	return placed, err
+	if !placed || err != nil {
+		return false, err
+	}
+	r.commitTravelPlacement(index, plan)
+	return true, nil
 }
 
-// placeTravelingPodAt derives the reservations of the traveling pod at
-// index from the saved pod saved, its saved position and its saved
-// frontier (see savedFrontier), and claims them. The pod restores at
-// speed. leader is the index of its placed predecessor, or -1. With a
-// predecessor, the pod links to it with the saved link. It returns false
-// when a saved value is not valid, when another pod holds a resource that
-// the pod needs, or when the pod cannot stop within its reservation (see
-// stopsInReservation). Then it claims nothing and leaves no link. A
-// resource that a pod ahead in the platoon holds is not in the way in a
-// block that the pod can reserve as a platoon member. It returns an error
-// when the pods or their stop points are closer than the clearance of the
-// saved link.
-func (r *physicalRestore) placeTravelingPodAt(index, leader int, saved SavedPod, speed float64) (bool, error) {
-	v := &r.s.vehicles[index]
-	if saved.RouteIndex < 0 || saved.RouteIndex >= len(v.Route) {
-		return false, nil
+// placementPolicy names the saved values that one placement of a traveling
+// pod reads (see placementInput).
+type placementPolicy uint8
+
+const (
+	// primaryWhole places a pod with a whole saved route in the exact frame,
+	// with its saved speed, lead, latch, and link flag.
+	primaryWhole placementPolicy = iota
+	// primaryTrimmed places a pod with a trimmed saved route in the trimmed
+	// frame, with its saved speed, lead, latch, and link flag.
+	primaryTrimmed
+	// atRestRetry places a pod in the frame of its primary policy, at rest
+	// with the derived frontier. It keeps the saved latch when the latch
+	// agrees with that placement.
+	atRestRetry
+	// earlierPlacement places a pod as the restore did before the saved
+	// motion: in the earlier frame, at rest, with the derived frontier and
+	// no latch. It reads no saved speed, lead, or latch.
+	earlierPlacement
+)
+
+// firstPolicy returns the policy of the first placement of the traveling
+// pod at index.
+func (r *physicalRestore) firstPolicy(index int) placementPolicy {
+	if r.earlier {
+		return earlierPlacement
 	}
-	lane := v.Route[saved.RouteIndex]
-	if saved.LaneID != "" && saved.LaneID != lane.ID {
-		return false, nil
+	return primaryPolicy(r.state.Pods[index])
+}
+
+// primaryPolicy returns the primary placement policy of the saved pod
+// saved, from its trimmed route marker.
+func primaryPolicy(saved SavedPod) placementPolicy {
+	if saved.RouteTrimmed {
+		return primaryTrimmed
 	}
-	laneDistance, distance, current := r.s.restoredPosition(&v.blocks, saved.RouteIndex, saved.LaneDistance, saved.Distance, r.snap)
-	through, ok := r.savedFrontier(v, saved, current)
+	return primaryWhole
+}
+
+// frame returns the position frame of a placement of the saved pod saved
+// with policy p. A placement at rest keeps the frame of the primary
+// policy of the pod.
+func (p placementPolicy) frame(saved SavedPod) positionFrame {
+	switch p {
+	case primaryWhole:
+		return wholeFrame
+	case primaryTrimmed:
+		return trimmedFrame
+	case atRestRetry:
+		return primaryPolicy(saved).frame(saved)
+	default:
+		if saved.RouteTrimmed {
+			return earlierTrimmedFrame
+		}
+		return earlierWholeFrame
+	}
+}
+
+// drainingRule tells which draining flag a placement gives a saved link.
+type drainingRule uint8
+
+const (
+	// rawDraining keeps the saved flag of the live link.
+	rawDraining drainingRule = iota
+	// heldDraining keeps the saved flag when the placement holds the end
+	// block of the link, and takes the projected flag otherwise.
+	heldDraining
+	// projectedDraining takes the projected flag (see projectDraining).
+	projectedDraining
+)
+
+// placementInput holds what one placement of a traveling pod reads from
+// its saved pod. A placement reads the saved speed, lead, and latch only
+// from its input.
+type placementInput struct {
+	frame    positionFrame
+	speed    float64
+	lead     int
+	latch    reversal
+	draining drainingRule
+}
+
+// placementInput returns the input of a placement of the traveling pod at
+// index with policy.
+func (r *physicalRestore) placementInput(index int, policy placementPolicy) placementInput {
+	saved := r.state.Pods[index]
+	frame := policy.frame(saved)
+	latch := reversal{lane: saved.ReversalLane, ticks: saved.ReversalTicks}
+	switch policy {
+	case primaryWhole, primaryTrimmed:
+		return placementInput{frame: frame, speed: r.restoredSpeed(index), lead: saved.ReservedAhead, latch: latch, draining: rawDraining}
+	case atRestRetry:
+		return placementInput{frame: frame, latch: latch, draining: heldDraining}
+	default:
+		return placementInput{frame: frame, draining: projectedDraining}
+	}
+}
+
+// linkDraining returns the draining flag that a placement with input gives
+// the saved link of the pod at index, with the frontier through and the
+// end block end. A follower that reserved the end block of its link
+// drains, but live link maintenance sets the flag only in the next tick
+// (see maintainLink), so the saved flag can be false at the tick of that
+// grant.
+func (r *physicalRestore) linkDraining(index int, input placementInput, through, end int) bool {
+	raw := r.state.Pods[index].Platoon.Draining
+	switch input.draining {
+	case heldDraining:
+		if through < end {
+			return r.projected[index]
+		}
+		return raw
+	case projectedDraining:
+		return r.projected[index]
+	default:
+		return raw
+	}
+}
+
+// projectDraining finds the projected draining flag of the saved link of
+// each traveling pod that keeps its route, before any placement: the
+// saved flag, or true when the saved frontier holds the end block of the
+// link. It decodes the saved frontier once, in the frame of the primary
+// placement, so a later placement with another frame or a shorter
+// frontier keeps the state that live link maintenance finds (see
+// linkDraining). A saved frontier that is not valid gives no evidence of
+// the grant of the end block.
+func (r *physicalRestore) projectDraining() {
+	for index, saved := range r.state.Pods {
+		leader := r.leaders[index] - 1
+		v := &r.s.vehicles[index]
+		if leader < 0 || r.demoted[index] || r.demoted[leader] || v.Route == nil || r.s.vehicles[leader].Route == nil {
+			continue
+		}
+		if r.linkProjected != nil {
+			r.linkProjected(index)
+		}
+		r.projected[index] = saved.Platoon.Draining
+		if saved.RouteIndex < 0 || saved.RouteIndex >= len(v.Route) {
+			continue
+		}
+		frame := primaryPolicy(saved).frame(saved)
+		position := r.s.decodeTravelPosition(&v.blocks, saved, frame)
+		link := platoonLink{lane: saved.Platoon.Lane, leaderLane: saved.Platoon.LeaderLane, lanes: saved.Platoon.Lanes, turn: saved.Platoon.Turn}
+		if through, ok := r.savedFrontier(v, saved.ClaimsDestination, saved.ReservedAhead, position.leadBase, frame); ok && through >= r.s.linkEnd(v, link) {
+			r.projected[index] = true
+		}
+	}
+}
+
+// travelPlan is a placement of a traveling pod that
+// commitTravelPlacement installs.
+type travelPlan struct {
+	lane         int
+	laneDistance float64
+	distance     float64
+	// block is the block that the pod occupies, and through is its
+	// reservation frontier.
+	block, through int
+	speed          float64
+	footprint      []resource
+	// leader is the index of the predecessor of the pod, or -1 with no
+	// link.
+	leader       int
+	link         platoonLink
+	latch        reversal
+	latchDropped bool
+	// pending is the block of the request that the pod waits for, or -1.
+	pending int
+}
+
+// planTravelPlacement plans the placement of the traveling pod at index
+// with input. It derives the reservations of the pod from its saved
+// position and its saved frontier (see savedFrontier), on copies of the
+// pod and of its predecessor, against the placed pods and their claims,
+// in the frame of input. It writes nothing to the
+// pod, to another pod, or to the restore. leader is the index of its
+// placed predecessor, or -1. With a predecessor, the pod links to it with
+// the saved link. It reports false when a saved value is not valid, when
+// another pod holds a resource that the pod needs, or when the pod cannot
+// stop within its reservation (see stopsInReservation). A resource that a
+// pod ahead in the platoon holds is not in the way in a block that the pod
+// can reserve as a platoon member. It returns an error when the pod holds
+// a resource of a debris footprint, or when the pods or their stop points
+// are closer than the clearance of the saved link.
+func (r *physicalRestore) planTravelPlacement(index, leader int, input placementInput) (travelPlan, bool, error) {
+	// A lookup writes the scan hints of the blocks that it reads, so the
+	// plan reads only copies of the pod and of its predecessor.
+	candidate, saved := r.s.vehicles[index], r.state.Pods[index]
+	c := &candidate
+	if saved.RouteIndex < 0 || saved.RouteIndex >= len(c.Route) {
+		return travelPlan{}, false, nil
+	}
+	if saved.LaneID != "" && saved.LaneID != c.Route[saved.RouteIndex].ID {
+		return travelPlan{}, false, nil
+	}
+	position := r.s.decodeTravelPosition(&c.blocks, saved, input.frame)
+	through, ok := r.savedFrontier(c, saved.ClaimsDestination, input.lead, position.leadBase, input.frame)
 	if !ok {
-		return false, nil
+		return travelPlan{}, false, nil
 	}
-	if distance < v.originTail() && (v.origin.ID == "" || v.Route[0].From != v.origin.Node) {
-		return false, nil
+	plan := travelPlan{
+		lane: position.lane, laneDistance: position.laneDistance, distance: position.distance,
+		block: position.leadBase, through: through, speed: input.speed, leader: -1, pending: -1,
 	}
-	if v.destination.ID == "" && r.noBerthDemotes(v, through) {
-		return false, nil
+	plan.block = placedBlock(&c.blocks, position, through, input.frame)
+	if plan.distance < c.originTail() && (c.origin.ID == "" || c.Route[0].From != c.origin.Node) {
+		return travelPlan{}, false, nil
 	}
-	v.distance, v.blockIndex, v.Pod.Speed = distance, current, speed
-	footprint := v.footprint(through, distance)
-	if slices.ContainsFunc(footprint, func(claimed resource) bool { return r.s.owners[claimed].kind == faultOwnerKind }) {
-		return false, fmt.Errorf("%w: the pod holds a resource of a debris footprint", errInvalidFaults)
+	if c.destination.ID == "" && r.noBerthDemotes(c, through) {
+		return travelPlan{}, false, nil
+	}
+	c.distance, c.blockIndex, c.Pod.Speed = plan.distance, plan.block, plan.speed
+	plan.footprint = c.footprint(through, plan.distance)
+	if slices.ContainsFunc(plan.footprint, func(claimed resource) bool { return r.s.owners[claimed].kind == faultOwnerKind }) {
+		return travelPlan{}, false, fmt.Errorf("%w: the pod holds a resource of a debris footprint", errInvalidFaults)
 	}
 	var ahead *vehicle
 	if leader >= 0 {
-		ahead = &r.s.vehicles[leader]
-		link, err := r.savedLink(index, leader)
+		predecessor := r.s.vehicles[leader]
+		ahead = &predecessor
+		link, err := r.savedLink(c, ahead, saved.Platoon)
 		if err != nil {
-			return false, err
+			return travelPlan{}, false, err
 		}
-		// An overspeed follower fails this placement before the stop-point
-		// check of its link can fail the physical tier, and
-		// placeTravelingPod then places it at rest.
-		if overLaneLimit(v, saved.RouteIndex) {
-			return false, nil
+		link.draining = r.linkDraining(index, input, through, link.end)
+		// An overspeed follower fails this plan before the stop-point check
+		// of its link can fail the physical tier, and placeTravelingPod then
+		// plans it at rest.
+		if overLaneLimit(c, saved.RouteIndex) {
+			return travelPlan{}, false, nil
 		}
-		if err := checkLinkStopPoints(v, ahead, link); err != nil {
-			return false, err
+		if err := checkLinkStopPoints(c, ahead, link); err != nil {
+			return travelPlan{}, false, err
 		}
-		if !r.linkClaims(v, ahead, link, through) {
-			return false, nil
+		if !r.linkClaims(c, ahead, link, through) {
+			return travelPlan{}, false, nil
 		}
-		r.s.link(index, leader, link)
-	} else if slices.ContainsFunc(footprint, func(claimed resource) bool { return !r.s.owners[claimed].isZero() }) {
-		return false, nil
+		link.leader = leader + 1
+		c.link, plan.leader, plan.link = link, leader, link
+	} else if slices.ContainsFunc(plan.footprint, func(claimed resource) bool { return !r.s.owners[claimed].isZero() }) {
+		return travelPlan{}, false, nil
 	}
-	if !r.stopsInReservation(v, ahead, saved.RouteIndex, through) {
-		if ahead != nil {
-			r.s.unlink(v)
-		}
-		return false, nil
+	plan.latch, plan.latchDropped = r.s.latchAgrees(&c.blocks, saved.RouteIndex, c.distance, c.Pod.Speed, c.blocks.end(through), input.latch)
+	c.reversal = plan.latch
+	if !r.stopsInReservation(c, ahead, saved.RouteIndex, through) {
+		return travelPlan{}, false, nil
 	}
-	for _, claimed := range footprint {
+	if saved.Waiting && through+1 < c.blocks.len() {
+		plan.pending = through + 1
+	}
+	return plan, true, nil
+}
+
+// commitTravelPlacement installs plan, a placement of the traveling pod at
+// index that planTravelPlacement found: its position, its link, its latch,
+// and its claims.
+func (r *physicalRestore) commitTravelPlacement(index int, plan travelPlan) {
+	v, saved := &r.s.vehicles[index], r.state.Pods[index]
+	v.distance, v.blockIndex, v.Pod.Speed = plan.distance, plan.block, plan.speed
+	if plan.leader >= 0 {
+		r.s.link(index, plan.leader, plan.link)
+	}
+	v.reversal, r.latchDropped[index] = plan.latch, plan.latchDropped
+	for _, claimed := range plan.footprint {
 		if r.s.owners[claimed].isZero() {
 			r.s.owners[claimed] = podResourceOwner(v.Pod.ID)
 		}
 	}
-	for _, b := range v.blocks.span(0, through+1) {
+	for _, b := range v.blocks.span(0, plan.through+1) {
 		for _, claimed := range b.resources {
-			if release := resourceReleaseDistance(b, claimed); release > distance {
+			if release := resourceReleaseDistance(b, claimed); release > plan.distance {
 				v.retainRouteResource(claimed, release)
 			}
 		}
 	}
-	v.reservedThrough = through
-	v.originReleased = distance >= v.originTail()
-	v.Pod.LaneDistance = laneDistance
-	v.Pod.Position = r.s.position(lane, laneDistance)
+	v.reservedThrough = plan.through
+	v.originReleased = plan.distance >= v.originTail()
+	lane := v.Route[plan.lane]
+	v.Pod.LaneDistance = plan.laneDistance
+	v.Pod.Position = r.s.position(lane, plan.laneDistance)
 	v.Pod.LaneID = lane.ID
-	if saved.Waiting && through+1 < v.blocks.len() {
-		v.pending, v.waitSince = through+1, saved.WaitSince
+	if plan.pending >= 0 {
+		v.pending, v.waitSince = plan.pending, saved.WaitSince
 	}
-	return true, nil
 }
 
 // noBerthDemotes reports whether a pod with no berth and a reservation through
@@ -969,13 +1241,11 @@ func (r *physicalRestore) savedAssigned(podID string) bool {
 	return slices.ContainsFunc(r.state.Waiting, func(trip SavedTrip) bool { return trip.Request.PodID == podID })
 }
 
-// savedLink returns the link of the pod at index to its placed predecessor
-// at index leader, from the saved link. The follower must be at least the
-// clearance of the link behind the predecessor (see also
+// savedLink returns the link of the traveling pod v to its placed
+// predecessor ahead, from the saved link saved. The follower must be at
+// least the clearance of the link behind the predecessor (see also
 // checkLinkStopPoints).
-func (r *physicalRestore) savedLink(index, leader int) (platoonLink, error) {
-	v, ahead := &r.s.vehicles[index], &r.s.vehicles[leader]
-	saved := r.state.Pods[index].Platoon
+func (r *physicalRestore) savedLink(v, ahead *vehicle, saved *SavedPlatoonLink) (platoonLink, error) {
 	link := platoonLink{
 		lane: saved.Lane, leaderLane: saved.LeaderLane, lanes: saved.Lanes,
 		turn: saved.Turn, clearance: linkClearance(saved.Turn), draining: saved.Draining,
@@ -1022,19 +1292,80 @@ func (r *physicalRestore) linkClaims(v, leader *vehicle, link platoonLink, throu
 	return !shared || through <= link.end && leaderBlock(v, leader, link, through) <= leader.reservedThrough
 }
 
-// restoredPosition returns the lane distance, the route distance, and the
-// block of a restored traveling pod in the lane at route index lane of
-// blocks, from its saved lane distance and its saved route distance. The
-// export calls it with the blocks of the saved route, so it finds the
-// block of the restore also when the sums of lane lengths of the saved
-// route and the live route differ (see savedMotion).
-func (s *Simulation) restoredPosition(blocks *blockList, lane int, laneDistance, saved, snap float64) (float64, float64, int) {
-	first, last := routeLaneBlocks(blocks, lane)
-	laneDistance = min(max(laneDistance, -restoreTolerance), s.laneLength(blocks.route[lane])+restoreTolerance)
-	distance := restoredDistance(restoredDistanceInput{
-		blocks: blocks, first: first, last: last, laneDistance: laneDistance, saved: saved, snap: snap,
-	})
-	return laneDistance, distance, restoredBlock(blocks, first, last, distance)
+// latchAgrees reports whether the saved reversal dwell latch agrees with
+// the restored position of a traveling pod on blocks: at the route
+// distance in the lane at route index lane, at speed, with its frontier
+// at the route distance limit. Live motion keeps these rules (see
+// reversalLimit). A latched lane k stops the pod at the start of lane k,
+// so the pod is not past that start. A pod counts dwell ticks only at rest
+// at that start. The pod latched k with the search of reversalLimit. A
+// frontier does not move back, and the search latches the lane after a
+// done lane only in a tick in which the pod can move on from the start of
+// the done lane. So the search with no done lane, from the restored
+// position and with limit, finds k. A pod that a platoon cap or a fault
+// holds at that start can have such a latch, and the placement drops it,
+// so the pod dwells there again. The dwell at a done lane ended at the
+// start of that lane, so the pod is not short of it. The comparisons are
+// exact in the restored frame. A trimmed
+// route restores in its own frame, where the sums of lane lengths can
+// differ in the last bits, so a latch at a lane start of such a route can
+// fail them. The placement then drops the latch, and the dwell
+// starts again, as before the saved latch. checkSavedReversals checked
+// the lane against the saved route. An empty latch agrees. latchAgrees
+// returns the latch of the placement: latch when it agrees, and an empty
+// latch with dropped true when it does not.
+func (s *Simulation) latchAgrees(blocks *blockList, lane int, distance, speed, limit float64, latch reversal) (selected reversal, dropped bool) {
+	if !s.latchFits(blocks, lane, distance, speed, limit, latch) {
+		return reversal{}, true
+	}
+	return latch, false
+}
+
+// latchFits reports whether latch agrees with the placement (see
+// latchAgrees).
+func (s *Simulation) latchFits(blocks *blockList, lane int, distance, speed, limit float64, latch reversal) bool {
+	k := max(latch.lane, -latch.lane)
+	if k == 0 {
+		return true
+	}
+	point := blocks.lanes[k].start
+	switch {
+	case latch.lane < 0:
+		return distance >= point
+	case distance > point, latch.ticks > 0 && (distance < point || speed > 0):
+		return false
+	}
+	return s.nextReversal(blocks, lane, distance, 0, limit) == k
+}
+
+// placedBlock returns the block in which a restore places a traveling pod
+// at position on blocks, with the reservation frontier through, in frame:
+// the tied block in an exact frame, and otherwise the lead base block. The
+// export checks its frame with it (see savedMotion).
+func placedBlock(blocks *blockList, position travelPosition, through int, frame positionFrame) int {
+	if frame.exact {
+		return tiedBlock(blocks, position.lane, position.leadBase, through, position.distance)
+	}
+	return position.leadBase
+}
+
+// tiedBlock returns the block that a restored traveling pod at distance in
+// the lane at route index lane occupies, with the reservation frontier
+// through. current is the lead base block of the decoded position (see
+// travelPosition), the first block that ends at or after the distance.
+// Live motion moves a pod past the end of a block when the pod holds the
+// next block (see publishVehicleTravel). So when the distance is the exact
+// end of a block before the last block of the lane, the pod is in the next
+// block if through holds it. Only the exact frame keeps the exact distance
+// of the live pod. The placement picks the occupied block after it knows
+// the frontier, and the frontier of the export and of the restore counts
+// from the lead base block (see savedMotion), so the frontier does not
+// change.
+func tiedBlock(blocks *blockList, lane, current, through int, distance float64) int {
+	if _, last := routeLaneBlocks(blocks, lane); current < last && current < through && blocks.peekEnd(current) == distance {
+		return current + 1
+	}
+	return current
 }
 
 type restoredDistanceInput struct {

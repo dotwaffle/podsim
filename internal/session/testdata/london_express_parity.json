@@ -4,7 +4,7 @@
 		{
 			"state": "bank-b",
 			"tick": 22020,
-			"savedState": "c3976cde585df9242a00c6b443bfcc1d05acdfeb23099bb8dbde488c0a80aa64",
+			"savedState": "bcb07e56b7c8592ca0038fbd47fb92667894fbfb34d75e61d4f16b9a09c13e39",
 			"full": "49a612258128f80ceb7cbca8a981720d92e73a54db079a1e9402ce89a231692d",
 			"deltas": [
 				"ffa325f0d56574e95b74819893454494a7e415309b9c4f43d6626ce7195ed71c",
@@ -15,7 +15,7 @@
 		{
 			"state": "return",
 			"tick": 44760,
-			"savedState": "1910e4d8f1787eab90ef676f4a4cfc2a90fe1835fe16107c59a80081b778b26e",
+			"savedState": "446c268d773c1561b82b63885ba2a931e11484c66ce3f51defeda14ce182bd2b",
 			"full": "18a99f11f48a3d7b57ce17da490922a6f09aeabbb3ea209ce2cb8c0f65dcca79",
 			"deltas": [
 				"89f80d5af47fc474c5423e113360b6f42e3ad79b1026c9308a51b1f64180dce8",
@@ -26,7 +26,7 @@
 		{
 			"state": "parking-berth",
 			"tick": 63870,
-			"savedState": "784370cbe21a7b79154025e8b28261c2d75cff02f96486a4e10c3556247f7475",
+			"savedState": "8fe50c802b0f550dcd1420ba6c6672472659611d19fea071de43026758f4bc2d",
 			"full": "761837bd6a354d94f84d7a33748c27f7cba91411e8d797488cececa6cd4aa504",
 			"deltas": [
 				"6aadde48ff658be4d59715eb31284a73664f2a41f1c61525f2e03edcfb1b49a6",

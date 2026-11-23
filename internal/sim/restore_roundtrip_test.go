@@ -14,8 +14,11 @@ import (
 // speed limit of its lane and the largest change of a position that the
 // restores of a fixture saw.
 type roundTripStats struct {
-	ticks            int
-	excess, residual float64
+	ticks  int
+	excess float64
+	// residual is the largest change of a position on a trimmed route,
+	// and wholeResidual on a whole route.
+	residual, wholeResidual float64
 	// lanes holds the lanes where a pod moved, and trimmed counts the
 	// saves of a pod whose saved route starts after its live route.
 	lanes   map[string]bool
@@ -84,14 +87,19 @@ func worseThanPlain(result RestoreResult, err error, plain RestoreResult, plainE
 
 // roundTripTick saves c.s and restores the save, and fails as
 // roundTripCheck finds. The failure names the fixture, the seed, and the
-// tick.
+// tick. Each secondRoundTripTicks ticks, it also saves the trimmed routes
+// of a save over the restore budget (see exportTrimmed), and restores that
+// save.
 func roundTripTick(t *testing.T, c roundTripCase, stats *roundTripStats) {
 	t.Helper()
-	got := roundTripCheck(t, c, stats)
+	got := roundTripCheck(t, c, stats, true)
 	if got.failure != "" || len(got.dropped)+len(got.extra) != 0 {
 		t.Fatalf("%s, seed %d, tick %d: %s; the restore drops the owners of %v and adds owners of %v", c.name, c.seed, c.s.tick, got.failure, got.dropped, got.extra)
 	}
 	if c.s.tick%secondRoundTripTicks == 0 {
+		if trimmed := roundTripCheck(t, c, stats, false); trimmed.failure != "" || len(trimmed.dropped)+len(trimmed.extra) != 0 {
+			t.Fatalf("%s, seed %d, tick %d, trimmed routes: %s; the restore drops the owners of %v and adds owners of %v", c.name, c.seed, c.s.tick, trimmed.failure, trimmed.dropped, trimmed.extra)
+		}
 		if failure := secondRoundTrip(t, c, got.restored); failure != "" {
 			t.Fatalf("%s, seed %d, tick %d: %s", c.name, c.seed, c.s.tick, failure)
 		}
@@ -112,7 +120,7 @@ func secondRoundTrip(t *testing.T, c roundTripCase, first *Simulation) string {
 	t.Helper()
 	c.s = first
 	stats := newRoundTripStats()
-	got := roundTripCheck(t, c, &stats)
+	got := roundTripCheck(t, c, &stats, true)
 	if got.failure != "" || len(got.dropped)+len(got.extra) != 0 {
 		return fmt.Sprintf("second round trip: %s; the restore drops the owners of %v and adds owners of %v", got.failure, got.dropped, got.extra)
 	}
@@ -121,7 +129,7 @@ func secondRoundTrip(t *testing.T, c roundTripCase, first *Simulation) string {
 		if v.Pod.Activity != Traveling || v.blocks.len() == 0 {
 			continue
 		}
-		_, offset, _ := first.savedStart(v)
+		offset := v.blocks.lanes[len(v.Route)-len(got.state.Pods[index].Route)].start
 		if want, distance := v.distance-offset, got.restored.vehicles[index].distance; math.Float64bits(distance) != math.Float64bits(want) {
 			return fmt.Sprintf("second round trip, pod %s: restored at %v, want %v", v.Pod.ID, distance, want)
 		}
@@ -140,7 +148,9 @@ type roundTripResult struct {
 	restored       *Simulation
 }
 
-// roundTripCheck saves c.s and restores the save with c.input. A save
+// roundTripCheck saves c.s and restores the save with c.input. The save
+// has the whole routes when whole is true, and the trimmed routes of a
+// save over the restore budget otherwise (see exportTrimmed). A save
 // without an incident record takes a strict JSON round trip first, unless
 // c.noJSON, because the plain JSON omits the members that only the session
 // adapter saves. The restore must accept the save, keep every pod in the
@@ -150,10 +160,13 @@ type roundTripResult struct {
 // also tells whether the save with no saved motion fails in the same way.
 // A resource that both simulations own with different owners is a
 // failure. The result lists the other differences of the owners.
-func roundTripCheck(t *testing.T, c roundTripCase, stats *roundTripStats) roundTripResult {
+func roundTripCheck(t *testing.T, c roundTripCase, stats *roundTripStats, whole bool) roundTripResult {
 	t.Helper()
 	s := c.s
 	state := s.ExportState()
+	if !whole {
+		state = s.exportTrimmed()
+	}
 	if !c.noJSON && len(s.faults)+len(s.emergencies) == 0 {
 		state = roundTripState(t, state)
 	}
@@ -181,7 +194,9 @@ func roundTripCheck(t *testing.T, c roundTripCase, stats *roundTripStats) roundT
 			delete(stats.last, v.Pod.ID)
 			continue
 		}
-		start, offset, current := s.savedStart(v)
+		// The saved route is the end of the live route.
+		start := len(v.Route) - len(state.Pods[index].Route)
+		offset, current := v.blocks.lanes[start].start, v.blocks.locate(v.blockIndex, v.blocks.scan)
 		if wantThrough := v.reservedThrough - v.blocks.laneFirst(start); copied.reservedThrough != wantThrough {
 			got.failure = fmt.Sprintf("pod %s: restored frontier %d, want %d", v.Pod.ID, copied.reservedThrough, wantThrough)
 			return got
@@ -200,10 +215,13 @@ func roundTripCheck(t *testing.T, c roundTripCase, stats *roundTripStats) roundT
 			}
 		}
 		stats.last[v.Pod.ID] = roundTripPod{lane: v.Pod.LaneID, limit: limit, speed: v.Pod.Speed}
+		residual := math.Abs(copied.distance - (v.distance - offset))
 		if start > 0 {
 			stats.trimmed++
+			stats.residual = max(stats.residual, residual)
+		} else {
+			stats.wholeResidual = max(stats.wholeResidual, residual)
 		}
-		stats.residual = max(stats.residual, math.Abs(copied.distance-(v.distance-offset)))
 	}
 	for _, held := range slices.SortedFunc(maps.Keys(s.owners), compareResources) {
 		switch owner := restored.owners[held]; {
@@ -373,8 +391,11 @@ func TestRestoreMotionEveryTick(t *testing.T) {
 				roundTripTick(t, c, &stats)
 				c.s.Step()
 			}
-			t.Logf("%s: %d restores, %d second round trips; largest speed over a lane limit %v m/s; largest position residual %v m; %d lanes with motion; %d saves of a pod with a later route start",
-				c.name, stats.ticks, stats.second, stats.excess, stats.residual, len(stats.lanes), stats.trimmed)
+			t.Logf("%s: %d restores, %d second round trips; largest speed over a lane limit %v m/s; largest position residual %v m on a trimmed route and %v m on a whole route; %d lanes with motion; %d saves of a pod with a later route start",
+				c.name, stats.ticks, stats.second, stats.excess, stats.residual, stats.wholeResidual, len(stats.lanes), stats.trimmed)
+			if stats.wholeResidual != 0 {
+				t.Fatalf("%s: a position residual of %v m on a whole route, want 0", c.name, stats.wholeResidual)
+			}
 			if stats.second == 0 {
 				t.Fatalf("%s: no second round trip", c.name)
 			}

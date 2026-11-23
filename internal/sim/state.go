@@ -3,6 +3,7 @@ package sim
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 )
 
@@ -132,11 +133,19 @@ type SavedPod struct {
 	// not zero only for a pod idle at a depot slot or that moves up in one
 	// depot lane, and a pod placed in the lane has 0.
 	ParkedSince int64 `json:"parkedSince,omitzero"`
-	// Route holds the lanes that the pod still needs. The route of a traveling
-	// pod starts at the first lane that can still hold a resource, or at an
-	// earlier lane (see savedStart), and RouteIndex and Distance count from
-	// the start of that lane.
-	Route        []int   `json:"route,omitempty"`
+	// Route holds the lanes of the route of the pod. A traveling pod saves
+	// its whole route when the routes of the save fit the block budget of
+	// the restore (see ExportState). Otherwise, and for a route that is
+	// longer than its limit, the saved route starts at the first lane that
+	// can still hold a resource, or at an earlier lane (see exportPlan.trim).
+	// RouteIndex and Distance count from the start of the saved route.
+	Route []int `json:"route,omitempty"`
+	// RouteTrimmed is true when the saved route of a traveling pod starts
+	// after the first lane of its route. The restore moves a distance of a
+	// pod on such a route to a block end within restoreDriftTolerance, and
+	// a distance on a whole route not at all (exact restore coordinates
+	// proposal, EC-D3).
+	RouteTrimmed bool    `json:"routeTrimmed,omitzero"`
 	RouteIndex   int     `json:"routeIndex,omitzero"`
 	LaneID       string  `json:"laneID,omitempty"`
 	LaneDistance float64 `json:"laneDistance,omitzero"`
@@ -152,6 +161,19 @@ type SavedPod struct {
 	// zeroMotion is true when the saved file has the speed or the
 	// reservedAhead member with the value 0 (see SetMotionMembers).
 	zeroMotion bool
+	// ReversalLane and ReversalTicks are the reversal dwell latch of a
+	// traveling pod (see reversal). ReversalLane is the index k of the
+	// latched lane in the saved route, or -k after the dwell at lane k, and
+	// ReversalTicks counts the ticks at rest at the start of lane k. Both
+	// are 0 for an empty latch (exact restore coordinates proposal, EC-D8).
+	ReversalLane  int `json:"reversalLane,omitzero"`
+	ReversalTicks int `json:"reversalTicks,omitzero"`
+	// zeroReversal is true when the saved file has the reversalLane or the
+	// reversalTicks member with the value 0 (see SetReversalMembers).
+	zeroReversal bool
+	// zeroMarker is true when the saved file has the routeTrimmed member
+	// with the value false (see SetMarkerMember).
+	zeroMarker bool
 	// Waiting is true when the pod waits for track admission since WaitSince.
 	Waiting   bool  `json:"waiting,omitzero"`
 	WaitSince int64 `json:"waitSince,omitzero"`
@@ -182,6 +204,22 @@ func (pod *SavedPod) SetMotionMembers(speed, reservedAhead bool) {
 	pod.zeroMotion = speed && pod.Speed == 0 || reservedAhead && pod.ReservedAhead == 0
 }
 
+// SetReversalMembers records which of the reversalLane and the
+// reversalTicks members the saved file of pod has, as SetMotionMembers does
+// for the motion members. checkSavedReversals refuses either member on a
+// pod that is not traveling, also with the value 0.
+func (pod *SavedPod) SetReversalMembers(lane, ticks bool) {
+	pod.zeroReversal = lane && pod.ReversalLane == 0 || ticks && pod.ReversalTicks == 0
+}
+
+// SetMarkerMember records whether the saved file of pod has the
+// routeTrimmed member, as SetMotionMembers does for the motion members.
+// checkSavedRouteMarkers refuses the member on a pod that is not
+// traveling, also with the value false.
+func (pod *SavedPod) SetMarkerMember(present bool) {
+	pod.zeroMarker = present && !pod.RouteTrimmed
+}
+
 // SavedPlatoonLink is the saved link of a traveling pod to its predecessor
 // in a platoon. The link certifies a run of lanes that both routes share.
 // The restore checks the link against the network and the pods, and it
@@ -199,8 +237,12 @@ type SavedPlatoonLink struct {
 	// the pod. All links of one platoon have the same turn. The clearance
 	// of the link follows from it.
 	Turn float64 `json:"turn"`
-	// Draining is true when the pod reserved the end block of the run. The
-	// pod then makes no more linked grants.
+	// Draining is the draining flag of the link. Link maintenance sets it
+	// when the pod reserved the end block of the run, and the pod then
+	// makes no more linked grants. A grant of the end block after the
+	// maintenance of a tick leaves it false until the next tick. A restore
+	// that does not keep the saved frontier of the pod drains a link whose
+	// saved frontier holds the end block.
 	Draining bool `json:"draining,omitzero"`
 }
 
@@ -235,6 +277,17 @@ const (
 // RestoreStateInput holds the network and the fleet of the saved simulation,
 // and its saved state.
 type RestoreStateInput struct {
+	// blockBudget, when more than 0, replaces the block budget of the
+	// physical restore (see physicalBlockBudget). Only tests set it.
+	blockBudget int
+	// routeBuilt, when not nil, gets the index of a saved pod each time a
+	// physical restore starts to build its route (see buildRoute). The
+	// scratch fleet of checkSavedFaultFootprints does not call it.
+	// linkProjected, when not nil, gets the index of a saved pod each time
+	// a physical restore projects the draining flag of its saved link (see
+	// projectDraining). Only tests set them.
+	routeBuilt    func(index int)
+	linkProjected func(index int)
 	OrderContract OrderContract
 	// FaultsOn turns on the fault rules of the restore and the fault
 	// operations of the restored simulation, with the settings of Faults.
@@ -273,6 +326,11 @@ type RestoreResult struct {
 	// the saved motion failed or demoted a pod that the earlier restore
 	// keeps (restore speed proposal, section 4.2).
 	EarlierRestore bool
+	// DroppedLatches lists the traveling pods, in saved pod order, whose
+	// saved reversal dwell latch does not agree with their restored
+	// position, so that the physical tier dropped it (see latchAgrees). A
+	// pod that the tier demotes is not here.
+	DroppedLatches []string
 	// Requeued lists the requests that went back to the queue.
 	Requeued []int
 	// LogicalCompleted lists logical auto-completions without an actual
@@ -416,16 +474,21 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 // a new fleet (see restoreBeforeMotion, and restore speed proposal,
 // section 4.2). When the first restore fails, it returns the outcome of
 // the second, so the second also decides between a refusal and the
-// logical tier. When the first demotes a pod that the second keeps, also
+// logical tier. When the first fails before it projects the draining
+// flags, the second runs the same steps on the same input, so it fails in
+// the same way, and the first restore gives that outcome. When the first demotes a pod that the second keeps, also
 // when the second demotes another pod, it returns the second. Thus no pod
 // restores worse than before the saved motion. Otherwise it returns the
 // first restore.
 func restorePhysicalMotion(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
-	s, result, err := restorePhysical(input, newFleet)
+	s, result, projected, err := restorePhysical(input, newFleet)
 	if err == nil && len(result.Demoted) == 0 {
 		return s, result, nil
 	}
-	plain, plainResult, plainErr := restoreBeforeMotion(input, newFleet)
+	if projected == nil {
+		return nil, result, err
+	}
+	plain, plainResult, plainErr := restoreBeforeMotion(input, newFleet, projected)
 	plainResult.EarlierRestore = plainErr == nil
 	switch {
 	case err != nil:
@@ -437,27 +500,24 @@ func restorePhysicalMotion(input RestoreStateInput, newFleet func() (*Simulation
 }
 
 // restoreBeforeMotion runs the physical tier on input as the restore did
-// before the saved motion: each pod with speed 0 and no lead, and the
-// block-end snap of a restored distance at restoreTolerance.
-func restoreBeforeMotion(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
-	input.State = stateBeforeMotion(input.State)
-	return restorePhysicalSnap(input, newFleet, restoreTolerance)
-}
-
-// stateBeforeMotion returns state with a copy of its pods, each with speed
-// 0 and no reservation lead, as a save before the saved motion has them.
-func stateBeforeMotion(state SavedState) SavedState {
-	state.Pods = slices.Clone(state.Pods)
-	for index := range state.Pods {
-		state.Pods[index].Speed, state.Pods[index].ReservedAhead = 0, 0
-	}
-	return state
+// before the saved motion: each traveling pod places with the earlier
+// placement policy, at speed 0, with no lead and an empty reversal dwell
+// latch, and with the block-end snap of a restored distance at
+// restoreTolerance, also on a whole route (exact restore coordinates
+// proposal, EC-D5 and EC-D8). A saved link takes its draining flag from
+// projected, the projection of the first physical restore (see
+// projectDraining), so this restore reads no saved lead and no trimmed
+// route marker.
+func restoreBeforeMotion(input RestoreStateInput, newFleet func() (*Simulation, error), projected []bool) (*Simulation, RestoreResult, error) {
+	s, result, _, err := restorePhysicalEngine(input, newFleet, &earlierEngine{projected: projected})
+	return s, result, err
 }
 
 // checkRestoreInput runs the restore input checks in order, then checks
-// the footprints of the saved faults on a new fleet, and last checks the
-// saved motion. A motion refusal does not hide a refusal of the saved
-// faults, which came before the saved motion.
+// the footprints of the saved faults on a new fleet, then the saved
+// motion, then the trimmed route markers, and last the reversal dwell
+// latches. A later refusal does not hide an earlier one, so each check of
+// a newer member comes after the checks of the older members.
 func checkRestoreInput(input RestoreStateInput, newFleet func() (*Simulation, error)) error {
 	for _, check := range restoreInputChecks {
 		if err := check(input); err != nil {
@@ -467,7 +527,13 @@ func checkRestoreInput(input RestoreStateInput, newFleet func() (*Simulation, er
 	if err := checkSavedFaultFootprints(input, newFleet); err != nil {
 		return err
 	}
-	return checkSavedMotion(input)
+	if err := checkSavedMotion(input); err != nil {
+		return err
+	}
+	if err := checkSavedRouteMarkers(input); err != nil {
+		return err
+	}
+	return checkSavedReversals(input, newFleet)
 }
 
 // checkRestoreOrderContract checks the input order contract, and that the
@@ -533,12 +599,24 @@ func restoreLogicalTier(input RestoreStateInput, newFleet func() (*Simulation, e
 // ExportState copies the state that RestoreState needs. The result shares no
 // storage with s. Call it only while no other goroutine uses s.
 //
-// A traveling pod saves only the part of its route that can still hold a
-// resource. A route that is longer than its limit is not saved. RestoreState
-// then moves the pod to a berth. A queued trip without its route also loses
-// its pod bindings, and an empty pod on its way to that pickup is saved as
+// A traveling pod saves its whole route when the routes of the save fit
+// the block budget of the physical restore (see planSavedRoutes).
+// Otherwise each traveling pod saves only the part of its route that can
+// still hold a resource, as does a route that is longer than its limit
+// (exact restore coordinates proposal, EC-D2 and EC-D7). A route that is
+// longer than its limit after that is not saved. RestoreState then moves
+// the pod to a berth. A queued trip without its route also loses its pod
+// bindings, and an empty pod on its way to that pickup is saved as
 // released.
 func (s *Simulation) ExportState() SavedState {
+	_, budget := physicalBlockBudget(s)
+	return s.exportState(budget)
+}
+
+// exportState is ExportState with the block budget that the whole routes
+// must fit (see physicalBlockBudget). With a negative budget, each
+// traveling pod saves its trimmed route.
+func (s *Simulation) exportState(budget int) SavedState {
 	state := SavedState{
 		OrderContract: s.orderContract,
 		Tick:          s.tick, Paused: s.paused, Completed: s.completed, RequestID: s.requestID, Boarded: s.boarded,
@@ -555,17 +633,21 @@ func (s *Simulation) ExportState() SavedState {
 		state.Demo = &SavedDemo{SecondSent: s.demo.secondSent, FollowupsSent: s.demo.followupsSent}
 	}
 	limits := newRouteLimits(s.network)
-	for index := range s.vehicles {
-		state.Pods[index] = s.exportPod(&s.vehicles[index], limits)
-	}
 	if len(s.waiting) > 0 {
 		state.Waiting = make([]SavedTrip, len(s.waiting))
 	}
 	for index, trip := range s.waiting {
-		saved := SavedTrip{
+		state.Waiting[index] = SavedTrip{
 			Request: SavedRequest(trip.request), Route: s.laneIndexes(trip.route, limits.trip), Boarded: trip.boarded,
 			DeferUntil: trip.deferUntil, DeferCheck: trip.deferCheck, DeferPodID: trip.deferPodID, ExcludedPod: trip.excludedPod,
 		}
+	}
+	plan := s.planSavedRoutes(limits, budget, state.Waiting)
+	for index := range s.vehicles {
+		state.Pods[index] = s.exportPod(index, &plan)
+	}
+	for index, trip := range s.waiting {
+		saved := &state.Waiting[index]
 		if saved.Route == nil && len(trip.route) > 0 {
 			// A restore clears the pod bindings of a trip whose route is too
 			// long, so the saved trip does not keep them. The pod on its way
@@ -578,20 +660,247 @@ func (s *Simulation) ExportState() SavedState {
 			}
 			saved.Request.PodID, saved.DeferCheck, saved.DeferPodID = "", 0, ""
 		}
-		state.Waiting[index] = saved
 	}
 	return state
 }
 
-func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
-	claimsDestination := v.RelocatingTo != "" && v.destination.ID != "" &&
-		s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID)
+// routePlan is the saved route of one pod in an export (see
+// planSavedRoutes).
+type routePlan struct {
+	// start is the route index of the first lane of the saved route, and
+	// offset is the live route distance at the start of that lane. current
+	// is the route index of the current block of a traveling pod.
+	start   int
+	offset  float64
+	current int
+	// blocks is the number of blocks from start on. emit is true when the
+	// pod saves its route: the pod uses its route, has blocks, and the
+	// saved route fits the limit.
+	blocks int
+	emit   bool
+	// marked is true when the pod saves its route with the trimmed route
+	// marker, and a restore decodes the route in the trimmed frame: a route
+	// that starts after the first lane of the live route, or a route whose
+	// whole frame does not restore the live route distance, block,
+	// frontier, and reversal latch of the pod (see fitFrames).
+	marked bool
+	// lead is the saved lead of a traveling pod in the frame of the route
+	// when known is true (see fitFrames). A new route plan does not know
+	// it.
+	lead  int
+	known bool
+}
+
+// savedFrame is the frame of the saved route of a traveling pod in an
+// export. A whole route uses the blocks of the live route. A trimmed route
+// uses the blocks of its lanes up to the current lane, as a restore builds
+// them, because their sums of lane lengths can differ from those of the
+// live route in the last bits.
+type savedFrame struct {
+	// blocks holds the blocks of the saved route, at least up to the
+	// current lane, and decode is the frame in which a restore decodes the
+	// position (see decodeTravelPosition).
+	blocks *blockList
+	decode positionFrame
+	// distance is the saved route distance of the pod, and offset is the
+	// live route distance at the start of the saved route.
+	distance, offset float64
+}
+
+// exportPlan holds the saved route of each pod of one export, and the
+// trimmed start of each traveling pod that the plan needed.
+type exportPlan struct {
+	s      *Simulation
+	limits routeLimits
+	pods   []routePlan
+	// trims holds the trimmed start of each pod (see trim), when trimmed is
+	// true.
+	trims   []routePlan
+	trimmed []bool
+}
+
+// frame returns the frame of the saved route of the traveling pod at
+// index. Each saved route keeps the live route distance less the live
+// route distance at its start, as version 13 saved a trimmed route. A
+// marked route decodes in the trimmed frame, on the blocks of its lanes
+// up to the current lane. The sums of the lane lengths of those blocks
+// start at 0, so a lane start or a block end there can differ in the last
+// bits from the saved distance of a live pod at that point. The trimmed
+// frame snaps such a difference within restoreDriftTolerance, and a
+// larger one stays (see TestTrimmedRoundingFollowUp).
+func (p *exportPlan) frame(index int) savedFrame {
+	s, v, route := p.s, &p.s.vehicles[index], p.pods[index]
+	frame := savedFrame{blocks: &v.blocks, decode: wholeFrame, distance: v.distance - route.offset, offset: route.offset}
+	if route.marked {
+		prefix, _ := s.routeBlocks(v.Route[route.start : route.current+1])
+		frame.blocks, frame.decode = &prefix, trimmedFrame
+	}
+	return frame
+}
+
+// planSavedRoutes plans the saved route of each pod of s, before the
+// export writes a pod. A traveling pod saves its whole route when the
+// whole routes of the export fit budget, the block budget of the physical
+// restore (see planBlocks). Otherwise, and for a route longer than
+// limits.pod, the saved route starts at its trimmed start (see trim, and
+// exact restore coordinates proposal, EC-D2 and EC-D7). A negative budget
+// saves each traveling pod with its trimmed route. A pod whose route in
+// the whole frame would not restore its live route distance, block,
+// frontier, and reversal latch saves its trimmed route with the marker
+// (see fitFrames), before the plan counts the blocks. trips are the saved waiting trips. The plan
+// finds each trimmed start once, and only for a pod that needs it.
+func (s *Simulation) planSavedRoutes(limits routeLimits, budget int, trips []SavedTrip) exportPlan {
+	plan := exportPlan{
+		s: s, limits: limits, pods: make([]routePlan, len(s.vehicles)),
+		trims: make([]routePlan, len(s.vehicles)), trimmed: make([]bool, len(s.vehicles)),
+	}
+	whole := budget >= 0
+	for index := range s.vehicles {
+		plan.pods[index] = plan.route(index, whole)
+	}
+	plan.fitFrames()
+	if whole && plan.planBlocks(trips) > budget {
+		plan.trimRoutes()
+		plan.fitFrames()
+	}
+	return plan
+}
+
+// trimRoutes gives each pod its trimmed route, when the whole routes do
+// not fit the block budget. A pod whose trimmed start is its start keeps
+// its plan, and so its frame: its known lead, or the marker that fitFrames
+// gave it. fitFrames then does not fit that pod again.
+func (p *exportPlan) trimRoutes() {
+	for index, old := range p.pods {
+		if route := p.route(index, false); route.start != old.start {
+			p.pods[index] = route
+		}
+	}
+}
+
+// fitFrames gives each traveling pod whose saved route decodes in the
+// whole frame, and whose restore in that frame would not give it its live
+// route distance, block, frontier, and reversal latch, its trimmed route
+// with the marker (see savedMotion). The trimmed frame keeps the depot
+// entry rule and the position rules of version 13. Such a pod has a
+// position, a block, a reservation, or a latch that the live route does
+// not give it, for example after a restore in the trimmed frame, before
+// the saved motion, right after a redirect, or with a fault at a done
+// reversal lane. Its trimmed route can start at the first lane of its
+// route. fitFrames keeps the lead of each pod that stays in the whole
+// frame, and does not find it again for a plan that knows it.
+func (p *exportPlan) fitFrames() {
+	for index, route := range p.pods {
+		if !route.emit || route.marked || route.known || p.s.vehicles[index].Pod.Activity != Traveling {
+			continue
+		}
+		if lead, fits := p.motion(index); fits {
+			p.pods[index].lead, p.pods[index].known = lead, true
+			continue
+		}
+		route = p.route(index, false)
+		route.marked = true
+		p.pods[index] = route
+	}
+}
+
+// motion returns the saved lead of the traveling pod at index with its
+// plan, and whether its restore gives it its live route distance, block,
+// frontier, and reversal latch (see savedMotion). It decodes the saved position that
+// exportPod writes.
+func (p *exportPlan) motion(index int) (lead int, fits bool) {
+	s, v, route := p.s, &p.s.vehicles[index], p.pods[index]
+	frame := p.frame(index)
+	pod := SavedPod{
+		RouteIndex: route.current - route.start, LaneDistance: v.Pod.LaneDistance, Distance: frame.distance,
+		Destination: v.destination.ID, ClaimsDestination: s.claimsDestination(v),
+	}
+	return s.savedMotion(v, route.start, pod, frame)
+}
+
+// route returns the saved route of the pod at index. With whole true, a
+// traveling pod saves its whole route when the route fits the limit.
+func (p *exportPlan) route(index int, whole bool) routePlan {
+	v := &p.s.vehicles[index]
+	if !routed(v.Pod.Activity) || v.blocks.len() == 0 {
+		return routePlan{}
+	}
+	plan := routePlan{offset: v.blocks.lanes[0].start}
+	if v.Pod.Activity == Traveling {
+		plan.current = v.blocks.locate(v.blockIndex, v.blocks.scan)
+		if !whole || len(v.Route) > p.limits.pod {
+			plan = p.trim(index)
+			plan.marked = plan.start > 0
+		}
+	}
+	plan.blocks = v.blocks.len() - v.blocks.laneFirst(plan.start)
+	plan.emit = len(v.Route)-plan.start <= p.limits.pod
+	return plan
+}
+
+// planBlocks returns the blocks of the saved routes of the plan, as the
+// physical restore counts them against its budget (see checkRoutes): each
+// block of each lane of each saved pod route, also of a pod that the
+// restore demotes before it counts, and one block for each lane of a saved
+// waiting-trip route in trips. The blocks of a pod are the blocks of its
+// route (see setVehicleRoute). Each lane of them has the cells of its
+// network lane, as many as the restore counts for that lane (see
+// physicalBlockBudget). So the blocks from the saved start are the blocks
+// of the saved lanes.
+func (p *exportPlan) planBlocks(trips []SavedTrip) int {
+	blocks := 0
+	for _, plan := range p.pods {
+		if plan.emit {
+			blocks += plan.blocks
+		}
+	}
+	for _, trip := range trips {
+		blocks += len(trip.Route)
+	}
+	return blocks
+}
+
+// savedRouteBlocks returns the blocks of the saved routes of state, an
+// export of s, that the physical restore counts against its budget, with
+// the blocks of each network lane in laneBlocks. It counts as
+// planBlocks does, from the saved pods. The routes of the export are
+// in their limits and their lanes are in the network.
+func (s *Simulation) savedRouteBlocks(state SavedState, laneBlocks []int) int {
+	blocks := 0
+	for index, pod := range state.Pods {
+		if routed(s.vehicles[index].Pod.Activity) {
+			for _, lane := range pod.Route {
+				blocks += laneBlocks[lane]
+			}
+		}
+	}
+	for _, trip := range state.Waiting {
+		blocks += len(trip.Route)
+	}
+	return blocks
+}
+
+// WholeRouteBlocksForTest returns the blocks of the whole routes of s that
+// ExportState counts before it exports (see planBlocks), and the
+// blocks of the saved routes of an export of the whole routes. It is a
+// test entry for the scenarios tests. No production code calls it.
+func (s *Simulation) WholeRouteBlocksForTest() (live, saved int) {
+	laneBlocks, _ := physicalBlockBudget(s)
+	whole := s.exportState(math.MaxInt)
+	plan := s.planSavedRoutes(newRouteLimits(s.network), math.MaxInt, whole.Waiting)
+	return plan.planBlocks(whole.Waiting), s.savedRouteBlocks(whole, laneBlocks)
+}
+
+// exportPod returns the saved pod of the vehicle at index, with its saved
+// route from plan.
+func (s *Simulation) exportPod(index int, plan *exportPlan) SavedPod {
+	v := &s.vehicles[index]
 	pod := SavedPod{
 		ID: v.Pod.ID, Class: v.Pod.Class, Activity: activityCode(v.Pod.Activity), StationID: v.Pod.StationID, BerthID: v.Pod.BerthID,
 		Occupied: v.Pod.Occupied, RelocatingTo: v.RelocatingTo, Rebalancing: v.Rebalancing,
 		RebalanceAfter: v.rebalanceAfter, PhaseTicks: v.phaseTicks, Origin: v.origin.ID,
 		Destination: v.destination.ID, DestinationStation: v.destinationStation,
-		ClaimsDestination: claimsDestination,
+		ClaimsDestination: s.claimsDestination(v),
 		LaneID:            v.Pod.LaneID, LaneDistance: v.Pod.LaneDistance, Waiting: v.pending >= 0, Released: v.released,
 		Withdrawn: uint8(v.withdrawn), Purpose: uint8(v.op.purpose), Owner: uint8(v.op.owner), Interrupt: v.op.interrupt,
 	}
@@ -610,21 +919,28 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	}
 	switch v.Pod.Activity {
 	case Boarding, DepartingEmpty, Continuing:
-		pod.Route = s.routeLaneIndexes(v.Route, &v.blocks, 0, limits.pod)
+		pod.Route = s.routeLaneIndexes(v.Route, &v.blocks, 0, plan.limits.pod)
 	case Traveling:
-		if v.blocks.len() == 0 {
+		route := plan.pods[index]
+		if !route.emit {
 			break
 		}
-		start, offset, current := s.savedStart(v)
-		if pod.Route = s.routeLaneIndexes(v.Route[start:], &v.blocks, start, limits.pod); pod.Route != nil {
+		start, current := route.start, route.current
+		if pod.Route = s.routeLaneIndexes(v.Route[start:], &v.blocks, start, plan.limits.pod); pod.Route != nil {
+			pod.RouteTrimmed = route.marked
 			pod.RouteIndex = current - start
-			pod.Distance = v.distance - offset
+			frame := plan.frame(index)
+			pod.Distance = frame.distance
 			if v.carriesPassengers() {
-				pod.RiddenMeters = v.riddenBase + offset
+				pod.RiddenMeters = v.riddenBase + frame.offset
 			}
-			speed, lead := s.savedMotion(v, start, pod)
-			pod.Speed, pod.ReservedAhead = speed, max(0, lead)
-			pod.Platoon = s.savedLink(v, start)
+			lead := route.lead
+			if !route.known {
+				lead, _ = s.savedMotion(v, start, pod, frame)
+			}
+			pod.Speed, pod.ReservedAhead = savedSpeed(v), max(0, lead)
+			pod.Platoon = s.savedLink(v, start, plan)
+			pod.ReversalLane, pod.ReversalTicks = savedReversal(v, start)
 		}
 	default:
 		// An idle or unloading pod keeps the route of its last journey only
@@ -633,23 +949,56 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 	return pod
 }
 
+// claimsDestination reports whether the pod v claims its destination: it
+// relocates, and it owns the berth resource of its destination.
+func (s *Simulation) claimsDestination(v *vehicle) bool {
+	return v.RelocatingTo != "" && v.destination.ID != "" &&
+		s.owners[resource{kind: berthResource, id: v.destination.ID}] == podResourceOwner(v.Pod.ID)
+}
+
+// savedReversal returns the saved reversal dwell latch of the traveling pod
+// v, whose saved route starts at route index start. A latched lane k is at
+// or after the lane of the pod, and the lane before it can still hold a
+// resource while the pod is short of k, so k is after start. A lane k with
+// its dwell done is saved only when it is after start. A restored pod
+// searches for a lane to latch from the lane after its lane, also with no
+// latch (see reversalLimit), and the start of the saved route is at or
+// before the lane of the pod. Thus such a latch at or before start does not
+// change the search, and an empty latch saves it.
+func savedReversal(v *vehicle, start int) (lane, ticks int) {
+	switch k := v.reversal.lane; {
+	case k > 0:
+		return k - start, v.reversal.ticks
+	case -k > start:
+		return k + start, 0
+	default:
+		return 0, 0
+	}
+}
+
 // savedLink returns the saved link of the traveling pod v, whose saved
-// route starts at route index start, or nil. The saved route of v can start
+// route starts at route index start, in an export with the saved routes
+// of plan, or nil. The saved routes of v and of its predecessor can start
 // after the first lane of the run, so the saved run starts at the first
-// lane of the run that the saved route holds. savedStart keeps that lane
-// in the saved route of the predecessor. The end of the run does not
-// change. When the predecessor stopped traveling or no lane of the run is
-// left, the follower holds no resource of a pod ahead, and its link ends
-// at the next tick. Then savedLink returns nil.
-func (s *Simulation) savedLink(v *vehicle, start int) *SavedPlatoonLink {
+// lane of the run that both saved routes hold. When both routes are
+// trimmed, the trimmed start (see exportPlan.trim) keeps the first lane of the saved run of v in the saved route of the
+// predecessor. When v saves its whole route and the predecessor a trimmed
+// route, the saved run starts at the start of the predecessor route. The
+// end of the run does not change. When the predecessor stopped traveling
+// or no lane of the run is left, the follower holds no resource of a pod
+// ahead, and its link ends at the next tick. Then savedLink returns nil.
+func (s *Simulation) savedLink(v *vehicle, start int, plan *exportPlan) *SavedPlatoonLink {
 	leader, skip, ok := s.savedRun(v, start)
 	if !ok {
 		return nil
 	}
-	leaderStart, _, _ := s.savedStart(leader)
+	leaderStart := plan.pods[v.link.leader-1].start
+	if skip = max(skip, leaderStart-v.link.leaderLane); skip >= v.link.lanes {
+		return nil
+	}
 	return &SavedPlatoonLink{
 		Leader: leader.Pod.ID, Lane: v.link.lane + skip - start, LeaderLane: v.link.leaderLane + skip - leaderStart,
-		Lanes: v.link.lanes - skip, Turn: v.link.turn, Draining: v.link.draining || v.reservedThrough >= v.link.end,
+		Lanes: v.link.lanes - skip, Turn: v.link.turn, Draining: v.link.draining,
 	}
 }
 
@@ -666,31 +1015,39 @@ func (s *Simulation) savedRun(v *vehicle, start int) (leader *vehicle, skip int,
 	return leader, skip, leader.Pod.Activity == Traveling && leader.blocks.len() > 0 && skip < v.link.lanes
 }
 
-// savedStart returns the values of savedRouteStart for the traveling pod v,
-// with an earlier start when its origin tail (see originSavedStart), its
-// group run (see groupSavedStart), or the saved link of its follower needs
-// it. The saved run of the follower starts at the first lane of the run
-// that the saved route of the follower holds. The predecessor can have
-// passed that lane, but a junction section of the lane can be in its next
-// lane too, and the follower can share it. So the saved route of the
-// predecessor starts at that lane at the latest.
-func (s *Simulation) savedStart(v *vehicle) (start int, offset float64, current int) {
-	start, offset, current = v.savedRouteStart()
+// trim returns the trimmed start of the saved route of the traveling pod
+// at index: the values of savedRouteStart, with an earlier start when its
+// origin tail (see originSavedStart), its group run (see
+// groupSavedStart), or the saved link of its follower needs it. The saved
+// run of the follower starts at the first lane of the run that the trimmed
+// route of the follower holds. The predecessor can have passed that lane,
+// but a junction section of the lane can be in its next lane too, and the
+// follower can share it. So the trimmed route of the predecessor starts at
+// that lane at the latest. A follower that saves its whole route does not
+// move this start back, so the trimmed route of the predecessor is the
+// same as in an export that saves no whole route, and savedLink starts the
+// saved run at the start of that route. trim finds the start of each pod
+// once.
+func (p *exportPlan) trim(index int) routePlan {
+	if p.trimmed[index] {
+		return p.trims[index]
+	}
+	s, v := p.s, &p.s.vehicles[index]
+	start, offset, current := v.savedRouteStart()
 	start, offset = originSavedStart(v, start, offset)
 	start, offset = s.groupSavedStart(v, start, offset, current)
-	if v.follower == 0 {
-		return start, offset, current
+	if v.follower != 0 {
+		follower := &s.vehicles[v.follower-1]
+		if follower.Pod.Activity == Traveling && follower.blocks.len() > 0 {
+			followerStart := p.trim(v.follower - 1).start
+			if _, skip, ok := s.savedRun(follower, followerStart); ok && follower.link.leaderLane+skip < start {
+				start = follower.link.leaderLane + skip
+				offset = v.blocks.lanes[start].start
+			}
+		}
 	}
-	follower := &s.vehicles[v.follower-1]
-	if follower.Pod.Activity != Traveling || follower.blocks.len() == 0 {
-		return start, offset, current
-	}
-	followerStart, _, _ := s.savedStart(follower)
-	if _, skip, ok := s.savedRun(follower, followerStart); ok && follower.link.leaderLane+skip < start {
-		start = follower.link.leaderLane + skip
-		offset = v.blocks.lanes[start].start
-	}
-	return start, offset, current
+	p.trims[index], p.trimmed[index] = routePlan{start: start, offset: offset, current: current}, true
+	return p.trims[index]
 }
 
 // originSavedStart moves the saved route start of v back until v is at

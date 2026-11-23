@@ -104,7 +104,8 @@ func TestLargeRestoreTrimRetention(t *testing.T) {
 			if err != nil || result.Tier != RestorePhysical {
 				t.Fatalf("initial restore: %+v, %v", result, err)
 			}
-			saved := roundTripState(t, s.ExportState())
+			// The trim of a save over the restore budget.
+			saved := roundTripState(t, s.exportTrimmed())
 			if got := test.network.Lanes[saved.Pods[0].Route[0]].ID; got != test.first {
 				t.Fatalf("first retained lane=%s, want %s", got, test.first)
 			}

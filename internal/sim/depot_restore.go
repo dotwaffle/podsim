@@ -49,24 +49,53 @@ func (s *Simulation) depotSlotOpen(v *vehicle, berth Berth) bool {
 	return slot.slot == rear+1
 }
 
-// depotEntryBlock returns the last block of the first incoming lane, at
-// route index from or later, of the depot whose slot v names as its
-// destination. It reports false when v names no slot or that part of its
-// route does not hold that lane. A restore reads the saved route from
-// index 0, and the export reads the live route from the start of the saved
-// route, so both find the same lane.
-func (s *Simulation) depotEntryBlock(v *vehicle, from int) (int, bool) {
+// depotEntryBlock returns the last block of the entry lane of v, an
+// incoming lane at route index from or later of the depot whose slot v
+// names as its destination, by rule. It reports false when v names no slot
+// or that part of its route does not hold that lane. current is the block
+// of the pod. A restore reads the saved route from index 0, and the export
+// reads the live route from the start of the saved route, so both find the
+// same lane with the same rule.
+func (s *Simulation) depotEntryBlock(v *vehicle, from, current int, rule depotEntryRule) (int, bool) {
 	slot, ok := s.depots.slot(v.destination.ID)
 	if !ok {
 		return 0, false
 	}
-	incoming := s.depots.depots[slot.depot].incoming.ID
-	lane := slices.IndexFunc(v.Route[from:], func(lane Lane) bool { return lane.ID == incoming })
+	incoming := func(lane Lane) bool { return lane.ID == s.depots.depots[slot.depot].incoming.ID }
+	lane := -1
+	switch rule {
+	case lastEntry:
+		lane = lastLaneFunc(v.Route, from, incoming)
+	case firstEntry:
+		lane = firstLaneFunc(v.Route, from, incoming)
+	case aheadEntry:
+		lane = firstLaneFunc(v.Route, max(from, v.blocks.locate(current, from)), incoming)
+	}
 	if lane < 0 {
 		return 0, false
 	}
-	_, last := routeLaneBlocks(&v.blocks, from+lane)
+	_, last := routeLaneBlocks(&v.blocks, lane)
 	return last, true
+}
+
+// firstLaneFunc returns the first route index at from or later whose lane
+// satisfies match, or -1.
+func firstLaneFunc(route []Lane, from int, match func(Lane) bool) int {
+	if index := slices.IndexFunc(route[from:], match); index >= 0 {
+		return from + index
+	}
+	return -1
+}
+
+// lastLaneFunc returns the last route index at from or later whose lane
+// satisfies match, or -1. It searches back from the end of the route.
+func lastLaneFunc(route []Lane, from int, match func(Lane) bool) int {
+	for index := len(route) - 1; index >= from; index-- {
+		if match(route[index]) {
+			return index
+		}
+	}
+	return -1
 }
 
 // checkSavedDepotFields checks the parked ticks and the lane order of the

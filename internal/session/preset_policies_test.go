@@ -58,8 +58,12 @@ func TestPresetPoliciesRestore(t *testing.T) {
 	for range 5 * 60 * sim.TicksPerSecond {
 		restored.advance()
 	}
-	if restored.simulation.PickupSwapStats().AssignmentChecks == 0 {
-		t.Fatal("restored pickup reassignment made no check")
+	// The restore keeps the live state, so the restored run makes the
+	// assignment checks of the live run, and the live run makes none in
+	// these 5 minutes. An active controller scans pairs each second while
+	// the queue has orders.
+	if restored.simulation.PickupSwapStats().ScannedPairs == 0 {
+		t.Fatal("restored pickup reassignment scanned no pair")
 	}
 	if _, err := restored.simulation.SafetyObservation().Check(); err != nil {
 		t.Fatal(err)

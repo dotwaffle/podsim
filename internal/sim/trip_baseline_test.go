@@ -44,6 +44,18 @@ func baselineResourceOf(r resource) baselineResource {
 	return baselineResource{Kind: int(r.kind), ID: r.id, Cell: r.cell}
 }
 
+// baselineSaved returns the saved state of s as version 13 saved it:
+// trimmed routes with no marker, and no saved motion or reversal dwell
+// latch. The baselines digest live behavior, so a change to the saved
+// state alone does not move them.
+func baselineSaved(s *Simulation) SavedState {
+	state := withoutMotion(s.exportTrimmed())
+	for index := range state.Pods {
+		state.Pods[index].RouteTrimmed = false
+	}
+	return state
+}
+
 // baselineObserve includes raw owners and release frontiers that views omit.
 // It clears the saved speeds and leads of the export, so the digests keep
 // their values from before the saved motion. The restore tests check
@@ -69,7 +81,7 @@ func baselineObserve(t *testing.T, digest hash.Hash, s *Simulation) {
 		Saved    SavedState
 		Owners   []baselineOwner
 		Vehicles []baselineVehicle
-	}{s.Snapshot(), withoutMotion(s.ExportState()), owners, vehicles}, json.Deterministic(true))
+	}{s.Snapshot(), baselineSaved(s), owners, vehicles}, json.Deterministic(true))
 	if err != nil {
 		t.Fatal(err)
 	}

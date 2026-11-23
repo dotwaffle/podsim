@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"math"
 	"math/rand/v2"
 	"reflect"
 	"slices"
@@ -30,7 +31,8 @@ func referenceExportRoute(s *Simulation, v *vehicle, limits routeLimits) []int {
 		if v.blocks.len() == 0 {
 			return nil
 		}
-		start, _, _ := s.savedStart(v)
+		plan := s.planSavedRoutes(limits, math.MaxInt, nil)
+		start := plan.pods[s.vehicleIndexes[v.Pod.ID]].start
 		return referenceLaneIndexes(s, v.Route[start:], limits.pod)
 	default:
 		return nil

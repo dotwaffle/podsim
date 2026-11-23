@@ -29,6 +29,11 @@ func TestLondonFullSafetyAndPhysicalRestore(t *testing.T) {
 	if before.Submitted != len(schedule) || before.Completed == before.Submitted {
 		t.Fatalf("restore fixture lacks active demand: submitted=%d completed=%d", before.Submitted, before.Completed)
 	}
+	// ExportState counts the whole routes from the live routes, as the
+	// restore counts the saved whole routes.
+	if counted, saved := live.WholeRouteBlocksForTest(); counted != saved || counted == 0 {
+		t.Fatalf("the live routes have %d blocks, and the saved whole routes %d", counted, saved)
+	}
 	restored, _ := checkLondonRestore(t, live, config)
 	for range 30 * sim.TicksPerSecond {
 		restored.Step()

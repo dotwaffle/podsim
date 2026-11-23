@@ -66,6 +66,12 @@ func cleanRestore(result RestoreResult) bool {
 		result.DroppedParties+result.OverCap+result.OverBudget == 0
 }
 
+// exportTrimmed is the export of s when the whole routes do not fit the
+// restore budget: each traveling pod saves its trimmed route.
+func (s *Simulation) exportTrimmed() SavedState {
+	return s.exportState(-1)
+}
+
 // savedCounters clears the pods and the queue of a saved state.
 func savedCounters(state SavedState) SavedState {
 	state.Pods, state.Waiting = nil, nil
@@ -83,7 +89,9 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 	if _, err := restored.SafetyObservation().Check(); err != nil {
 		t.Fatalf("tick %d: %v", live.tick, err)
 	}
-	want, got := live.ExportState(), restored.ExportState()
+	// The trimmed exports of the two do not depend on whether the restore
+	// read a whole route or a trimmed route.
+	want, got := live.exportTrimmed(), restored.exportTrimmed()
 	if !reflect.DeepEqual(savedCounters(got), savedCounters(want)) {
 		t.Fatalf("tick %d: counters\n got %+v\nwant %+v", live.tick, savedCounters(got), savedCounters(want))
 	}
@@ -104,7 +112,9 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 		if math.Abs(gotPod.Distance-wantPod.Distance) > restoreTolerance {
 			t.Fatalf("tick %d: pod %s distance %v, want %v", live.tick, gotPod.ID, gotPod.Distance, wantPod.Distance)
 		}
-		gotPod.Distance = wantPod.Distance
+		// A restore of a trimmed route starts the route of the pod at the
+		// saved start, so its own export of the same lanes has no marker.
+		gotPod.Distance, gotPod.RouteTrimmed = wantPod.Distance, wantPod.RouteTrimmed
 		if !reflect.DeepEqual(gotPod, wantPod) {
 			t.Fatalf("tick %d: saved pod\n got %+v\nwant %+v", live.tick, gotPod, wantPod)
 		}
@@ -116,24 +126,28 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 }
 
 // checkRestoredFrontiers requires that each restored traveling pod has the
-// frontier of the live pod, at the same route occurrence and cell. The
-// saved route starts at a lane start, and the lanes share their cells, so
-// the blocks of the two routes differ by the blocks before the saved
-// route. It also requires that the export of each live pod finds no
+// frontier of the live pod, at the same route occurrence and cell. A
+// trimmed saved route starts at a lane start, and the lanes share their
+// cells, so the blocks of the two routes differ by the blocks before the
+// saved route. It also requires that the export of each live pod finds no
 // reservation that ends before the derived frontier, which exportPod would
 // write as a lead of 0.
 func checkRestoredFrontiers(t *testing.T, live, restored *Simulation) {
 	t.Helper()
 	state := live.ExportState()
+	_, budget := physicalBlockBudget(live)
+	plan := live.planSavedRoutes(newRouteLimits(live.network), budget, state.Waiting)
 	for index := range live.vehicles {
 		v, got, pod := &live.vehicles[index], &restored.vehicles[index], state.Pods[index]
 		if v.Pod.Activity != Traveling || pod.Route == nil {
 			continue
 		}
-		start, _, _ := live.savedStart(v)
-		if _, lead := live.savedMotion(v, start, pod); lead < 0 {
+		// A saved route is the end of the live route that starts at the
+		// difference of their lengths, and so is a restored route.
+		if lead, _ := live.savedMotion(v, len(v.Route)-len(pod.Route), pod, plan.frame(index)); lead < 0 {
 			t.Fatalf("tick %d: pod %s reserves %d blocks ahead of the derived frontier", live.tick, pod.ID, lead)
 		}
+		start := len(v.Route) - len(got.Route)
 		if want := v.reservedThrough - v.blocks.laneFirst(start); got.reservedThrough != want {
 			t.Fatalf("tick %d: pod %s restores the frontier %d, want %d", live.tick, pod.ID, got.reservedThrough, want)
 		}
@@ -312,6 +326,24 @@ func TestRestoreInputCheckOrder(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("restore input checks are %v, want %v", got, want)
 	}
+	// After these, checkRestoreInput checks the fault footprints, the saved
+	// motion, the trimmed route markers, and last the reversal dwell
+	// latches (exact restore coordinates proposal, EC-D3 and EC-D8).
+	idle := RestoreStateInput{Network: Example(), Fleet: demoFleet(), State: newTraffic(t).ExportState()}
+	for _, test := range []struct {
+		edit func(*SavedPod)
+		want string
+	}{
+		{func(pod *SavedPod) { pod.Speed, pod.RouteTrimmed, pod.ReversalLane = 1, true, 1 }, "pod 01 is not traveling and has a speed or a reservation ahead"},
+		{func(pod *SavedPod) { pod.RouteTrimmed, pod.ReversalLane = true, 1 }, "pod 01 is not traveling and has a trimmed route"},
+		{func(pod *SavedPod) { pod.ReversalLane = 1 }, "pod 01 is not traveling and has a reversal dwell latch"},
+	} {
+		input := idle
+		input.State = withPod(input.State, 0, test.edit)
+		if _, _, err := RestoreState(input); err == nil || err.Error() != test.want {
+			t.Fatalf("restore %v, want %q", err, test.want)
+		}
+	}
 }
 
 func TestSavedRouteLimits(t *testing.T) {
@@ -388,6 +420,7 @@ func TestExportStateLimitsRoutes(t *testing.T) {
 				v.blockIndex = first + slices.IndexFunc(v.blocks.all()[first:], func(b block) bool { return b.end >= v.distance })
 				v.reservedThrough = v.blockIndex
 			}
+			checkWholeRouteBlocks(t, s)
 			state := s.ExportState()
 			restored, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: roundTripState(t, state)})
 			if err != nil {
@@ -516,4 +549,168 @@ func TestSharedRidesAccountForEachOrder(t *testing.T) {
 		t.Fatal("no party shared a ride")
 	}
 	t.Logf("submitted=%d completed=%d shared=%d", s.requestID, s.completed, s.sharedParties)
+}
+
+// checkWholeRouteBlocks checks that the count of the whole routes of s
+// from its live routes, which ExportState compares with the budget, is the
+// count of the saved routes of its export of the whole routes.
+func checkWholeRouteBlocks(tb testing.TB, s *Simulation) {
+	tb.Helper()
+	if live, saved := s.WholeRouteBlocksForTest(); live != saved {
+		tb.Fatalf("tick %d: the live routes have %d blocks, and the saved whole routes %d", s.tick, live, saved)
+	}
+}
+
+// TestWholeRouteBlocks checks the count of the whole routes from the live
+// routes at each tick of fixtures with traveling, departing, depot,
+// Express, and maneuver group pods, and with a waiting queue.
+func TestWholeRouteBlocks(t *testing.T) {
+	t.Parallel()
+	for name, build := range map[string]func(t *testing.T) *Simulation{
+		"traffic": func(t *testing.T) *Simulation {
+			t.Helper()
+			s := newTraffic(t)
+			if err := s.StartDemo(); err != nil {
+				t.Fatal(err)
+			}
+			return s
+		},
+		"debris": func(t *testing.T) *Simulation {
+			t.Helper()
+			s := debrisFleet(t)
+			startFault(t, s, returnTraveler(t, s), 0)
+			return s
+		},
+		"depot": func(t *testing.T) *Simulation {
+			t.Helper()
+			network := shortDepotNetwork(2, 3)
+			s := newDepotFleet(t, network, depotPlacements(network, 3))
+			sendToDepot(t, s, "harbor-pod")
+			return s
+		},
+		"express": func(t *testing.T) *Simulation {
+			t.Helper()
+			fleet := []Placement{{ID: "01", Class: ExpressClass, StationID: "harbor", BerthID: "harbor-1"}}
+			s, err := expressPhysicalFleet(largeRestoreNetwork(), fleet)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.RequestJourneyOptions("01", TripOptions{To: "market", PartySize: 20, SharingConsent: PrivateConsent}); err != nil {
+				t.Fatal(err)
+			}
+			return s
+		},
+		"maneuver group": func(t *testing.T) *Simulation {
+			t.Helper()
+			s, err := NewFleet(tallBayNetwork(2, 7), []Placement{{ID: "01", StationID: "bays", BerthID: "bay-1", Class: CompactClass}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := s.RequestJourney("01", "stop"); err != nil {
+				t.Fatal(err)
+			}
+			return s
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			s := build(t)
+			for range 90 * TicksPerSecond {
+				s.Step()
+				if s.tick%10 == 0 {
+					checkWholeRouteBlocks(t, s)
+				}
+			}
+		})
+	}
+}
+
+// TestExportStateRouteBudget saves pods on the last lane of trimLanes, each
+// with a route from l0. A save keeps the whole routes when their blocks
+// fit the block budget of the restore, also exactly. With one block less,
+// it saves the trimmed route of each pod, with the marker, and the restore
+// keeps each pod in place. A save of the whole routes would lose pods to
+// the budget (exact restore coordinates proposal, EC-D7 as amended).
+func TestExportStateRouteBudget(t *testing.T) {
+	t.Parallel()
+	network := geometryNetwork(Point{}, trimLanes, 3)
+	base := restoreGeometry(t, network, len(trimLanes), 3, 200, 60)
+	state := base.ExportState()
+	for index, at := range []float64{250, 200, 150} {
+		state = withPod(state, index, func(pod *SavedPod) {
+			pod.RouteIndex, pod.LaneID, pod.LaneDistance, pod.Distance = 3, "l3", at, 722+at
+		})
+	}
+	live, result := restoreMotion(t, network, base.initial, state)
+	if !cleanRestore(result) {
+		t.Fatalf("result %+v", result)
+	}
+	laneBlocks, budget := physicalBlockBudget(live)
+	whole, trimmed := live.exportState(math.MaxInt), live.exportTrimmed()
+	wholeBlocks, trimmedBlocks := live.savedRouteBlocks(whole, laneBlocks), live.savedRouteBlocks(trimmed, laneBlocks)
+	checkWholeRouteBlocks(t, live)
+	if trimmedBlocks >= wholeBlocks || wholeBlocks > budget || !reflect.DeepEqual(live.ExportState(), whole) {
+		t.Fatalf("the whole routes have %d blocks and the trimmed routes %d, with the budget %d", wholeBlocks, trimmedBlocks, budget)
+	}
+	for _, pod := range trimmed.Pods {
+		if !pod.RouteTrimmed || len(pod.Route) != 1 {
+			t.Fatalf("pod %s saves %d lanes with the marker %t, want the last lane with the marker", pod.ID, len(pod.Route), pod.RouteTrimmed)
+		}
+	}
+	if got := live.exportState(wholeBlocks); !reflect.DeepEqual(got, whole) {
+		t.Fatalf("the save at a budget of %d blocks is not the whole save", wholeBlocks)
+	}
+	over := live.exportState(wholeBlocks - 1)
+	if !reflect.DeepEqual(over, trimmed) {
+		t.Fatalf("the save at a budget of %d blocks is not the trimmed save", wholeBlocks-1)
+	}
+	input := RestoreStateInput{Network: network, Fleet: base.initial, State: roundTripState(t, over), blockBudget: wholeBlocks - 1}
+	restored, result, err := RestoreState(input)
+	if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 || result.EarlierRestore {
+		t.Fatalf("the trimmed save restores %+v, %v, want each pod in place", result, err)
+	}
+	checkRestoredMatches(t, live, restored)
+	input.State = whole
+	built := countRouteBuilds(&input)
+	_, result, err = RestoreState(input)
+	if err != nil || result.OverBudget == 0 || len(result.Demoted) == 0 {
+		t.Fatalf("the whole save restores %+v, %v, want pods over the budget", result, err)
+	}
+	// The physical restores, the physical tier and the restore before the
+	// saved motion, build no route of a pod that limitWork demotes, and
+	// build the route of each other traveling pod. The save has no debris,
+	// so the scratch fleet of checkSavedFaultFootprints, which the count
+	// does not cover, builds no route.
+	for index, pod := range whole.Pods {
+		if demoted := slices.Contains(result.Demoted, pod.ID); demoted != (built[index] == 0) || pod.Activity != activityCode(Traveling) {
+			t.Fatalf("pod %s, demoted %t, has %d route builds in the physical restores", pod.ID, demoted, built[index])
+		}
+	}
+}
+
+// countRouteBuilds sets input to count the route builds of each saved pod
+// in the physical restores (see buildRoute), and returns the counts. It
+// does not count the builds of the scratch fleet of
+// checkSavedFaultFootprints.
+func countRouteBuilds(input *RestoreStateInput) map[int]int {
+	built := make(map[int]int)
+	input.routeBuilt = func(index int) { built[index]++ }
+	return built
+}
+
+// savedStart returns the trimmed start of the saved route of the traveling
+// pod v (see exportPlan.trim).
+func (s *Simulation) savedStart(v *vehicle) int {
+	plan := exportPlan{s: s, trims: make([]routePlan, len(s.vehicles)), trimmed: make([]bool, len(s.vehicles))}
+	return plan.trim(s.vehicleIndexes[v.Pod.ID]).start
+}
+
+// beforeMotion runs the restore before the saved motion on input, with the
+// projected draining flags of the first physical restore.
+func beforeMotion(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	r, _, err := newRestoreEngine(input, newFleet, nil)
+	if err != nil {
+		return nil, RestoreResult{}, err
+	}
+	return restoreBeforeMotion(input, newFleet, r.projected)
 }
