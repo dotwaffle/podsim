@@ -141,6 +141,17 @@ type SavedPod struct {
 	LaneID       string  `json:"laneID,omitempty"`
 	LaneDistance float64 `json:"laneDistance,omitzero"`
 	Distance     float64 `json:"distance,omitzero"`
+	// Speed is the speed of a traveling pod in m/s. The export writes 0
+	// for a faulted pod, and the restore ignores the speed of a faulted
+	// pod: such a pod restores at rest.
+	Speed float64 `json:"speed,omitzero"`
+	// ReservedAhead is the number of blocks that a traveling pod reserved
+	// past the frontier that the restore derives from its position (see
+	// derivedFrontier).
+	ReservedAhead int `json:"reservedAhead,omitzero"`
+	// zeroMotion is true when the saved file has the speed or the
+	// reservedAhead member with the value 0 (see SetMotionMembers).
+	zeroMotion bool
 	// Waiting is true when the pod waits for track admission since WaitSince.
 	Waiting   bool  `json:"waiting,omitzero"`
 	WaitSince int64 `json:"waitSince,omitzero"`
@@ -157,6 +168,18 @@ type SavedPod struct {
 	Purpose   uint8  `json:"-"`
 	Owner     uint8  `json:"-"`
 	Interrupt uint32 `json:"-"`
+}
+
+// SetMotionMembers records which of the speed and the reservedAhead
+// members the saved file of pod has. A decoder calls it after it sets the
+// values, because a member with the value 0 decodes as an absent member.
+// checkSavedMotion refuses either member on a pod that is not traveling,
+// also with the value 0 (restore speed proposal, section 4.2). The pod
+// keeps only what its values do not show: a member with the value 0. Thus
+// a decoded pod of an exported state, which omits each 0, equals the
+// exported pod.
+func (pod *SavedPod) SetMotionMembers(speed, reservedAhead bool) {
+	pod.zeroMotion = speed && pod.Speed == 0 || reservedAhead && pod.ReservedAhead == 0
 }
 
 // SavedPlatoonLink is the saved link of a traveling pod to its predecessor
@@ -364,7 +387,7 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	}
 	var physicalErr error
 	if !input.LogicalOnly {
-		s, result, err := restorePhysical(input, newFleet)
+		s, result, err := restorePhysicalMotion(input, newFleet)
 		if err == nil {
 			return s, result, nil
 		}
@@ -376,15 +399,62 @@ func restoreState(input RestoreStateInput, newFleet func() (*Simulation, error))
 	return restoreLogicalTier(input, newFleet, physicalErr)
 }
 
-// checkRestoreInput runs the restore input checks in order, and then checks
-// the footprints of the saved faults on a new fleet.
+// restorePhysicalMotion runs the physical tier on input. When that
+// demotes a pod or fails, it runs the restore before the saved motion on
+// a new fleet (see restoreBeforeMotion, and restore speed proposal,
+// section 4.2). When the first restore fails, it returns the outcome of
+// the second, so the second also decides between a refusal and the
+// logical tier. When the first demotes a pod that the second keeps, also
+// when the second demotes another pod, it returns the second. Thus no pod
+// restores worse than before the saved motion. Otherwise it returns the
+// first restore.
+func restorePhysicalMotion(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	s, result, err := restorePhysical(input, newFleet)
+	if err == nil && len(result.Demoted) == 0 {
+		return s, result, nil
+	}
+	plain, plainResult, plainErr := restoreBeforeMotion(input, newFleet)
+	switch {
+	case err != nil:
+		return plain, plainResult, plainErr
+	case plainErr == nil && slices.ContainsFunc(result.Demoted, func(id string) bool { return !slices.Contains(plainResult.Demoted, id) }):
+		return plain, plainResult, nil
+	}
+	return s, result, nil
+}
+
+// restoreBeforeMotion runs the physical tier on input as the restore did
+// before the saved motion: each pod with speed 0 and no lead, and the
+// block-end snap of a restored distance at restoreTolerance.
+func restoreBeforeMotion(input RestoreStateInput, newFleet func() (*Simulation, error)) (*Simulation, RestoreResult, error) {
+	input.State = stateBeforeMotion(input.State)
+	return restorePhysicalSnap(input, newFleet, restoreTolerance)
+}
+
+// stateBeforeMotion returns state with a copy of its pods, each with speed
+// 0 and no reservation lead, as a save before the saved motion has them.
+func stateBeforeMotion(state SavedState) SavedState {
+	state.Pods = slices.Clone(state.Pods)
+	for index := range state.Pods {
+		state.Pods[index].Speed, state.Pods[index].ReservedAhead = 0, 0
+	}
+	return state
+}
+
+// checkRestoreInput runs the restore input checks in order, then checks
+// the footprints of the saved faults on a new fleet, and last checks the
+// saved motion. A motion refusal does not hide a refusal of the saved
+// faults, which came before the saved motion.
 func checkRestoreInput(input RestoreStateInput, newFleet func() (*Simulation, error)) error {
 	for _, check := range restoreInputChecks {
 		if err := check(input); err != nil {
 			return err
 		}
 	}
-	return checkSavedFaultFootprints(input, newFleet)
+	if err := checkSavedFaultFootprints(input, newFleet); err != nil {
+		return err
+	}
+	return checkSavedMotion(input)
 }
 
 // checkRestoreOrderContract checks the input order contract, and that the
@@ -539,6 +609,8 @@ func (s *Simulation) exportPod(v *vehicle, limits routeLimits) SavedPod {
 			if v.carriesPassengers() {
 				pod.RiddenMeters = v.riddenBase + offset
 			}
+			speed, lead := s.savedMotion(v, start, pod)
+			pod.Speed, pod.ReservedAhead = speed, max(0, lead)
 			pod.Platoon = s.savedLink(v, start)
 		}
 	default:

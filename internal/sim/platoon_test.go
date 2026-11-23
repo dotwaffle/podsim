@@ -1107,8 +1107,11 @@ func TestPlatoonRestoreRejectsBadLinks(t *testing.T) {
 	tests := []struct {
 		name  string
 		links map[int]*SavedPlatoonLink
-		// distance moves a pod on its lane.
+		// distance moves a pod on its lane, and speed sets its speed.
 		distance map[int]float64
+		speed    map[int]float64
+		// want is in the physical error, or empty.
+		want string
 	}{
 		{name: "an unknown pod", links: map[int]*SavedPlatoonLink{1: straight("p99")}},
 		{name: "the pod itself", links: map[int]*SavedPlatoonLink{1: straight("p02")}},
@@ -1124,6 +1127,13 @@ func TestPlatoonRestoreRejectsBadLinks(t *testing.T) {
 		{name: "a run that turns more", links: map[int]*SavedPlatoonLink{7: straight("p07")}},
 		{name: "two turns", links: map[int]*SavedPlatoonLink{1: straight("p01"), 2: {Leader: "p02", Lanes: 2, Turn: 0.5}}},
 		{name: "pods closer than the clearance", links: map[int]*SavedPlatoonLink{1: {Leader: "p01", Lanes: 2, Turn: math.Pi / 2}}, distance: map[int]float64{1: 2887}},
+		// The stop points of p01 and p02 are too close. The restore before
+		// the saved motion also fails, at the gap of p03, and its error
+		// decides (restore speed proposal, section 4.2).
+		{
+			name: "stop points closer than the clearance", links: map[int]*SavedPlatoonLink{1: straight("p01"), 2: straight("p02")},
+			distance: map[int]float64{2: 2900 - corridorQueueGap - 1}, speed: map[int]float64{1: 14}, want: "pod p03: the pod is 1.000000 m behind",
+		},
 		{name: "a lane index past the route", links: map[int]*SavedPlatoonLink{1: {Leader: "p01", Lane: math.MaxInt, Lanes: 1}}},
 		{name: "a predecessor lane index past the route", links: map[int]*SavedPlatoonLink{1: {Leader: "p01", LeaderLane: math.MaxInt, Lanes: 1}}},
 		{name: "a run of too many lanes", links: map[int]*SavedPlatoonLink{1: {Leader: "p01", Lanes: math.MaxInt}}},
@@ -1140,12 +1150,15 @@ func TestPlatoonRestoreRejectsBadLinks(t *testing.T) {
 			for index, distance := range test.distance {
 				state.Pods[index].LaneDistance, state.Pods[index].Distance = distance, distance
 			}
+			for index, speed := range test.speed {
+				state.Pods[index].Speed = speed
+			}
 			_, result, err := RestoreState(RestoreStateInput{Network: network, Fleet: s.initial, State: state})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if result.Tier != RestoreLogical || result.PhysicalError == nil {
-				t.Fatalf("tier %s, physical error %v", result.Tier, result.PhysicalError)
+			if result.Tier != RestoreLogical || result.PhysicalError == nil || !strings.Contains(result.PhysicalError.Error(), test.want) {
+				t.Fatalf("tier %s, physical error %v, want %q in it", result.Tier, result.PhysicalError, test.want)
 			}
 			t.Log(result.PhysicalError)
 		})

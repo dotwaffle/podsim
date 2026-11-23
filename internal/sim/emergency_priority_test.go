@@ -320,8 +320,8 @@ func TestEmergencyRecordInQueue(t *testing.T) {
 // ahead of it and its follower p04. Two restores of a save of that tick
 // have the queue of the live run, and they run in lockstep for 20
 // seconds, with the same queue and the same saved state on each tick. A
-// restore sets each speed to zero, so the live run is not a reference
-// after the restore tick.
+// restore does not claim an identical trajectory, so the live run is not a
+// reference after the restore tick.
 func TestEmergencyQueueRestore(t *testing.T) {
 	t.Parallel()
 	lanes := []geometryLane{{to: Point{X: 300}}, {to: Point{X: 600}}, {to: Point{X: 900}}, {to: Point{X: 1200}}}

@@ -125,7 +125,7 @@ func widestPlainSavedState(t *testing.T) stateFile {
 		Riders:       slices.Repeat([]sim.SavedRequest{request}, sim.MaxSharedRideParties),
 		RiddenMeters: plainProofFloat, ClaimsDestination: true, Released: true, ParkedSince: widest,
 		Route: indexes, RouteIndex: widest, LaneID: id, LaneDistance: plainProofFloat,
-		Distance: plainProofFloat, Waiting: true, WaitSince: widest,
+		Distance: plainProofFloat, Speed: plainProofFloat, ReservedAhead: widest, Waiting: true, WaitSince: widest,
 		Platoon: &sim.SavedPlatoonLink{Leader: id, Lane: widest, LeaderLane: widest, Lanes: widest, Turn: plainProofFloat, Draining: true},
 	}
 	// Native boarding IDs exceed the saved index tuples in byte width.

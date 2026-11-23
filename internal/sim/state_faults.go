@@ -236,7 +236,13 @@ func checkSavedFaultFootprints(input RestoreStateInput, newFleet func() (*Simula
 	if err != nil {
 		return nil //nolint:nilerr // Each tier calls the fleet factory and reports its error.
 	}
-	r := newPhysicalRestore(s, input.State)
+	// The check runs once, before both physical restores, so it places the
+	// pods as the restore before the saved motion does (see
+	// restoreBeforeMotion): with no saved speed or lead, and with its snap.
+	// It then refuses only a save that that restore refuses. The first
+	// physical restore finds a saved lead that meets debris.
+	r := newPhysicalRestore(s, stateBeforeMotion(input.State))
+	r.snap = restoreTolerance
 	r.restoreCounters()
 	if err := r.placeDebris(); err != nil {
 		return err

@@ -45,6 +45,9 @@ func baselineResourceOf(r resource) baselineResource {
 }
 
 // baselineObserve includes raw owners and release frontiers that views omit.
+// It clears the saved speeds and leads of the export, so the digests keep
+// their values from before the saved motion. The restore tests check
+// those members.
 func baselineObserve(t *testing.T, digest hash.Hash, s *Simulation) {
 	t.Helper()
 	owners := make([]baselineOwner, 0, len(s.owners))
@@ -66,7 +69,7 @@ func baselineObserve(t *testing.T, digest hash.Hash, s *Simulation) {
 		Saved    SavedState
 		Owners   []baselineOwner
 		Vehicles []baselineVehicle
-	}{s.Snapshot(), s.ExportState(), owners, vehicles}, json.Deterministic(true))
+	}{s.Snapshot(), withoutMotion(s.ExportState()), owners, vehicles}, json.Deterministic(true))
 	if err != nil {
 		t.Fatal(err)
 	}

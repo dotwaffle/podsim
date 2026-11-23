@@ -455,8 +455,8 @@ func TestRestoreKeepsReleasedPod(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name string
-		// clear removes the released flag from the saved state, as in a
-		// state from an earlier build.
+		// clear removes the released flag, the speed, and the reservation
+		// lead from the saved state, as in a state from an earlier build.
 		clear bool
 		// want is the pod that takes the next trip after the restore.
 		want string
@@ -476,7 +476,8 @@ func TestRestoreKeepsReleasedPod(t *testing.T) {
 				t.Fatalf("the saved pod is not released: %+v", state.Pods[index])
 			}
 			if tc.clear {
-				state.Pods[index].Released = false
+				pod := &state.Pods[index]
+				pod.Released, pod.Speed, pod.ReservedAhead = false, 0, 0
 			}
 			restored, result, err := RestoreState(RestoreStateInput{Network: f.s.network, Fleet: f.s.initial, State: state})
 			if err != nil || !cleanRestore(result) {

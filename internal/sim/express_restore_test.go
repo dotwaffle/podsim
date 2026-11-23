@@ -23,8 +23,8 @@ func checkExpressJourneyColdRestore(t *testing.T, live *Simulation, network Netw
 	checkLargeColdRetainedOwners(t, live, cold)
 	expressEvidence(t, "restored", cold.ExportState())
 	for i := range cold.vehicles {
-		if cold.vehicles[i].Pod.Speed != 0 {
-			t.Fatal("ordinary restore retained speed")
+		if cold.vehicles[i].Pod.Speed != live.vehicles[i].Pod.Speed {
+			t.Fatalf("pod %s restores at speed %g, want the live speed %g", cold.vehicles[i].Pod.ID, cold.vehicles[i].Pod.Speed, live.vehicles[i].Pod.Speed)
 		}
 	}
 	warm := live.Clone()

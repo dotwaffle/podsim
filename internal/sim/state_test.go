@@ -46,10 +46,15 @@ func roundTripState(t *testing.T, state SavedState) SavedState {
 	return decoded
 }
 
-// comparablePod clears the pod fields that a restore sets to their start
-// values.
-func comparablePod(pod Pod) Pod {
-	pod.Speed, pod.WaitReason, pod.BlockedBy = 0, NoWait, ""
+// comparablePod returns the pod of v with the fields that a restore sets
+// to their start values cleared. A traveling pod keeps its speed, except a
+// faulted pod, which restores at rest.
+func comparablePod(v *vehicle) Pod {
+	pod := v.Pod
+	pod.WaitReason, pod.BlockedBy = NoWait, ""
+	if v.faulted || pod.Activity != Traveling {
+		pod.Speed = 0
+	}
 	return pod
 }
 
@@ -68,7 +73,8 @@ func savedCounters(state SavedState) SavedState {
 }
 
 // checkRestoredMatches checks that a restore of the live state matches the
-// live simulation, except for the pod speeds and wait reasons.
+// live simulation, except for the wait reasons and the speeds of faulted
+// pods.
 func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 	t.Helper()
 	if !maps.Equal(restored.owners, restored.retainedOwners()) {
@@ -86,7 +92,7 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 	}
 	for index := range live.vehicles {
 		source, copied := &live.vehicles[index], &restored.vehicles[index]
-		if comparablePod(copied.Pod) != comparablePod(source.Pod) {
+		if comparablePod(copied) != comparablePod(source) {
 			t.Fatalf("tick %d: pod\n got %+v\nwant %+v", live.tick, copied.Pod, source.Pod)
 		}
 		if (copied.pending >= 0) != (source.pending >= 0) ||
@@ -105,6 +111,32 @@ func checkRestoredMatches(t *testing.T, live, restored *Simulation) {
 	}
 	if n := countUnaccounted(t, restored); n != 0 {
 		t.Fatalf("tick %d: %d unaccounted orders", live.tick, n)
+	}
+	checkRestoredFrontiers(t, live, restored)
+}
+
+// checkRestoredFrontiers requires that each restored traveling pod has the
+// frontier of the live pod, at the same route occurrence and cell. The
+// saved route starts at a lane start, and the lanes share their cells, so
+// the blocks of the two routes differ by the blocks before the saved
+// route. It also requires that the export of each live pod finds no
+// reservation that ends before the derived frontier, which exportPod would
+// write as a lead of 0.
+func checkRestoredFrontiers(t *testing.T, live, restored *Simulation) {
+	t.Helper()
+	state := live.ExportState()
+	for index := range live.vehicles {
+		v, got, pod := &live.vehicles[index], &restored.vehicles[index], state.Pods[index]
+		if v.Pod.Activity != Traveling || pod.Route == nil {
+			continue
+		}
+		start, _, _ := live.savedStart(v)
+		if _, lead := live.savedMotion(v, start, pod); lead < 0 {
+			t.Fatalf("tick %d: pod %s reserves %d blocks ahead of the derived frontier", live.tick, pod.ID, lead)
+		}
+		if want := v.reservedThrough - v.blocks.laneFirst(start); got.reservedThrough != want {
+			t.Fatalf("tick %d: pod %s restores the frontier %d, want %d", live.tick, pod.ID, got.reservedThrough, want)
+		}
 	}
 }
 

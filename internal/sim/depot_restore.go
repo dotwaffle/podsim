@@ -49,20 +49,23 @@ func (s *Simulation) depotSlotOpen(v *vehicle, berth Berth) bool {
 	return slot.slot == rear+1
 }
 
-// depotEntryBlock returns the last block of the incoming lane of the depot
-// whose slot v names as its destination. It reports false when v names no
-// slot or its route does not hold that lane.
-func (s *Simulation) depotEntryBlock(v *vehicle) (int, bool) {
+// depotEntryBlock returns the last block of the first incoming lane, at
+// route index from or later, of the depot whose slot v names as its
+// destination. It reports false when v names no slot or that part of its
+// route does not hold that lane. A restore reads the saved route from
+// index 0, and the export reads the live route from the start of the saved
+// route, so both find the same lane.
+func (s *Simulation) depotEntryBlock(v *vehicle, from int) (int, bool) {
 	slot, ok := s.depots.slot(v.destination.ID)
 	if !ok {
 		return 0, false
 	}
 	incoming := s.depots.depots[slot.depot].incoming.ID
-	lane := slices.IndexFunc(v.Route, func(lane Lane) bool { return lane.ID == incoming })
+	lane := slices.IndexFunc(v.Route[from:], func(lane Lane) bool { return lane.ID == incoming })
 	if lane < 0 {
 		return 0, false
 	}
-	_, last := routeLaneBlocks(&v.blocks, lane)
+	_, last := routeLaneBlocks(&v.blocks, from+lane)
 	return last, true
 }
 

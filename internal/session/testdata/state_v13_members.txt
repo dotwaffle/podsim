@@ -142,6 +142,8 @@ simulation.pods[].routeIndex number
 simulation.pods[].laneID string
 simulation.pods[].laneDistance number
 simulation.pods[].distance number
+simulation.pods[].speed number
+simulation.pods[].reservedAhead number
 simulation.pods[].waiting boolean
 simulation.pods[].waitSince number
 simulation.pods[].platoon object

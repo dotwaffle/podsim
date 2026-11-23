@@ -119,6 +119,16 @@ func (f *fakeStore) writeList() [][]byte {
 	return slices.Clone(f.writes)
 }
 
+// takeLastWrite returns the last written state and clears the history of
+// writes and calls, so a test that saves at every tick keeps no history.
+func (f *fakeStore) takeLastWrite() []byte {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	data := f.writes[len(f.writes)-1]
+	f.writes, f.calls = nil, nil
+	return data
+}
+
 // backupList returns the copies that Backup made, oldest first.
 func (f *fakeStore) backupList() [][]byte {
 	f.mu.Lock()
@@ -595,14 +605,15 @@ func TestNewFromStoreRejects(t *testing.T) {
 			}}},
 		},
 		{name: "newer version", data: run.edited(t, newerVersion), reason: reasonUnsupportedVersion},
-		// The decoder rejects versions 2 through 11 before a restore step.
-		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 12"},
-		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 12"},
-		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 12"},
-		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 12"},
-		{name: "version 9", data: run.edited(t, func(file *stateFile) { file.Version = 9 }), reason: reasonUnsupportedVersion, errText: "version 9 is older than version 12"},
-		{name: "version 10", data: run.edited(t, func(file *stateFile) { file.Version = 10 }), reason: reasonUnsupportedVersion, errText: "version 10 is older than version 12"},
-		{name: "version 11", data: run.edited(t, func(file *stateFile) { file.Version = 11 }), reason: reasonUnsupportedVersion, errText: "version 11 is older than version 12"},
+		// The decoder rejects versions 2 through 12 before a restore step.
+		{name: "version 2", data: run.edited(t, func(file *stateFile) { file.Version = 2 }), reason: reasonUnsupportedVersion, errText: "version 2 is older than version 13"},
+		{name: "version 6", data: run.edited(t, func(file *stateFile) { file.Version = 6 }), reason: reasonUnsupportedVersion, errText: "version 6 is older than version 13"},
+		{name: "version 7", data: run.edited(t, func(file *stateFile) { file.Version = 7 }), reason: reasonUnsupportedVersion, errText: "version 7 is older than version 13"},
+		{name: "version 8", data: run.edited(t, func(file *stateFile) { file.Version = 8 }), reason: reasonUnsupportedVersion, errText: "version 8 is older than version 13"},
+		{name: "version 9", data: run.edited(t, func(file *stateFile) { file.Version = 9 }), reason: reasonUnsupportedVersion, errText: "version 9 is older than version 13"},
+		{name: "version 10", data: run.edited(t, func(file *stateFile) { file.Version = 10 }), reason: reasonUnsupportedVersion, errText: "version 10 is older than version 13"},
+		{name: "version 11", data: run.edited(t, func(file *stateFile) { file.Version = 11 }), reason: reasonUnsupportedVersion, errText: "version 11 is older than version 13"},
+		{name: "version 12", data: run.edited(t, func(file *stateFile) { file.Version = 12 }), reason: reasonUnsupportedVersion, errText: "version 12 is older than version 13"},
 		{name: "truncated file", data: run.data[:len(run.data)/2], reason: reasonInvalidState},
 		{name: "too large to read", data: run.data, readErr: tooLarge, reason: reasonTooLarge, preserve: true},
 	}

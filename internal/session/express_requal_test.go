@@ -303,7 +303,7 @@ func TestExpressRequalSaveRejectedAtomically(t *testing.T) {
 	}{
 		"raw origin": {compressTestJSON(t, bytes.Replace(raw, token, []byte(`"from":"harbor"`), 1)), reasonInvalidState},
 	}
-	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13} {
+	for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14} {
 		cases["version "+strconv.Itoa(version)] = struct {
 			data   []byte
 			reason string

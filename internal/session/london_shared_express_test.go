@@ -49,21 +49,31 @@ func sharedExpressFixtureFor(t *testing.T, config project.Config, shared *Sessio
 	for _, service := range config.ExpressServices {
 		f.services[service.From] = service.ID
 	}
-	// Each restore of a checkpoint resets the speed of each pod, which the
-	// fixture reports. The restored copy runs the D6 oracle at each tick.
+	// Each restore of a checkpoint keeps the speed of each pod that is not
+	// faulted, and the fixture counts the kept speeds. The restored copy
+	// runs the D6 oracle at each tick.
 	f.restored = func(name string, live, restored *sim.Simulation) {
 		t.Helper()
-		before, after := live.Snapshot().Vehicles, restored.Snapshot().Vehicles
-		resets := 0
+		snapshot := live.Snapshot()
+		faulted := make(map[string]bool)
+		for _, fault := range snapshot.Faults.Active {
+			faulted[fault.PodID] = fault.PodID != ""
+		}
+		before, after := snapshot.Vehicles, restored.Snapshot().Vehicles
+		kept := 0
 		for i := range after {
-			if after[i].Pod.Speed != 0 {
-				t.Fatalf("%s: pod %s restored at %g m/s", name, after[i].Pod.ID, after[i].Pod.Speed)
+			want := before[i].Pod.Speed
+			if faulted[before[i].Pod.ID] {
+				want = 0
 			}
-			if before[i].Pod.Speed > 0 {
-				resets++
+			if after[i].Pod.Speed != want {
+				t.Fatalf("%s: pod %s restored at %g m/s, want %g m/s", name, after[i].Pod.ID, after[i].Pod.Speed, want)
+			}
+			if want > 0 {
+				kept++
 			}
 		}
-		t.Logf("%s: %d speed resets", name, resets)
+		t.Logf("%s: %d kept speeds", name, kept)
 	}
 	f.tick = func(restored *sim.Simulation) error { return restored.LateralBodyCheckForTest() }
 	return f

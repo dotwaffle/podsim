@@ -175,7 +175,7 @@ func TestRailDemandCloneAndPhysicalRestart(t *testing.T) {
 				if !reflect.DeepEqual(want, clonedSimulation.Snapshot()) {
 					t.Fatalf("clone divergence after saved tick %d at tick %d", savedTick, tick+1)
 				}
-				// Physical restore resets speeds under the existing save contract.
+				// A physical restore does not claim an identical trajectory.
 				// Offers must retain their IDs, endpoints, and request timestamps.
 				if !reflect.DeepEqual(railRequestIdentity(want), railRequestIdentity(restored.simulation.Snapshot())) {
 					t.Fatal("physical restart changed offered request identity")

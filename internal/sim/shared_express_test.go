@@ -147,8 +147,11 @@ func sharedExpressRestore(t *testing.T, p sharedExpressProject, s *Simulation, n
 	t.Helper()
 	cold := restoreExpressSave(t, p, s, name)
 	counts.restores++
-	resets, kept, dropped, rebuilt := sharedExpressRestoreChanges(t, s, cold)
-	t.Logf("%s: tick %d restored at the physical tier: %d speed resets; forward grants: %d kept, %d not rebuilt, %d new from the route geometry", name, s.tick, resets, kept, dropped, rebuilt)
+	moving, kept, dropped, rebuilt := sharedExpressRestoreChanges(t, s, cold)
+	t.Logf("%s: tick %d restored at the physical tier: %d kept speeds; forward grants: %d kept, %d not rebuilt, %d new from the route geometry", name, s.tick, moving, kept, dropped, rebuilt)
+	if dropped+rebuilt != 0 {
+		t.Fatalf("%s: the restore did not keep %d forward grants and added %d pod resources", name, dropped, rebuilt)
+	}
 	if links, control := sharedExpressPoliciesOff(t, cold.Clone(), name); links > 0 {
 		counts.policiesOff++
 		counts.control += control
@@ -210,14 +213,18 @@ func runRestoredExpress(t *testing.T, cold *Simulation, name string) {
 // pods with a speed above zero in live, the forward grants of live that
 // restored keeps and that it does not keep, and the pod resources of
 // restored that live does not have.
-func sharedExpressRestoreChanges(t *testing.T, live, restored *Simulation) (resets, kept, dropped, rebuilt int) {
+func sharedExpressRestoreChanges(t *testing.T, live, restored *Simulation) (moving, kept, dropped, rebuilt int) {
 	t.Helper()
 	for i := range restored.vehicles {
-		if speed := restored.vehicles[i].Pod.Speed; speed != 0 {
-			t.Fatalf("tick %d: pod %s restored at %g m/s", live.tick, restored.vehicles[i].Pod.ID, speed)
+		want := live.vehicles[i].Pod.Speed
+		if live.vehicles[i].faulted {
+			want = 0
 		}
-		if live.vehicles[i].Pod.Speed > 0 {
-			resets++
+		if speed := restored.vehicles[i].Pod.Speed; speed != want {
+			t.Fatalf("tick %d: pod %s restored at %g m/s, want %g m/s", live.tick, restored.vehicles[i].Pod.ID, speed, want)
+		}
+		if want > 0 {
+			moving++
 		}
 	}
 	for i := range live.vehicles {
@@ -254,7 +261,7 @@ func sharedExpressRestoreChanges(t *testing.T, live, restored *Simulation) (rese
 			rebuilt++
 		}
 	}
-	return resets, kept, dropped, rebuilt
+	return moving, kept, dropped, rebuilt
 }
 
 // sharedExpressPoliciesOff turns platooning and occupied pickups off in a

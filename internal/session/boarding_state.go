@@ -174,7 +174,12 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	if present && (len(wire.Boardings) < 1 || len(wire.Boardings) > sim.MaxStoredRidersForOrderContract(wire.Class, contract) || len(wire.Boardings) != len(wire.Riders)) {
 		return savedPodRefs{}, errors.New("invalid saved boarding tuple alignment")
 	}
+	speed, ahead, membersErr := savedMotionMembers(members, decoder.StackPointer())
+	if membersErr != nil {
+		return savedPodRefs{}, membersErr
+	}
 	*pod = sim.SavedPod(wire.savedPodFields)
+	pod.SetMotionMembers(speed, ahead)
 	pod.Boardings = nil
 	if err := checkSavedOperational(*pod, wire.Operational); err != nil {
 		return savedPodRefs{}, err
@@ -187,6 +192,22 @@ func decodeBoardingPodContract(decoder *jsontext.Decoder, pod *sim.SavedPod, con
 	}
 	refs.tuples = wire.Boardings
 	return refs, nil
+}
+
+// savedMotionMembers reports whether the raw members of the saved pod at
+// pointer have the speed and the reservedAhead members. It refuses a null
+// member. A null or an explicit 0 decodes as an absent member, so only the
+// raw members show them. The simulation applies the rules of the members
+// (restore speed proposal, section 4.2).
+func savedMotionMembers(members map[string]jsontext.Value, pointer jsontext.Pointer) (speed, reservedAhead bool, err error) {
+	for _, name := range [...]string{"speed", "reservedAhead"} {
+		if field, ok := members[name]; ok && field.Kind() == jsontext.KindNull {
+			return false, false, fmt.Errorf("saved member %s/%s is null", pointer, name)
+		}
+	}
+	_, speed = members["speed"]
+	_, reservedAhead = members["reservedAhead"]
+	return speed, reservedAhead, nil
 }
 
 // resolveBoardings binds the saved references only after the caller

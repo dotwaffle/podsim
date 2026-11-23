@@ -307,7 +307,7 @@ It reports them as unaccounted orders at each restore, together with the orders 
 - `empty`: The server does not use the saved state and starts a new session.
   Except after a read failure, it moves `session.json.gz` to a rejected file.
 
-Each session writes saved-state version 12, and this server accepts only version 12.
+Each session writes saved-state version 13, and this server accepts only version 13.
 The root `orderContract` marker `express-v1` selects the Express order bounds.
 The project and the simulation must have the same marker as the root.
 The file can have these incident members, and it omits each one at 0 or when it is absent:
@@ -373,32 +373,39 @@ The order text of each queued order and each rider is canonical base64 text, for
 The file has no `textEncoding` member.
 Each saved version stores a version 1 project.
 A saved project of version 2 through 5 gets reason `invalid_state`, as other bad saves do.
-An intact file of version 1 through 11, or of version 13 or later, gets reason `unsupported_version`.
+An intact file of version 1 through 12, or of version 14 or later, gets reason `unsupported_version`.
 The server moves it aside and starts a new session.
 It does not migrate the file.
 A damaged or invalid file gets `invalid_state`, and the server moves it aside and starts a new session.
 Examples are a gzip error, a JSON syntax error, a file over a scan limit, a header member of the wrong type, a missing, null, zero, or negative version, a value that the decoder refuses, and a restore that fails.
 Until the first release, the removal of a member keeps the version.
-Thus a version 12 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
-Likewise, a version 12 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
-A version 12 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
+Thus a version 13 file with a member of the removed physical coupling feature, for example `couplingContract` or `simulation.couplingGroups`, has an unknown member and gets `invalid_state`.
+Likewise, a version 13 file with a member of the removed station buffer or compact queue feature has an unknown member and gets `invalid_state`.
+A version 13 file with `incidentContract`, `faultContract`, or `emergencyContract` also has an unknown member and gets `invalid_state`.
 Examples are `stationBuffered` or `compactQueue` on a pod, and `stationBuffers` or `stationQueueSpacing` in the embedded project.
 A project file with `stationBuffers` or `stationQueueSpacing` also fails as an unknown member.
-Likewise, a version 12 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
+Likewise, a version 13 file whose embedded network has a [removed network member](reference.md#removed-network-members), `lateralMerges` or `shapeClearance`, has an unknown member and gets `invalid_state`.
 Its error starts with `decode session state: json:` and ends with the clause `unknown object member name "<m>"`, where `<m>` is the first of these members in the file.
-A version 12 file without these members restores under the shape clearance rule.
+A version 13 file without these members restores under the shape clearance rule.
 When the audit of that rule refuses the saved network, the file gets `invalid_state` with the error `saved project: ...`.
 Until the first release, a narrower set of accepted values also keeps the version.
-By maintainer decision, version 12 is an exception to both rules, because it removes `journeyOrigin` of a pod and needs a boarding record for each party in a pod.
-Thus a version 11 file gets `unsupported_version`, and a version 12 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
-Each integer of a version 12 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
+By maintainer decision, version 12 was an exception to both rules, because it removed `journeyOrigin` of a pod and needs a boarding record for each party in a pod.
+Version 13 adds the `speed` and the `reservedAhead` members of a traveling pod.
+A file with either member on a pod that does not travel, also with the value 0, or with either member `null`, gets `invalid_state`.
+A traveling pod whose saved speed is more than 1e-3 m/s above the speed limit of its lane, or whose saved motion fails another check of the restore, restores at rest with the reservation that its position gives, as before version 13.
+The pod moves to a berth only when that placement also fails, as other demoted pods do.
+When the `physical` tier moves a pod to a berth or fails, the restore also runs it as before version 13: without the saved speeds and leads, and with a pod within 1e-6 m of a block end moved to the block end.
+The restore uses that second result when the first fails, or when the first moves a pod to a berth that the second keeps.
+When both fail, the second failure decides between a refusal and the `logical` tier.
+Thus a version 12 file gets `unsupported_version`, and a version 13 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
+Each integer of a version 13 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
 The scan that checks the integers comes after the version check, so an intact file of another version still gets `unsupported_version`.
 Within the scan, the depth and the size checks of a value come before its integer check.
 A file with a larger integer gets `invalid_state` with the error `JSON integer is out of range`.
 A saved revision, project revision, or generation of 2^53-1 also gets `invalid_state`, because the restore adds 1 to it.
 After that check, a saved last save point of 2^53-1 gets `invalid_state` with the error `last save point ... is at the largest value`, because the next save point adds 1 to it.
-Each ID of a version 12 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
+Each ID of a version 13 file has only the characters A-Z, a-z, 0-9, `.`, `+`, and `-`.
 Each name and each dispatch reason is UTF-8 text without a control character, which is a C0 character, DEL, or a C1 character.
 After the length check of the epoch, an epoch with another character gets `invalid_state` with the error `epoch ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
 After the length check of a client ID, a client ID with another character gets the error `client ... has a character other than A-Z, a-z, 0-9, '.', '+' or '-'`.
@@ -444,7 +451,7 @@ A pod that the tier must move takes a slot only when no pod of that lane moves, 
 Its parked tick is then the saved tick.
 The file does not keep the 1 second stop at a change of the reverse flag.
 Thus a pod that was in this stop stops for the full second again after a restore.
-An older server rejects version 12 with `unsupported_version` and moves the file aside.
+An older server rejects version 13 with `unsupported_version` and moves the file aside.
 Keep a copy before a downgrade.
 
 Portable project version 1 accepts an optional `pickupReassignment` Boolean setting.
@@ -986,7 +993,7 @@ mise run check
 | `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so only this task runs them. |
 | `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:web` | The Node tests of the browser files: the editor, the editor model and history, the loader, the shell, the stream, the map and tiles, place search, the offline tools, and the ride page. The offline tool tests run `cmd/parkride` and `cmd/compare`. |
-| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests and `TestSampledTickLatency` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
+| `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests, `TestSampledTickLatency`, and the restore boundary sweep `TestRestoreBoundarySweep` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, the boundary sweep, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
 | `mise run soak` | The incident soak in the routine branch shape. See "Incident soak". |
 | `mise run soak:full` | The release soak of amendments A6 and A19: 2 seeds of 6 simulated hours on each default preset, with the full check at each tick. A run that the 2-hour limit stops fails. It lists the seeds that finished. See "Incident soak". |

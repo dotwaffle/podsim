@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"reflect"
 	"slices"
 	"strconv"
@@ -180,7 +181,7 @@ func TestSavedVersionRefusals(t *testing.T) {
 		"plain": decompressTestJSON(t, encodeTestState(t, newTestStateFile(t))),
 	}
 	for name, raw := range bases {
-		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13} {
+		for _, version := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14} {
 			t.Run(name+"/"+strconv.Itoa(version), func(t *testing.T) {
 				t.Parallel()
 				data := compressTestJSON(t, setRootMember(t, raw, "version", strconv.Itoa(version)))
@@ -209,10 +210,10 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 			"gzip header cut":  encoded[:5],
 			"gzip trailer cut": encoded[:len(encoded)-4],
 			"gzip checksum":    checksum,
-			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":12,`, `,`)),
+			"syntax error":     compressTestJSON(t, insertAfter(t, raw, `"version":13,`, `,`)),
 			"array limit":      compressTestJSON(t, insertAfter(t, raw, `{`, padding)),
 			"format type":      compressTestJSON(t, setRootMember(t, raw, "format", "1")),
-			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"12"`)),
+			"version type":     compressTestJSON(t, setRootMember(t, raw, "version", `"13"`)),
 			"decode error":     compressTestJSON(t, setRootMember(t, raw, "speed", `"fast"`)),
 			"validation error": encodeTestState(t, speed),
 			"missing version": compressTestJSON(t, joinObject(t, slices.DeleteFunc(splitObject(t, raw),
@@ -249,13 +250,13 @@ func TestSavedInvalidMovedAside(t *testing.T) {
 	})
 }
 
-// TestSavedRemovedMembersMovedAside checks a version 12 file with a member
+// TestSavedRemovedMembersMovedAside checks a version 13 file with a member
 // of a removed feature: physical coupling, compact station queues, station
 // buffers, or the journey origin of a pod.
 // Before the first release a removed member keeps the version, so the
 // file is not of another version. By maintainer decision, version 12
-// removed the journey origin with a new version, so a version 12 file
-// with it has an unknown member.
+// removed the journey origin with a new version, so a later file with it
+// has an unknown member.
 // The strict decode refuses the member as unknown, and startup moves the
 // file aside as invalid_state and starts a new session.
 func TestSavedRemovedMembersMovedAside(t *testing.T) {
@@ -297,4 +298,125 @@ func insertAfter(t *testing.T, raw []byte, after, text string) []byte {
 		t.Fatalf("no %s", after)
 	}
 	return bytes.Replace(raw, []byte(after), []byte(after+text), 1)
+}
+
+// motionTestFile returns a state file with a pod that travels at rest
+// and saves no speed and no reservation lead, the ID of that pod, and the
+// ID of a pod that does not travel.
+func motionTestFile(t *testing.T) (file stateFile, traveling, other string) {
+	t.Helper()
+	shared, err := NewWithProject(policiesOffProject(), WithBuildID(testBuildID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newTestClient(shared, "state")
+	client.mustApply(t, Command{Action: "trip", Origin: "harbor", Destination: "market"})
+	for range 60 * sim.TicksPerSecond {
+		if slices.ContainsFunc(shared.simulation.Snapshot().Vehicles, func(v sim.Vehicle) bool { return v.Pod.Activity == sim.Traveling }) {
+			break
+		}
+		shared.simulation.Step()
+	}
+	file = sessionStateFile(t, shared)
+	// The file restores in the physical tier.
+	file.RestoreAttempts = 0
+	file.Simulation.Pods = slices.Clone(file.Simulation.Pods)
+	for index := range file.Simulation.Pods {
+		pod := &file.Simulation.Pods[index]
+		switch {
+		case pod.Activity == "traveling" && traveling == "":
+			traveling, pod.Speed, pod.ReservedAhead = pod.ID, 0, 0
+		case pod.Activity != "traveling" && other == "":
+			other = pod.ID
+		}
+	}
+	if traveling == "" || other == "" {
+		t.Fatalf("the test state has no traveling pod or no other pod: %+v", file.Simulation.Pods)
+	}
+	return file, traveling, other
+}
+
+// TestSavedMotionMembers checks the speed and the reservedAhead members of
+// a saved pod in the file. The decode refuses only a null member. It gives
+// the simulation the presence of each member, and the restore input checks
+// apply the rules of section 4.2 of the restore speed proposal, in saved
+// pod order, after the other input checks. A pod that does not travel
+// refuses either member, also with the value 0. A traveling pod accepts an
+// explicit 0.
+func TestSavedMotionMembers(t *testing.T) {
+	t.Parallel()
+	file, traveling, other := motionTestFile(t)
+	raw := decompressTestJSON(t, encodeTestState(t, file))
+	position := slices.IndexFunc(file.Simulation.Pods, func(pod sim.SavedPod) bool { return pod.ID == traveling })
+	if position > slices.IndexFunc(file.Simulation.Pods, func(pod sim.SavedPod) bool { return pod.ID == other }) {
+		t.Fatalf("the traveling pod %s is after the pod %s", traveling, other)
+	}
+	pod := func(data []byte, id, members string) []byte { return insertAfter(t, data, `"id":"`+id+`",`, members) }
+	for _, test := range []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"a null speed", pod(raw, traveling, `"speed":null,`), fmt.Sprintf("saved member /simulation/pods/%d/speed is null", position)},
+		{"a null lead", pod(raw, traveling, `"reservedAhead":null,`), fmt.Sprintf("saved member /simulation/pods/%d/reservedAhead is null", position)},
+		{"a null lead of a pod that does not travel", pod(raw, other, `"reservedAhead":null,`), "/reservedAhead is null"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			data := compressTestJSON(t, test.data)
+			if _, err := decodeStateFile(data); err == nil || !strings.HasSuffix(err.Error(), test.want) {
+				t.Fatalf("decode: %v, want %q", err, test.want)
+			}
+			store := &fakeStore{data: data}
+			s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+			assertMovedAside(t, s, err, store, reasonInvalidState)
+		})
+	}
+	idle := fmt.Sprintf("pod %s is not traveling and has a speed or a reservation ahead", other)
+	for _, test := range []struct {
+		name string
+		data []byte
+		want string
+	}{
+		{"a speed of 0 at a berth", pod(raw, other, `"speed":0,`), idle},
+		{"a lead of 0 at a berth", pod(raw, other, `"reservedAhead":0,`), idle},
+		{"a speed at a berth", pod(raw, other, `"speed":5,`), idle},
+		{"a negative speed at a berth", pod(raw, other, `"speed":-1,`), fmt.Sprintf("pod %s has speed -1, not a finite value of 0 or more", other)},
+		{"a negative parked tick", pod(raw, other, `"parkedSince":-1,`), fmt.Sprintf("pod %q has the negative parked tick -1", other)},
+		{"a speed of 0 and a negative parked tick", pod(raw, other, `"speed":0,"parkedSince":-1,`), fmt.Sprintf("pod %q has the negative parked tick -1", other)},
+		{"an earlier negative speed", pod(pod(raw, other, `"speed":0,`), traveling, `"speed":-1,`), fmt.Sprintf("pod %s has speed -1, not a finite value of 0 or more", traveling)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			data := compressTestJSON(t, test.data)
+			if _, err := decodeStateFile(data); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			var restoreErr error
+			steps := realRestoreSteps()
+			steps.restoreSimulation = func(check *sim.NetworkCheck, input sim.RestoreStateInput) (*sim.Simulation, sim.RestoreResult, error) {
+				s, result, err := restoreSimulation(check, input)
+				restoreErr = err
+				return s, result, err
+			}
+			store := &fakeStore{data: data}
+			s, err := newFromStore(t.Context(), StoreInput{Store: store}, steps)
+			assertMovedAside(t, s, err, store, reasonInvalidState)
+			if restoreErr == nil || restoreErr.Error() != test.want {
+				t.Fatalf("restore: %v, want %q", restoreErr, test.want)
+			}
+		})
+	}
+	t.Run("an explicit 0 on a traveling pod", func(t *testing.T) {
+		t.Parallel()
+		store := &fakeStore{data: compressTestJSON(t, pod(raw, traveling, `"speed":0,"reservedAhead":0,`))}
+		s, err := NewFromStore(t.Context(), StoreInput{Store: store})
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(s.Close)
+		if s.restore.Tier != "physical" || s.restore.Reason != "" || s.restore.Demoted != 0 {
+			t.Fatalf("restore %+v", s.restore)
+		}
+	})
 }

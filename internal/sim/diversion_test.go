@@ -341,7 +341,6 @@ func TestPassengerArrivalReservationBoundary(t *testing.T) {
 				lane := v.blocks.at(v.reservedThrough).lane
 				return (lane.ID == "parking-arrival-link") == test.committed
 			})
-			wantCommitted := test.committed
 			if test.restore {
 				var result RestoreResult
 				s, result, err = RestoreState(RestoreStateInput{Network: network, Fleet: fleet, State: s.ExportState()})
@@ -349,16 +348,15 @@ func TestPassengerArrivalReservationBoundary(t *testing.T) {
 					t.Fatalf("physical restore: result %+v, error %v", result, err)
 				}
 				v = s.findVehicle("01")
-				// Physical restore rebuilds the current footprint, not every
-				// live lookahead claim. The pod has not entered the access chain.
-				if lane := v.blocks.at(v.reservedThrough).lane.ID; lane != "return-to-parking" {
-					t.Fatalf("restored footprint ends on %s, want approach lane", lane)
+				// A physical restore keeps the live reservation frontier,
+				// with its lookahead claims.
+				if lane := v.blocks.at(v.reservedThrough).lane.ID; (lane == "parking-arrival-link") != test.committed {
+					t.Fatalf("restored footprint ends on %s, want the live frontier", lane)
 				}
-				wantCommitted = false
 			}
 			before := s.ExportState()
-			if _, _, ok := s.pickupRoute(v, "harbor"); ok == wantCommitted {
-				t.Fatalf("pickup candidacy is %v, want %v", ok, !wantCommitted)
+			if _, _, ok := s.pickupRoute(v, "harbor"); ok == test.committed {
+				t.Fatalf("pickup candidacy is %v, want %v", ok, !test.committed)
 			}
 			if !reflect.DeepEqual(before, s.ExportState()) {
 				t.Fatal("pickup query changed simulation state")

@@ -746,10 +746,17 @@ func (s *Simulation) platoonCaps() {
 			v.platoonCap = math.Inf(1)
 			continue
 		}
-		limit := leaderPosition(v, leader, v.link) + stoppingDistance(leader.Pod.Speed) - v.link.clearance
-		own := v.distance + stoppingDistance(v.Pod.Speed)
-		v.platoonCap = max(min(own, limit), limit-v.Pod.Speed*platoonReactionSeconds)
+		v.platoonCap = followerCap(v, leader)
 	}
+}
+
+// followerCap returns the platoon cap of the follower v of the traveling
+// predecessor leader (see platoonCaps). A restore checks a restored pod
+// against the same cap.
+func followerCap(v, leader *vehicle) float64 {
+	limit := leaderPosition(v, leader, v.link) + stoppingDistance(leader.Pod.Speed) - v.link.clearance
+	own := v.distance + stoppingDistance(v.Pod.Speed)
+	return max(min(own, limit), limit-v.Pod.Speed*platoonReactionSeconds)
 }
 
 // platoonIndexData holds the network data that links read.
