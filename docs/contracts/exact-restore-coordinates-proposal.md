@@ -2,6 +2,7 @@
 
 Status: approved on 2026-11-23.
 The maintainer chose option D (EC-D1), option B of EC-D7, and the recommendation of each other decision (section 8).
+Amended on 2026-11-23 after slice 0, by maintainer decision: EC-D7 and EC-D8 (section 8.1).
 Date: 2026-11-23.
 Line references are for `691f1f6b`.
 Sections 1.4, 2.3, 2.4, and 2.5 hold the measurements of this draft.
@@ -608,6 +609,27 @@ Slice 1 checks each other stream golden for a restore before it.
 | EC-D7 | The restore block budget for a whole route | A: count each lane of the saved route, as today. B: count the blocks from the first lane that can still hold a resource, and start the restore walks there. The restore finds that lane from the saved position with the rule of `savedRouteStart` (`state.go:723`). C: raise `budgetMaxBlocks` so that whole routes fit. | B. Under A, whole routes took 68 percent of the budget on LondonFull at Interpeak, and a busier save can demote pods that the restore of today keeps. On a whole route, the rule of B reads the live frame, so it finds the same lane as the live pod. The `savedStart` rules only move the start back, so the sum of B is at most the sum of the trimmed routes of today. B is a new restore rule that this draft did not measure. C changes a cap and the work bound of the restore (`state_physical.go:38` to `:58`). The text of `docs/operations.md:276` to `:278` changes under B and C. |
 
 Decided on 2026-11-23: EC-D1 D, EC-D2 B, EC-D3 A, EC-D4 A, EC-D5 A, EC-D6 A, and EC-D7 B.
+
+### 8.1 Amendments after slice 0
+
+Slice 0 fired the stop "the lockstep test finds a bit difference on a whole route".
+The cause is older than this proposal.
+The save does not keep the reversal dwell latch of a pod (`vehicle.reversal`, its lane and its ticks).
+A restore inside a dwell starts the dwell again, so the restored pod leaves late.
+The trimmed restore of today diverges in the same way.
+With the live latch copied into the restored sim, the lockstep test found no difference on any network or fixture.
+The save also does not keep the state of the pickup swap controller.
+With swaps on, 8 of 40 locks on `rail-hub` diverged, and none diverged with that state copied.
+
+Slice 0 also found that rule B of EC-D7 does not bound the memory of a restore.
+A whole route is built in full, and rule B does not count the lanes that the pod has passed.
+So a large file can build about 1,000,000 lanes, against about 256,000 today.
+
+| ID | Decision | Decided on 2026-11-23 |
+| --- | --- | --- |
+| EC-D7 (amended) | The restore block budget | The restore counts each lane of each saved route against the budget, as today (option A). The export saves whole routes only when the block count of the restore with whole routes fits the budget. Otherwise it saves the trimmed routes of today, with the marker of EC-D3. Rule B is not built. |
+| EC-D8 | The reversal dwell latch | Version 14 saves the latch of a traveling pod, and the restore keeps it. The lockstep test then needs no exclusion for a dwell. The restore checks of the latch, and their place in the refusal order, are part of slice 1. |
+| EC-D9 | The pickup swap controller | Not in this build. It goes to a separate follow-up. The lockstep test runs with pickup swaps off. |
 
 ## 9. Stops
 
