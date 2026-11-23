@@ -81,7 +81,8 @@ A generation switch does not stop existing connections from resolving.
 
 Saved sessions and checkpoints retain the bounded connection ledger.
 Physical restart keeps issued identities and actual alighting times without replaying requests.
-The existing saved format resets moving-pod velocity and reconstructs track reservations.
+The saved format keeps the speed and the track reservations of a moving pod that can stop within them.
+Otherwise the pod restores at rest.
 Physical restore preserves saved positions, but does not promise identical future trajectories.
 A pending passenger with unknown alighting time becomes unserved when restore explicitly drops the journey or logical restore auto-completes it.
 The reasons are `restore-drop` and `restore-degraded`.

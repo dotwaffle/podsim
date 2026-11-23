@@ -190,6 +190,15 @@ A pod accelerates and brakes within its admitted distance, and it extends its re
 The stopping distance uses the maximum service braking of the [class](#vehicle-classes) of the pod.
 On clear track, this allows steady cruising at 14 m/s across cell boundaries.
 
+A restart restore keeps the speed and the reservation of a traveling pod that can stop within it at the maximum service braking of its class.
+The pod must also slow to each lower speed limit ahead at that rate.
+A follower must also stop at least the clearance behind the stop point of the pod ahead.
+A pod that fails these checks restores at rest, with the reservation that its position gives, as before saved-state version 13.
+A faulted pod always restores at rest.
+The restore before version 13 can keep a pod that the new restore moves to a berth, or pass where the new restore fails.
+Then the whole save restores that earlier way.
+See [session state](operations.md#session-state) for the rules.
+
 The local controller divides lanes into exclusive track cells of up to 30 meters.
 It keeps the cells behind a pod until a four-meter pod and an eight-meter gap have cleared.
 The track cell model is conservative, and it does not model continuous car-following or optimized junction capacity.
@@ -300,6 +309,9 @@ A link also drains when platooning stops, when one of its pods stops traveling, 
 
 A saved state keeps each link in the `platoon` field of the follower, with the predecessor, the run as indexes into the two saved routes, the turn, and whether the link drains.
 The restore checks the run, the turn, the speed limits, and the clearance against the network and the pods, and it does not plan the link again.
+It also checks the stop points, as when a link forms.
+The stop point of the follower must be at least the clearance behind the stop point of its predecessor.
+When this check fails, the whole save restores as before saved-state version 13, with each pod at rest.
 A link that drains before the save also drains after the restore.
 See [session state](operations.md#session-state) for the restore tiers.
 

@@ -126,7 +126,8 @@ Its separation has no braking term, because a pod stops inside the cells that it
 
 Physical restore reconstructs the current footprint and all unexpired past resources with the larger tails.
 It preserves retained berth, node, and junction ownership.
-Future track grants can differ because saves do not retain speed.
+Saves keep the speed and the reservation of each traveling pod.
+A pod that cannot stop within its saved reservation restores at rest, and then its future track grants can differ.
 Restore rejects large links before either restore tier runs.
 Recorded fallback preserves request identities, consent, original times, and distance baselines.
 

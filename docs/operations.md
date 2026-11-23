@@ -269,8 +269,9 @@ A file can hold fewer orders than it submitted.
 The server restores such a file, but it does not make up the missing orders.
 It reports them as unaccounted orders at each restore, together with the orders that an earlier restore dropped.
 
-- `physical`: The pods keep their lane positions and start again at speed 0.
-  The server makes the track reservations again.
+- `physical`: The pods keep their lane positions, their speeds, and their track reservations.
+  A traveling pod keeps its speed only when it can stop within its reservation at the braking rate of its class.
+  Otherwise it restores at rest with the reservation that its position gives, as the version 13 rules below describe.
   A traveling pod that conflicts with another pod, or that has a route that the server cannot restore, goes to a free berth.
   The routes of the restore must fit in a budget of track cells.
   The budget is 32 times the cells of the network plus 4 cells for each lane, but at most 256,000 cells.
