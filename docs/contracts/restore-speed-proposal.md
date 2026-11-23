@@ -183,6 +183,8 @@ On 2026-11-22, the maintainer approved a separate drift tolerance of 1e-9 m for 
 The other comparisons keep `restoreTolerance`.
 The lane-limit demotion runs before the stop-point check of a link, after its position check, so that an overspeed follower demotes alone and does not fail the physical tier.
 The proposal claims the same speed and the same frontier, and not an identical trajectory.
+Note of 2026-11-23: a whole saved route restores with no block-end snap (`exact-restore-coordinates-proposal.md`).
+The drift tolerance applies only to a trimmed route.
 
 Costs and risks:
 
@@ -264,6 +266,8 @@ The sweep found the restore differs from the live owners in two ways:
 - A pod exactly on a release distance on a trimmed route can keep a cell that the live pod has released, for one more tick or until it moves.
 
 `TestRestoreBoundarySweep` counts both kinds and refuses any other difference on its fixtures.
+Note of 2026-11-23: on a whole route the sweep accepts no residual.
+On a trimmed route it also accepts kind (a) for a pod at rest, which the maintainer approved after slice 0 of the exact-coordinates build.
 
 Review round 4 found three more cases on built geometry, outside the fixtures of the sweep:
 
@@ -274,6 +278,9 @@ Review round 4 found three more cases on built geometry, outside the fixtures of
 The trim, the snap, and the origin-tail check are older than this proposal, and the snap was then 1e-6 m wide, so these cases are pre-existing.
 This proposal narrows them and does not fix them.
 On 2026-11-22, the maintainer moved them to a separate follow-up for exact restore coordinates.
+Note of 2026-11-23: the export saves the whole route when the routes fit the route limit and the restore block budget, and the restore of that route gives the pod its live position, block, frontier, and latch.
+So the residual and these three cases stay only for a trimmed route.
+The exact-coordinates proposal lists the trimmed and restart cases that stay as version 13 behavior (EC-D10 to EC-D12).
 The speed and the frontier stay exact, as section 3.1 claims.
 A traveling pod at speed 0 with no grant past the derived frontier saves neither member, so its saved form does not change.
 
@@ -309,6 +316,7 @@ A pod placed earlier can still take a cell from a later pod, and a leader that f
 Thus, when the restore still demotes a pod that the restore without the saved speeds and leads keeps, or fails the physical tier where that restore passes, the whole save restores without the saved speeds and leads, as before this proposal.
 The second restore runs only when the first demotes a pod or fails the physical tier.
 On 2026-11-22, after review round 6, the maintainer approved that the second restore is the restore before this proposal: no saved speeds or leads, and the block-end snap at `restoreTolerance`.
+Note of 2026-11-23: the second restore keeps the snap at `restoreTolerance`, also on a whole route (EC-D5 of the exact-coordinates proposal).
 When both restores fail, the outcome of the second restore decides between a refusal and the logical tier.
 On 2026-11-23, after review round 7, the maintainer approved that the fault-footprint refusal before the tiers is also the check before this proposal, with no saved speeds or leads and the snap at `restoreTolerance`.
 Thus no file is refused before the tiers unless the earlier restore refuses it, and a saved lead that reaches debris fails only the first restore.

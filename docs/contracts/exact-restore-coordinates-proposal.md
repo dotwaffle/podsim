@@ -648,6 +648,19 @@ Each case was run on this tree and on version 13 (`691f1f6b`), and each gave the
 | EC-D11 | The position on a whole route | The export saves the whole route of a pod only when the restore of that route places the pod at its live route distance, bit for bit, as well as in its live block with its live frontier. Otherwise the pod saves its trimmed route with the marker, as version 13 saves it. A restore that trusts the route distance over the lane distance was built and withdrawn: each check that reads the lane distance (separation, the depot slot order) then needs a second check. D3 is a follow-up, and a test asserts its current result. |
 | EC-D12 | M1, M3, and D3 | Accepted as version 13 behavior. A follow-up test asserts the current result, so a later fix changes it. A restart with no tick is exact for a pod that a whole-route restore placed exactly, not for every placement. |
 
+Note of 2026-11-23: review round 14 found three more cases, and each gives the same result on version 13.
+A follow-up test asserts the current result of each.
+
+- A faulted pod at rest after a completed reversal dwell, with a grant through a second reversal, saves its trimmed route.
+  Its restore drops the latch of the second reversal, so the pod dwells again at the first reversal after the fault clears.
+- A save that omits `laneID` for two depot pods restores, and the save after it has the resolved lane IDs in the reverse slot order, so the next restore refuses it.
+- A pod with a saved `Distance` of 2e-6 m and a `laneDistance` of -5e-7 m at the start of its route restores at -5e-7 m, and the next restore demotes it.
+
+Two follow-ups from the review rounds stay open:
+
+- The fault-footprint check before the tiers builds the saved routes before the restore block budget limits the work.
+- The pickup swap controller state is not saved (EC-D9).
+
 ## 9. Stops
 
 | Condition | Action |
