@@ -273,7 +273,18 @@ func addExpressParking(n *sim.Network, classes sim.ClassSet) {
 	anchor, _ := n.Node(depot.Entry)
 	x, y := anchor.Position.X+300, anchor.Position.Y
 	at := func(along, outward float64) sim.Point { return sim.Point{X: x + along, Y: y - outward} }
-	addExpressComb(n, classes, at, 100, 60)
+	addExpressComb(n, expressParkingComb(), classes, at, 100, 60)
+}
+
+// expressComb holds the IDs of an Express parking comb: the station, its
+// name, the prefix of its nodes, lanes, and berths, and its plane.
+type expressComb struct {
+	id, name, prefix, plane string
+}
+
+// expressParkingComb returns the IDs of the Express parking.
+func expressParkingComb() expressComb {
+	return expressComb{id: expressParking, name: "Express Parking", prefix: "xp", plane: "xp-parking"}
 }
 
 // addExpressComb adds the Express parking station with 16 berths in a
@@ -281,21 +292,21 @@ func addExpressParking(n *sim.Network, classes sim.ClassSet) {
 // distance along the through lane, and a distance outward to the rows. The
 // through lane is two berth lanes long, each berth lane is length meters
 // long, and the rows are pitch meters apart.
-func addExpressComb(n *sim.Network, classes sim.ClassSet, at func(along, outward float64) sim.Point, length, pitch float64) {
-	station := sim.Station{ID: expressParking, Name: "Express Parking", Entry: "xp-entry", Exit: "xp-exit", ParkingOnly: true, VehicleClasses: classes}
+func addExpressComb(n *sim.Network, comb expressComb, classes sim.ClassSet, at func(along, outward float64) sim.Point, length, pitch float64) {
+	station := sim.Station{ID: comb.id, Name: comb.name, Entry: comb.prefix + "-entry", Exit: comb.prefix + "-exit", ParkingOnly: true, VehicleClasses: classes}
 	n.Nodes = append(n.Nodes, sim.Node{ID: station.Entry, Position: at(0, 0)}, sim.Node{ID: station.Exit, Position: at(2*length, 0)})
-	addExpressLane(n, "xp-through", station.Entry, station.Exit, expressParking, sim.StationThroughRole, "xp-parking", classes)
+	addExpressLane(n, comb.prefix+"-through", station.Entry, station.Exit, comb.id, sim.StationThroughRole, comb.plane, classes)
 	arrival, departure := station.Entry, station.Exit
 	for i := range expressPods {
-		id := fmt.Sprintf("xp-%02d", i+1)
+		id := fmt.Sprintf("%s-%02d", comb.prefix, i+1)
 		for j, suffix := range []string{"-arrival", "-node", "-departure"} {
 			n.Nodes = append(n.Nodes, sim.Node{ID: id + suffix, Position: at(float64(j)*length, float64(i+1)*pitch)})
 		}
-		station.Berths = append(station.Berths, sim.Berth{ID: id, Node: id + "-node", SeparationGroup: "xp-parking", VehicleClasses: classes})
-		addExpressLane(n, id+"-arrival-link", arrival, id+"-arrival", expressParking, sim.StationBerthAccessRole, "xp-parking", classes)
-		addExpressLane(n, id+"-in", id+"-arrival", id+"-node", expressParking, sim.StationBerthAccessRole, "xp-parking", classes)
-		addExpressLane(n, id+"-out", id+"-node", id+"-departure", expressParking, sim.StationDepartureRole, "xp-parking", classes)
-		addExpressLane(n, id+"-departure-link", id+"-departure", departure, expressParking, sim.StationDepartureRole, "xp-parking", classes)
+		station.Berths = append(station.Berths, sim.Berth{ID: id, Node: id + "-node", SeparationGroup: comb.plane, VehicleClasses: classes})
+		addExpressLane(n, id+"-arrival-link", arrival, id+"-arrival", comb.id, sim.StationBerthAccessRole, comb.plane, classes)
+		addExpressLane(n, id+"-in", id+"-arrival", id+"-node", comb.id, sim.StationBerthAccessRole, comb.plane, classes)
+		addExpressLane(n, id+"-out", id+"-node", id+"-departure", comb.id, sim.StationDepartureRole, comb.plane, classes)
+		addExpressLane(n, id+"-departure-link", id+"-departure", departure, comb.id, sim.StationDepartureRole, comb.plane, classes)
 		arrival, departure = id+"-arrival", id+"-departure"
 	}
 	n.Stations = append(n.Stations, station)

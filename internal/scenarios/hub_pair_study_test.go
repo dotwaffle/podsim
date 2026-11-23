@@ -43,48 +43,13 @@ var hubPairSites = []hubPairSite{
 	{"CW1", "london-link-154-b", sim.Point{X: 7390.9, Y: 548.8}, 90, false},
 }
 
-// addHubPairComb adds a comb of 16 Express berths at the site, with its
-// roads on the portals of the link and its 16 pods, as
-// addSharedTrackParking adds the comb of Waterloo.
-func addHubPairComb(c *project.Config, site hubPairSite) error {
-	express, err := sim.NewClassSet("express")
-	if err != nil {
-		return err
+// parking returns the comb of the site, with no exemption in the layout audit.
+func (s hubPairSite) parking() sharedTrackParking {
+	return sharedTrackParking{
+		center: s.center, heading: s.heading, part: 41, mirror: s.mirror,
+		comb: expressComb{id: hubPairComb, name: "Express Parking Hub", prefix: "xq", plane: "xq-parking"}, pods: "express-hub",
+		arrival: s.link + "-arrival", departure: s.link + "-departure",
 	}
-	n, side := &c.Network, 1.0
-	if site.mirror {
-		side = -1
-	}
-	heading := site.heading * math.Pi / 180
-	outward := sim.Point{X: math.Cos(heading), Y: math.Sin(heading)}
-	along := sim.Point{X: side * outward.Y, Y: -side * outward.X}
-	at := func(a, o float64) sim.Point {
-		return sim.Point{X: site.center.X + (a-41)*along.X + o*outward.X, Y: site.center.Y + (a-41)*along.Y + o*outward.Y}
-	}
-	station := sim.Station{ID: hubPairComb, Name: "Express Parking Hub", Entry: "xq-entry", Exit: "xq-exit", ParkingOnly: true, VehicleClasses: express}
-	add := func(id, from, to string, role sim.StationLaneRole, plane string) {
-		addExpressLane(n, id, from, to, hubPairComb, role, plane, express)
-	}
-	n.Nodes = append(n.Nodes, sim.Node{ID: station.Entry, Position: at(0, 0)}, sim.Node{ID: station.Exit, Position: at(82, 0)})
-	add("xq-through", station.Entry, station.Exit, sim.StationThroughRole, "xq")
-	arrival, departure := station.Entry, station.Exit
-	for i := range expressPods {
-		id := fmt.Sprintf("xq-%02d", i+1)
-		for j, suffix := range []string{"-arrival", "-node", "-departure"} {
-			n.Nodes = append(n.Nodes, sim.Node{ID: id + suffix, Position: at(float64(j)*41, float64(i+1)*41)})
-		}
-		station.Berths = append(station.Berths, sim.Berth{ID: id, Node: id + "-node", SeparationGroup: "xq", VehicleClasses: express})
-		add(id+"-arrival-link", arrival, id+"-arrival", sim.StationBerthAccessRole, "xq")
-		add(id+"-in", id+"-arrival", id+"-node", sim.StationBerthAccessRole, "xq")
-		add(id+"-out", id+"-node", id+"-departure", sim.StationDepartureRole, "xq")
-		add(id+"-departure-link", id+"-departure", departure, sim.StationDepartureRole, "xq")
-		arrival, departure = id+"-arrival", id+"-departure"
-		c.Fleet = append(c.Fleet, sim.Placement{ID: fmt.Sprintf("express-hub-%02d", i+1), Class: sim.ExpressClass, StationID: hubPairComb, BerthID: id})
-	}
-	n.Stations = append(n.Stations, station)
-	add(hubPairComb+"-road-in-01", site.link+"-departure", station.Entry, sim.StationApproachRole, hubPairComb+"-road-in-01")
-	add(hubPairComb+"-road-out-01", station.Exit, site.link+"-arrival", sim.StationExitRole, hubPairComb+"-road-out-01")
-	return nil
 }
 
 // TestHubPairStudySites runs the layout audit of the preset, with no gateway
@@ -120,7 +85,7 @@ func TestHubPairStudySites(t *testing.T) {
 		if err := jsonv2.Unmarshal(data, &fix); err != nil {
 			t.Fatal(err)
 		}
-		conflicts := auditLondonLayout(fix.Network, sharedTrackLayoutInput(source))
+		conflicts := auditLondonLayout(fix.Network, sharedTrackLayoutInput(source, sharedTrackPresetParking()))
 		t.Logf("%s with no comb: layout conflicts %d, %v", filepath.Base(path), len(conflicts), layoutError(fix.Network, conflicts))
 		for _, site := range hubPairSites {
 			t.Run(filepath.Base(path)+" "+site.name, func(t *testing.T) {
@@ -131,7 +96,7 @@ func TestHubPairStudySites(t *testing.T) {
 				for _, pair := range [][2]string{{hubPairLondonBridge, hubPairCanaryWharf}, {hubPairCanaryWharf, hubPairLondonBridge}} {
 					c.ExpressServices = append(c.ExpressServices, sim.ExpressService{ID: "xs-" + pair[0][8:] + "-" + pair[1][8:], From: pair[0], To: pair[1], Class: sim.ExpressClass, PartyLimit: 20})
 				}
-				if err := addHubPairComb(&c, site); err != nil {
+				if err := addSharedTrackParking(&c, site.parking()); err != nil {
 					t.Fatal(err)
 				}
 				stage, err := hubPairCheck(t, c, source)
@@ -159,7 +124,7 @@ func hubPairRefusal(fix, site string) string {
 // no stage refuses c, it logs the static measures of the site.
 func hubPairCheck(t *testing.T, c project.Config, source londonSource) (string, error) {
 	t.Helper()
-	if err := layoutError(c.Network, auditLondonLayout(c.Network, sharedTrackLayoutInput(source))); err != nil {
+	if err := layoutError(c.Network, auditLondonLayout(c.Network, sharedTrackLayoutInput(source, sharedTrackPresetParking()))); err != nil {
 		return "layout", err
 	}
 	shapes, err := c.Network.BankGeometryShapePairs()

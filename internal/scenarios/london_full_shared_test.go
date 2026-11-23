@@ -78,7 +78,7 @@ func TestLondonFullSharedExpress(t *testing.T) {
 		for _, lane := range route {
 			ids = append(ids, lane.ID)
 		}
-		if want := sharedTrackRoute[6*i : 6*i+6]; !slices.Equal(ids, want) {
+		if want := sharedTrackPresetRoutes()[i].lanes; !slices.Equal(ids, want) {
 			t.Fatalf("Express route from %s to %s is %v, want %v", pair[0].ID, pair[1].ID, ids, want)
 		}
 	}
@@ -216,7 +216,7 @@ func TestLondonFullSharedExpressLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := config.Network
-	if conflicts := auditLondonLayout(n, sharedTrackLayoutInput(source)); len(conflicts) != 0 {
+	if conflicts := auditLondonLayout(n, sharedTrackLayoutInput(source, sharedTrackPresetParking())); len(conflicts) != 0 {
 		t.Fatalf("%d conflicts, the first: %s", len(conflicts), conflicts[0].describe(n))
 	}
 	conflicts := auditLondonLayout(n, newLondonAuditInput(source))
@@ -249,7 +249,7 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	if !reflect.DeepEqual(generated, cached) {
 		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached LondonFull")
 	}
-	before, err := londonFullSharedExpress(LondonFull(), sharedTrackPresetGeometry())
+	before, err := addSharedTrackLine(LondonFull(), sharedTrackPresetLine())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,6 +276,124 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	}
 }
 
+// TestSharedTrackLineStacks adds a second line to the preset: London Bridge
+// and Canary Wharf with the changes of HB-D13 and HB-D14
+// (docs/design/london-hubs-d8-d9.md, section 9). The result passes the
+// layout audit with no exemption for its comb, the bank audit with 53 shape
+// pairs, and project validation. The first line keeps its lanes.
+func TestSharedTrackLineStacks(t *testing.T) {
+	t.Parallel()
+	base, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const bridge, wharf = "940GZZLULNB", "940GZZLUCYF"
+	site := hubPairSites[2]
+	if site.name != "LB3" {
+		t.Fatalf("site %s, want LB3", site.name)
+	}
+	line := sharedTrackLine{
+		name: "Two lines",
+		routes: []sharedTrackRoute{
+			{from: bridge, to: wharf, lanes: []string{
+				bridge + "-access-out", bridge + "-road-out-01", "london-link-089-ba-1", "london-link-089-ba-2", "940GZZLUBMY-move-02-01", "london-link-088-ab-1", "london-link-088-ab-2",
+				"940GZZLUCWR-move-01-02", "london-link-154-ab-1", "london-link-154-ab-2", wharf + "-road-in-01", wharf + "-access-in",
+			}},
+			{from: wharf, to: bridge, lanes: []string{
+				wharf + "-access-out", wharf + "-road-out-01", "london-link-154-ba-1", "london-link-154-ba-2", "940GZZLUCWR-move-02-01", "london-link-088-ba-1", "london-link-088-ba-2",
+				"940GZZLUBMY-move-01-02", "london-link-089-ab-1", "london-link-089-ab-2", bridge + "-road-in-01", bridge + "-access-in",
+			}},
+		},
+		geometry: sharedTrackGeometry{hubs: []string{bridge, wharf}, part: 41, curves: []sharedTrackCurve{{lane: bridge + "-road-out-01", offset: 30}}},
+		parking:  []sharedTrackParking{site.parking()},
+	}
+	config, err = addSharedTrackLine(config, line)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = addSharedTrackParking(&config, line.parking[0]); err != nil {
+		t.Fatal(err)
+	}
+	n := config.Network
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = layoutError(n, auditLondonLayout(n, sharedTrackLayoutInput(source, sharedTrackPresetParking()))); err != nil {
+		t.Fatal(err)
+	}
+	shapes, err := n.BankGeometryShapePairs()
+	if err != nil || shapes != 53 {
+		t.Fatalf("bank audit: %d shape pairs, error %v, want 53 and no error", shapes, err)
+	}
+	if err = project.Validate(config); err != nil {
+		t.Fatal(err)
+	}
+	if len(config.Fleet) != len(base.Fleet)+expressPods || len(config.ExpressServices) != 4 {
+		t.Fatalf("%d pods and %d services", len(config.Fleet), len(config.ExpressServices))
+	}
+	for _, route := range append(sharedTrackPresetRoutes(), line.routes...) {
+		from, _ := n.Station(route.from)
+		to, _ := n.Station(route.to)
+		lanes, err := n.RouteForClass(from.Exit, to.Entry, sim.ExpressClass)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids := make([]string, 0, len(lanes))
+		for _, lane := range lanes {
+			ids = append(ids, lane.ID)
+		}
+		if !slices.Equal(ids, route.lanes) {
+			t.Fatalf("Express route from %s to %s is %v, want %v", route.from, route.to, ids, route.lanes)
+		}
+	}
+	after := make(map[string]sim.Lane, len(n.Lanes))
+	for _, lane := range n.Lanes {
+		after[lane.ID] = lane
+	}
+	for _, lane := range base.Network.Lanes {
+		if lane.StationID != expressWaterloo && lane.StationID != expressBank && lane.StationID != expressParking {
+			continue
+		}
+		if !reflect.DeepEqual(lane, after[lane.ID]) {
+			t.Fatalf("lane %s changed", lane.ID)
+		}
+	}
+}
+
+// TestSharedTrackLineRefusals checks the refusal of a line with a hub or a
+// lane that the network does not have, and of a curve not at a hub.
+func TestSharedTrackLineRefusals(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		change func(*sharedTrackLine)
+		want   string
+	}{
+		{"hub", func(l *sharedTrackLine) { l.routes[0].from = "missing" }, `unknown station "missing"`},
+		{"geometry hub", func(l *sharedTrackLine) { l.geometry.hubs[0] = "missing" }, `unknown station "missing"`},
+		{"route lane", func(l *sharedTrackLine) { l.routes[1].lanes[2] = "missing" }, `unknown lane "missing"`},
+		{"curve lane", func(l *sharedTrackLine) { l.geometry.curves[0].lane = "missing" }, `unknown lane "missing"`},
+		{"curve not at a hub", func(l *sharedTrackLine) { l.geometry.curves[0].lane = "london-link-100-ba-1" }, `lane "london-link-100-ba-1" is not at a hub`},
+		{"removed lane", func(l *sharedTrackLine) { l.geometry.remove[0] = "missing" }, `unknown lane "missing"`},
+	} {
+		line := sharedTrackPresetLine()
+		test.change(&line)
+		if _, err := addSharedTrackLine(LondonFull(), line); err == nil || err.Error() != test.want {
+			t.Errorf("%s: error %v, want %s", test.name, err, test.want)
+		}
+	}
+	config, site := LondonFull(), sharedTrackPresetParking()
+	site.arrival = "missing"
+	if err := addSharedTrackParking(&config, site); err == nil || err.Error() != `unknown node "missing"` {
+		t.Errorf("portal: error %v", err)
+	}
+}
+
 // TestLondonFullSharedExpressHubRoads checks the roads of the preset
 // (decision FL-D5 of the fillets proposal, section 3.7). Each road of
 // Waterloo and Bank keeps its chord at 14 m/s, except the Waterloo
@@ -294,7 +412,7 @@ func TestLondonFullSharedExpressHubRoads(t *testing.T) {
 		lanes[lane.ID] = lane
 	}
 	hubs := []string{expressWaterloo, expressBank}
-	curve := sharedTrackPresetGeometry().curve
+	curve := sharedTrackPresetGeometry().curves[0].lane
 	// filleted counts the hub roads that LondonFull curves, and others the
 	// other roads that it curves.
 	filleted, others := 0, 0
@@ -371,9 +489,9 @@ func TestLondonFullSharedExpressRoutes(t *testing.T) {
 	hubs := 0
 	for _, pair := range [][2]sim.Station{{waterloo, bank}, {bank, waterloo}} {
 		// The link 100 lanes of the direction, from the shared route.
-		link := sharedTrackRoute[2:4]
+		link := sharedTrackPresetRoutes()[0].lanes[2:4]
 		if pair[0].ID == expressBank {
-			link = sharedTrackRoute[8:10]
+			link = sharedTrackPresetRoutes()[1].lanes[2:4]
 		}
 		for _, from := range pair[0].Berths {
 			if !from.VehicleClasses.Allows(string(sim.ExpressClass)) {
