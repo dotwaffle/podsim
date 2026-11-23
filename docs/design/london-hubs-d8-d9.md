@@ -4,6 +4,7 @@ Status: approved on 2026-11-23.
 The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, with option B of HB-D5 (section 6).
 The maintainer granted the static slices (0 to 2) on 2026-11-23.
 Slice 0 is built in `c426595a`, and section 9 holds its results and the decisions HB-D13 to HB-D15.
+Sections 10 and 11 hold the studies of Baker Street and of Paddington and Liverpool Street, and the decisions HB-D16 to HB-D18.
 Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists, and `TestSharedTrackLineStacks` adds the pair to the preset.
 The preset and its rows wait for batch 2 (HB-D5).
 Code references are for `691f1f6b`.
@@ -607,7 +608,7 @@ The comb and the Waterloo comb share no Express route, so HB-D11 does not matter
 | --- | --- | --- |
 | HB-D13 | The change that removes the refusal | `940GZZLULNB-road-out-01` gets a curve of +30 m, at 14 m/s. No lane is removed. The other new hub roads stay straight (HB-D8). |
 | HB-D14 | The comb of the pair | Site LB3, with no exemption. |
-| HB-D15 | The pairs after Waterloo and Canary Wharf | By refusals: London Bridge and Waterloo, King's Cross St. Pancras and Liverpool Street, and then Victoria and Oxford Circus. A separate study of Baker Street comes with them, because it decides if Paddington and Liverpool Street can be built. This replaces the order of stages 3 and 4. |
+| HB-D15 | The pairs after Waterloo and Canary Wharf | By refusals: London Bridge and Waterloo, King's Cross St. Pancras and Liverpool Street, and then Victoria and Oxford Circus. A separate study of Baker Street comes with them, because it decides if Paddington and Liverpool Street can be built. This replaces the order of stages 3 and 4. HB-D18 puts Paddington and Liverpool Street after London Bridge and Waterloo. |
 
 ### 9.5 Commands
 
@@ -692,7 +693,7 @@ PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./int
 PODSIM_BAKER_LAYOUT="$D/fixes/baker.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 ```
 
-Delete `baker.json` and the files of section 11.5 before `TestHubPairStudySites`, which reads each network in its directory.
+Delete `baker.json` and the files of section 11.6 before `TestHubPairStudySites`, which reads each network in its directory.
 
 ## 11. Paddington and Liverpool Street
 
@@ -766,7 +767,15 @@ Each site passes the layout audit with no exemption, the bank audit, and project
 - The limits of section 10.3 apply: the angles come from a coarse screen, and a build needs the changes in the generator.
 - The pair is checked on the preset alone, and not on the preset with London Bridge and Canary Wharf.
 
-### 11.5 Commands
+### 11.5 Decisions
+
+| ID | Decision | Decided on 2026-11-23 |
+| --- | --- | --- |
+| HB-D16 | The change at King's Cross St. Pancras | The link arm: link 194 turns by +40 degrees, and by +10 degrees at Euston. No lane is removed. |
+| HB-D17 | The comb of the pair | Site PA2. |
+| HB-D18 | The stage of Paddington and Liverpool Street | After London Bridge and Waterloo, and before King's Cross St. Pancras and Liverpool Street. This changes the order of HB-D15. |
+
+### 11.6 Commands
 
 ```sh
 PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./internal/sim -run TestPairTwo -count=1 -v
