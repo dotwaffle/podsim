@@ -49,10 +49,19 @@ func sharedExpressFixtureFor(t *testing.T, config project.Config, shared *Sessio
 	for _, service := range config.ExpressServices {
 		f.services[service.From] = service.ID
 	}
-	// Each restore of a checkpoint keeps the speed of each pod that is not
-	// faulted, and the fixture counts the kept speeds. The restored copy
-	// runs the D6 oracle at each tick.
-	f.restored = func(name string, live, restored *sim.Simulation) {
+	// Each checkpoint logs its kept speeds, and the restored copy runs the
+	// D6 oracle at each tick.
+	f.restored = keptSpeeds(t)
+	f.tick = func(restored *sim.Simulation) error { return restored.LateralBodyCheckForTest() }
+	return f
+}
+
+// keptSpeeds returns a restored hook of londonExpressFixture. Each restore
+// of a checkpoint must keep the speed of each pod that is not faulted, and
+// the hook logs the number of kept speeds.
+func keptSpeeds(t *testing.T) func(name string, live, restored *sim.Simulation) {
+	t.Helper()
+	return func(name string, live, restored *sim.Simulation) {
 		t.Helper()
 		snapshot := live.Snapshot()
 		faulted := make(map[string]bool)
@@ -75,8 +84,6 @@ func sharedExpressFixtureFor(t *testing.T, config project.Config, shared *Sessio
 		}
 		t.Logf("%s: %d kept speeds", name, kept)
 	}
-	f.tick = func(restored *sim.Simulation) error { return restored.LateralBodyCheckForTest() }
-	return f
 }
 
 // plainTrip orders a Compact trip between the hubs, in the direction of

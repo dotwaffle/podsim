@@ -745,7 +745,10 @@ type restoredInput struct {
 	duration time.Duration
 }
 
-// logRestored logs the result of a restore.
+// logRestored logs the result of a restore. When the physical tier placed
+// a pod at rest in place of its saved motion, or restored the whole save as
+// the restore did before the saved motion, it also logs the pods at rest
+// and that flag.
 func (s *Session) logRestored(input restoredInput) {
 	file, result, info := input.loaded.file, input.loaded.result, s.restore
 	for _, pod := range result.Demoted {
@@ -771,6 +774,10 @@ func (s *Session) logRestored(input restoredInput) {
 		attrs = append(attrs, slog.Any("physicalError", result.PhysicalError))
 	}
 	s.logger.Info("Restored session", attrs...)
+	if len(result.AtRest) > 0 || result.EarlierRestore {
+		s.logger.Info("Restored pods without their saved motion",
+			slog.Any("atRest", result.AtRest), slog.Bool("earlierRestore", result.EarlierRestore))
+	}
 	if info.Unaccounted > 0 {
 		s.logger.Warn("Saved session state has unaccounted orders", slog.Int("unaccounted", info.Unaccounted))
 	}

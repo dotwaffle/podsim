@@ -972,8 +972,8 @@ func TestRestoreFaultedSpeedIgnored(t *testing.T) {
 	}
 	state = withPod(state, index, func(pod *SavedPod) { pod.Speed = 100 })
 	restored, result, err := RestoreState(faultRestoreInput(s, state))
-	if err != nil || !cleanRestore(result) {
-		t.Fatalf("restore %v, %+v", err, result)
+	if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 || result.EarlierRestore {
+		t.Fatalf("restore %v, %+v, want no fallback", err, result)
 	}
 	if got := &restored.vehicles[index]; !got.faulted || got.Pod.Speed != 0 || got.faultCap != got.distance {
 		t.Fatalf("pod %s restores faulted %t at speed %g with the cap %g at %g", got.Pod.ID, got.faulted, got.Pod.Speed, got.faultCap, got.distance)
@@ -1093,8 +1093,8 @@ func TestRestoreDepotEntryFrontier(t *testing.T) {
 	})
 	input := RestoreStateInput{FaultsOn: true, Faults: depotFaultSettings, Network: network, Fleet: s.initial, State: roundTripState(t, state)}
 	restored, result, err := RestoreState(input)
-	if err != nil || !cleanRestore(result) {
-		t.Fatalf("restore %v, %+v", err, result)
+	if err != nil || !cleanRestore(result) || len(result.AtRest) != 0 || result.EarlierRestore {
+		t.Fatalf("restore %v, %+v, want no fallback", err, result)
 	}
 	checkRestoredMatches(t, s, restored)
 	got := &restored.vehicles[index]
@@ -1112,6 +1112,11 @@ func TestRestoreDepotEntryFrontier(t *testing.T) {
 	checkFallback(t, input, restored, result)
 	if got := &restored.vehicles[index]; got.reservedThrough != derived {
 		t.Fatalf("the restored frontier is %d, want the derived frontier %d", got.reservedThrough, derived)
+	}
+	// The pod saves speed 0, and its lead alone fails, so it restores at
+	// rest in place of its saved lead.
+	if !slices.Equal(result.AtRest, []string{v.Pod.ID}) || result.EarlierRestore {
+		t.Fatalf("result %+v, want %s at rest, and not the earlier restore", result, v.Pod.ID)
 	}
 }
 
@@ -1193,6 +1198,11 @@ func TestRestoreMotionWholeFallbackOrder(t *testing.T) {
 	checkFallback(t, input, restored, result)
 	if result.Tier != RestorePhysical || len(result.Demoted) != 0 || restored.vehicles[0].reservedThrough != first-2 {
 		t.Fatalf("result %+v, p01 frontier %d, want both pods in place and %d", result, restored.vehicles[0].reservedThrough, first-2)
+	}
+	// The earlier restore has no saved motion, so it places no pod at rest
+	// in place of its motion.
+	if !result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("result %+v, want the earlier restore with no pod at rest", result)
 	}
 }
 
@@ -1422,6 +1432,11 @@ func TestRestoreMotionWholeFallbackMixed(t *testing.T) {
 	if result.Tier != RestorePhysical || !slices.Equal(result.Demoted, []string{"p03"}) || restored.vehicles[0].Pod.Speed != 0 {
 		t.Fatalf("result %+v, want p03 demoted", result)
 	}
+	// The earlier restore also demotes p03, and it is still the selected
+	// restore.
+	if !result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("result %+v, want the earlier restore with no pod at rest", result)
+	}
 }
 
 // TestRestoreMotionWholeFallbackLink restores a link whose predecessor
@@ -1450,6 +1465,15 @@ func TestRestoreMotionWholeFallbackLink(t *testing.T) {
 	if result.Tier != RestorePhysical || len(result.Demoted) != 0 || restored.vehicles[1].link.leader == 0 || restored.vehicles[1].Pod.Speed != 0 {
 		t.Fatalf("result %+v, follower at %v m/s with the predecessor %d, want both in place at rest and linked", result, restored.vehicles[1].Pod.Speed, restored.vehicles[1].link.leader)
 	}
+	// The predecessor restored at rest in the first restore, which then
+	// failed. The selected restore has no saved motion, so no pod is at
+	// rest in place of its motion.
+	if _, _, err := firstRestore(input); err == nil {
+		t.Fatal("the restore with the saved motion passes, want the stop-point error")
+	}
+	if !result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("result %+v, want the earlier restore with no pod at rest", result)
+	}
 }
 
 // TestRestoreMotionWholeFallbackDebris restores pod 02 of debrisFleet,
@@ -1472,8 +1496,8 @@ func TestRestoreMotionWholeFallbackDebris(t *testing.T) {
 		t.Fatalf("pod 02 saves %v m/s and %d blocks ahead, want 14 and 1", pod.Speed, pod.ReservedAhead)
 	}
 	restored, result, err := RestoreState(faultRestoreInput(s, state))
-	if err != nil || !cleanRestore(result) || restored.vehicles[index].Pod.Speed != 14 {
-		t.Fatalf("restore %v, %+v, pod 02 at %v m/s, want 14", err, result, restored.vehicles[index].Pod.Speed)
+	if err != nil || !cleanRestore(result) || restored.vehicles[index].Pod.Speed != 14 || result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("restore %v, %+v, pod 02 at %v m/s, want 14 with no fallback", err, result, restored.vehicles[index].Pod.Speed)
 	}
 	input := faultRestoreInput(s, withPod(state, index, func(pod *SavedPod) { pod.ReservedAhead = 2 }))
 	restored, result, err = RestoreState(input)
@@ -1481,8 +1505,8 @@ func TestRestoreMotionWholeFallbackDebris(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkFallback(t, input, restored, result)
-	if !cleanRestore(result) || restored.vehicles[index].Pod.Speed != 0 {
-		t.Fatalf("result %+v, pod 02 at %v m/s, want at rest", result, restored.vehicles[index].Pod.Speed)
+	if !cleanRestore(result) || restored.vehicles[index].Pod.Speed != 0 || !result.EarlierRestore || len(result.AtRest) != 0 {
+		t.Fatalf("result %+v, pod 02 at %v m/s, want at rest by the earlier restore", result, restored.vehicles[index].Pod.Speed)
 	}
 	startFault(t, s, &s.vehicles[index], 0)
 	state = s.ExportState()
@@ -1498,8 +1522,8 @@ func TestRestoreMotionWholeFallbackDebris(t *testing.T) {
 		t.Fatal(err)
 	}
 	checkFallback(t, input, restored, result)
-	if !cleanRestore(result) || !restored.vehicles[index].faulted || len(restored.faults) != 2 {
-		t.Fatalf("result %+v, pod 02 faulted %t, %d fault records, want the fault and the debris", result, restored.vehicles[index].faulted, len(restored.faults))
+	if !cleanRestore(result) || !restored.vehicles[index].faulted || len(restored.faults) != 2 || !result.EarlierRestore {
+		t.Fatalf("result %+v, pod 02 faulted %t, %d fault records, want the fault and the debris by the earlier restore", result, restored.vehicles[index].faulted, len(restored.faults))
 	}
 }
 
@@ -1526,6 +1550,9 @@ func TestRestoreMotionPodFallbackKeepsMotion(t *testing.T) {
 	restored, result := restoreMotion(t, network, fleet, edited)
 	if result.Tier != RestorePhysical || !slices.Equal(result.Demoted, []string{"p03"}) {
 		t.Fatalf("result %+v, want p03 demoted", result)
+	}
+	if !slices.Equal(result.AtRest, []string{"p01"}) || result.EarlierRestore {
+		t.Fatalf("result %+v, want p01 at rest, and not the earlier restore", result)
 	}
 	if got := &restored.vehicles[0]; got.Pod.Speed != 0 || got.reservedThrough != ahead.reservedThrough {
 		t.Fatalf("p01 restores at %v m/s with the frontier %d, want at rest with %d", got.Pod.Speed, got.reservedThrough, ahead.reservedThrough)
@@ -1626,4 +1653,27 @@ func walkedBlock(blocks *blockList, first, last int, distance float64) int {
 		}
 	}
 	return last
+}
+
+// TestRestoreMotionAtRestOrder restores a platoon on l0 whose follower p01
+// is saved before its predecessor p02. The restore places p02 first, by
+// its depth in the platoon. The saved lead of each pod is past its route,
+// so each pod restores at rest, and AtRest lists them in saved pod order.
+func TestRestoreMotionAtRestOrder(t *testing.T) {
+	t.Parallel()
+	network, fleet, state := motionFixture(t, 2, 100, -80, nil)
+	state = withPod(state, 0, func(pod *SavedPod) { pod.Platoon = &SavedPlatoonLink{Leader: "p02", Lanes: 2} })
+	if restored, result := restoreMotion(t, network, fleet, state); !cleanRestore(result) || restored.vehicles[0].link.leader != 2 {
+		t.Fatalf("result %+v, p01 predecessor %d, want p01 linked to p02", result, restored.vehicles[0].link.leader)
+	}
+	for index := range state.Pods {
+		state = withPod(state, index, func(pod *SavedPod) { pod.ReservedAhead = 1 << 20 })
+	}
+	restored, result := restoreMotion(t, network, fleet, state)
+	if !cleanRestore(result) || !slices.Equal(result.AtRest, []string{"p01", "p02"}) || result.EarlierRestore {
+		t.Fatalf("result %+v, want p01 and p02 at rest in saved order", result)
+	}
+	if restored.vehicles[0].link.leader != 2 {
+		t.Fatalf("p01 predecessor %d, want p02", restored.vehicles[0].link.leader)
+	}
 }

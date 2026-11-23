@@ -285,6 +285,23 @@ func (run storedRun) demotedPod(t *testing.T) (func(*stateFile), string) {
 	return func(file *stateFile) { file.Simulation.Pods[index].LaneID = "no-such-lane" }, run.file.Simulation.Pods[index].ID
 }
 
+// atRestPod returns an edit that makes the restore place the first
+// traveling pod of run at rest, in place of its saved motion, and the ID of
+// that pod.
+func (run storedRun) atRestPod(t *testing.T) (func(*stateFile), string) {
+	t.Helper()
+	index := slices.IndexFunc(run.file.Simulation.Pods, func(pod sim.SavedPod) bool {
+		return pod.Activity == "traveling" && len(pod.Route) > 0
+	})
+	if index < 0 {
+		t.Fatal("the saved state has no traveling pod")
+	}
+	// A reservation lead past the saved route is not a valid saved
+	// frontier, so the restore places the pod at rest with the derived
+	// frontier.
+	return func(file *stateFile) { file.Simulation.Pods[index].ReservedAhead = 1 << 20 }, run.file.Simulation.Pods[index].ID
+}
+
 // Edits that force a restore result.
 var (
 	nonFinal       = func(file *stateFile) { file.Final = false }
@@ -1844,6 +1861,7 @@ func TestNewFromStoreLogs(t *testing.T) {
 	t.Parallel()
 	run := newStoredRun(t)
 	demote, demoted := run.demotedPod(t)
+	rest, atRest := run.atRestPod(t)
 	savedAt := func(value any) bool { at, _ := value.(time.Time); return at.Equal(run.file.SavedAt) }
 	tests := []struct {
 		name string
@@ -1862,6 +1880,11 @@ func TestNewFromStoreLogs(t *testing.T) {
 			startupSaved,
 			{slog.LevelDebug, "Demoted pod", map[string]any{"pod": demoted}},
 			{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical", "demoted": int64(1)}},
+		}},
+		{"pod at rest", run.edited(t, rest), []wantRecord{
+			startupSaved,
+			{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical", "demoted": int64(0)}},
+			{slog.LevelInfo, "Restored pods without their saved motion", map[string]any{"atRest": []string{atRest}, "earlierRestore": false}},
 		}},
 		{"logical tier", run.edited(t, func(file *stateFile) { nonFinal(file); logicalOnly(file) }), []wantRecord{
 			{slog.LevelInfo, "Backed up saved session state", nil},
@@ -1892,6 +1915,26 @@ func TestNewFromStoreLogs(t *testing.T) {
 			checkRecords(t, handler, test.want)
 		})
 	}
+}
+
+// TestLogRestoredEarlierRestore checks the log of a restore that restored
+// the whole save as the restore before the saved motion. The fixtures of
+// that fallback are in package sim, so the test gives logRestored the
+// result.
+func TestLogRestoredEarlierRestore(t *testing.T) {
+	t.Parallel()
+	handler := &recordHandler{}
+	s, err := NewWithProject(project.Default(), WithLogger(slog.New(handler)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	s.restore = RestoreInfo{Tier: string(sim.RestorePhysical)}
+	s.logRestored(restoredInput{loaded: &loadedState{result: sim.RestoreResult{Tier: sim.RestorePhysical, EarlierRestore: true}}})
+	checkRecords(t, handler, []wantRecord{
+		{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical"}},
+		{slog.LevelInfo, "Restored pods without their saved motion", map[string]any{"atRest": []string(nil), "earlierRestore": true}},
+	})
 }
 
 func TestStateSaverNudge(t *testing.T) {

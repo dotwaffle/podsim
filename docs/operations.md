@@ -398,6 +398,8 @@ The pod moves to a berth only when that placement also fails, as other demoted p
 When the `physical` tier moves a pod to a berth or fails, the restore also runs it as before version 13: without the saved speeds and leads, and with a pod within 1e-6 m of a block end moved to the block end.
 The restore uses that second result when the first fails, or when the first moves a pod to a berth that the second keeps.
 When both fail, the second failure decides between a refusal and the `logical` tier.
+At startup, the server logs the fallbacks that the selected `physical` restore used in the `Restored pods without their saved motion` record.
+When both `physical` restores fail and the `logical` tier runs, the server writes no such record.
 Thus a version 12 file gets `unsupported_version`, and a version 13 file with `journeyOrigin` on a pod has an unknown member and gets `invalid_state`.
 Each integer of a version 13 file must be from -9007199254740991 to 9007199254740991, which is 2^53-1, as in the [protocol](protocol.md#shared-state-stream).
 The demand `seed` is the only exception.
@@ -835,6 +837,12 @@ With `-state`, the server writes these log records at startup:
   `bytes` is the compressed size.
   `duration` is the time from the read to the end of the startup save.
   After a failed `physical` tier, `physicalError` tells why it failed.
+- `Restored pods without their saved motion` (INFO) follows `Restored session` when the `physical` tier placed a traveling pod at rest in place of its saved motion, or restored the whole save as before version 13.
+  `atRest` gives, in saved pod order, the IDs of the traveling pods that a retry at rest kept on their routes after their saved motion failed.
+  Other pods can also be at rest, for example a pod that saved speed 0.
+  `earlierRestore` is true when the whole save restored as before version 13.
+  Then `atRest` is empty, because that restore has no saved speeds or leads.
+  The `restore` object of the state frame does not have these values.
 - `Saved session state has unaccounted orders` (WARN) follows `Restored session` when the saved state submitted orders that it did not hold.
   It gives their number in `unaccounted`.
   The server does not make up these orders, so each later restore gives this record again.

@@ -261,6 +261,18 @@ type RestoreResult struct {
 	Tier RestoreTier
 	// Demoted lists the pods that the physical tier moved to a berth.
 	Demoted []string
+	// AtRest lists the traveling pods, in saved pod order, whose saved
+	// speed or reservation lead the physical tier could not keep, and that
+	// it placed on their routes at rest instead, as the restore did before
+	// the saved motion (restore speed proposal, section 4.2). A pod that the
+	// tier then demotes is in Demoted, not here. AtRest is empty when
+	// EarlierRestore is set, because that restore has no saved motion.
+	AtRest []string
+	// EarlierRestore tells that the physical tier restored the whole save
+	// as the restore did before the saved motion, because the restore with
+	// the saved motion failed or demoted a pod that the earlier restore
+	// keeps (restore speed proposal, section 4.2).
+	EarlierRestore bool
 	// Requeued lists the requests that went back to the queue.
 	Requeued []int
 	// LogicalCompleted lists logical auto-completions without an actual
@@ -414,6 +426,7 @@ func restorePhysicalMotion(input RestoreStateInput, newFleet func() (*Simulation
 		return s, result, nil
 	}
 	plain, plainResult, plainErr := restoreBeforeMotion(input, newFleet)
+	plainResult.EarlierRestore = plainErr == nil
 	switch {
 	case err != nil:
 		return plain, plainResult, plainErr

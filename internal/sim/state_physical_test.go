@@ -570,6 +570,11 @@ func movedBerthFleet(f restoreFixture, berth string, at Point) func() (*Simulati
 // demotes a traveling pod that is closer than the clearance to another pod
 // on a path that shares no resource with it. The node of berth parking-2
 // moves 6 m east of pod 05 on lane bypass-in, and pod 04 is at that berth.
+// With a saved lead past its route, pod 05 first restores at rest, and the
+// separation check then demotes it. It is then in Demoted, not in AtRest.
+// Pod 03 then follows pod 05 on bypass-in, 80 m behind, also with a saved
+// lead past its route. Both pods restore at rest, and the demotion of pod
+// 05 also demotes pod 03. Both are in Demoted, and neither is in AtRest.
 func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	t.Parallel()
 	f := newRestoreFixture(t, Example())
@@ -583,7 +588,8 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	}
 	at := findVehicle(t, alone, "05").Pod.Position
 	at.X += 6
-	s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}, movedBerthFleet(f, "parking-2", at))
+	moved := movedBerthFleet(f, "parking-2", at)
+	s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: state}, moved)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -593,6 +599,25 @@ func TestRestoreSeparatesTravelingPods(t *testing.T) {
 	checkAtBerth(t, s, "05", Boarding, "harbor-1")
 	if v := findVehicle(t, s, "04"); v.Pod.BerthID != "parking-2" || v.Pod.Position != at {
 		t.Fatalf("pod 04 is at %q, %v", v.Pod.BerthID, v.Pod.Position)
+	}
+	index := slices.IndexFunc(state.Pods, func(pod SavedPod) bool { return pod.ID == "05" })
+	lead := withPod(state, index, func(pod *SavedPod) { pod.ReservedAhead = 1 << 20 })
+	if _, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: lead}, moved); err != nil ||
+		!slices.Equal(result.Demoted, []string{"05"}) || len(result.AtRest) != 0 {
+		t.Fatalf("restore with the saved lead: %v, %+v, want 05 demoted and no pod at rest", err, result)
+	}
+	follower := f.carrying(t, f.traveling(t, travelInput{id: "03", from: "harbor-1", to: "market-1", lane: "bypass-in", distance: 127}), 2, 1)
+	ids := make([]string, 0, len(follower.Route)-follower.RouteIndex)
+	for _, lane := range follower.Route[follower.RouteIndex:] {
+		ids = append(ids, f.network.Lanes[lane].ID)
+	}
+	follower.Platoon = savedRunLink(f.network, ids, ids, "05", 1)
+	follower.Platoon.Lane, follower.Platoon.LeaderLane = follower.RouteIndex, follower.RouteIndex
+	follower.ReservedAhead = 1 << 20
+	linked := f.state(f.idle(t, "01", "garden-1"), f.idle(t, "02", "market-1"), lead.Pods[index], follower)
+	if s, result, err := restorePhysical(RestoreStateInput{Network: f.network, Fleet: f.fleet, State: linked}, moved); err != nil ||
+		!slices.Equal(result.Demoted, []string{"03", "05"}) || len(result.AtRest) != 0 || s.platoonLinks != 0 {
+		t.Fatalf("restore of the platoon: %v, %+v, want 03 and 05 demoted and no pod at rest", err, result)
 	}
 }
 

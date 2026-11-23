@@ -161,8 +161,9 @@ func sharedExpressRestore(t *testing.T, p sharedExpressProject, s *Simulation, n
 
 // restoreExpressSave saves s, restores the save, and requires the physical
 // tier with no change to the pods, the counters, or the queue, except a
-// distance within restoreTolerance (see checkRestoredMatches). It returns
-// the restored simulation.
+// distance within restoreTolerance (see checkRestoredMatches), and with no
+// fallback to the restore before the saved motion. It returns the restored
+// simulation.
 func restoreExpressSave(t *testing.T, p sharedExpressProject, s *Simulation, name string) *Simulation {
 	t.Helper()
 	// With no incident, the state takes a strict JSON round trip first. The
@@ -178,7 +179,7 @@ func restoreExpressSave(t *testing.T, p sharedExpressProject, s *Simulation, nam
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)
 	}
-	if !cleanRestore(r) || len(r.Interrupted)+len(r.LogicalCompleted)+r.DroppedFaults+r.DroppedEmergencies+r.Unaccounted != 0 {
+	if !cleanRestore(r) || len(r.Interrupted)+len(r.LogicalCompleted)+r.DroppedFaults+r.DroppedEmergencies+r.Unaccounted+len(r.AtRest) != 0 || r.EarlierRestore {
 		t.Fatalf("%s: restore %+v", name, r)
 	}
 	if err := cold.SetPlatoonLimit(p.PlatoonLimit); err != nil {

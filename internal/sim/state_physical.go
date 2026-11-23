@@ -75,6 +75,9 @@ type physicalRestore struct {
 	// demoted marks the pods that go to a berth when the traveling pods are
 	// in place.
 	demoted []bool
+	// atRest marks the traveling pods that placeTravelingPod placed at rest
+	// after the placement with their saved motion failed.
+	atRest []bool
 	// routes holds each saved pod route that the restore can build, and costs
 	// holds its blocks.
 	routes [][]int
@@ -188,6 +191,11 @@ func restorePhysicalSnap(input RestoreStateInput, newFleet func() (*Simulation, 
 		}
 		r.result.Demoted = append(r.result.Demoted, s.vehicles[index].Pod.ID)
 	}
+	for index, atRest := range r.atRest {
+		if atRest && !r.demoted[index] {
+			r.result.AtRest = append(r.result.AtRest, s.vehicles[index].Pod.ID)
+		}
+	}
 	r.restoreWaiting()
 	slices.Sort(r.result.Interrupted)
 	if err := s.verifyRestore(input.State, nil, r.result.Interrupted, r.result.Dropped, unaccounted); err != nil {
@@ -300,7 +308,7 @@ func checkFleetSaved(fleet []Placement, state SavedState) error {
 func newPhysicalRestore(s *Simulation, state SavedState) *physicalRestore {
 	r := &physicalRestore{
 		s: s, state: state, berths: make(map[string]berthRef),
-		demoted: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
+		demoted: make([]bool, len(state.Pods)), atRest: make([]bool, len(state.Pods)), routes: make([][]int, len(state.Pods)), costs: make([]int, len(state.Pods)),
 		tripRoutes: make([][]int, len(state.Waiting)), unbound: make([]bool, len(state.Waiting)),
 		faulted: savedFaultedPods(state), snap: restoreDriftTolerance,
 	}
@@ -842,7 +850,9 @@ func (r *physicalRestore) placeTravelingPod(index, leader int) (bool, error) {
 		return placed, err
 	}
 	saved.Speed, saved.ReservedAhead = 0, 0
-	return r.placeTravelingPodAt(index, leader, saved, 0)
+	placed, err = r.placeTravelingPodAt(index, leader, saved, 0)
+	r.atRest[index] = placed && err == nil
+	return placed, err
 }
 
 // placeTravelingPodAt derives the reservations of the traveling pod at

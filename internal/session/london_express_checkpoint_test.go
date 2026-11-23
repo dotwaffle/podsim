@@ -60,8 +60,9 @@ func (f *londonExpressFixture) trip(from, to string, size int) string {
 
 // checkpoint saves the session through the encoded path and restores the
 // save. The restore must be physical with no change to the pods, except a
-// distance within restoreTolerance, and the restored copy must pass the
-// safety oracle at each tick for 10 s.
+// distance within restoreTolerance, and with no fallback to the restore
+// before the saved motion. The restored copy must pass the safety oracle
+// at each tick for 10 s.
 func (f *londonExpressFixture) checkpoint(name string) {
 	t := f.t
 	t.Helper()
@@ -72,7 +73,8 @@ func (f *londonExpressFixture) checkpoint(name string) {
 		t.Fatalf("%s: %v", name, err)
 	}
 	r := loaded.result
-	if r.Tier != sim.RestorePhysical || len(r.Demoted)+len(r.Requeued)+len(r.Dropped)+len(r.Interrupted)+len(r.LogicalCompleted)+r.DroppedFaults+r.DroppedEmergencies+r.Unaccounted != 0 {
+	if r.Tier != sim.RestorePhysical || len(r.Demoted)+len(r.Requeued)+len(r.Dropped)+len(r.Interrupted)+len(r.LogicalCompleted)+r.DroppedFaults+r.DroppedEmergencies+r.Unaccounted+len(r.AtRest) != 0 ||
+		r.EarlierRestore {
 		t.Fatalf("%s: restore %+v", name, r)
 	}
 	// A restored pod can move to a block end of its rebuilt route, by at
@@ -109,13 +111,15 @@ func (f *londonExpressFixture) checkpoint(name string) {
 // It also saves at the first second with a traveling pod on a join turn at
 // a lane end (see JoinTurnPodsForTest). Each save must restore at the
 // physical tier with no change to the pods, and the restored copy must pass
-// the safety oracle and the D6 oracle for 10 s.
+// the safety oracle and the D6 oracle for 10 s. The test logs the kept
+// speeds of each checkpoint.
 func TestLondonExpressPhysicalCheckpoints(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
 		t.Skip("the London Express checkpoints run without -short or -race")
 	}
 	f := newLondonExpressFixture(t)
+	f.restored = keptSpeeds(t)
 	joined := false
 	f.drive(func(_ int, state string) { f.checkpoint(state) }, func(tick int) bool {
 		if !joined && (tick+1)%sim.TicksPerSecond == 0 {
