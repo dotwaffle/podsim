@@ -19,7 +19,10 @@ import (
 // docs/design/london-hubs-d8-d9.md, and they skip without it.
 const hubPairLayoutEnv = "PODSIM_HUB_PAIR_LAYOUT"
 
-const bakerLayoutEnv = "PODSIM_BAKER_LAYOUT"
+const (
+	bakerLayoutEnv   = "PODSIM_BAKER_LAYOUT"
+	pairTwoLayoutEnv = "PODSIM_PAIR_TWO_LAYOUT"
+)
 
 const (
 	hubPairLondonBridge = "940GZZLULNB"
@@ -154,7 +157,7 @@ func hubPairCheck(t *testing.T, c project.Config, source londonSource) (string, 
 		return fmt.Sprintf("%.0f", meters)
 	}
 	t.Logf("%d shape pairs, %d parking gaps, %d tail warnings", shapes, len(gaps), len(project.TailWarnings(c.Network)))
-	for _, id := range []string{hubPairLondonBridge, hubPairCanaryWharf, expressWaterloo} {
+	for _, id := range []string{hubPairLondonBridge, hubPairCanaryWharf, expressWaterloo, "940GZZLUPAC"} {
 		hub, _ := c.Network.Station(id)
 		t.Logf("chord route meters of %s: from the comb %s, to the comb %s", id, length("xq-01-node", hub.Berths[0].Node), length(hub.Berths[0].Node, "xq-01-node"))
 	}
@@ -197,4 +200,61 @@ func TestBakerStudyLayout(t *testing.T) {
 		t.Error(err)
 	}
 	t.Logf("%d tail warnings (%d in the preset), %d parking gaps", len(project.TailWarnings(config.Network)), before, len(project.ParkingGaps(config)))
+}
+
+// pairTwoSites are comb sites at Paddington from a scratch screen.
+var pairTwoSites = []hubPairSite{
+	{"PA1", "london-link-191-b", sim.Point{X: -3213.3, Y: -1017.8}, 350, false},
+	{"PA2", "london-link-191-b", sim.Point{X: -3156.4, Y: -1048.4}, 10, false},
+}
+
+// TestPairTwoStudySites runs the checks of hubPairCheck on Paddington and
+// Liverpool Street with the comb at each site. The variable that
+// pairTwoLayoutEnv names holds the directory of the networks of
+// TestPairTwoStudy of internal/sim.
+func TestPairTwoStudySites(t *testing.T) {
+	dir := os.Getenv(pairTwoLayoutEnv)
+	if dir == "" {
+		t.Skip("set " + pairTwoLayoutEnv + " to the output directory of TestPairTwoStudy")
+	}
+	source, err := decodeLondonFullSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	preset, err := londonFullSharedExpressPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const paddington, liverpool = "940GZZLUPAC", "940GZZLULVT"
+	for _, arm := range []string{"removal", "link"} {
+		data, err := os.ReadFile(filepath.Join(dir, "pair-two-"+arm+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var file struct {
+			Network sim.Network `json:"network"`
+		}
+		if err := jsonv2.Unmarshal(data, &file); err != nil {
+			t.Fatal(err)
+		}
+		for _, site := range pairTwoSites {
+			c := preset
+			c.Network = file.Network
+			c.Fleet, c.ExpressServices = slices.Clone(c.Fleet), slices.Clone(c.ExpressServices)
+			c.Network.Nodes, c.Network.Lanes, c.Network.Stations = slices.Clone(c.Network.Nodes), slices.Clone(c.Network.Lanes), slices.Clone(c.Network.Stations)
+			for _, pair := range [][2]string{{paddington, liverpool}, {liverpool, paddington}} {
+				c.ExpressServices = append(c.ExpressServices, sim.ExpressService{ID: "xs-" + pair[0][8:] + "-" + pair[1][8:], From: pair[0], To: pair[1], Class: sim.ExpressClass, PartyLimit: 20})
+			}
+			if err := addSharedTrackParking(&c, site.parking()); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("%s %s", arm, site.name)
+			if stage, err := hubPairCheck(t, c, source); err != nil {
+				t.Errorf("%s %s refused at %s: %v", arm, site.name, stage, err)
+			}
+			if gaps := project.ParkingGaps(c); len(gaps) != 0 {
+				t.Errorf("%s %s: %d parking gaps", arm, site.name, len(gaps))
+			}
+		}
+	}
 }

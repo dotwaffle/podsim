@@ -125,7 +125,7 @@ func bakerRefusals(result sharedTrackAuditResult) int {
 func TestBakerStudyMovements(t *testing.T) {
 	preset := hubPairLoad(t)
 	n := preset.clone()
-	for _, change := range append(pairTwoFixes(), bakerFix()) {
+	for _, change := range pairTwoArms()[1].changes {
 		station, _ := preset.Station(change.station)
 		junctionMovements(&n, change.station, sharedTrackStationFrame(t, indexNodePositions(n.Nodes), station).center)
 	}
@@ -237,82 +237,97 @@ func logStudyCosts(t *testing.T, name string, before, after sharedTrackCosts) {
 	}
 }
 
-// pairTwoFixes are the changes at the other stations of Paddington and
-// Liverpool Street (section 11 of the design).
-func pairTwoFixes() []junctionChange {
-	return []junctionChange{
-		{station: studyPaddington, links: map[string]float64{"190b": -30}},
-		{station: studyKingsCross, remove: []string{"03-04", "04-04", "04-07"}},
-		{station: studyMoorgate, turn: -15, links: map[string]float64{"284b": 25}},
-		{station: studyLiverpool, links: map[string]float64{"096b": -10}},
+// pairTwoArm is a set of changes at the five stations of Paddington and
+// Liverpool Street (section 11 of the design). The arms differ at King's
+// Cross St. Pancras.
+type pairTwoArm struct {
+	name    string
+	changes []junctionChange
+	// others holds the refusals of each pair of hubPairList.
+	others []int
+}
+
+// pairTwoArms returns the arm that removes movement lanes and the arm that
+// turns the two ends of link 194, which also changes Euston.
+func pairTwoArms() []pairTwoArm {
+	arm := func(name string, others []int, kings ...junctionChange) pairTwoArm {
+		changes := []junctionChange{
+			bakerFix(),
+			{station: studyPaddington, links: map[string]float64{"190b": -30}},
+			{station: studyMoorgate, turn: -15, links: map[string]float64{"284b": 25}},
+			{station: studyLiverpool, links: map[string]float64{"096b": -10}},
+		}
+		return pairTwoArm{name: name, changes: append(changes, kings...), others: others}
+	}
+	return []pairTwoArm{
+		arm("removal", []int{1, 1, 0, 0, 7, 7, 4, 11, 14, 18, 23, 31, 1, 0},
+			junctionChange{station: studyKingsCross, remove: []string{"03-04", "04-04", "04-07"}}),
+		arm("link", []int{1, 1, 0, 2, 8, 6, 4, 11, 18, 18, 27, 31, 2, 0},
+			junctionChange{station: studyKingsCross, links: map[string]float64{"194b": 40}},
+			junctionChange{station: studyEuston, links: map[string]float64{"194a": 10}}),
 	}
 }
 
 // TestPairTwoStudy pins the refusals of Paddington and Liverpool Street with
-// the change at each station, and with each change left out. With all of
-// them, ValidateBankGeometry must accept the network.
+// each arm, and with the change at each station left out. With a whole arm,
+// ValidateBankGeometry must accept the network.
 func TestPairTwoStudy(t *testing.T) {
 	preset := hubPairLoad(t)
 	pair := [2]string{studyPaddington, studyLiverpool}
 	base := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
-	all := append([]junctionChange{bakerFix()}, pairTwoFixes()...)
-	for _, test := range []struct {
-		without string
-		want    int
-	}{{"", 0}, {studyBaker, 25}, {studyPaddington, 3}, {studyKingsCross, 3}, {studyMoorgate, 3}, {studyLiverpool, 1}} {
-		n := base
-		for _, change := range all {
-			if change.station != test.without {
-				n = change.apply(t, n)
+	want := map[string]int{studyBaker: 25, studyPaddington: 3, studyKingsCross: 3, studyMoorgate: 3, studyLiverpool: 1}
+	for _, arm := range pairTwoArms() {
+		apply := func(n Network, without string) Network {
+			for _, change := range arm.changes {
+				if change.station != without {
+					n = change.apply(t, n)
+				}
+			}
+			return n
+		}
+		for _, change := range append([]junctionChange{{}}, arm.changes...) {
+			n := apply(base, change.station)
+			result := hubPairAudit(t, n)
+			t.Logf("%s without %q: %d refusals, %d shape pairs", arm.name, change.station, len(result.refusals), result.shapes)
+			if len(result.refusals) != want[change.station] {
+				t.Errorf("%s without %q: %d refusals, want %d", arm.name, change.station, len(result.refusals), want[change.station])
+			}
+			if _, err := prepareNetworkTails(n, nil); err != nil {
+				t.Errorf("%s without %q: preparation: %v", arm.name, change.station, err)
 			}
 		}
-		result := hubPairAudit(t, n)
-		t.Logf("without %q: %d refusals, %d shape pairs", test.without, len(result.refusals), result.shapes)
-		if len(result.refusals) != test.want {
-			t.Errorf("without %q: %d refusals, want %d", test.without, len(result.refusals), test.want)
+		n, plain, straight := apply(base, ""), apply(preset, ""), base
+		for _, network := range []Network{n, plain} {
+			if err := network.ValidateBankGeometry(); err != nil {
+				t.Error(err)
+			}
 		}
-		if _, err := prepareNetworkTails(n, nil); err != nil {
-			t.Errorf("without %q: preparation: %v", test.without, err)
-		}
-		if test.without != "" {
-			continue
-		}
-		if err := n.ValidateBankGeometry(); err != nil {
-			t.Error(err)
-		}
-		straight := base
-		for _, change := range all {
+		for _, change := range arm.changes {
 			straight = junctionChange{station: change.station}.apply(t, straight)
 		}
 		after := newSharedTrackCosts(n)
-		logStudyCosts(t, "hub shape", newSharedTrackCosts(base), after)
-		logStudyCosts(t, "hub shape with straight roads", newSharedTrackCosts(straight), after)
+		logStudyCosts(t, arm.name+": hub shape", newSharedTrackCosts(base), after)
+		logStudyCosts(t, arm.name+": hub shape with straight roads", newSharedTrackCosts(straight), after)
 		if dir := os.Getenv(hubPairOutEnv); dir != "" {
-			writeStudyNetwork(t, dir, "pair-two", n)
-			plain := preset
-			for _, change := range all {
-				plain = change.apply(t, plain)
-			}
-			if err := plain.ValidateBankGeometry(); err != nil {
-				t.Error(err)
-			}
-			writeStudyNetwork(t, dir, "pair-two-preset", plain)
+			writeStudyNetwork(t, dir, "pair-two-"+arm.name, n)
+			writeStudyNetwork(t, dir, "pair-two-"+arm.name+"-preset", plain)
 		}
 	}
 }
 
 // TestPairTwoStudyOthers pins the refusals of each pair of the hub pair
-// study with all the changes, for the effect on the other pairs.
+// study with each arm, for the effect on the other pairs.
 func TestPairTwoStudyOthers(t *testing.T) {
 	preset := hubPairLoad(t)
-	want := []int{1, 1, 0, 0, 7, 7, 4, 11, 14, 18, 23, 31, 1, 0}
-	for i, pair := range hubPairList() {
-		n := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
-		for _, change := range append([]junctionChange{bakerFix()}, pairTwoFixes()...) {
-			n = change.apply(t, n)
-		}
-		if got := len(hubPairAudit(t, n).refusals); got != want[i] {
-			t.Errorf("%v: %d refusals, want %d", pair, got, want[i])
+	for _, arm := range pairTwoArms() {
+		for i, pair := range hubPairList() {
+			n := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
+			for _, change := range arm.changes {
+				n = change.apply(t, n)
+			}
+			if got := len(hubPairAudit(t, n).refusals); got != arm.others[i] {
+				t.Errorf("%s %v: %d refusals, want %d", arm.name, pair, got, arm.others[i])
+			}
 		}
 	}
 }
