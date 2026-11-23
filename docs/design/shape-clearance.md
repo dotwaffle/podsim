@@ -10,6 +10,8 @@ The commits are `2c918f46` (the field and digest extension 17, with no effect), 
 Not built: the section 7 row "routes of section 2.1 with residual geometry fixed", which needs the D11 shared-track geometry, and the applications of section 4 (the D8 Express Parking comb, the D9 demand hubs, and the D11 preset).
 Note of 2026-11-16: the D11 preset, with the D8 comb beside Waterloo, is built as `london-full-shared-express` (see the [shared-track](shared-track-preset.md) design, slices 1 to 3).
 The D9 demand hubs and the section 7 row stay open.
+Note of 2026-11-23: the design of the D8 comb at the other hubs and of the D9 demand hubs is in [london-hubs-d8-d9.md](london-hubs-d8-d9.md), and the maintainer decided its options on 2026-11-23.
+Its build is not started.
 Note of 2026-11-20: the field is removed, and parts 1 to 5 apply to each network ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md)).
 The body oracle is stricter than the D6 text.
 It fails on any body overlap on a merge pair, because a pod outside its extent clears the other lane.
@@ -684,7 +686,7 @@ Proposal:
 - Each parking is a comb at a pitch of 40 m with berth lanes of 40 m, sized to the fleet of its services.
   For 16 berths that is 80 m by 640 m, and a scratch probe validated it on D (section 2.8).
   For 8 berths it is 80 m by 320 m (inferred).
-- The comb sits outward from the through lane of its hub, as a London depot does (`addLondonStation`, `london.go:895`).
+- The comb sits outward from the through lane of its hub, as a London depot does (`addLondonStation`, `internal/scenarios/london.go:919`).
   The site of each comb is not checked against the layout audit, so its position is inferred.
 
 A smaller parking needs a large depot: queue lanes with slots in series.
