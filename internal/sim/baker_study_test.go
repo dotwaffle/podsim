@@ -3,6 +3,7 @@ package sim
 import (
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -13,43 +14,53 @@ import (
 
 const studyBaker = "940GZZLUBST"
 
-// bakerLinks are the links at Baker Street, with the end at the station.
-var bakerLinks = map[string]string{"090": "b", "108": "a", "109": "a", "110": "a", "111": "a", "112": "a", "113": "a"}
+// bakerLinks are the links at Baker Street.
+var bakerLinks = []string{"090", "108", "109", "110", "111", "112", "113"}
 
-// bakerChange holds a change at Baker Street. The road of link 110 gets a
-// curve, the station turns about its junction center, and the two portals of
-// each link turn about the same center, in degrees.
-type bakerChange struct {
-	turn, curve float64
-	links       map[string]float64
+// junctionChange holds a change at a station: the station turns about its
+// junction center, the two portals of each link turn about the same center,
+// in degrees, and each road gets a curve. A link is its number and its end
+// at the station, such as "112a". A road is its ID without the station.
+type junctionChange struct {
+	station string
+	turn    float64
+	links   map[string]float64
+	curves  map[string]float64
+	// remove holds movement lanes, such as "04-04".
+	remove []string
 }
 
-// bakerFix is the change that the study selects.
-func bakerFix() bakerChange {
-	return bakerChange{turn: -10, curve: -20, links: map[string]float64{"112": 40, "111": 30, "090": 20}}
+// bakerFix is the change that the study selects at Baker Street.
+func bakerFix() junctionChange {
+	return junctionChange{
+		station: studyBaker, turn: -10,
+		links:  map[string]float64{"112a": 40, "111a": 30, "090b": 20},
+		curves: map[string]float64{"road-out-04": -20},
+	}
 }
 
-// apply also makes the roads of Baker Street straight at 14 m/s, as
+// apply also makes the roads of the station straight at 14 m/s, as
 // straightStudyHubs does at a hub, because the fillets of the generator are
 // for the portals of the generator.
-func (c bakerChange) apply(t *testing.T, base Network) Network {
+func (c junctionChange) apply(t *testing.T, base Network) Network {
 	t.Helper()
-	station, _ := base.Station(studyBaker)
+	station, _ := base.Station(c.station)
 	center := sharedTrackStationFrame(t, indexNodePositions(base.Nodes), station).center
-	change := sharedTrackChange{hubs: []string{studyBaker}, turn: map[string]float64{studyBaker: c.turn}}
-	if c.curve != 0 {
-		change.curve, change.offset = studyBaker+"-road-out-04", c.curve
+	change := sharedTrackChange{hubs: []string{c.station}, turn: map[string]float64{c.station: c.turn}}
+	for _, id := range c.remove {
+		change.remove = append(change.remove, c.station+"-move-"+id)
 	}
-	n := change.apply(t, straightStudyHubs(base, studyBaker))
+	n := change.apply(t, straightStudyHubs(base, c.station))
 	index := make(map[string]int, len(n.Nodes))
 	for i, node := range n.Nodes {
 		index[node.ID] = i
 	}
-	for link, degrees := range c.links {
+	for id, degrees := range c.links {
+		link, end := id[:3], id[3:]
 		cos, sin := math.Cos(degrees*math.Pi/180), math.Sin(degrees*math.Pi/180)
 		prefix := "london-link-" + link + "-"
 		for _, portal := range []string{"-arrival", "-departure"} {
-			p := &n.Nodes[index[prefix+bakerLinks[link]+portal]].Position
+			p := &n.Nodes[index[prefix+end+portal]].Position
 			dx, dy := p.X-center.X, p.Y-center.Y
 			*p = Point{X: center.X + dx*cos - dy*sin, Y: center.Y + dx*sin + dy*cos}
 		}
@@ -59,17 +70,22 @@ func (c bakerChange) apply(t *testing.T, base Network) Network {
 			n.Nodes[index["london-mid-"+link+"-"+way[1]]].Position = Point{X: (from.X + to.X) / 2, Y: (from.Y + to.Y) / 2}
 		}
 	}
-	bakerMovements(&n, center)
+	for road, offset := range c.curves {
+		// The curve is after the turns, so it is on the final chord.
+		curve := sharedTrackChange{hubs: []string{c.station}, curve: c.station + "-" + road, offset: offset}
+		n = curve.apply(t, n)
+	}
+	junctionMovements(&n, c.station, center)
 	return n
 }
 
-// bakerMovements gives each movement lane of Baker Street the control of
+// junctionMovements gives each movement lane of the station the control of
 // londonMovementControl of internal/scenarios.
-func bakerMovements(n *Network, center Point) {
+func junctionMovements(n *Network, station string, center Point) {
 	positions := indexNodePositions(n.Nodes)
 	for i := range n.Lanes {
 		lane := &n.Lanes[i]
-		if !strings.HasPrefix(lane.ID, studyBaker+"-move-") {
+		if !strings.HasPrefix(lane.ID, station+"-move-") {
 			continue
 		}
 		lane.Control = nil
@@ -93,7 +109,7 @@ func bakerMovements(n *Network, center Point) {
 func bakerRefusals(result sharedTrackAuditResult) int {
 	at := func(id string) bool {
 		link, ok := strings.CutPrefix(id, "london-link-")
-		return strings.HasPrefix(id, studyBaker+"-") || ok && bakerLinks[link[:3]] != ""
+		return strings.HasPrefix(id, studyBaker+"-") || ok && slices.Contains(bakerLinks, link[:3])
 	}
 	count := 0
 	for _, refusal := range result.refusals {
@@ -104,13 +120,15 @@ func bakerRefusals(result sharedTrackAuditResult) int {
 	return count
 }
 
-// TestBakerStudyMovements checks that bakerMovements and the junction
+// TestBakerStudyMovements checks that junctionMovements and the junction
 // center give the controls of the generator on the preset.
 func TestBakerStudyMovements(t *testing.T) {
 	preset := hubPairLoad(t)
-	station, _ := preset.Station(studyBaker)
 	n := preset.clone()
-	bakerMovements(&n, sharedTrackStationFrame(t, indexNodePositions(n.Nodes), station).center)
+	for _, change := range append(pairTwoFixes(), bakerFix()) {
+		station, _ := preset.Station(change.station)
+		junctionMovements(&n, change.station, sharedTrackStationFrame(t, indexNodePositions(n.Nodes), station).center)
+	}
 	curved := 0
 	for i, lane := range preset.Lanes {
 		want, got := lane.Control, n.Lanes[i].Control
@@ -132,30 +150,30 @@ func TestBakerStudyMovements(t *testing.T) {
 // two other pairs through Baker Street with the selected change.
 func TestBakerStudyChange(t *testing.T) {
 	preset := hubPairLoad(t)
-	without := func(link string) bakerChange {
+	without := func(link string) junctionChange {
 		c := bakerFix()
 		delete(c.links, link)
 		return c
 	}
 	noTurn, noCurve := bakerFix(), bakerFix()
-	noTurn.turn, noCurve.curve = 0, 0
+	noTurn.turn, noCurve.curves = 0, nil
 	main := [2]string{studyPaddington, studyLiverpool}
 	for _, test := range []struct {
 		name   string
 		pair   [2]string
-		change bakerChange
+		change junctionChange
 		want   [2]int
 	}{
-		{"straight roads only", main, bakerChange{}, [2]int{25, 35}},
+		{"straight roads only", main, junctionChange{station: studyBaker}, [2]int{25, 35}},
 		{"selected", main, bakerFix(), [2]int{0, 10}},
 		{"no turn", main, noTurn, [2]int{2, 12}},
 		{"no curve", main, noCurve, [2]int{1, 11}},
-		{"no 090", main, without("090"), [2]int{0, 10}},
-		{"no 111", main, without("111"), [2]int{4, 14}},
-		{"no 112", main, without("112"), [2]int{21, 31}},
+		{"no 090", main, without("090b"), [2]int{0, 10}},
+		{"no 111", main, without("111a"), [2]int{4, 14}},
+		{"no 112", main, without("112a"), [2]int{21, 31}},
 		{"selected", [2]string{studyKingsCross, studyPaddington}, bakerFix(), [2]int{0, 7}},
 		{"selected", [2]string{studyPaddington, studyTottenham}, bakerFix(), [2]int{0, 7}},
-		{"no 090", [2]string{studyPaddington, studyTottenham}, without("090"), [2]int{9, 16}},
+		{"no 090", [2]string{studyPaddington, studyTottenham}, without("090b"), [2]int{9, 16}},
 	} {
 		n := test.change.apply(t, hubPairShape(t, hubPairBase(t, preset, test.pair), test.pair, sharedTrackChange{}))
 		result := hubPairAudit(t, n)
@@ -180,33 +198,121 @@ func TestBakerStudyCosts(t *testing.T) {
 	if err := changed.ValidateBankGeometry(); err != nil {
 		t.Fatal(err)
 	}
-	after := newSharedTrackCosts(changed)
 	for _, base := range []struct {
 		name    string
 		network Network
-	}{{"preset", preset}, {"straight roads", bakerChange{}.apply(t, preset)}} {
-		before := newSharedTrackCosts(base.network)
-		longer, shorter, lost, worst, total, gain := 0, 0, 0, 0.0, 0.0, 0.0
-		for i, row := range after.cost {
-			for j, cost := range row {
-				delta := cost - before.cost[i][j]
-				switch {
-				case i == j || math.IsInf(before.cost[i][j], 1):
-				case math.IsInf(cost, 1):
-					lost++
-				case delta > 1e-9:
-					longer, worst, total = longer+1, max(worst, delta), total+delta
-				case delta < -1e-9:
-					shorter, gain = shorter+1, gain-delta
-				}
-			}
-		}
-		t.Logf("against the %s: %d routes longer (worst +%.1f s, total +%.0f s), %d shorter (total -%.0f s), %d lost", base.name, longer, worst, total, shorter, gain, lost)
-		if lost != 0 {
-			t.Errorf("%d routes lost", lost)
-		}
+	}{{"preset", preset}, {"straight roads", junctionChange{station: studyBaker}.apply(t, preset)}} {
+		logStudyCosts(t, base.name, newSharedTrackCosts(base.network), newSharedTrackCosts(changed))
 	}
 	if dir := os.Getenv(hubPairOutEnv); dir != "" {
 		writeStudyNetwork(t, dir, "baker", changed)
+	}
+}
+
+// logStudyCosts logs the change of the free-flow station routes, and fails
+// when a route is lost.
+func logStudyCosts(t *testing.T, name string, before, after sharedTrackCosts) {
+	t.Helper()
+	longer, shorter, lost, slow, worst, total, gain := 0, 0, 0, 0, 0.0, 0.0, 0.0
+	for i, row := range after.cost {
+		for j, cost := range row {
+			delta := cost - before.cost[i][j]
+			switch {
+			case i == j || math.IsInf(before.cost[i][j], 1):
+			case math.IsInf(cost, 1):
+				lost++
+			case delta > 1e-9:
+				longer, worst, total = longer+1, max(worst, delta), total+delta
+				if delta > 10 {
+					slow++
+				}
+			case delta < -1e-9:
+				shorter, gain = shorter+1, gain-delta
+			}
+		}
+	}
+	t.Logf("against the %s: %d routes longer (%d by more than 10 s, worst +%.1f s, total +%.0f s), %d shorter (total -%.0f s), %d lost", name, longer, slow, worst, total, shorter, gain, lost)
+	if lost != 0 {
+		t.Errorf("%d routes lost", lost)
+	}
+}
+
+// pairTwoFixes are the changes at the other stations of Paddington and
+// Liverpool Street (section 11 of the design).
+func pairTwoFixes() []junctionChange {
+	return []junctionChange{
+		{station: studyPaddington, links: map[string]float64{"190b": -30}},
+		{station: studyKingsCross, remove: []string{"03-04", "04-04", "04-07"}},
+		{station: studyMoorgate, turn: -15, links: map[string]float64{"284b": 25}},
+		{station: studyLiverpool, links: map[string]float64{"096b": -10}},
+	}
+}
+
+// TestPairTwoStudy pins the refusals of Paddington and Liverpool Street with
+// the change at each station, and with each change left out. With all of
+// them, ValidateBankGeometry must accept the network.
+func TestPairTwoStudy(t *testing.T) {
+	preset := hubPairLoad(t)
+	pair := [2]string{studyPaddington, studyLiverpool}
+	base := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
+	all := append([]junctionChange{bakerFix()}, pairTwoFixes()...)
+	for _, test := range []struct {
+		without string
+		want    int
+	}{{"", 0}, {studyBaker, 25}, {studyPaddington, 3}, {studyKingsCross, 3}, {studyMoorgate, 3}, {studyLiverpool, 1}} {
+		n := base
+		for _, change := range all {
+			if change.station != test.without {
+				n = change.apply(t, n)
+			}
+		}
+		result := hubPairAudit(t, n)
+		t.Logf("without %q: %d refusals, %d shape pairs", test.without, len(result.refusals), result.shapes)
+		if len(result.refusals) != test.want {
+			t.Errorf("without %q: %d refusals, want %d", test.without, len(result.refusals), test.want)
+		}
+		if _, err := prepareNetworkTails(n, nil); err != nil {
+			t.Errorf("without %q: preparation: %v", test.without, err)
+		}
+		if test.without != "" {
+			continue
+		}
+		if err := n.ValidateBankGeometry(); err != nil {
+			t.Error(err)
+		}
+		straight := base
+		for _, change := range all {
+			straight = junctionChange{station: change.station}.apply(t, straight)
+		}
+		after := newSharedTrackCosts(n)
+		logStudyCosts(t, "hub shape", newSharedTrackCosts(base), after)
+		logStudyCosts(t, "hub shape with straight roads", newSharedTrackCosts(straight), after)
+		if dir := os.Getenv(hubPairOutEnv); dir != "" {
+			writeStudyNetwork(t, dir, "pair-two", n)
+			plain := preset
+			for _, change := range all {
+				plain = change.apply(t, plain)
+			}
+			if err := plain.ValidateBankGeometry(); err != nil {
+				t.Error(err)
+			}
+			writeStudyNetwork(t, dir, "pair-two-preset", plain)
+		}
+	}
+}
+
+// TestPairTwoStudyOthers pins the refusals of each pair of the hub pair
+// study with all the changes, for the effect on the other pairs.
+func TestPairTwoStudyOthers(t *testing.T) {
+	preset := hubPairLoad(t)
+	want := []int{1, 1, 0, 0, 7, 7, 4, 11, 14, 18, 23, 31, 1, 0}
+	for i, pair := range hubPairList() {
+		n := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
+		for _, change := range append([]junctionChange{bakerFix()}, pairTwoFixes()...) {
+			n = change.apply(t, n)
+		}
+		if got := len(hubPairAudit(t, n).refusals); got != want[i] {
+			t.Errorf("%v: %d refusals, want %d", pair, got, want[i])
+		}
 	}
 }

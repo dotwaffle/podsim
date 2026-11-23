@@ -33,6 +33,7 @@ const (
 	studyVictoria     = "940GZZLUVIC"
 	studyEuston       = "940GZZLUEUS"
 	studyStratford    = "940GZZLUSTD"
+	studyMoorgate     = "940GZZLUMGT"
 )
 
 func hubPairLoad(t *testing.T) Network {
@@ -90,6 +91,26 @@ func hubPairShape(t *testing.T, n Network, pair [2]string, change sharedTrackCha
 	return change.apply(t, straightStudyHubs(n, change.hubs...))
 }
 
+// hubPairList returns the pairs of the study.
+func hubPairList() [][2]string {
+	return [][2]string{
+		{studyLondonBridge, studyCanaryWharf},
+		{sharedWaterloo, studyCanaryWharf},
+		{studyLondonBridge, sharedWaterloo},
+		{studyKingsCross, studyLiverpool},
+		{studyKingsCross, sharedWaterloo},
+		{studyEuston, sharedWaterloo},
+		{studyPaddington, studyTottenham},
+		{studyVictoria, studyOxford},
+		{studyKingsCross, studyOxford},
+		{studyLiverpool, studyTottenham},
+		{studyKingsCross, studyVictoria},
+		{studyCanaryWharf, studyStratford},
+		{studyKingsCross, studyPaddington},
+		{studyPaddington, studyLiverpool},
+	}
+}
+
 // hubPairAudit runs the audit copy with the index of the code.
 func hubPairAudit(t *testing.T, n Network) sharedTrackAuditResult {
 	t.Helper()
@@ -102,31 +123,29 @@ func hubPairAudit(t *testing.T, n Network) sharedTrackAuditResult {
 // 4.0 m, the shape pairs, and the large lanes under 40 m.
 func TestHubPairStudyPairs(t *testing.T) {
 	preset := hubPairLoad(t)
-	for _, test := range []struct {
-		pair [2]string
-		want [4]int
-	}{
-		{[2]string{studyLondonBridge, studyCanaryWharf}, [4]int{1, 1, 49, 0}},
-		{[2]string{sharedWaterloo, studyCanaryWharf}, [4]int{1, 1, 62, 0}},
-		{[2]string{studyLondonBridge, sharedWaterloo}, [4]int{0, 0, 60, 0}},
-		{[2]string{studyKingsCross, studyLiverpool}, [4]int{4, 2, 72, 0}},
-		{[2]string{studyKingsCross, sharedWaterloo}, [4]int{7, 6, 98, 1}},
-		{[2]string{studyEuston, sharedWaterloo}, [4]int{7, 5, 80, 1}},
-		{[2]string{studyPaddington, studyTottenham}, [4]int{10, 8, 107, 0}},
-		{[2]string{studyVictoria, studyOxford}, [4]int{11, 10, 79, 0}},
-		{[2]string{studyKingsCross, studyOxford}, [4]int{15, 15, 98, 1}},
-		{[2]string{studyLiverpool, studyTottenham}, [4]int{18, 15, 84, 0}},
-		{[2]string{studyKingsCross, studyVictoria}, [4]int{24, 23, 118, 1}},
-		{[2]string{studyCanaryWharf, studyStratford}, [4]int{31, 29, 134, 0}},
-		{[2]string{studyKingsCross, studyPaddington}, [4]int{32, 30, 124, 0}},
-		{[2]string{studyPaddington, studyLiverpool}, [4]int{35, 31, 145, 0}},
-	} {
-		n := hubPairShape(t, hubPairBase(t, preset, test.pair), test.pair, sharedTrackChange{})
+	want := [][4]int{
+		{1, 1, 49, 0},
+		{1, 1, 62, 0},
+		{0, 0, 60, 0},
+		{4, 2, 72, 0},
+		{7, 6, 98, 1},
+		{7, 5, 80, 1},
+		{10, 8, 107, 0},
+		{11, 10, 79, 0},
+		{15, 15, 98, 1},
+		{18, 15, 84, 0},
+		{24, 23, 118, 1},
+		{31, 29, 134, 0},
+		{32, 30, 124, 0},
+		{35, 31, 145, 0},
+	}
+	for i, pair := range hubPairList() {
+		n := hubPairShape(t, hubPairBase(t, preset, pair), pair, sharedTrackChange{})
 		result := hubPairAudit(t, n)
 		got := [4]int{len(result.refusals), result.underFour(), result.shapes, len(shortStudyLanes(n))}
-		t.Logf("%v: refusals, under 4.0 m, shape pairs, and large lanes under 40 m %v %v", test.pair, got, shortStudyLanes(n))
-		if got != test.want {
-			t.Errorf("%v: %v, want %v", test.pair, got, test.want)
+		t.Logf("%v: refusals, under 4.0 m, shape pairs, and large lanes under 40 m %v %v", pair, got, shortStudyLanes(n))
+		if got != want[i] {
+			t.Errorf("%v: %v, want %v", pair, got, want[i])
 		}
 		for _, refusal := range result.refusals {
 			t.Logf("  %s and %s, %.2f m, sweep %s, %s%s", refusal.first, refusal.second, refusal.distance, refusal.sweep, refusal.cause, refusal.crossing)

@@ -162,12 +162,12 @@ func hubPairCheck(t *testing.T, c project.Config, source londonSource) (string, 
 }
 
 // TestBakerStudyLayout runs the layout audit and project validation on the
-// preset with the Baker Street change. The variable that bakerLayoutEnv
-// names holds the network file of TestBakerStudyCosts of internal/sim.
+// preset with a network of TestBakerStudyCosts or TestPairTwoStudy of
+// internal/sim. The variable that bakerLayoutEnv names holds its file.
 func TestBakerStudyLayout(t *testing.T) {
 	path := os.Getenv(bakerLayoutEnv)
 	if path == "" {
-		t.Skip("set " + bakerLayoutEnv + " to the network file of TestBakerStudyCosts")
+		t.Skip("set " + bakerLayoutEnv + " to a network file of TestBakerStudyCosts or TestPairTwoStudy")
 	}
 	source, err := decodeLondonFullSource()
 	if err != nil {
@@ -192,7 +192,8 @@ func TestBakerStudyLayout(t *testing.T) {
 	if err := layoutError(config.Network, auditLondonLayout(config.Network, sharedTrackLayoutInput(source, sharedTrackPresetParking()))); err != nil {
 		t.Error(err)
 	}
-	if err := project.Validate(config); err != nil {
+	// A pair with no comb has parking gaps, and validation refuses them.
+	if err := project.Validate(config); err != nil && len(project.ParkingGaps(config)) == 0 {
 		t.Error(err)
 	}
 	t.Logf("%d tail warnings (%d in the preset), %d parking gaps", len(project.TailWarnings(config.Network)), before, len(project.ParkingGaps(config)))
