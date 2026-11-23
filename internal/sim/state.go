@@ -135,15 +135,20 @@ type SavedPod struct {
 	ParkedSince int64 `json:"parkedSince,omitzero"`
 	// Route holds the lanes of the route of the pod. A traveling pod saves
 	// its whole route when the routes of the save fit the block budget of
-	// the restore (see ExportState). Otherwise, and for a route that is
-	// longer than its limit, the saved route starts at the first lane that
-	// can still hold a resource, or at an earlier lane (see exportPlan.trim).
+	// the restore, the route fits the pod limit, and the restore of the
+	// whole route gives the pod its live route distance, block, frontier,
+	// and reversal latch (see planSavedRoutes). Otherwise the saved route
+	// starts at the first lane that can still hold a resource, or at an
+	// earlier lane (see exportPlan.trim). The save omits a route that is
+	// longer than the pod limit even when trimmed.
 	// RouteIndex and Distance count from the start of the saved route.
 	Route []int `json:"route,omitempty"`
-	// RouteTrimmed is true when the saved route of a traveling pod starts
-	// after the first lane of its route. The restore moves a distance of a
-	// pod on such a route to a block end within restoreDriftTolerance, and
-	// a distance on a whole route not at all (exact restore coordinates
+	// RouteTrimmed is true when the saved route of a traveling pod is its
+	// trimmed route. That route usually starts after the first lane of the
+	// route, and it can start at that lane when the whole route would not
+	// restore the pod exactly. The restore moves a distance of a pod on
+	// such a route to a block end within restoreDriftTolerance, and a
+	// distance on a whole route not at all (exact restore coordinates
 	// proposal, EC-D3).
 	RouteTrimmed bool    `json:"routeTrimmed,omitzero"`
 	RouteIndex   int     `json:"routeIndex,omitzero"`

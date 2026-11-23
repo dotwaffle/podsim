@@ -219,7 +219,7 @@ It encodes, compresses, and writes the copy after it releases the lock.
 Each saved pod or waiting trip route has at most 1,024 lanes.
 A traveling pod saves the whole route of its journey when it fits, and the lanes of its route that can still hold a resource when it does not.
 Smaller networks keep the lower bounds: lanes plus nodes for a pod, and nodes for a trip.
-The server omits a longer route without changing live routing or motion.
+The server omits a route that is still longer than the limit after the trim, without changing live routing or motion.
 Physical restore moves a pod with an omitted or over-limit route to a free berth.
 An over-limit trip loses its route and pod bindings.
 The decoder keeps larger route-array caps so long routes do not change the header refusal order.
@@ -402,7 +402,7 @@ A traveling pod whose saved speed is more than 1e-3 m/s above the speed limit of
 The pod moves to a berth only when that placement also fails, as other demoted pods do.
 Version 14 adds the `routeTrimmed`, `reversalLane`, and `reversalTicks` members of a traveling pod.
 `routeTrimmed` is true on a trimmed route, and the save omits it when it is false.
-A trimmed route usually starts after the first lane of the journey.
+A trimmed route usually starts after the first lane of the journey, and can start at that lane.
 A pod with a whole route restores at its saved distance, and a pod with a trimmed route moves to a block end within 1e-9 m.
 `reversalLane` and `reversalTicks` keep the 1 second stop at a change of the reverse flag, and the save omits each one at 0.
 `reversalLane` is the index in the saved route of the lane where the stop is due, or that index negated after the stop.
