@@ -692,11 +692,11 @@ PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./int
 PODSIM_BAKER_LAYOUT="$D/fixes/baker.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 ```
 
-Delete `baker.json` and the files of section 11.4 before `TestHubPairStudySites`, which reads each network in its directory.
+Delete `baker.json` and the files of section 11.5 before `TestHubPairStudySites`, which reads each network in its directory.
 
 ## 11. Paddington and Liverpool Street
 
-This study, from 2026-11-23, continues section 10 with the other 10 refusals.
+This study, from 2026-11-23, continues section 10 with the other 10 refusals, a comb at Paddington, and two arms at King's Cross St. Pancras.
 It has the Baker Street change and the method of section 10.2, and no preset has the changes.
 
 ### 11.1 Changes
@@ -705,43 +705,72 @@ It has the Baker Street change and the method of section 10.2, and no preset has
 | --- | --- | ---: |
 | Baker Street | That of section 10.2 | 25 |
 | Paddington | Link 190 turns by -30 degrees | 3 |
-| King's Cross St. Pancras | `move-03-04`, `move-04-04`, and `move-04-07` removed | 3 |
 | Moorgate | Station turns by -15 degrees, link 284 by +25 | 3 |
 | Liverpool Street | Link 096 turns by -10 degrees | 1 |
+| King's Cross St. Pancras | The removal arm or the link arm | 3 |
 
-With all the changes there are 0 refusals and 134 shape pairs, and `ValidateBankGeometry` accepts the network.
-Preparation passes, and the layout audit has no conflict and no exemption for the changes.
+- The removal arm removes `move-03-04`, `move-04-04`, and `move-04-07` of King's Cross St. Pancras.
+- The link arm turns link 194 by +40 degrees at King's Cross St. Pancras and by +10 degrees at Euston.
+  Without the turn at Euston there are also 0 refusals, but the layout audit refuses: the link crosses a station road of Euston.
+
+With either arm there are 0 refusals, and `ValidateBankGeometry` accepts the network.
+Preparation passes.
 The same changes on the preset, with no Express on the pair, pass the bank audit, the layout audit, and project validation, with no parking gap.
+Moorgate at -20 degrees, with link 284 at +20 or +30, has no refusal, but its access lane crosses link 292.
 
-Two arms with no refusal fail the layout audit:
+### 11.2 The two arms
 
-- Link 194 at King's Cross St. Pancras by +40 degrees, with no lane removed.
-  The link then crosses a station road of Euston, and the refusals of King's Cross St. Pancras and Oxford Circus go from 15 to 19.
-- Moorgate at -20 degrees, with link 284 at +20 or +30.
-  Its access lane then crosses link 292.
+| | Removal | Link |
+| --- | ---: | ---: |
+| Shape pairs | 134 | 129 |
+| Routes longer, of 97,656 | 20,954 | 23,788 |
+| Routes longer by more than 10 s | 75 | 0 |
+| Worst route | +114.6 s | +5.2 s |
+| Total of the longer routes | +17,613 s | +23,842 s |
+| Total of the shorter routes | -16,229 s | -18,565 s |
+| Tail warnings with Express on the pair (preset: 1) | 5 | 6 |
 
-### 11.2 Effects
+The costs are against the hub shape with no change, in free flow.
+Against the same shape with straight roads at the changed stations, the totals of the shorter routes are -9,114 s and -11,181 s.
 
-With all the changes, no pair of section 9.1 has more refusals than before.
-King's Cross St. Pancras and Liverpool Street goes from 4 to 0, King's Cross St. Pancras and Paddington from 32 to 1, and Paddington and Tottenham Court Road from 10 to 4.
+| Pair | No change | Removal | Link |
+| --- | ---: | ---: | ---: |
+| King's Cross St. Pancras and Liverpool Street | 4 | 0 | 2 |
+| Euston and Waterloo | 7 | 7 | 6 |
+| King's Cross St. Pancras and Waterloo | 7 | 7 | 8 |
+| Paddington and Tottenham Court Road | 10 | 4 | 4 |
+| King's Cross St. Pancras and Oxford Circus | 15 | 14 | 18 |
+| King's Cross St. Pancras and Victoria | 24 | 23 | 27 |
+| King's Cross St. Pancras and Paddington | 32 | 1 | 2 |
 
-Against the hub shape with no change, 20,954 of 97,656 station routes are longer in free flow (total +17,613 s) and 17,545 are shorter (total -16,229 s).
-75 routes are longer by more than 10 s, and the worst is +114.6 s.
-The arm that turns link 194, with the first Moorgate arm, has a worst of +5.2 s, so the removed lanes at King's Cross St. Pancras give the long detours.
-Against the same shape with straight roads at the five stations, the totals are +17,769 s and -9,114 s.
-With Express on the pair, the network has 5 tail warnings, and the preset has 1.
+The other pairs of section 9.1, apart from Paddington and Liverpool Street, do not change.
+Of the removed lanes, `move-03-04` alone gives 50 of the 75 long routes, `move-04-07` alone gives 25, and `move-04-04` gives none.
 
-### 11.3 Limits
+### 11.3 Comb sites
 
-- The network has no comb for the pair, so its 8 hub berths have no Express parking, and project validation refuses the pair for that.
-  A comb site is not studied.
-- There is no simulation run, and the effect of the removed lanes on fault reroutes is not measured.
+A scratch screen of centers and headings gave 3,004 sites at the portals of link 191 at Paddington, and the checks ran on 188 of the first 1,500 by road length.
+34 passed with each arm.
+
+| Site | Center | Heading | Meters to the hub | Meters from the hub | Shape pairs, removal and link |
+| --- | --- | ---: | ---: | ---: | --- |
+| PA1 | (-3213.3, -1017.8) | 350 | 397 | 358 | 145 and 140 |
+| PA2 | (-3156.4, -1048.4) | 10 | 468 | 376 | 142 and 137 |
+
+The comb has 16 berths and 16 pods, as in HB-D10, and it is not mirrored.
+Each site passes the layout audit with no exemption, the bank audit, and project validation of the whole project with both services, with no parking gap.
+
+### 11.4 Limits
+
+- There is no simulation run.
+  The effect of the removed lanes on fault reroutes is not measured.
 - The limits of section 10.3 apply: the angles come from a coarse screen, and a build needs the changes in the generator.
+- The pair is checked on the preset alone, and not on the preset with London Bridge and Canary Wharf.
 
-### 11.4 Commands
+### 11.5 Commands
 
 ```sh
 PODSIM_HUB_PAIR_STUDY="$D/lfs.json" PODSIM_HUB_PAIR_OUT="$D/fixes" go test ./internal/sim -run TestPairTwo -count=1 -v
-PODSIM_BAKER_LAYOUT="$D/fixes/pair-two.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
-PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
+PODSIM_PAIR_TWO_LAYOUT="$D/fixes" go test ./internal/scenarios -run TestPairTwoStudySites -count=1 -v
+PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-link-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
+PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-removal-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 ```
