@@ -530,7 +530,7 @@ The [Express London qualification proposal](express-london-qualification-proposa
   Speed resets and rebuilt forward grants are reported apart.
   Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
   The report counts the kept speeds and finds no rebuilt grant.
-  The rerun table is in section ... of the restore speed proposal.
+  The rerun table is in section 6.3 of the restore speed proposal.
   After a restore with the policies off, the current members finish and no new member forms.
 - E5, Save bytes and shape: use the current formats and Express limits.
   Prove the bounds of the save, the full stream, the replacement delta, the HTTP state, the topology, and the gzip expansion with the current adapters.

@@ -1,15 +1,16 @@
 # Restore speed and platoon link proposal
 
-Status: decisions made, and slice 1 is built at `1baf8f90`.
+Status: built and applied; slices 1 to 4 are done.
+Slice 1 is built at `1baf8f90`.
 Slice 0 ran, and a stop of section 8 fired (section 6.1); the trace of section 6.2 answers it.
 On 2026-11-22, slice 1 fired a stop on the parity goldens, and the maintainer amended sections 5.3, 5.4, and 6.2.
 On 2026-11-21, the maintainer decided RL-D1 to RL-D7 and answered Q3 (section 7 and section 9).
 Slice 3 applies the RL-A rows of section 5.1 with the date 2026-11-23.
 Where a row no longer matched the built design, the applied text follows the built design and adds the fallbacks of section 4.2.
-The evidence of slice 4 is open.
+Slice 4 records the evidence in section 6.3.
 Date: 2026-11-21.
 Line references are for `4c1eaf23`.
-No test, build, or measurement ran for this draft.
+No test, build, or measurement ran for the first draft; sections 6.1 and 6.3 hold the measurements.
 Each count and each byte number below is an estimate from the source, and slice 0 measures it.
 
 ## Summary
@@ -470,6 +471,32 @@ Slice 1 found one exception, which the maintainer approved on 2026-11-22.
 A pod bound for a depot slot that it does not claim has its live frontier at the depot entry, and there `reservationEnd(entry)` is past the entry.
 The restore accepts F at the entry for such a pod.
 Below the entry, F must satisfy `reservationEnd(F) == F`, and an F past the entry demotes the pod.
+
+### 6.3 Evidence of the build
+
+Slice 1 is `1baf8f90`.
+On 2026-11-23, `mise run check` passed on `1baf8f90`.
+It runs each gate of section 5.5: `check:static` (lint, `test:web`, the builds), `qualify` (the latency tests, `TestIncidentSoakCI`, and `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:shared-express`, and `test:london-express`.
+The byte proofs are 125,958,565 bytes for the plain state (8,259,163 bytes of headroom) and 105,165,023 bytes for the Express state (29,052,705 bytes of headroom).
+The stream, delta, and HTTP proofs did not change.
+
+The reruns below are from `-v` runs on `f98ecaf1`, which has the code of `1baf8f90`.
+Each checkpoint restored at the physical tier.
+
+| Run | Checkpoint | Kept speeds | Forward grants kept | Not rebuilt | New from route geometry |
+| --- | --- | ---: | ---: | ---: | ---: |
+| SX4, `TestSharedExpressEnvelopeRun` | Mixed traffic, tick 3150 | 13 | 63 | 0 | 0 |
+| SX4, `TestSharedExpressEnvelopeRun` | Fault, tick 3180 | 13 | 70 | 0 | 0 |
+| SX4, `TestSharedExpressEnvelopeRun` | Emergency, tick 3750 | 15 | 83 | 0 | 0 |
+| SX4, `TestSharedExpressEnvelopeRun` | Platoon links, tick 6540 | 22 | 86 | 0 | 0 |
+
+Before this proposal, the platoon-link checkpoint reset 22 speeds and did not rebuild 51 grants (section 1.4).
+
+`TestLondonSharedExpressPhysicalCheckpoints` kept 30, 29, 30, 32, 41, 47, 83, and 90 speeds at its eight checkpoints (shared-link, fault, return, fault-rest, parking-berth, emergency, bank-berth, emergency-unload).
+`TestLondonExpressPhysicalCheckpoints` (E4) passed at its four checkpoints (ticks 269, 22020, 44760, and 63870).
+It requires each saved pod member of the restore, the speed included, to equal the saved value, so it kept each speed, but it does not log a count.
+`RestoreResult` does not report a fallback to the earlier restore.
+At these checkpoints a fallback would fail the tests, because they compare the kept speeds and the saved members with the live run.
 
 ## 7. Decisions for the maintainer
 

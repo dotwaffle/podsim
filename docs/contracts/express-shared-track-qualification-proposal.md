@@ -67,7 +67,7 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
   Speed resets and rebuilt forward grants are reported apart.
   Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
   The report counts the kept speeds and finds no rebuilt grant.
-  The rerun table is in section ... of the restore speed proposal.
+  The rerun table is in section 6.3 of the restore speed proposal.
   After a restore with the policies off, the current members finish and no new member forms.
   Evidence: a checkpoint test on the preset, as `TestLondonExpressPhysicalCheckpoints` is for D, with a fault, an emergency, and a pod on the shared lanes among the states.
 - SX5, Save bytes and shape (from E5).
@@ -248,7 +248,7 @@ The parity test of the always-on proposal replaces them for the preset.
 
 Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
 The report counts the kept speeds and finds no rebuilt grant.
-The rerun table is in section ... of the restore speed proposal.
+The rerun table is in section 6.3 of the restore speed proposal.
 The speed resets and the grants that were not rebuilt in the table above are records of the restore before that proposal.
 
 - The forward grants that a restore does not rebuild are taken again by admission in the next ticks, under the oracle and the D6 oracle.

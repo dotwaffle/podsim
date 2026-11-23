@@ -565,7 +565,7 @@ No simulation has run on the preset, so each evidence item below is evidence tha
   Speed resets and rebuilt forward grants are reported apart.
   Note of 2026-11-23: a restore keeps speed and forward grants ([restore speed proposal](restore-speed-proposal.md)), except for a faulted pod and a pod or save that restores as before that proposal.
   The report counts the kept speeds and finds no rebuilt grant.
-  The rerun table is in section ... of the restore speed proposal.
+  The rerun table is in section 6.3 of the restore speed proposal.
   After a restore with the policies off, the current members finish and no new member forms.
   Evidence: a checkpoint test on the preset, as `TestLondonExpressPhysicalCheckpoints` is for D, with a fault, an emergency, and a pod on the shared lanes among the states.
 - SX5, Save bytes and shape (from E5).
