@@ -498,6 +498,11 @@ It requires each saved pod member of the restore, the speed included, to equal t
 `RestoreResult` does not report a fallback to the earlier restore.
 At these checkpoints a fallback would fail the tests, because they compare the kept speeds and the saved members with the live run.
 
+Note of 2026-11-23: `RestoreResult` now reports the fallbacks, and the server logs them (`docs/operations.md`).
+Its `AtRest` lists the pods that the per-pod fallback placed at rest, and its `EarlierRestore` marks a save that the earlier restore placed.
+Each E4, SX4, and incident checkpoint asserts that neither is set.
+`TestLondonExpressPhysicalCheckpoints` now logs 1, 109, 147, and 162 kept speeds at its four checkpoints.
+
 ## 7. Decisions for the maintainer
 
 | ID | Question | Options | Recommendation |
