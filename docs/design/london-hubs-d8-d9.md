@@ -1,7 +1,9 @@
 # Express London hubs
 
-Status: Proposed on 2026-11-23, not approved.
+Status: approved on 2026-11-23.
+The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, with option B of HB-D5 (section 6).
 Nothing in this design is built.
+A build needs a separate grant.
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
 
@@ -480,6 +482,10 @@ The comb is about the size of slice 3 of the D11 build: a site study and one bui
 | HB-D10 | Size of a comb | A: 16 berths and 16 pods, as D and D11. B: a size from the AM peak rate of the services. | A for the first new comb, so the study compares like fleets. B after the study measures the use of the fleet. |
 | HB-D11 | Choice of comb on one connected Express network | A: keep `park` as it is, and measure the empty distance to parking. B: `park` takes the comb with the lowest route cost. | A. B changes the behavior of `park` for each project with more than one parking, so it needs its own design. The question starts at the stage that joins two Express networks. |
 | HB-D12 | Layout audit exemption for a comb | A: a Parking facility entry for the comb, in the audit input of its preset only, as `sharedTrackLayoutInput` does. B: the site passes the full audit, with no exemption. | B where a site passes. A only when no site passes, as at Waterloo (`shared-track-preset.md:827`). |
+
+Decided on 2026-11-23: the maintainer accepted the recommendation of each row.
+For HB-D3, the study probe ranks the pairs, and the built audit accepts a stage.
+For HB-D5, the static slices can start before batch 2, and the preset and its rows wait for batch 2.
 
 ### 6.1 Dependencies
 
