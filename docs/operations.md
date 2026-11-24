@@ -1018,15 +1018,16 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs two lanes in parallel: `test:race:sim`, `test:long`, and `test:london-express` in one, and `test:race:session`, `test:race:other`, and `test:shared-express` in the other. It stops at the first failure. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs `test:race:other` by itself, and then two lanes in parallel: `test:race:sim`, `test:long`, and `test:london-express` in one, and `test:race:session`, `test:shared-express`, and `test:wharf-express` in the other. It stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test` | `go test ./...`, without the race detector. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and a `go list -deps` check of the `js/wasm` builds of `cmd/podsim`, `cmd/editormodel`, and `cmd/ride`. The check fails when they link cloud storage or the preset data in `internal/scenarios`. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages other than `internal/sim`, `internal/session`, and `PODSIM_LONG_PACKAGES` in full. Then it runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
 | `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. The Station 19 drain tests skip there, because they run only when `PODSIM_QUALIFY=1`. |
 | `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so only this task runs them. |
+| `mise run test:wharf-express` | The qualification tests of the `london-full-shared-express-wharf` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:web` | The Node tests of the browser files: the editor, the editor model and history, the loader, the shell, the stream, the map and tiles, place search, the offline tools, and the ride page. The offline tool tests run `cmd/parkride` and `cmd/compare`. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests, `TestSampledTickLatency`, and the restore boundary sweep `TestRestoreBoundarySweep` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, the boundary sweep, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
@@ -1097,8 +1098,8 @@ These variables change a run:
 
 GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
-It splits the check into eight parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `test:shared-express`, `test:london-express`, `qualify`, and `check:static`.
-After all eight pass, a version tag or a manual run publishes the container image.
+It splits the check into nine parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `check:static`.
+After all nine pass, a version tag or a manual run publishes the container image.
 A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.
 Each `main` push keeps its own run.

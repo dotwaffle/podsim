@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: ["test:race:sim", "test:race:session", "test:race:other", "test:long", "test:shared-express", "test:london-express", "qualify", "check:static"]
+        task: ["test:race:sim", "test:race:session", "test:race:other", "test:long", "test:shared-express", "test:london-express", "test:wharf-express", "qualify", "check:static"]
     steps:
       - uses: actions/checkout@v7
       - name: Install graphics runtime

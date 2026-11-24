@@ -1,7 +1,8 @@
 # Express wharf qualification proposal
 
 Status: approved by the maintainer on 2026-11-24, rows HX1 to HX13.
-The preset is not qualified while a row is open, and no evidence run has started.
+The preset is not qualified while a row is open.
+The maintainer granted the evidence of steps 1 and 2 on 2026-11-24, and the [Evidence](#evidence) section records it.
 The maintainer chose option A of HX-D1 and HX-D3 to HX-D6, and option C of HX-D2.
 
 ## Scope
@@ -58,7 +59,7 @@ B1 does not apply, because the preset has no banks.
   `london-full-shared-express` finished each order in the batches of that study, but the runs have 2 hours of arrivals, no incidents, and no demand on the new line.
   In the release soak of 2026-11-17, before the queue promotion, one record passed the Progress limit in the queues of link 100.
   So a failure of HX10 or HX11 can come from link 100 and not from the new line.
-- No simulation of the preset has run.
+- No study or soak of the preset has run.
 - `mise run soak:full` takes 6,277 to 6,427 s of its limit of 7,200 s with four presets.
   From the 3,111 s of run-slot time that one seed of `london-full-shared-express` took in the timing run of 2026-11-19, 2 seeds of one more preset add about 2,100 s with 3 full slots, so five presets do not fit (inferred).
 - `test:shared-express` took 292 s by hand.
@@ -92,6 +93,46 @@ Each long run needs a grant when it starts.
 4. The Chrome session of HX-D6.
 
 A failure stops the order and goes back to the maintainer.
+
+## Evidence
+
+Recorded on 2026-11-24, on a working tree of the commit that adds this section.
+`mise run test:wharf-express` runs the long tests, with a CI job of its own (HX-D5).
+It passed in 455 s under `nice`.
+
+| Row | Status |
+| --- | --- |
+| HX1, HX2, HX3, HX4, HX5, HX8, HX13 | Evidence complete on the preset. |
+| HX6, HX9 | Test evidence complete. The Chrome check of HX-D6 is open. |
+| HX7, HX10, HX11, HX12 | Open. |
+
+- HX1: `TestLondonFullSharedExpressWharfKeepsPresets` pins the four network hashes.
+  `TestLondonExpressBehaviorParity` and `TestPresetBehaviorParity` pass with no golden change.
+- HX2: the preset tests pin 53 shape pairs, no refusal, one tail warning, and a clean layout audit with no exemption for the new comb.
+  `projectcheck` reports the preset valid.
+  Each of the 5 Waterloo and 2 Bank berths, and of the 4 London Bridge and 4 Canary Wharf berths, has an Express route to and from the berths of its other hub and of its comb, and no Express route joins the lines.
+  `TestWharfExpressShapePairSweep` finds the bodies disjoint at 6,724 placements on the 53 shape pairs and at 101,710 placements on 183 merge and split pairs.
+  The least margin over the clearance of the shape table is 3.50 m.
+- HX3: `TestWharfExpressEnvelopeRun` runs 8 simulated minutes (14,400 ticks) with both oracles and 5,169,600 envelope comparisons, with no difference.
+  Express and Compact pods were together on link 100 for 11,267 ticks, on 089 for 8,313, on 088 for 3,219, and on 154 for 3,681.
+  A fault stopped a pod with 13 riders on each line, on links 089 and 100, and an emergency started on each line on the same links.
+  The envelope tests (`TestEnvelopeMatchesReference` with 6,106 envelopes, `TestEnvelopeReachHoldsEnvelope`, `TestEnvelopeSupportOneNode`, `TestEnvelopeSupportChain`, `TestEnvelopeSupportMixedSmall`) pass with the preset.
+- HX4: `TestLondonWharfExpressPhysicalCheckpoints` runs the states of each line with demand on both lines, and each restore is physical.
+  The 7 restores of the HX3 run keep each speed and each forward grant.
+  With the policies off, the one link ends and 128 orders end (2 of them interrupted) in 1,506 s, and the control copy makes up to 8 new links.
+  `TestWharfExpressOccupiedPickupPolicy` passes at St Paul's and at Bermondsey.
+- HX5 and HX13: `TestLondonWharfExpressByteBounds` shows that the worst-case project bounds the preset: 5,840 of 12,000 nodes, 9,156 of 20,000 lanes, 314 of 600 stations, 802 of 12,000 berths, 359 of 600 pods, 4 of 300 services, an ID of 31 of 64 bytes, and 5,708,703 of 33,554,432 project bytes.
+  The proofs (`TestExpressStateFileWorstCaseSize` and `TestExpressStreamMaximumEncoding`) do not depend on the preset, and their source and margins are in SX5.
+  The largest sizes of the preset are 5,893,904 bytes of saved state (cap 134,217,728), 347,375 of full stream and 236,466 of delta (cap 67,108,864), 2,718,070 of HTTP state (cap 134,217,728), and 2,370,889 of topology (cap 33,558,528).
+- HX6: `TestLondonWharfExpressRemoteLoads` sees loads of 12, 13, and 20 from the first hub of each line, and `TestLondonWharfExpressRemoteRecovery` passes with the atomic rejection on each line.
+- HX8: `TestLondonWharfExpressIncidentFixtures` and `TestLondonWharfExpressRecoveryChain` (4 saves) pass on each line, with conservation of orders.
+  History rollover is not reached: the only passenger stations with Express berths are the four hubs, no Express route joins the lines, and so no Express pod has an intermediate stop (HX-D4).
+- HX9: `TestWharfExpressDwell` passes on each line with the phases of SX9.
+  A fault at 14.00 m/s with 20 riders on each line has a largest drop of 0.03828 m/s per tick and stops after 85.22 m.
+  Each activity of an Express pod of each line restores and streams, except Continuing, which the preset does not reach.
+
+In a scratch run before these tests, both lines had parties for 12 minutes at the rates of the shared-track script, which is more than the pods serve at once.
+The backlog drained in the next 48 minutes to 5 Express orders at minute 55, with no oracle or contract failure and no Express pod of one line at a hub of the other.
 
 ## Draft amendment of SX11
 

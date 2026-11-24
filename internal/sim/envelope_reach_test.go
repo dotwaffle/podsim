@@ -424,6 +424,9 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 	}
 	// The shared-track preset (row SX3).
 	cases["london-full-shared-express"] = envelopeReachCase{network: sharedExpressNetwork(t), lanes: sampled, routes: 12}
+	if wharf, ok := wharfExpressNetwork(t); ok {
+		cases[wharfExpressName] = envelopeReachCase{network: wharf, lanes: sampled, routes: 12}
+	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

@@ -14,7 +14,7 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-var updateSharedExpressFixture = flag.Bool("update-shared-express", false, "write the project of london-full-shared-express for the SX tests in package sim")
+var updateSharedExpressFixture = flag.Bool("update-shared-express", false, "write the shared-track preset fixtures for the SX and HX tests in package sim")
 
 // sharedExpressFixturePath holds the parts of london-full-shared-express
 // that the SX tests in package sim need. Package sim cannot import this
@@ -41,6 +41,24 @@ func TestSharedExpressFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	checkExpressFixture(t, config, sharedExpressFixturePath)
+}
+
+// TestWharfExpressFixture is TestSharedExpressFixture for
+// london-full-shared-express-wharf and the HX tests in package sim.
+func TestWharfExpressFixture(t *testing.T) {
+	t.Parallel()
+	config, err := londonFullSharedExpressWharfPreset(LondonFull())
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkExpressFixture(t, config, "../sim/testdata/wharf_express_project.json.gz")
+}
+
+// checkExpressFixture checks the fixture of config at path, and writes it
+// first with -update-shared-express.
+func checkExpressFixture(t *testing.T, config project.Config, path string) {
+	t.Helper()
 	data, err := jsonv2.Marshal(sharedExpressFixture{Network: config.Network, Fleet: config.Fleet, ExpressServices: config.ExpressServices,
 		PlatoonLimit: config.PlatoonLimit, Faults: project.EffectiveFaultSettings(config)}, json.DefaultOptionsV1())
 	if err != nil {
@@ -55,11 +73,11 @@ func TestSharedExpressFixture(t *testing.T) {
 		if err = writer.Close(); err != nil {
 			t.Fatal(err)
 		}
-		if err = os.WriteFile(sharedExpressFixturePath, compressed.Bytes(), 0o600); err != nil {
+		if err = os.WriteFile(path, compressed.Bytes(), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
-	file, err := os.Open(sharedExpressFixturePath)
+	file, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +91,6 @@ func TestSharedExpressFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(stored, data) {
-		t.Fatalf("%s differs from the preset; run with -update-shared-express", sharedExpressFixturePath)
+		t.Fatalf("%s differs from the preset; run with -update-shared-express", path)
 	}
 }

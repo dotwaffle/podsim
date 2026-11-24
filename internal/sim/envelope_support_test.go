@@ -220,6 +220,23 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 		supportRun(t, c, map[string]int{"poses small": 1})
 		t.Logf("%v", c.counts)
 	})
+	// The shared lanes of london-full-shared-express-wharf.
+	t.Run(wharfExpressName, func(t *testing.T) {
+		t.Parallel()
+		n, ok := wharfExpressNetwork(t)
+		if !ok {
+			t.Skip("the preset network is large")
+		}
+		c := newSharedContainment(t, wharfExpressName, n)
+		c.reference = true
+		for lane, l := range n.Lanes {
+			if sharedExpressLinkOf(l.ID) >= 0 {
+				c.lane(lane, diskSmall, c.behind+1, c.bounds[lane]+60, 2)
+			}
+		}
+		supportRun(t, c, map[string]int{"poses small": 1})
+		t.Logf("%v", c.counts)
+	})
 	// The lanes of Waterloo and Bank of london-full-express (project D)
 	// that admit a small class. There Compact pods pass the Express lanes
 	// and the maneuver groups of the hubs. The case runs only in the long
@@ -261,6 +278,9 @@ func TestEnvelopeSupportOneNode(t *testing.T) {
 	}
 	express := expressNetworkFixture(t)
 	networks := map[string]Network{"curves": envelopeReachCurves(t), "london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t)}
+	if wharf, ok := wharfExpressNetwork(t); ok {
+		networks[wharfExpressName] = wharf
+	}
 	maps.Copy(networks, gateOffRefusedNetworks(t, express))
 	maps.Copy(networks, scenarioNetworks(t))
 	for shape := range diskShapes {
@@ -300,6 +320,9 @@ func TestEnvelopeSupportChain(t *testing.T) {
 	t.Parallel()
 	express := expressNetworkFixture(t)
 	networks := map[string]Network{"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4)}
+	if wharf, ok := wharfExpressNetwork(t); ok {
+		networks[wharfExpressName] = wharf
+	}
 	maps.Copy(networks, scenarioNetworks(t))
 	arc := (2 + math.Sqrt2) * sharedSmallRadius
 	checked := 0
@@ -553,6 +576,9 @@ func envelopeParityNetworks(t *testing.T) map[string]Network {
 	networks := map[string]Network{
 		"curves": envelopeReachCurves(t), "hook": sharedHookNetwork(), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4),
 		"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t),
+	}
+	if wharf, ok := wharfExpressNetwork(t); ok {
+		networks[wharfExpressName] = wharf
 	}
 	maps.Copy(networks, gateOffRefusedNetworks(t, express))
 	maps.Copy(networks, scenarioNetworks(t))
