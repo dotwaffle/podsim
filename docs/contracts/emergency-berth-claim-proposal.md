@@ -1,7 +1,8 @@
 # Emergency berth claim proposal
 
 Status: draft for the maintainer, 2026-11-24.
-Nothing is approved or built, and no run has tested an option of this note.
+Nothing is approved or built.
+A [pilot](../studies/emergency-claim-pilot.md) of option A ended the HX11 wait at 59.7 s in one run.
 The maintainer chose this note as the next step after the HX11 failure.
 
 ## The problem

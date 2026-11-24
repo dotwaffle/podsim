@@ -335,7 +335,7 @@ So it can send a pod past nearer berths.
 - A variant that keeps the local pass, ranks remote berths by the preferred route cost, and keeps the refusal of a targeted berth needs no change of the claim rules, and needs approval as a change of ordinary traffic.
 - It does not solve a block with no eligible place.
 
-A matched pilot of the control, option A, this variant, and both is the next evidence.
+The [matched pilot](../studies/emergency-claim-pilot.md) of the control, option A, this variant, and both found that the claim of HX11 came from this function, and that option A ends the wait.
 
 ### 9.4 What the opinions did not settle
 

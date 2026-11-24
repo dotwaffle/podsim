@@ -897,7 +897,7 @@ Four rules make the wait:
 Devons Road is not a hub, and the claim is not of an Express pod.
 The rules are the same on each preset, so the failure is not specific to the wharf lines (inferred).
 The trace does not show whether a waiting trip named `london-pod-152`, or whether the claim of `london-pod-113` was guarded positioning or a move to clear a berth.
-That the claim would be revocable is inferred.
+The [pilot](emergency-claim-pilot.md) later showed that it was a revocable claim of berth clearing.
 No run has tested a change.
 
 ## Redistribution and reassignment on by default
