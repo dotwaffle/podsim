@@ -1,8 +1,8 @@
 # Express wharf qualification proposal
 
-Status: proposed on 2026-11-24.
-The maintainer has approved no row and no decision of this document.
-No evidence run of these rows has started.
+Status: approved by the maintainer on 2026-11-24, rows HX1 to HX13.
+The preset is not qualified while a row is open, and no evidence run has started.
+The maintainer chose option A of HX-D1 and HX-D3 to HX-D6, and option C of HX-D2.
 
 ## Scope
 
@@ -64,7 +64,7 @@ B1 does not apply, because the preset has no banks.
 - `test:shared-express` took 292 s by hand.
   A copy of it for the preset adds about the same time (inferred).
 
-## Decisions for the maintainer
+## Decisions
 
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
@@ -74,6 +74,11 @@ B1 does not apply, because the preset has no banks.
 | HX-D4 | History rollover in HX8 | A: the exception that the maintainer accepted for SX8 applies if the directed runs show that the preset does not reach rollover. B: the row needs rollover. | A |
 | HX-D5 | Where the long tests run | A: a new task `test:wharf-express` with its own CI job. B: more patterns in `test:shared-express`. | A, because a job has its own limit and the tests run in parallel. |
 | HX-D6 | The Chrome checks of HX6, HX7, and HX9 | A: one session by the maintainer on one commit, after all the other rows pass. B: one session for each row. | A |
+
+For HX-D2, option C puts the preset in the place of `london-full-shared-express` in the defaults of `mise run soak:full`.
+The rule of amendment A19 applies to each default preset and lists none by name, so its text does not change.
+SX11 does not change either: it still needs 2 seeds of `london-full-shared-express` before a release tag, and `soak:full` does not run them after the swap.
+How SX11 gets that run is open (HX-D7).
 
 Approval of a row does not authorize a push.
 Each long run needs a grant when it starts.

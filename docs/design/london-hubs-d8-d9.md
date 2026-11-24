@@ -9,7 +9,7 @@ Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists.
 Batch 2 ran, and the lighter batch meets BT-D10 ([results](../studies/shared-track-batch.md)), so the maintainer started slice 3 on 2026-11-24.
 Slice 3 is built: the preset `london-full-shared-express-wharf` has the pair of section 9, with HB-D13 and HB-D14.
 It is not qualified.
-The [Express wharf qualification](../contracts/express-wharf-qualification-proposal.md) proposal gives the rows of section 4.4 for approval (slice 5).
+The [Express wharf qualification](../contracts/express-wharf-qualification-proposal.md) contract gives the rows of section 4.4 (slice 5), approved on 2026-11-24.
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
 
