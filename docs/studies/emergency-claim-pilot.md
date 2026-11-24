@@ -96,8 +96,9 @@ The control of seed 2 is late on record `i1.17`.
 `express-08` was bound, with the wait "Junction traffic", and blocked by the traveling `london-pod-148`, from tick 50804.
 It waited 699.9 s not blocked by a fault, against the 600 s limit.
 N does not change it.
-Option A does not act on it, as the blocker is not a claim of a berth, so the release seeds of HX11 can fail with option A in place.
-No trace of it exists, and the pilot of option A had only seed 1.
+Its cause is not known.
+A conflict on a berth node also reports "Junction traffic", so a claim is possible, and no run shows whether option A changes it.
+The pilot of option A had only seed 1, so the release seeds of HX11 can fail with option A in place.
 
 ## What it does not show
 
