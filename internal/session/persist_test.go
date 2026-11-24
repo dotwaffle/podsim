@@ -1938,6 +1938,25 @@ func TestLogRestoredEarlierRestore(t *testing.T) {
 	})
 }
 
+// TestLogRestoredDroppedLatches checks the log of a restore that dropped
+// reversal dwell latches. The fixtures of a dropped latch are in package
+// sim, so the test gives logRestored the result.
+func TestLogRestoredDroppedLatches(t *testing.T) {
+	t.Parallel()
+	handler := &recordHandler{}
+	s, err := NewWithProject(project.Default(), WithLogger(slog.New(handler)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(s.Close)
+	s.restore = RestoreInfo{Tier: string(sim.RestorePhysical)}
+	s.logRestored(restoredInput{loaded: &loadedState{result: sim.RestoreResult{Tier: sim.RestorePhysical, DroppedLatches: []string{"02", "07"}}}})
+	checkRecords(t, handler, []wantRecord{
+		{slog.LevelInfo, "Restored session", map[string]any{"tier": "physical"}},
+		{slog.LevelInfo, "Restored pods without their saved reversal dwell", map[string]any{"pods": []string{"02", "07"}}},
+	})
+}
+
 func TestStateSaverNudge(t *testing.T) {
 	t.Parallel()
 	demand := func(change int) Command {

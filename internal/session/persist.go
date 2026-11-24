@@ -778,6 +778,9 @@ func (s *Session) logRestored(input restoredInput) {
 		s.logger.Info("Restored pods without their saved motion",
 			slog.Any("atRest", result.AtRest), slog.Bool("earlierRestore", result.EarlierRestore))
 	}
+	if len(result.DroppedLatches) > 0 {
+		s.logger.Info("Restored pods without their saved reversal dwell", slog.Any("pods", result.DroppedLatches))
+	}
 	if info.Unaccounted > 0 {
 		s.logger.Warn("Saved session state has unaccounted orders", slog.Int("unaccounted", info.Unaccounted))
 	}

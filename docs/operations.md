@@ -870,6 +870,9 @@ With `-state`, the server writes these log records at startup:
   `earlierRestore` is true when the whole save restored as before version 13.
   Then `atRest` is empty, because that restore has no saved speeds or leads.
   The `restore` object of the state frame does not have these values.
+- `Restored pods without their saved reversal dwell` (INFO) follows `Restored session` when the `physical` tier dropped the saved reversal dwell of a traveling pod, because it does not agree with the restored position.
+  `pods` gives the IDs of these pods, in saved pod order.
+  The `restore` object of the state frame does not have this value.
 - `Saved session state has unaccounted orders` (WARN) follows `Restored session` when the saved state submitted orders that it did not hold.
   It gives their number in `unaccounted`.
   The server does not make up these orders, so each later restore gives this record again.
