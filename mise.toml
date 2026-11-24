@@ -131,7 +131,7 @@ go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonExpressRemoteL
 '''
 
 # The qualification tests of the london-full-shared-express-wharf preset
-# (rows HX2 to HX9). Most of them skip under -race and with -short, so check
+# (rows HX2 to HX9, and the soak driver of HX10 and HX11). Most of them skip under -race and with -short, so check
 # and a CI job of its own run this task. Each pattern names each test,
 # because a pattern that matches no test passes. Add a new test of these
 # rows here.
@@ -140,7 +140,7 @@ description = "Run the qualification tests of the wharf Express preset without t
 run = '''
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestWharfExpressEnvelopeRun|TestWharfExpressShapePairSweep|TestWharfExpressDwell|TestWharfExpressOccupiedPickupPolicy|TestEnvelopeSupportOneNode|TestEnvelopeSupportChain)$' || exit 1
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestEnvelopeSupportMixedSmall|TestEnvelopeReachHoldsEnvelope|TestEnvelopeMatchesReference)$/^london-full-shared-express-wharf$' || exit 1
-go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonWharfExpressPhysicalCheckpoints|TestLondonWharfExpressIncidentFixtures|TestLondonWharfExpressByteBounds|TestLondonWharfExpressRecoveryChain)$' || exit 1
+go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonWharfExpressPhysicalCheckpoints|TestLondonWharfExpressIncidentFixtures|TestLondonWharfExpressByteBounds|TestLondonWharfExpressRecoveryChain|TestSoakLondonWharfExpressParties|TestSoakLondonWharfExpressDriver)$' || exit 1
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonWharfExpressRemoteLoads|TestLondonWharfExpressRemoteRecovery)$'
 '''
 

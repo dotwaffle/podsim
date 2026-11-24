@@ -34,15 +34,24 @@ const soakLondonExpressPreset = "london-full-express"
 // PODSIM_SOAK_PRESETS selects it.
 const soakLondonSharedExpressPreset = "london-full-shared-express"
 
+// soakLondonWharfExpressPreset is the opt-in LondonFull Shared Express Wharf
+// preset. Rows HX10 and HX11 of the wharf qualification run it as the
+// shared-track preset runs, with a second stream of hub parties (decision
+// HX-D3). Only an explicit PODSIM_SOAK_PRESETS selects it.
+const soakLondonWharfExpressPreset = "london-full-shared-express-wharf"
+
 // soakLondonHubPreset reports whether preset is a London Express preset
 // with the hub party orders and the soak shape of the London soak row.
 func soakLondonHubPreset(preset string) bool {
-	return preset == soakLondonExpressPreset || preset == soakLondonSharedExpressPreset
+	return preset == soakLondonExpressPreset || preset == soakLondonSharedExpressPreset || preset == soakLondonWharfExpressPreset
 }
 
 // soakSharedExpress generates the shared-track preset one time for each
 // test process. soakPreset returns a copy for each run.
 var soakSharedExpress = sync.OnceValues(scenarios.GenerateLondonFullSharedExpress)
+
+// soakWharfExpress is soakSharedExpress for the wharf preset.
+var soakWharfExpress = sync.OnceValues(scenarios.GenerateLondonFullSharedExpressWharf)
 
 // soakLondonExpressArms lists the arms of the London Express row of the
 // qualification proposal, with the low-demand group. LondonFull sets the
@@ -112,6 +121,12 @@ const (
 	// the London Express preset. With a mean party of 10.5, it gives about
 	// 42 passengers a minute, the hub rate of the screen of project D.
 	soakHubPartyInterval = 15 * sim.TicksPerSecond
+	// soakWharfPartyInterval and soakWharfOutbound are the mean time and the
+	// outbound share of the hub party orders between London Bridge and Canary
+	// Wharf (decision HX-D3). With a mean party of 10.5, they give about 19.1
+	// passengers a minute out and 3.4 back, near the AM peak.
+	soakWharfPartyInterval = 28 * sim.TicksPerSecond
+	soakWharfOutbound      = 0.85
 	// soakPartySeats is the seats of an Express pod. A load above it has standees.
 	soakPartySeats = 12
 )
@@ -133,6 +148,9 @@ type soakParties struct {
 	mean     int64
 	hub      bool
 	outbound float64
+	// second holds the orders of the second line of the wharf preset. Its
+	// stream is its own, and the first line has the stream of D.
+	second *soakParties
 	// accepted and refused count the orders. passengers counts the passengers of
 	// the accepted orders.
 	accepted, refused, passengers int
@@ -147,7 +165,8 @@ type soakParties struct {
 // newSoakParties returns nil for each project that has no party order. On the
 // London Express preset, the orders go between the hubs, three in four from
 // the first service, and the low-demand arms send one order a minute, half in
-// each direction.
+// each direction. On the wharf preset, the second line has the same orders at
+// its own rate.
 func newSoakParties(input soakInput, config project.Config, tick int64) *soakParties {
 	if input.preset != soakExpressPartiesPreset && !soakLondonHubPreset(input.preset) {
 		return nil
@@ -166,6 +185,13 @@ func newSoakParties(input soakInput, config project.Config, tick int64) *soakPar
 		}
 	}
 	p.next = tick + p.interval()
+	if input.preset == soakLondonWharfExpressPreset {
+		p.second = &soakParties{rng: rand.New(rand.NewPCG(input.seed, 0x57484152+input.branch)), services: config.ExpressServices[2:], hub: true, mean: soakWharfPartyInterval, outbound: soakWharfOutbound}
+		if input.arm.perMinute != 0 {
+			p.second.mean, p.second.outbound = soakPartyInterval, 0.5
+		}
+		p.second.next = tick + p.second.interval()
+	}
 	return p
 }
 
@@ -201,6 +227,17 @@ func (p *soakParties) run(d *soakDriver, tick int64) {
 	if p == nil {
 		return
 	}
+	p.send(d, tick)
+	if p.second != nil {
+		p.second.send(d, tick)
+	}
+	if tick%soakViewTicks == 0 {
+		p.read(d.s.simulation.Snapshot())
+	}
+}
+
+// send sends the order that is due.
+func (p *soakParties) send(d *soakDriver, tick int64) {
 	if tick >= p.next && d.s.simulation.PendingCount() < QueueLimit {
 		p.next = tick + p.interval()
 		command := p.order()
@@ -211,9 +248,6 @@ func (p *soakParties) run(d *soakDriver, tick int64) {
 			p.accepted++
 			p.passengers += command.PartySize
 		}
-	}
-	if tick%soakViewTicks == 0 {
-		p.read(d.s.simulation.Snapshot())
 	}
 }
 
@@ -253,6 +287,9 @@ func (p *soakParties) log(t *testing.T, input soakInput) {
 		return
 	}
 	t.Logf("parties preset=%s arm=%s seed=%d branch=%d accepted=%d refused=%d passengers=%d peakLoad=%d peakParties=%d standeeSeconds=%d standeeFaults=%d standeeEmergencies=%d", input.preset, input.arm.name, input.seed, input.branch, p.accepted, p.refused, p.passengers, p.peak, p.peakParties, p.standeeSeconds, len(p.faults), len(p.emergencies))
+	if q := p.second; q != nil {
+		t.Logf("second line parties preset=%s arm=%s seed=%d branch=%d accepted=%d refused=%d passengers=%d", input.preset, input.arm.name, input.seed, input.branch, q.accepted, q.refused, q.passengers)
+	}
 }
 
 // TestSoakExpressProject checks that the project of the Express soak has only
@@ -277,7 +314,7 @@ func TestSoakExpressProject(t *testing.T) {
 			t.Errorf("rail-hub has the Express pod %s", pod.ID)
 		}
 	}
-	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset, soakLondonExpressPreset, soakLondonSharedExpressPreset} {
+	for _, name := range []string{soakExpressPreset, soakExpressPartiesPreset, soakLondonExpressPreset, soakLondonSharedExpressPreset, soakLondonWharfExpressPreset} {
 		if slices.Contains(strings.Split(soakDefaultPresets, ","), name) {
 			t.Errorf("the default presets %q hold the Express project %s", soakDefaultPresets, name)
 		}
@@ -444,6 +481,75 @@ func TestSoakLondonSharedExpressDriver(t *testing.T) {
 	d.runHours()
 	d.clearAndSettle()
 	if r := d.result; d.parties.accepted == 0 || r.refused != 0 || r.saves != 1 || r.demoted != 0 || len(r.misses) != 0 {
+		t.Fatalf("the driver result is %+v, parties %+v", r, d.parties)
+	}
+	if ticks := d.s.simulation.Tick(); int64(d.lateralChecks) < ticks {
+		t.Fatalf("%d ticks have %d runs of the D6 oracle", ticks, d.lateralChecks)
+	}
+}
+
+// TestSoakLondonWharfExpressParties checks the two party streams of the wharf
+// preset (decision HX-D3): the first line has the orders of the shared-track
+// preset, and the second line has its own rate and share.
+func TestSoakLondonWharfExpressParties(t *testing.T) {
+	t.Parallel()
+	config, err := soakWharfExpress()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		arm      string
+		mean     int64
+		outbound float64
+	}{
+		{"incidents", 28 * sim.TicksPerSecond, 0.85},
+		{"reference-low-demand", 60 * sim.TicksPerSecond, 0.5},
+	} {
+		input := soakInput{preset: soakLondonWharfExpressPreset, arm: soakArms[test.arm], seed: 1}
+		p := newSoakParties(input, config, 0)
+		input.preset = soakLondonSharedExpressPreset
+		shared := newSoakParties(input, config, 0)
+		if p == nil || p.second == nil || p.second.mean != test.mean || p.second.outbound != test.outbound || shared.second != nil || p.next != shared.next {
+			t.Fatalf("%s: parties %+v, want the first stream of %+v", test.arm, p, shared)
+		}
+		for range 100 {
+			if got, want := p.order(), shared.order(); got != want {
+				t.Fatalf("%s: first line order %+v, want %+v", test.arm, got, want)
+			}
+		}
+		out := 0
+		const orders = 4000
+		for range orders {
+			command := p.second.order()
+			switch [2]string{command.Origin, command.Destination} {
+			case [2]string{"940GZZLULNB", "940GZZLUCYF"}:
+				out++
+			case [2]string{"940GZZLUCYF", "940GZZLULNB"}:
+			default:
+				t.Fatalf("%s: order %+v", test.arm, command)
+			}
+		}
+		if share := float64(out) / orders; share < test.outbound-0.03 || share > test.outbound+0.03 {
+			t.Errorf("%s: outbound share %.3f, want about %.2f", test.arm, share, test.outbound)
+		}
+	}
+}
+
+// TestSoakLondonWharfExpressDriver is TestSoakLondonSharedExpressDriver on
+// the wharf preset, with orders on both lines. The test:wharf-express task
+// runs this test.
+func TestSoakLondonWharfExpressDriver(t *testing.T) {
+	t.Parallel()
+	if testing.Short() || raceEnabled {
+		t.Skip("a LondonFull session, and one simulation on one goroutine")
+	}
+	input := soakInput{preset: soakLondonWharfExpressPreset, arm: soakArms["reference"], seed: 1, hours: 0.02, checks: true, settle: 60 * sim.TicksPerSecond}
+	d := newSoakDriver(t, input)
+	d.nextSave = 40 * sim.TicksPerSecond
+	d.parties.next, d.parties.second.next = 1, 1
+	d.runHours()
+	d.clearAndSettle()
+	if r := d.result; d.parties.accepted == 0 || d.parties.second.accepted == 0 || r.refused != 0 || r.saves != 1 || r.demoted != 0 || len(r.misses) != 0 {
 		t.Fatalf("the driver result is %+v, parties %+v", r, d.parties)
 	}
 	if ticks := d.s.simulation.Tick(); int64(d.lateralChecks) < ticks {

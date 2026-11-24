@@ -1062,9 +1062,9 @@ Select both names through `PODSIM_SOAK_ARMS` to run only this group with its que
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
-The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full-express`, and `london-full-shared-express`, with the full check at each tick.
+The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full-express`, `london-full-shared-express`, and `london-full-shared-express-wharf`, with the full check at each tick.
 The `soak:full` task runs 2 seeds of 6 simulated hours (amendment A19) with the full check at each tick, on `rail-hub`, `london-central`, `london-full-express`, and `london-full-shared-express` unless `PODSIM_SOAK_PRESETS` names others.
-On `london-central` and the two London Express presets, it runs no platoon arm, because these presets already set the platoon limit of those arms.
+On `london-central` and the London Express presets, it runs no platoon arm, because these presets already set the platoon limit of those arms.
 On each project, each check of the soak also runs the D6 oracle of the [shape clearance](design/shape-clearance.md) design, so it runs at each tick.
 This run keeps the wall limit of 2 hours.
 By amendment A19, a run that the limit stops fails.
@@ -1080,7 +1080,7 @@ These variables change a run:
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. `london-full-express` selects the LondonFull Express row of the [qualification proposal](contracts/express-london-qualification-proposal.md), with hub party orders from the driver. `london-full-shared-express` selects the same row on the LondonFull Shared Express preset, for the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md). | `rail-hub,london-central` |
+| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. `london-full-express` selects the LondonFull Express row of the [qualification proposal](contracts/express-london-qualification-proposal.md), with hub party orders from the driver. `london-full-shared-express` selects the same row on the LondonFull Shared Express preset, for the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md). `london-full-shared-express-wharf` selects it on the wharf preset, with hub parties on both lines, for the [wharf qualification](contracts/express-wharf-qualification-proposal.md). | `rail-hub,london-central` |
 | `PODSIM_SOAK_ARMS` | The arms, with commas. A branch of an arm reads the queue range of a reference arm only when the list holds it. | The arms of the shape and the preset |
 | `PODSIM_SOAK_SHAPE` | `branches`, or `seeds` for the shape of amendment A6. | `branches` |
 | `PODSIM_SOAK_EVERY_TICK` | `1` runs the full check at each tick. | Off |

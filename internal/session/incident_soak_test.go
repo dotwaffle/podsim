@@ -88,6 +88,12 @@ func soakPreset(t *testing.T, name string) project.Config {
 			t.Fatal(err)
 		}
 		config = project.Clone(shared)
+	case soakLondonWharfExpressPreset:
+		wharf, err := soakWharfExpress()
+		if err != nil {
+			t.Fatal(err)
+		}
+		config = project.Clone(wharf)
 	case "fleet-300", "fleet-1000":
 		// No preset has the fleet of the worst-case rows of section 5.1.9.
 		pods, err := strconv.Atoi(strings.TrimPrefix(name, "fleet-"))
@@ -1226,7 +1232,7 @@ var soakGroups = []struct {
 }{
 	{"reference", []string{"incidents", "emergencies"}, nil},
 	{"reference-platoons", []string{"platoons"}, nil},
-	{"reference-low-demand", []string{"incidents-low-demand"}, []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset}},
+	{"reference-low-demand", []string{"incidents-low-demand"}, []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset, soakLondonWharfExpressPreset}},
 }
 
 // soakDefaultPresets lists the presets of a soak that selects none.
@@ -1446,7 +1452,8 @@ func runSoakGroup(t *testing.T, input soakInput, shape soakShape, reference stri
 // hour, with the sampler only, and with the full check at each tick. It runs
 // on the rail-hub preset, and amendment A16 adds the London Express preset,
 // with its hub party orders. Row SX11 of the shared-track qualification adds
-// the LondonFull Shared Express preset, with the D6 oracle at each tick. The row names no preset, and a london-central
+// the LondonFull Shared Express preset, with the D6 oracle at each tick, and row
+// HX11 of the wharf qualification adds the wharf preset. The row names no preset, and a london-central
 // run takes an estimated 20 to 30 CPU minutes
 // (docs/studies/incident-soak.md), too long for one job of the qualify task.
 // mise run qualify runs this test.
@@ -1458,7 +1465,7 @@ func TestIncidentSoakCI(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("one simulation on one goroutine, so the race detector finds nothing, and a long test")
 	}
-	for _, preset := range []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset} {
+	for _, preset := range []string{"rail-hub", soakLondonExpressPreset, soakLondonSharedExpressPreset, soakLondonWharfExpressPreset} {
 		t.Run(preset, func(t *testing.T) {
 			t.Parallel()
 			reference := runSoak(t, soakInput{preset: preset, arm: soakArms["reference"], seed: 1, hours: 1})
@@ -2276,6 +2283,8 @@ func TestSoakShape(t *testing.T) {
 		{"seeds", "london-central", soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"seeds", soakLondonExpressPreset, soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"branches", soakLondonSharedExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
+		{"branches", soakLondonWharfExpressPreset, soakShape{seeds: 1, warmTicks: 30 * minute, branches: 3, hours: 1, rewindEvery: 10 * minute, arms: []string{"incidents", "emergencies", "incidents-low-demand", "reference", "reference-low-demand"}}},
+		{"seeds", soakLondonWharfExpressPreset, soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 		{"seeds", soakLondonSharedExpressPreset, soakShape{seeds: 2, branches: 1, hours: 6, rewindEvery: 60 * minute, arms: []string{"incidents", "emergencies", "reference"}}},
 	}
 	for _, test := range tests {
@@ -2288,7 +2297,7 @@ func TestSoakShape(t *testing.T) {
 		t.Error("an unknown shape gives no error")
 	}
 	// The shapes drop the platoon arms only where they repeat other arms.
-	for _, preset := range []string{"london-central", soakLondonExpressPreset, soakLondonSharedExpressPreset} {
+	for _, preset := range []string{"london-central", soakLondonExpressPreset, soakLondonSharedExpressPreset, soakLondonWharfExpressPreset} {
 		if limit := soakPreset(t, preset).PlatoonLimit; limit != soakPlatoonLimit {
 			t.Errorf("%s: platoon limit %d, the platoon arms set %d", preset, limit, soakPlatoonLimit)
 		}
