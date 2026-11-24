@@ -1,7 +1,8 @@
 # Station pod limit
 
 Status: the maintainer decided SP-D1 A, SP-D2 A, and SP-D3 A on 2026-11-24.
-Nothing is built, and the pilot of C1 is not recorded yet.
+Nothing is built.
+The [pilot of C1](#pilot-of-c1) is complete, and what follows from it is not decided.
 
 This note is about the block on link 100 in the [shared track batch](../studies/shared-track-batch.md#the-block-in-lf).
 The study calls it option C: a limit on the pods that go to a station.
@@ -63,6 +64,38 @@ The pilot answers these questions:
 
 A pilot of 6 runs or fewer fits the study brief cap: `k` of 2, 3, and 4 on seed 1, and the best of them on seeds 2 and 3, against the runs of the study.
 A failure of any safety check stops it.
+
+## Pilot of C1
+
+The pilot of 2026-11-24 used 6 runs of `LF` at `21f5ec3a` and `60ec75d2` (the simulation code is the same), with a scratch patch that did not land.
+The patch refuses a pickup when the pods whose destination is the station are at least `k` times its berths.
+It does not refuse a pod that is at the pickup or that already goes to the station.
+The workload is the screen in `am-peak` with `-hub-mean 60s`, a hub stream at 1/4 of the rate of the batch.
+It is not the same event set as the 1 in 4 of the probe.
+One run of seed 1 has no limit.
+
+| Seed | `k` | Submitted | Completed | Outstanding | Refused events | Mean background wait (s) | Mean hub passenger wait (s) | Most pods bound for Waterloo | Blocked pod-seconds |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | None | 1,188 | 866 | 322 | 271 | 741 | 854 | 107 | 3,184,946 |
+| 1 | 2 | 1,531 | 1,531 | 0 | 0 | 315 | 1,619 | 18 | 109,307 |
+| 1 | 3 | 1,531 | 1,531 | 0 | 0 | 317 | 1,645 | 19 | 168,180 |
+| 1 | 4 | 1,531 | 1,531 | 0 | 0 | 324 | 1,624 | 25 | 216,199 |
+| 2 | 2 | 1,603 | 1,603 | 0 | 5 | 310 | 1,833 | 18 | 120,877 |
+| 3 | 2 | 1,540 | 1,540 | 0 | 0 | 273 | 1,026 | 18 | 104,158 |
+
+- No run has a safety failure.
+- The first question has a yes in each patched run: `LF` finishes, and the run with no limit blocks in seed 1.
+  Seeds 2 and 3 have no run with no limit at this rate.
+- The second question has a no: the pods bound for Waterloo pass 10, 15, and 20, because loaded trips have no limit.
+  The block does not form at these counts.
+- The three values of `k` are too close to separate in one seed.
+- The waits of the run with no limit cover only the requests that boarded, so they are not comparable with the others.
+- The hub line from Waterloo to Bank stays short of capacity: its parties wait 1,317 to 2,250 s on average in the three seeds at `k` of 2.
+  The limit stops the block and adds no capacity.
+- The third question is open.
+  The run with no limit blocks, so no pair gives the individual limits, and the full hub stream has no run.
+
+The patch counts the pods for each refused send, 10.9 to 23.1 million sends in a run, so a build needs a cached count.
 
 ## Decisions for the maintainer
 
