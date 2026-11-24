@@ -128,6 +128,30 @@ When each berth has a pod that goes to it, the head pod has no choice.
 The rule is from `73dbd0fb`.
 The runs do not show that a change of this rule stops the block: a pod that takes a free berth gives the loop one more place, and the overload stays.
 
+### A pilot of a smaller berth rule
+
+The maintainer asked for a pilot of option A (BT-D8), as a patch that did not land.
+The patch changes `berthAvailableFor` so that a pod whose reservation has not reached a lane of its destination station, and which has no claim, does not refuse a berth.
+The runs use the batch workload in the `am-peak` band, at `ec479003`.
+
+| Arm | Seed | Completed | Outstanding | Refused events | Hub passengers finished | Mean background wait (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `LF` | 1 | 368 | 343 | 1,063 | 95 | 1,234 |
+| `LF` with the patch | 1 | 350 | 357 | 1,072 | 116 | 1,028 |
+| `LF` with the patch | 2 | 397 | 353 | 1,051 | 138 | 1,036 |
+| `LF` with the patch | 3 | 350 | 356 | 1,138 | 114 | 1,144 |
+| `S` | 1 | 1,635 | 0 | 0 | 4,393 | 219 |
+| `S` with the patch | 1 | 1,635 | 0 | 0 | 4,393 | 216 |
+
+The batch has 431 and 361 completed, and 327 and 342 outstanding, for `LF` in seeds 2 and 3.
+`LF` still stops with the patch, and it completes fewer orders in each seed.
+The waits of `LF` cover only the requests that boarded.
+In `S` with the patch, the mean hub wait is 95 s from Waterloo against 166 s, and 46 s from Bank against 71 s, in one seed.
+No run has a safety failure.
+The unpatched `LF` and `S` runs of seed 1 give the order counts and the measures of the batch.
+The study does not trace the patched runs, so it does not show if the head pod then takes a free berth.
+So the refusal of free berths is not enough to explain the block.
+
 ## Not tested
 
 - A workload that `LF` and `S0` can carry, so the effect of the Express pods in `S` at such a load is not known.
