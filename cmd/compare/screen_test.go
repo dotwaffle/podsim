@@ -363,6 +363,33 @@ func TestScreenRun(t *testing.T) {
 	}
 }
 
+// TestScreenUnsubmitted checks that an event that an arm did not submit did
+// not board and did not finish. An arm of no ticks submits no event.
+func TestScreenUnsubmitted(t *testing.T) {
+	t.Parallel()
+	known := screenKnownLines(screenHubMean)
+	configs, err := screenConfigs([]string{screenLondonFull}, known)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := []screenEvent{
+		{Tick: 5, From: screenBank, To: screenWaterloo, Size: 1},
+		{ID: 1, Tick: 5, From: screenWaterloo, To: screenBank, Size: 4, Hub: true, Outbound: true},
+	}
+	arm, err := runScreenArm(screenArmInput{config: configs[0], bandID: scenarios.LondonFull().DemandProfiles[0].Bands[0].ID, events: events, lines: known[:1], queueLimit: 200, checkTicks: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, outcome := range arm.Outcomes {
+		if want := (screenOutcome{WaitTicks: -1, JourneyTicks: -1}); !reflect.DeepEqual(outcome, want) {
+			t.Errorf("event %d: %+v, want %+v", index, outcome, want)
+		}
+	}
+	if hub := arm.Measures.Lines[0].Outbound; hub.TotalParties != 0 || hub.Wait.Count != 0 || arm.Measures.BackgroundWait.Count != 0 {
+		t.Errorf("an unsubmitted event counts: hub %+v, background %+v", hub, arm.Measures.BackgroundWait)
+	}
+}
+
 func TestParseScreenOptions(t *testing.T) {
 	t.Parallel()
 	opts, err := parseScreenOptions(nil, &bytes.Buffer{})

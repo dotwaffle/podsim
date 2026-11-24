@@ -461,7 +461,8 @@ type screenArmInput struct {
 // the queue limit refused the whole event. Partial means that the
 // simulation refused a part after it accepted another part. WaitTicks and
 // JourneyTicks are -1 for an event with a part that did not board or did not
-// finish.
+// finish. An event that the arm did not submit has no orders, both values
+// are -1, and Refused is false.
 type screenOutcome struct {
 	Refused bool `json:"refused,omitzero"`
 	// Error is the error of the simulation for a refused order, or "" for
@@ -494,6 +495,12 @@ type screenArm struct {
 	Outcomes []screenOutcome `json:"-"`
 }
 
+// screenUnsubmitted returns the outcomes of count events before the arm
+// submits them. An arm that stops early keeps them for the later events.
+func screenUnsubmitted(count int) []screenOutcome {
+	return slices.Repeat([]screenOutcome{{WaitTicks: -1, JourneyTicks: -1}}, count)
+}
+
 // runScreenArm runs one arm. A safety, contract, or accounting failure
 // stops the arm and sets Failure. Other errors stop the screen.
 func runScreenArm(input screenArmInput) (screenArm, error) {
@@ -518,7 +525,7 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 	if err != nil {
 		return screenArm{}, fmt.Errorf("%s: %w", input.config.name, err)
 	}
-	arm := screenArm{Config: input.config.name, Band: input.bandID, Seed: input.seed, Outcomes: make([]screenOutcome, len(input.events))}
+	arm := screenArm{Config: input.config.name, Band: input.bandID, Seed: input.seed, Outcomes: screenUnsubmitted(len(input.events))}
 	classes := make(map[string]sim.VehicleClass, len(config.Fleet))
 	for _, pod := range config.Fleet {
 		classes[pod.ID] = pod.Class
