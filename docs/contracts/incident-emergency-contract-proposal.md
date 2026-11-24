@@ -1,7 +1,7 @@
 # Incident emergency contract proposal
 
 Status: Approved revision 7, October 6, 2026.
-Amended through 2026-11-13.
+Amended through 2026-11-24.
 Section 9.3.1, queue promotion, is an amendment that the maintainer approved on 2026-11-18.
 Git history holds the dated amendment notes and the earlier text.
 
@@ -45,7 +45,7 @@ Stage 3 starts after stage 2 patch 9, except patch 1 of section 16, which can la
 | Refuge travel (purpose 2), and P3, P4, and P11 beyond their stage 3 defaults | A later stage, if the maintainer chooses it (section 18.2) |
 | The scenario rate `perHour` above 0 | Stage 7 |
 | The full metric set | Stage 7 |
-| The revocation of a grant or a claim of another pod | Never (decision 1) |
+| The revocation of a grant of another pod | Never (decision 1). The exception of decision 2 of the stage 1 contract yields a service claim of a relocating pod before admission |
 
 The maintainer stopped the incident redesign after stage 3 on October 6, 2026, so stages 4 to 6 are out of scope, and the deferrals and refusals that this contract leaves to them stay in place.
 The maintainer reopened stage 7 on November 4, 2026, under [the stage 7 contract](incident-stage7-contract-proposal.md), as option B with amendments A1 to A4.
@@ -1501,7 +1501,7 @@ A binding decision, an approved contract, or a safety rule settles each row.
 
 | # | Requirement | Source |
 | --- | --- | --- |
-| R1 | The emergency pod gets free resources first and never takes an owned one. | Decision 1. |
+| R1 | The emergency pod gets free resources first and never takes an owned one. A service claim of a relocating pod can end before admission, by the exception of decision 2 of the stage 1 contract, and then it is not owned. | Decision 1. |
 | R2 | A coupling member stays in its train until the split at its committed split site. | Decision 2; stage 1, section 13. Physical coupling was removed on October 6, 2026. |
 | R3 | Every party leaves the pod at the emergency station. The party is interrupted. Each other party completes or is transferred, and can ride any pod. | `6227cf7:PROJECT_BRIEF.md:700-701`; decision 3; stage 1, section 9.5. |
 | R4 | Pending pickups of the pod go to other pods, with the exclusion until boarding. | Decision 4. |

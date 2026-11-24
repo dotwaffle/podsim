@@ -1,7 +1,7 @@
 # Incident suspension contract proposal
 
 Status: approved, revision 5, October 5, 2026, by the coordinator under the maintainer delegation of October 5, 2026, after blind Astra review rounds and an adversarial check.
-Amended through November 20, 2026.
+Amended through November 24, 2026.
 Git history holds the dated amendment notes and the earlier text.
 It also holds the review history.
 The approval changes no binding decision and no product choice beyond the maintainer-approved amendment D3 and the stage 2 defaults.
@@ -675,8 +675,9 @@ With an empty blocked set, each static form and its cached form give the same an
 - Stage 2 never withdraws a healthy pod and gives it no hold.
 - The route of a healthy pod changes for an incident only through the endpoint reroute (section 9.3).
   Ordinary terminal reevaluation is exempt: it stays active and can move an uncommitted pod to another free, reachable berth of the same station (section 9.3).
+  The parking search of a claimant that yields to the exception of decision 2 of the stage 1 contract is also exempt, and it can change the destination and the route.
 - A pickup bound to a healthy pod ends for an incident only through dispatch (section 9.4).
-- A healthy pod gives up a claim for an incident only through its own surrender of an unused service claim (section 9.5).
+- A healthy pod gives up a claim for an incident only through its own surrender of an unused service claim (section 9.5), or through the yield to the exception of decision 2 of the stage 1 contract.
 - Each wait report is derived again at each tick (section 9.6).
 - Recovery after the last clear is live only under the conditions of section 9.7.
 - Riders aboard a healthy pod leave it only at their stops.
@@ -892,7 +893,8 @@ The second phase is the existing admission, with terminal reevaluation (`interna
 
 The surrender keeps the route, the destination, `RelocatingTo`, and every other claim and grant.
 The saved `ClaimsDestination` flag records the result, as it records a yield of `yieldRelocationClaims`, so `claimDestinations` restores no surrendered claim.
-A withdrawn head still makes no other pod yield: a berth becomes free only by the choice of its own owner.
+The surrender makes no other pod yield.
+A bound emergency unload can make a pod yield before it, by the exception of decision 2 of the stage 1 contract.
 
 The deadlock of the second review (finding N1) ends as follows.
 A waiting head faults before it claims a berth, is evacuated, and clears.

@@ -35,9 +35,10 @@ func (s *Simulation) incidentOutstanding() bool {
 // after every claim producer of the tick. In pod ID order, each healthy
 // pod in no group that owns an unused service claim on its destination
 // berth and waits gives up that claim, so a pod that needs the berth can
-// take it in the second phase. A withdrawn head makes no other pod yield,
-// so only the owner gives up its claim. The pod keeps its route, its
-// destination, its relocation, and every other claim and grant.
+// take it in the second phase. This phase makes no pod yield for another
+// pod, so only the owner gives up its claim. A bound emergency can make a
+// claim yield before it (see passengerArrivals). The pod keeps its route,
+// its destination, its relocation, and every other claim and grant.
 func (s *Simulation) surrenderWaitingClaims() {
 	if !s.incidentOutstanding() {
 		return

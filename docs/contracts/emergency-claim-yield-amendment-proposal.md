@@ -1,9 +1,7 @@
 # Emergency claim yield amendment proposal
 
-Status: draft for the maintainer, 2026-11-24.
-The maintainer approved option A of the [emergency berth claim proposal](emergency-berth-claim-proposal.md) in principle on 2026-11-24, and asked to approve this text at the end.
-The text of the approved contracts does not change before that.
-The code is on the local branch with this draft and is not pushed.
+Status: approved by the maintainer on 2026-11-24.
+The contracts have the text, and `internal/sim/redistribution.go` has the code.
 
 ## The rule
 
@@ -68,11 +66,6 @@ The places are those of the contract documents on 2026-11-24.
 | Section 18.1, R1 | The emergency pod gets free resources first and never takes an owned one. | Add: "A service claim of a relocating pod can end before admission, by the exception, and then it is not owned." |
 
 The berth claim deadlock contract, P13, and the saved format do not change.
-
-## Documents to update on approval
-
-- `docs/model.md`: the sentence that an emergency never takes an owned resource keeps its admission rule and names the exception.
-- The comment of `surrenderWaitingClaims`.
 
 ## Evidence
 

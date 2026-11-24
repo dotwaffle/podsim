@@ -1,7 +1,7 @@
 # Incident service transitions contract proposal
 
 Status: approved on 2026-10-05, with the proposed default for each open question in section 18.
-Amended through 2026-11-14.
+Amended through 2026-11-24.
 Git history holds the dated amendment notes and the earlier text.
 
 Revised for item 7: one save family (version 9) and one stream family (hello 6, hello 7 since the motion-only deltas).
@@ -68,7 +68,9 @@ From the user, through the coordinator, October 4, 2026:
    A party that was aboard and is transferred after an emergency unload can use any pod, including the emergency pod once it is free.
    Transferred parties carry no exclusion state.
 2. Emergency priority means winning free resources first, and alternate entries.
-   It never revokes the claims of other vehicles.
+   It never revokes a grant or a protected claim of another vehicle.
+   By the maintainer's approval of 2026-11-24, a revocable service claim of a relocating pod in service yields to a traveling pod that is bound to an emergency unload at that berth and whose only hold is the emergency hold.
+   The rest of this document calls this the exception.
    Stage 1 therefore has no priority-driven revocation API.
    The claim classification is still needed for pickup release and for existing yield paths.
 3. A coupled train with an emergency splits at its already committed split site.
@@ -257,11 +259,11 @@ Each path below gets the test `v.withdrawn == 0`:
 | Berth clearing | `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` | A withdrawn idle pod is never moved as a blocker. The arrival keeps `BerthOccupied`. |
 | Released parking | `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` | Skips the pod. |
 | Claim yield to passengers | `internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims` | Skips a withdrawn relocating pod. |
-| Passenger arrivals | `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` | A withdrawn pod with riders is not a passenger arrival, so it cannot make a relocation claim yield (`(*Simulation).yieldRelocationClaims`). |
+| Passenger arrivals | `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` | A withdrawn pod with riders is not a passenger arrival, so it cannot make a relocation claim yield (`(*Simulation).yieldRelocationClaims`), other than the exception of decision 2. |
 
 Berth accounting does not change.
 A withdrawn pod keeps its grants and owners, and admission treats its requests as today.
-Section 6.2 gives the reason: decision 2 allows no yield for emergency demand.
+Section 6.2 gives the reason: decision 2 allows a yield for emergency demand only under its exception.
 
 ### 4.4 Caches
 
@@ -283,7 +285,7 @@ Amended 2026-11-14, by maintainer decision: the prepared network builds the pick
 - W1: `v.withdrawn &^ knownServiceHolds == 0`.
 - W2: no waiting trip has `request.PodID` equal to a withdrawn pod, and no waiting trip has `deferPodID` equal to a withdrawn pod.
   Section 5.1 clears active holds and stale deferral metadata alike.
-- W3: no path in section 4.3 selects, moves, or counts a withdrawn pod as supply, and no withdrawn pod authorizes a claim yield.
+- W3: no path in section 4.3 selects, moves, or counts a withdrawn pod as supply, and no withdrawn pod authorizes a claim yield, other than the exception of decision 2.
 - W4: a withdrawal changes no route, no physical destination, no speed, and no owner.
 - W5: `v.op.purpose != opService` implies that `v.op.owner` is one bit and `v.withdrawn&v.op.owner != 0`.
 
@@ -504,15 +506,18 @@ Borrowed track is owned by a pod ahead, so the borrower never holds it as its ow
 
 | Caller | Today | With the classification |
 | --- | --- | --- |
-| `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) | Releases both destination claims when a passenger arrival conflicts, one claim is held, and the destination is not admitted. | Skips a withdrawn relocating pod. The conflict test uses `passengerArrivals`, which no longer counts withdrawn pods (`(*Simulation).passengerArrivals`). Releases each destination claim for which `revocable` is true. |
+| `yieldRelocationClaims` (`internal/sim/redistribution.go` `(*Simulation).yieldRelocationClaims`) | Releases both destination claims when a passenger arrival conflicts, one claim is held, and the destination is not admitted. | Skips a withdrawn relocating pod. The conflict test uses `passengerArrivals`, which counts no withdrawn pod other than the exception of decision 2 (`(*Simulation).passengerArrivals`). Releases each destination claim for which `revocable` is true. |
 | `setOperationalDestination` (section 9.3) | New. | Releases each old destination claim of `v` itself for which `revocable` is true, as `redirect` does today. |
 
 Pickup release (section 5) releases no claim, so it is not a caller.
 
-Decision 2 means that emergency demand never authorizes a yield of another pod's claim.
-One existing path gives that authority to passenger demand, and it excludes withdrawn pods:
+Decision 2 means that emergency demand authorizes a yield of another pod's claim only under its exception.
+One existing path gives that authority, and it excludes each other withdrawn pod:
 
-- A withdrawn pod with riders is not a passenger arrival (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`), so it cannot make a relocating pod release its destination claims in `(*Simulation).yieldRelocationClaims`.
+- A withdrawn pod with riders is not a passenger arrival (`internal/sim/redistribution.go` `(*Simulation).passengerArrivals`), so it cannot make a relocating pod release its destination claims in `(*Simulation).yieldRelocationClaims`, other than the exception of decision 2.
+  The exception counts a pod whose purpose is an emergency unload and whose only hold is the emergency hold, at its destination berth.
+  A deferred record has no purpose, and a refuge, an empty recovery, or a pod with the fault hold does not count.
+  The yield then has its existing effects: a released or guarded-rebalancing claimant searches for another place, and a claimant that finds none keeps its route without the claim.
   The waiting-trip arrivals in `(*Simulation).passengerArrivals` cannot name a withdrawn pod, by W2.
 
 Physical berth accounting does not change.
@@ -1543,7 +1548,7 @@ Preconditions that later stages must meet before they call:
 | Pickup release | Section 5.5 | Section 5.5. |
 | Exclusion gates | Section 5.3, one fixture per row | The excluded pod never receives the trip. |
 | Cache key | Two trips with equal options and different exclusions in one pass | Different pods or one waits. |
-| No yield for emergency demand | An empty relocating pod holds an ordinary revocable destination claim. A withdrawn pod with riders goes to that berth, as a traveling arrival. | The claim stays. The withdrawn pod takes a free berth or waits. Control: the same fixture with an in-service passenger pod releases the claim. |
+| No yield for emergency demand | An empty relocating pod holds an ordinary revocable destination claim. A withdrawn pod with riders and no emergency binding goes to that berth, as a traveling arrival. | The claim stays. The withdrawn pod takes a free berth or waits. Controls: the same fixture with an in-service passenger pod, and with a bound emergency unload whose only hold is the emergency hold, releases the claim. |
 | Claim kinds | One resource per kind, including a follower retention and an admitted destination | `claimKind` returns the kind. Only `claimService` is revocable. |
 | Claim refactor equality | The existing yield suites | Same results. |
 | Leg origin readers | One test per "Physical" or "Both" row of section 7.4 | The reader uses `LegFrom`. |
@@ -1624,7 +1629,7 @@ The rows for `bufferClaimCanYield`, the coupling test of `claimKind`, buffer mem
 | Drop the withdrawal test | `guardedSupply`, `internal/sim/positioning.go` `(*Simulation).guardedSupply` |
 | Drop the withdrawal test | `clearBlockedBerths`, `internal/sim/parking.go` `(*Simulation).clearBlockedBerths` |
 | Drop the withdrawal test | `parkUnclaimedReleased`, `internal/sim/released.go` `(*Simulation).parkUnclaimedReleased` |
-| Count a withdrawn pod as a passenger arrival | `passengerArrivals`, `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` |
+| Count a withdrawn pod other than the exception of decision 2 as a passenger arrival | `passengerArrivals`, `internal/sim/redistribution.go` `(*Simulation).passengerArrivals` |
 | Let a withdrawn head pass the head test | `bufferClaimCanYield`, `internal/sim/station_buffer_claim.go` `(*Simulation).bufferClaimCanYield` |
 | Leave `deferPodID` set in `releasePickups` | New `releasePickups` |
 | Unbind a trip with stale deferral metadata | New `releasePickups` |

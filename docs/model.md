@@ -492,6 +492,7 @@ The pod leaves service, and its pending pickups go to other pods.
 A pod at a berth unloads there.
 A traveling pod goes to the passenger station with the soonest estimated arrival, which is not always the nearest, because the estimate counts queues as well as distance.
 While the emergency is active, the pod gets a free junction, track cell, or berth before other pods that request it in the same tick, but it never takes an owned one.
+Before that, an empty pod that is still on its way to the berth of a bound emergency unload gives up its claim on the berth, as it does for a passenger.
 The pods of its queue come next, before all other pods, and they also take only free resources.
 The queue holds each pod that owns a part of the route of the emergency pod up to its next junction, each pod that such a pod waits for, and the pods behind them in their platoons.
 
