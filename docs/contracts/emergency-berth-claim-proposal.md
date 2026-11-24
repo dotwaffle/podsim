@@ -24,6 +24,7 @@ An emergency pod is withdrawn, so `passengerArrivals` does not count it, and it 
 | An emergency pod wins free resources and never revokes a grant. | [Emergency](incident-emergency-contract-proposal.md), decision 1 and section 9.3 | It has priority for berth 01 only when the claim is gone. |
 | The station choice has no berth term. | Emergency, P13 and section 9.1 | The claim costs nothing in the choice. The reason given is that terminal reevaluation takes the next free berth. |
 | A waiting healthy pod surrenders its own service claim. | [Suspension](incident-suspension-contract-proposal.md), section 9.5 | The far pod was not waiting, so the rule does not apply to it. |
+| A claim of a healthy pod ends only through its own surrender, and a withdrawn head makes no other pod yield. | Suspension, section 9.5 and the rules before it | Option A conflicts with this too, and with the withdrawal rule W3 of service transitions. |
 | Berth clearing moves the pod that blocks the route of the arrival. | Suspension, section 9.4, and `clearBlockedBerths` | The blocker is the far pod, which is not idle. The idle pod in berth 02 is not the blocker. |
 
 Section 9.1 of the emergency contract relies on a next free berth.
@@ -40,11 +41,12 @@ In this state no berth is free, and no rule makes one free before the far pod ar
 | D | The claim surrender of section 9.5 also applies to a pod that does not wait but is far from its berth. | It keeps the wording that only the owner gives up its claim. | It depends on the distance of the owner and not on the demand of the emergency. It needs a distance constant, and it acts on pods that block nobody. |
 | E | No change, and an exception for HX11. | No code. | The Progress gate of the release soak then has a known miss, on rules that each preset has. |
 
-A larger change, that an empty move gets its berth at the approach, is in [late berth binding](../design/late-berth-binding.md).
+A larger change, that an empty move gets its berth at the approach, is in [late berth binding](../design/late-berth-binding.md), and it is closed and not pursued.
 
 ## Recommendation
 
-Option A, as an amendment of decision 2 that is limited to a revocable relocation claim and to purpose 1.
+Option A, as an amendment of decision 2 of service transitions and of the matching clauses of the suspension contract, limited to a revocable relocation claim and to purpose 1.
+An amendment of decision 2 alone leaves contradictory text.
 Decision 2 says that emergency priority "never revokes the claims of other vehicles", so option A narrows a decision of the maintainer of October 4, 2026, and needs their approval by name.
 Decision 1 of the emergency contract says "grants", and a relocation claim is not a grant, so that text can stay.
 Option C is a possible second step, only if a run with A still has a late record behind an idle pod.

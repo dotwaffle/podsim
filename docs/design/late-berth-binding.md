@@ -1,7 +1,8 @@
 # Late berth binding for empty moves
 
-Status: draft for the maintainer, 2026-11-24.
-Nothing is built or decided, and no run has tested this note.
+Status: closed, not pursued.
+The maintainer decided this on 2026-11-24, after the synthesis of section 9.
+Nothing is built, and no run has tested a candidate of this note.
 Two Codex reviews each found two blockers, in different candidate rules.
 No candidate of this note is sound as written, and section 4.8 groups the findings by cause.
 The maintainer asked if a pod can get its berth at the station approach and not at the start of its journey, and if idle pods can vacate when a pod joins the approach.
@@ -296,10 +297,49 @@ A failure of any safety check stops the work.
 The trace of step 2 did not settle the size.
 Option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md) is the smaller change.
 
-## 8. Decisions for the maintainer
+## 8. Decisions
 
-| ID | Question | Options | Recommendation |
+LB-D1 is closed: the maintainer chose to record the synthesis and not to pursue late binding.
+No other decision of this note is open.
+
+## 9. Synthesis
+
+Three opinions were compared: an analysis written first, a blind design with the earlier decisions lifted, and an adversarial check of both.
+
+### 9.1 Agreement
+
+- The full design is not justified by the HX11 record.
+  It takes away the only promise that an empty pod has a place, and replaces it with a promise of capacity that nobody has proved.
+- The smallest credible fix is option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md).
+  No run has shown that it fixes the record.
+- `grant` must not redirect a pod, because `admit` has already built the intents.
+  A displacement belongs before `admit`, as the existing yield is.
+
+### 9.2 Differences
+
+| Question | First analysis | Blind design | Check |
 | --- | --- | --- | --- |
-| LB-D1 | Continue | A: stop here, and use option A of the emergency note for the HX11 failure. B: a new design for the first three causes of 4.8, with the capacity rule first. | A, for its narrow scope and the documented HX11 failure, and not because claims are harmless, which is not measured |
+| What promises progress | A static audit that each divert point has a way out | A drain schedule that each admitted move keeps | Neither is needed for HX11. The static audit does not show that resources drain. The cost and permissiveness of the schedule are unknown. |
+| Approach order | The owner of the track | An explicit approach controller | Ownership does not give fairness or progress, and a controller is not shown to be necessary. |
+| Place to go | A cleared pod takes the first free passenger berth in network order, and the nearest could be better | Not raised | Plausible and unproved, see 9.3 |
 
-LB-D2 to LB-D5 of the first version were about the candidate rules, and no candidate is open.
+### 9.3 The nearest passenger berth
+
+`clearToPassengerBerth` is the last fallback of berth clearing.
+It tries the station of the pod, and then the other stations in network order.
+So it can send a pod past nearer berths.
+
+- The check found another producer of the same-looking claims: a depot arrival with no eligible slot, which `bindDepotArrivals` sends to `parkReleased`.
+  The trace of 4.7 cannot tell them apart.
+- That parking is usually full was not measured.
+- A variant that keeps the local pass, ranks remote berths by the preferred route cost, and keeps the refusal of a targeted berth needs no change of the claim rules, and needs approval as a change of ordinary traffic.
+- It does not solve a block with no eligible place.
+
+A matched pilot of the control, option A, this variant, and both is the next evidence.
+
+### 9.4 What the opinions did not settle
+
+- Whether any rule can promise progress at full parking with loaded pods behind an empty one.
+- The other three causes of 4.8.
+
+To reopen: a demonstrated failure of physical capacity after a small fix, and a stated liveness property before any mechanism.
