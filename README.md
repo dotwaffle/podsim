@@ -165,7 +165,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Failed; D adoption stopped on November 9, 2026, and D is not adopted. |
 | [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved and built. |
 | [Pickup swap state](docs/contracts/pickup-swap-state-proposal.md) | Save the pickup reassignment controller, decision EC-D9. Decided by the maintainer on 2026-11-24: not now. |
-| [Station pod limit proposal](docs/contracts/station-pod-limit-proposal.md) | Draft: an opt-in limit on the pods that dispatch sends to a station. Not approved. |
+| [Station pod limit proposal](docs/contracts/station-pod-limit-proposal.md) | Closed, no build: an opt-in limit on the pods that dispatch sends to a station. Has the pilots. |
 | [Late berth binding](docs/design/late-berth-binding.md) | Closed, not pursued: an empty move gets its berth at the station approach. Has the claim trace and the synthesis. |
 | [Emergency berth claim](docs/contracts/emergency-berth-claim-proposal.md) | Draft: options for an emergency pod that waits for a far empty pod with a claim on its berth. Not approved. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |

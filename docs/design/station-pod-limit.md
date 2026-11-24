@@ -2,7 +2,7 @@
 
 Status: the maintainer decided SP-D1 A, SP-D2 A, and SP-D3 A on 2026-11-24.
 Nothing is built.
-The [pilot of C1](#pilot-of-c1) is complete, and what follows from it is not decided.
+The [pilot of C1](#pilot-of-c1) is complete, and the maintainer decided on 2026-11-24 not to build the limit (PL-D1 C of the [proposal](../contracts/station-pod-limit-proposal.md)).
 
 This note is about the block on link 100 in the [shared track batch](../studies/shared-track-batch.md#the-block-in-lf).
 The study calls it option C: a limit on the pods that go to a station.

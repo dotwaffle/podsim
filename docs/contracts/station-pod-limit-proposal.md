@@ -1,6 +1,7 @@
 # Station pod limit proposal
 
-Status: draft for the maintainer, 2026-11-24.
+Status: closed on 2026-11-24, with no build.
+The maintainer chose PL-D1 C: keep the pilots as a record.
 Nothing is approved or built.
 A Codex review found that the first progress argument was not proved, and this version removes it.
 The [design note](../design/station-pod-limit.md) has the block, the options, and the pilots of option C1.
