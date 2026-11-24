@@ -1,7 +1,7 @@
 # Pickup swap state proposal
 
-Status: draft for the maintainer, 2026-11-24.
-Nothing is approved or built.
+Status: the maintainer decided PS-D1 B on 2026-11-24: keep the loss until another change needs a new state version.
+Nothing is built, and PS-D2 and PS-D3 have no effect while B holds.
 Decision EC-D9 of the [exact restore coordinates](exact-restore-coordinates-proposal.md) left this as a separate follow-up.
 
 ## The problem

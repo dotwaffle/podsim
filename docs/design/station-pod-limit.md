@@ -1,7 +1,7 @@
 # Station pod limit
 
-Status: draft for the maintainer, 2026-11-24.
-Nothing is built or decided, and no run has tested an option of this note.
+Status: the maintainer decided SP-D1 A, SP-D2 A, and SP-D3 A on 2026-11-24.
+Nothing is built, and the pilot of C1 is not recorded yet.
 
 This note is about the block on link 100 in the [shared track batch](../studies/shared-track-batch.md#the-block-in-lf).
 The study calls it option C: a limit on the pods that go to a station.

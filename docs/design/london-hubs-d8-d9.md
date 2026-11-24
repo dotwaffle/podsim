@@ -816,7 +816,9 @@ The safety oracle runs at each simulated second, and the D6 oracle does not run.
 ## 13. London Bridge and Waterloo
 
 This static study of HB-D15 is of 2026-11-24.
-It has no simulation run, no preset has the change, and no decision is taken.
+It has no simulation run, and no preset has the change.
+The maintainer decided HB-D19 C, HB-D20 A, and HB-D21 A on 2026-11-24.
+A build needs its own grant, after HX11 is settled.
 The base is `london-full-shared-express-wharf` (network `d68a69b8...`), where Waterloo, London Bridge, and Canary Wharf have their Express shape.
 Section 9.1 has the pair on the shared-track preset, with 60 shape pairs.
 
