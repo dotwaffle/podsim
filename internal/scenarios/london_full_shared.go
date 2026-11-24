@@ -123,24 +123,32 @@ func GenerateLondonFullSharedExpress() (project.Config, error) {
 }
 
 // londonFullSharedExpressPreset returns the preset from c, which is a
-// LondonFull project that the caller owns. It adds the shared route and
-// the Express parking, and it runs the layout audit of the preset.
+// LondonFull project that the caller owns.
 func londonFullSharedExpressPreset(c project.Config) (project.Config, error) {
+	return londonFullSharedTrack(c, sharedTrackPresetLine())
+}
+
+// londonFullSharedTrack adds each line and its Express parking to c, which
+// is a LondonFull project that the caller owns, and runs the layout audit
+// with the combs of all lines.
+func londonFullSharedTrack(c project.Config, lines ...sharedTrackLine) (project.Config, error) {
 	source, err := decodeLondonFullSource()
 	if err != nil {
 		return project.Config{}, err
 	}
-	line := sharedTrackPresetLine()
-	c, err = addSharedTrackLine(c, line)
-	for _, parking := range line.parking {
-		if err == nil {
-			err = addSharedTrackParking(&c, parking)
+	var combs []sharedTrackParking
+	for _, line := range lines {
+		if c, err = addSharedTrackLine(c, line); err != nil {
+			return project.Config{}, err
 		}
+		for _, parking := range line.parking {
+			if err := addSharedTrackParking(&c, parking); err != nil {
+				return project.Config{}, err
+			}
+		}
+		combs = append(combs, line.parking...)
 	}
-	if err == nil {
-		err = layoutError(c.Network, auditLondonLayout(c.Network, sharedTrackLayoutInput(source, line.parking...)))
-	}
-	if err != nil {
+	if err := layoutError(c.Network, auditLondonLayout(c.Network, sharedTrackLayoutInput(source, combs...))); err != nil {
 		return project.Config{}, err
 	}
 	return c, nil

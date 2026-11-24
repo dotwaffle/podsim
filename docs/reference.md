@@ -543,6 +543,7 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
 | `london-full-express` | LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. The capacity flags do not apply. | 327 Compact, 16 Express |
 | `london-full-shared-express` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, and Express parking beside Waterloo. The capacity flags do not apply. | 327 Compact, 16 Express |
+| `london-full-shared-express-wharf` | LondonFull Shared Express with a second Express pair on shared track, London Bridge and Canary Wharf, and a second Express parking beside London Bridge. The capacity flags do not apply. | 327 Compact, 32 Express |
 | `independent-banks` | A planar station with two independent gates and a separate parking station. | 3 |
 | `compact-station` | A station with four Compact bays, in a loop with an ordinary station of three berths. | 6 Compact |
 
@@ -600,6 +601,12 @@ The preset is opt-in, and the [shared-track qualification](contracts/express-sha
 mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
 ```
 
+The `london-full-shared-express-wharf` preset adds the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design to `london-full-shared-express`, which does not change.
+It adds two Express services between London Bridge and Canary Wharf, on links 089, 088, and 154 through Bermondsey and Canada Water, and 16 Express pods at `express-parking-lnb`, a comb beside London Bridge.
+The roads of the two new hubs are straight, except `940GZZLULNB-road-out-01`, which is curved.
+The two pairs share no Express route.
+The preset is opt-in and is not qualified.
+
 The `compact-station` preset shows the bays at work.
 Its bays are at 25 degrees with a 6 m pitch.
 Pods wait at a holding node and go through a shared aisle one at a time to park at rest in a bay.
@@ -614,7 +621,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, the junctions, and the station roads of a preset.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
-They do not apply to `independent-banks`, `compact-station`, `london-full-express`, or `london-full-shared-express`.
+They do not apply to `independent-banks`, `compact-station`, `london-full-express`, `london-full-shared-express`, or `london-full-shared-express-wharf`.
 
 | Flag | Effect |
 | --- | --- |

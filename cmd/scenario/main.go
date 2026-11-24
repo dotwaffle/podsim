@@ -22,7 +22,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "london-full-express", "london-full-shared-express", "independent-banks", "compact-station"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "london-full-express", "london-full-shared-express", "london-full-shared-express-wharf", "independent-banks", "compact-station"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -162,7 +162,7 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
-	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset", "london-full-shared-express": "LondonFull Shared Express preset"}
+	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset", "london-full-shared-express": "LondonFull Shared Express preset", "london-full-shared-express-wharf": "LondonFull Shared Express Wharf preset"}
 	if fixture, ok := fixtures[name]; ok {
 		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "wide-stations", "road-fillets"} {
 			if options.set[key] {
@@ -178,6 +178,9 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	}
 	if name == "london-full-shared-express" {
 		return scenarios.GenerateLondonFullSharedExpress()
+	}
+	if name == "london-full-shared-express-wharf" {
+		return scenarios.GenerateLondonFullSharedExpressWharf()
 	}
 	if name == "independent-banks" {
 		config := project.Default()
@@ -437,7 +440,7 @@ func writeSummary(stderr io.Writer, preset string, config project.Config, size i
 	switch preset {
 	case "london-central":
 		soft, err = scenarios.LondonCentralSoftConflicts(config.Network)
-	case "london-full", "london-full-express", "london-full-shared-express":
+	case "london-full", "london-full-express", "london-full-shared-express", "london-full-shared-express-wharf":
 		soft, err = scenarios.LondonFullSoftConflicts(config.Network)
 	}
 	if err != nil {

@@ -5,8 +5,10 @@ The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, wit
 The maintainer granted the static slices (0 to 2) on 2026-11-23.
 Slice 0 is built in `c426595a`, and section 9 holds its results and the decisions HB-D13 to HB-D15.
 Sections 10 and 11 hold the studies of Baker Street and of Paddington and Liverpool Street, and the decisions HB-D16 to HB-D18.
-Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists, and `TestSharedTrackLineStacks` adds the pair to the preset.
-The preset and its rows wait for batch 2 (HB-D5).
+Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists.
+Batch 2 ran, and the lighter batch meets BT-D10 ([results](../studies/shared-track-batch.md)), so the maintainer started slice 3 on 2026-11-24.
+Slice 3 is built: the preset `london-full-shared-express-wharf` has the pair of section 9, with HB-D13 and HB-D14.
+It is not qualified, and the rows of section 4.4 have no contract.
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
 
