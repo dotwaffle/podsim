@@ -786,3 +786,27 @@ PODSIM_PAIR_TWO_LAYOUT="$D/fixes" go test ./internal/scenarios -run TestPairTwoS
 PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-link-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 PODSIM_BAKER_LAYOUT="$D/fixes/pair-two-removal-preset.json" go test ./internal/scenarios -run TestBakerStudyLayout -count=1 -v
 ```
+
+## 12. Wharf study rules
+
+The maintainer granted one batch of the preset on 2026-11-24, and this section sets its rules before any run.
+The screen of `compare` takes its hub lines from the Express services (slice 4, `201ffd17`).
+
+- Arms: `W` (`london-full-shared-express-wharf`), `W0` (`W` with no Express pod, service, or order contract), `S`, and `LF`, with seeds 1 to 3.
+- Workload: `compare screen` in the `am-peak` band, 2 hours of arrivals at the preset rate, a queue limit of 200, and at most 2 hours of clear.
+  The hub stream of Waterloo and Bank has a mean of 120 s.
+  The stream of London Bridge and Canary Wharf has the rates of HX-D3: a mean of 28 s, 17 in 20 from London Bridge.
+  All arms get the same events.
+  A party on a line that the arm does not serve splits into Compact orders, so `S` serves only the first line.
+- Timed pilot: `W`, seed 1.
+  The batch does not start if the projection, from the pilot time, 12 runs, and 3 workers, is over 1 hour.
+- Checks, in each seed:
+  - no arm has a safety, contract, or accounting failure;
+  - each arm finishes each accepted order;
+  - on each line, the passenger-weighted mean hub wait of `W` is at most that of `W0`.
+- An arm that does not finish fails the second check, and its waits cover only the parties that boarded, so the third check has no result in that seed.
+  The study reports it and does not choose another load.
+- The work stops on a safety failure in any run.
+- The pairs `W` and `W0`, `W` and `S`, and `W0` and `LF` are reported, with no gate.
+
+The safety oracle runs at each simulated second, and the D6 oracle does not run.
