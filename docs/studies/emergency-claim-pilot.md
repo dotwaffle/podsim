@@ -118,7 +118,8 @@ The two traces of the record, its blocker chain, and the owners of the next requ
 - The head of the chain waits for the junction of the Waterloo entry or for a berth that a loaded pod holds.
 - The soak reported the last wait, "Junction traffic" behind `london-pod-148`.
 
-So this is a capacity queue, about 1 pod a minute through the entry of Waterloo, and it is the same kind of wait as record i1.18 of the shared-track preset, which led to queue promotion.
+From the start of the record, the queue drains at about 1 pod a minute through the entry of Waterloo, which is the same kind of wait as record i1.18 of the shared-track preset, which led to queue promotion.
+The [link 100 study](link-100-queue.md) later found that a berth refusal stopped the head of the queue for 563 s before the record started, so this is not only a capacity queue.
 Queue promotion is in the code of this run, and it did not shorten the queue enough.
 The [qualification](../contracts/express-wharf-qualification-proposal.md) names this queue of link 100 as a known risk of HX10 and HX11.
 
