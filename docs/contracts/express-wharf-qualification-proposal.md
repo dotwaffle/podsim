@@ -59,7 +59,7 @@ B1 does not apply, because the preset has no banks.
   `london-full-shared-express` finished each order in the batches of that study, but the runs have 2 hours of arrivals, no incidents, and no demand on the new line.
   In the release soak of 2026-11-17, before the queue promotion, one record passed the Progress limit in the queues of link 100.
   So a failure of HX10 or HX11 can come from link 100 and not from the new line.
-- No study or soak of the preset has run.
+- No study of the preset has run.
 - `mise run soak:full` takes 6,277 to 6,427 s of its limit of 7,200 s with four presets.
   From the 3,111 s of run-slot time that one seed of `london-full-shared-express` took in the timing run of 2026-11-19, 2 seeds of one more preset add about 2,100 s with 3 full slots, so five presets do not fit (inferred).
 - `test:shared-express` took 292 s by hand.
@@ -104,7 +104,8 @@ It passed in 455 s under `nice`.
 | --- | --- |
 | HX1, HX2, HX3, HX4, HX5, HX8, HX13 | Evidence complete on the preset. |
 | HX6, HX9 | Test evidence complete. The Chrome check of HX-D6 is open. |
-| HX7, HX10, HX11, HX12 | Open. |
+| HX10 | Evidence complete on the preset. |
+| HX7, HX11, HX12 | Open. |
 
 - HX1: `TestLondonFullSharedExpressWharfKeepsPresets` pins the four network hashes.
   `TestLondonExpressBehaviorParity` and `TestPresetBehaviorParity` pass with no golden change.
@@ -130,6 +131,13 @@ It passed in 455 s under `nice`.
 - HX9: `TestWharfExpressDwell` passes on each line with the phases of SX9.
   A fault at 14.00 m/s with 20 riders on each line has a largest drop of 0.03828 m/s per tick and stops after 85.22 m.
   Each activity of an Express pod of each line restores and streams, except Continuing, which the preset does not reach.
+- HX10: `PODSIM_SOAK_PRESETS=london-full-shared-express-wharf mise run soak` passed at `14d738a8` on 2026-11-24 in 753 s, under `nice`, with 3 runs at a time.
+  The driver sends the parties of HX-D3 on the second line, and one a minute, half in each direction, in the low-demand arms, as the first line has.
+  Each of the 9 branches made one save with no demotion and 6 rewinds, and ran the D6 oracle 165,753 to 166,033 times.
+  No branch has a check failure, a late record, or a refused party order, and 4 incident commands were refused in 3 branches.
+  Faults on pods with standees were in 3 branches and emergencies on pods with standees in 8 of the 9, and the peak load was 20.
+  The second line accepted 127 to 137 parties in a branch at preset demand.
+  The queue at preset demand grew from 36 to at most 177 orders in a branch, and the reference had 35 to 113.
 
 In a scratch run before these tests, both lines had parties for 12 minutes at the rates of the shared-track script, which is more than the pods serve at once.
 The backlog drained in the next 48 minutes to 5 Express orders at minute 55, with no oracle or contract failure and no Express pod of one line at a hub of the other.
