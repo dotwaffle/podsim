@@ -16,7 +16,7 @@ The checks of BT-D1 are not all met.
 
 `LF` and `S0` nearly stop.
 In the 2 hours of clear, a mean of 318 to 322 of the 327 pods of `LF` have a wait report that names another pod, and 293 to 298 of `S0` in seeds 1 and 3.
-The study does not find the cause, and it does not show that the block is permanent.
+The cause in `LF` is a closed wait on link 100 (see [The block in `LF`](#the-block-in-lf)).
 So a comparison with `LF` or `S0` shows the harm of this workload to a network without Express more than the effect of `S`.
 
 ## Method
@@ -82,9 +82,43 @@ Only `D` and `S` finish in each seed, so this is the pair with a meaning, but `D
 - The mean background wait of `S` is 19 to 20 s shorter, and 125 to 161 requests wait longer by more than the limit.
 - Express pods block Compact pods 6 to 7 times as long, and the empty distance in the window is 10 to 13 percent less.
 
+## The block in `LF`
+
+The maintainer asked for a diagnosis (BT-D5).
+A scratch probe ran the same workload in 6 runs at `84f2d115`, with no change to the simulation, and followed the `BlockedBy` value of each stopped pod once a minute.
+The probe did not land.
+
+| Run | Hub events kept | Result |
+| --- | --- | --- |
+| `LF`, seed 1, 180 minutes | All | A closed wait from minute 48. 320 of 327 pods blocked at minute 180. |
+| `LF`, seed 1, 180 minutes | 1 in 4 | 792 of 1,116 orders complete by minute 90, then a closed wait from minute 94. 299 blocked at minute 180. |
+| `LF`, seed 1, 180 minutes | None | No closed wait, and at most 4 pods blocked in the samples at each tenth minute. All 1,199 requests finish. |
+| `LF`, seed 1, 62 minutes | All | The first run again, with the state of the two stations at minute 60. |
+| `LF`, seed 2, 180 minutes | All | A closed wait from minute 52. |
+| `S0`, seed 1, 180 minutes | All | No closed wait found. 322 pods travel, and 302 are blocked at minute 180. |
+
+The closed wait has 127 to 130 pods, and almost all of them are on the 4 lanes of link 100, with 31 pods on each lane.
+It has these parts:
+
+1. The pods toward Bank fill link 100, because Bank has 2 berths and the head of the queue waits for a berth.
+2. A Bank berth holds a pod that boarded for Waterloo, and it cannot leave, because the lanes toward Waterloo are full.
+3. The pods toward Waterloo wait in the same way, and the Waterloo berths hold pods that boarded for Bank.
+
+Each queue needs the other to move, so the loop does not open.
+In the first run the loop stayed to the end of the probe, and other pods joined the queues behind it.
+No rule limits the pods that go to a station to the space that it has.
+
+The links of the loop are track and occupied berths, not only claims, so it is a different loop from that of the [berth claim deadlock](../contracts/berth-claim-deadlock-proposal.md), but a claim can have a part in it (see below).
+It has the same shape as the mutual block of `D0` between Bank and Cannon Street in the adoption screen.
+
+One fact has no explanation here.
+At minute 60 of the first run, the head pod toward Waterloo waits for berth `02`, and no pod is in berths `03` to `05`.
+The probe does not show if those berths are claimed by pods that are behind it, or if the head pod has no free choice of berth.
+If one of these berths can take the head pod, the loop opens.
+
 ## Not tested
 
 - A workload that `LF` and `S0` can carry, so the effect of the Express pods in `S` at such a load is not known.
-- The cause of the stop of `LF` and `S0`, and if it is older than the November 8 screen, where `LF` completed 2,531 to 2,658 hub passengers in `pm-peak`.
+- The cause of the stop of `S0`, and if the block of `LF` is older than the November 8 screen, where `LF` completed 2,531 to 2,658 hub passengers in `pm-peak`.
   That screen used a different band and an older network.
 - Other bands, seeds 4 to 10, and six-hour runs.
