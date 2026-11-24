@@ -9,7 +9,8 @@ Note of 2026-11-20: slice 6 is done.
 The [Express shared-track qualification](../contracts/express-shared-track-qualification-proposal.md) contract records the evidence of each row, and the preset is qualified.
 The CI soak and `soak:full` run the preset.
 Slice 7, the study batch, ran on 2026-11-23 ([results](../studies/shared-track-batch.md)).
-The checks of BT-D1 are not all met, because `LF` and `S0` do not finish, and the decision on them is open.
+The checks of BT-D1 are not all met, because `LF` and `S0` do not finish.
+The lighter batch of 2026-11-24 meets the checks of BT-D10.
 Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to each network, and the network fields `lateralMerges` and `shapeClearance` are removed.
 Note of 2026-11-20: the [fillets proposal](../contracts/london-fillets-proposal.md) changes the roads of LondonFull.
 D does not change.

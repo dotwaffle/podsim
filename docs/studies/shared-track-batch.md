@@ -152,9 +152,55 @@ The unpatched `LF` and `S` runs of seed 1 give the order counts and the measures
 The study does not trace the patched runs, so it does not show if the head pod then takes a free berth.
 So the refusal of free berths is not enough to explain the block.
 
+## Lighter batch
+
+This batch follows the [rules of section 8.2](../design/shape-clearance.md#82-lighter-batch-decided-2026-11-24), which were set before its runs.
+The source is `c6a2f651`.
+In the load search, `LF` and `S0` with seed 1 finish each order at a mean of 120, 240, and 480 s between two hub events, so the batch uses 120 s, which is 1/8 of the hub stream.
+
+```sh
+go run ./cmd/compare screen -configs LF,D,S0,S -bands am-peak -seeds 1,2,3 -hub-mean 120s -workers 3 -output batch.json
+```
+
+The checks of BT-D10 are met in each seed.
+
+| Check of BT-D10 | Result |
+| --- | --- |
+| No arm has a safety or accounting failure | Met, 12 of 12 runs |
+| Each arm finishes each accepted order | Met, 12 of 12 runs, with no refused event |
+| The passenger-weighted mean hub wait of `S` is shorter than that of `S0` | Met: 28.7, 59.0, and 63.0 s against 156.1, 164.1, and 140.0 s |
+
+Each cell of the next table gives seeds 1, 2, and 3.
+
+| Measure | `LF` | `D` | `S0` | `S` |
+| --- | --- | --- | --- | --- |
+| Passenger-weighted mean hub wait (s) | 347, 218, 199 | 182, 183, 238 | 156, 164, 140 | 29, 59, 63 |
+| Out, mean wait of a party (s) | 392, 235, 200 | 206, 214, 287 | 169, 171, 144 | 35, 55, 46 |
+| In, mean wait of a party (s) | 70, 32, 73 | 58, 23, 66 | 58, 33, 55 | 14, 53, 69 |
+| Background, mean wait (s) | 236, 209, 210 | 235, 224, 220 | 221, 206, 202 | 210, 203, 197 |
+| Background, p95 wait (s) | 908, 792, 836 | 891, 830, 835 | 895, 775, 809 | 861, 785, 795 |
+| Compact pod-seconds blocked by Express, window | 0, 0, 0 | 260, 231, 280 | 0, 0, 0 | 604, 971, 994 |
+| Compact pod-seconds blocked by Compact, window | 110,664, 38,770, 45,491 | 6,347, 7,893, 8,161 | 26,406, 20,681, 21,296 | 7,276, 9,208, 9,394 |
+| Empty distance in the window (km) | 4,848, 4,980, 4,675 | 5,437, 5,292, 4,965 | 5,230, 4,930, 4,739 | 4,852, 4,794, 4,568 |
+| Hub passengers finished | 632, 550, 553 | 632, 550, 553 | 632, 550, 553 | 632, 550, 553 |
+
+| Pair | Mean change of matched background waits (s) | Longer by more than the limit | Shorter by more than the limit |
+| --- | --- | --- | --- |
+| `S` and `S0` | -11, -3, -5 | 108, 102, 112 | 223, 178, 176 |
+| `S` and `LF` | -26, -6, -13 | 98, 107, 108 | 272, 199, 207 |
+| `S0` and `LF` | -15, -3, -8 | 128, 79, 84 | 225, 108, 142 |
+| `S` and `D` | -25, -21, -23 | 125, 111, 109 | 505, 469, 478 |
+
+- The wait of a hub party ends when its last part boards.
+  `S0` splits a party among Compact pods and `S` does not, so the hub check includes this difference.
+- The waits from Bank are longer in `S` than in `S0` in seeds 2 and 3.
+- `S` does not pass the individual limits against `LF`, and `S0` does not either.
+  The [sensitivity study](../contracts/express-london-adoption-screen-proposal.md#sensitivity-of-the-individual-limits-to-one-pod-move) shows that one moved pod puts hundreds of requests over them in a saturated `LF`.
+- The load is 1/8 of the heavy stream, so the batch does not show the effect of the Express pods at the heavy load.
+
 ## Not tested
 
-- A workload that `LF` and `S0` can carry, so the effect of the Express pods in `S` at such a load is not known.
+- A load between 1/8 of the hub stream, which `LF` and `S0` finish, and 1/4, at which `LF` stops in seed 1.
 - The cause of the stop of `S0`, and if the block of `LF` is older than the November 8 screen, where `LF` completed 2,531 to 2,658 hub passengers in `pm-peak`.
   That screen used a different band and an older network.
 - Other bands, seeds 4 to 10, and six-hour runs.
