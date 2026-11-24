@@ -59,7 +59,7 @@ B1 does not apply, because the preset has no banks.
   `london-full-shared-express` finished each order in the batches of that study, but the runs have 2 hours of arrivals, no incidents, and no demand on the new line.
   In the release soak of 2026-11-17, before the queue promotion, one record passed the Progress limit in the queues of link 100.
   So a failure of HX10 or HX11 can come from link 100 and not from the new line.
-- No study of the preset has finished.
+- The [wharf batch](../studies/wharf-batch.md) is the study of the preset.
 - `mise run soak:full` takes 6,277 to 6,427 s of its limit of 7,200 s with four presets.
   From the 3,111 s of run-slot time that one seed of `london-full-shared-express` took in the timing run of 2026-11-19, 2 seeds of one more preset add about 2,100 s with 3 full slots, so five presets do not fit (inferred).
 - `test:shared-express` took 292 s by hand.
