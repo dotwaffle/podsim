@@ -65,10 +65,12 @@ const (
 )
 
 type screenReport struct {
-	SchemaVersion int          `json:"schema_version"`
-	Arms          []screenArm  `json:"arms"`
-	Pairs         []screenPair `json:"pairs"`
-	Result        screenResult `json:"result"`
+	SchemaVersion int         `json:"schema_version"`
+	Arms          []screenArm `json:"arms"`
+	// HubMeanSeconds is the mean time between two hub events.
+	HubMeanSeconds float64      `json:"hub_mean_seconds"`
+	Pairs          []screenPair `json:"pairs"`
+	Result         screenResult `json:"result"`
 }
 
 // screenKey identifies the offered events of one band and seed.
@@ -193,7 +195,7 @@ func screen(opts screenOptions) (screenReport, error) {
 		}
 		bandID := source.DemandProfiles[0].Bands[band].ID
 		for _, seed := range opts.seeds {
-			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: screenBackgroundInterval(opts.backgroundPerMin), source: source})
+			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: screenBackgroundInterval(opts.backgroundPerMin), hubMeanTicks: durationTicks(opts.hubMean), source: source})
 			if eventsErr != nil {
 				return screenReport{}, eventsErr
 			}
@@ -209,7 +211,7 @@ func screen(opts screenOptions) (screenReport, error) {
 		return screenReport{}, err
 	}
 	pairs, result := screenPairs(arms, events)
-	return screenReport{SchemaVersion: 3, Arms: arms, Pairs: pairs, Result: result}, nil
+	return screenReport{SchemaVersion: 4, HubMeanSeconds: opts.hubMean.Seconds(), Arms: arms, Pairs: pairs, Result: result}, nil
 }
 
 // screenPairs compares the arms of the same band and seed that

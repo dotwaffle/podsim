@@ -14,6 +14,9 @@ type screenMeasures struct {
 	// Outbound is from Waterloo to Bank, and Inbound from Bank to Waterloo.
 	Outbound screenHubMeasure `json:"outbound"`
 	Inbound  screenHubMeasure `json:"inbound"`
+	// HubPassengerWaitSeconds is the mean wait of the hub parties of both
+	// directions that boarded whole, with each party weighted by its size.
+	HubPassengerWaitSeconds float64 `json:"hub_passenger_wait_seconds"`
 	// The blocked values count the time of Compact pods with a wait report
 	// that names another pod. A pod that only slows behind a pod has no
 	// wait report. The values have the resolution of the check interval.
@@ -110,6 +113,7 @@ func (m *screenMeasures) sample(state sim.Snapshot, input screenSample) {
 // finish sets the values that come from the outcomes of events.
 func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, arrivalTicks int64) {
 	var background, outbound, inbound []int64
+	weighted, boarded := int64(0), int64(0)
 	for index, event := range events {
 		outcome := outcomes[index]
 		if !event.Hub {
@@ -125,6 +129,8 @@ func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, 
 		hub.Offered += event.Size
 		if outcome.WaitTicks >= 0 {
 			*waits = append(*waits, outcome.WaitTicks)
+			weighted += outcome.WaitTicks * int64(event.Size)
+			boarded += int64(event.Size)
 		}
 		if outcome.JourneyTicks < 0 {
 			continue
@@ -135,6 +141,9 @@ func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, 
 			hub.ArrivalParties++
 			hub.ArrivalPassengers += event.Size
 		}
+	}
+	if boarded > 0 {
+		m.HubPassengerWaitSeconds = float64(weighted) / float64(boarded) / sim.TicksPerSecond
 	}
 	m.BackgroundWait = newScreenWaitMeasure(background)
 	m.Outbound.Wait, m.Inbound.Wait = newScreenWaitMeasure(outbound), newScreenWaitMeasure(inbound)

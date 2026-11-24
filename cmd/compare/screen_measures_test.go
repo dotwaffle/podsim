@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -53,6 +54,10 @@ func TestScreenMeasuresFinish(t *testing.T) {
 		Wait: screenWaitMeasure{Count: 2, Mean: 2.5, Median: 2, P95: 3, Longest: 3}}
 	if m.Outbound != want {
 		t.Errorf("outbound %+v, want %+v", m.Outbound, want)
+	}
+	// The waits are 2 s for 10 passengers, 3 s for 7, and 1 s for 4.
+	if want := 45.0 / 21; math.Abs(m.HubPassengerWaitSeconds-want) > 1e-9 {
+		t.Errorf("hub passenger wait %v, want %v", m.HubPassengerWaitSeconds, want)
 	}
 	if m.Inbound.Offered != 4 || m.Inbound.TotalParties != 0 || m.Inbound.Wait.Count != 1 {
 		t.Errorf("inbound %+v", m.Inbound)

@@ -57,7 +57,7 @@ func TestScreenParts(t *testing.T) {
 func TestScreenEvents(t *testing.T) {
 	t.Parallel()
 	source := scenarios.LondonFull()
-	input := screenEventsInput{seed: 2, band: 1, arrivalTicks: 20 * 60 * sim.TicksPerSecond, intervalTicks: 6 * sim.TicksPerSecond, source: source}
+	input := screenEventsInput{seed: 2, band: 1, arrivalTicks: 20 * 60 * sim.TicksPerSecond, intervalTicks: 6 * sim.TicksPerSecond, hubMeanTicks: screenHubMean, source: source}
 	events, err := screenEvents(input)
 	if err != nil {
 		t.Fatal(err)
@@ -99,6 +99,21 @@ func TestScreenEvents(t *testing.T) {
 	// 20 minutes at a mean of 15 s gives about 80 hub events.
 	if hubs < 50 || hubs > 110 || outbound*2 < hubs {
 		t.Fatalf("%d hub events, %d outbound", hubs, outbound)
+	}
+	// A longer mean thins the hub stream and keeps the background.
+	input.hubMeanTicks = 120 * sim.TicksPerSecond
+	light, err := screenEvents(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lightHubs := 0
+	for _, event := range light {
+		if event.Hub {
+			lightHubs++
+		}
+	}
+	if lightHubs < 3 || lightHubs > 20 || len(light)-lightHubs != len(background) {
+		t.Fatalf("%d hub events of %d at a mean of 120 s", lightHubs, len(light))
 	}
 }
 
@@ -237,10 +252,10 @@ func TestScreenRun(t *testing.T) {
 func TestParseScreenOptions(t *testing.T) {
 	t.Parallel()
 	opts, err := parseScreenOptions(nil, &bytes.Buffer{})
-	if err != nil || !reflect.DeepEqual(opts.seeds, []int64{1, 2, 3}) || opts.arrivals != 2*time.Hour || opts.clear != 2*time.Hour || opts.queueLimit != 200 || len(opts.configs) != 3 {
+	if err != nil || !reflect.DeepEqual(opts.seeds, []int64{1, 2, 3}) || opts.arrivals != 2*time.Hour || opts.clear != 2*time.Hour || opts.queueLimit != 200 || opts.hubMean != 15*time.Second || len(opts.configs) != 3 {
 		t.Fatalf("defaults %+v, %v", opts, err)
 	}
-	for _, args := range [][]string{{"-seeds", "1,1"}, {"-seeds", "0"}, {"-configs", "X"}, {"-arrivals", "0s"}, {"-workers", "0"}, {"extra"}} {
+	for _, args := range [][]string{{"-seeds", "1,1"}, {"-seeds", "0"}, {"-configs", "X"}, {"-arrivals", "0s"}, {"-workers", "0"}, {"-hub-mean", "14s"}, {"-hub-mean", "25h"}, {"extra"}} {
 		if _, err := parseScreenOptions(args, &bytes.Buffer{}); err == nil {
 			t.Errorf("%v: no error", args)
 		}
@@ -290,7 +305,7 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 // status 1, also when a deciding gate failed.
 func TestScreenSummaryWriteError(t *testing.T) {
 	t.Parallel()
-	report := screenReport{SchemaVersion: 3, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
+	report := screenReport{SchemaVersion: 4, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
 		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Reference: screenLondonFull, Decides: true, Gates: []screenGate{{Name: "g"}}}}, Result: screenFailed}
 	// The summary has an arm line, a gate line, and the result line.
 	for ok := range 3 {
@@ -357,7 +372,7 @@ func TestScreenResult(t *testing.T) {
 		}
 		var stdout bytes.Buffer
 		output := filepath.Join(t.TempDir(), "screen.json")
-		report := screenReport{SchemaVersion: 3, Arms: test.arms, Pairs: pairs, Result: result}
+		report := screenReport{SchemaVersion: 4, Arms: test.arms, Pairs: pairs, Result: result}
 		if code := writeScreenResults(report, output, &stdout, &bytes.Buffer{}); code != test.code {
 			t.Errorf("%s: exit %d, want %d", test.name, code, test.code)
 		}
@@ -422,21 +437,21 @@ func TestScreenStorageBytes(t *testing.T) {
 func TestScreenHubLimit(t *testing.T) {
 	t.Parallel()
 	const arrivalTicks = 20 * 60 * sim.TicksPerSecond
-	events, err := screenHubEvents(nil, 2, arrivalTicks, screenHubLimit(arrivalTicks))
+	events, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: screenHubLimit(arrivalTicks)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	count := int64(len(events))
-	if _, err := screenHubEvents(nil, 2, arrivalTicks, count); err != nil {
+	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: count}); err != nil {
 		t.Fatalf("a limit of exactly %d events: %v", count, err)
 	}
 	want := fmt.Sprintf("seed 2: the hub stream has more than %d events", count-1)
-	if _, err := screenHubEvents(nil, 2, arrivalTicks, count-1); err == nil || err.Error() != want {
+	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: count - 1}); err == nil || err.Error() != want {
 		t.Fatalf("a limit one event under the stream: got %v, want %q", err, want)
 	}
 	for seed := range int64(100) {
 		for _, window := range []int64{1, 450, 2 * 3600 * sim.TicksPerSecond} {
-			if _, err := screenHubEvents(nil, seed+1, window, screenHubLimit(window)); err != nil {
+			if _, err := screenHubEvents(nil, screenHubInput{seed: seed + 1, arrivalTicks: window, meanTicks: screenHubMean, limit: screenHubLimit(window)}); err != nil {
 				t.Errorf("seed %d, %d ticks: %v", seed+1, window, err)
 			}
 		}

@@ -390,6 +390,7 @@ A pair has the changes of the matched background waits.
 | `-arrivals` | `2h` | The simulated time with offered events. |
 | `-clear` | `2h` | The longest simulated time after the arrivals. A run stops when every accepted order is terminal. |
 | `-background-per-minute` | 0 | The background requests a minute. 0 uses the rate of the LondonFull preset. |
+| `-hub-mean` | `15s` | The mean time between two hub events, from 15 s to 24 h. |
 | `-queue-limit` | 200 | The live queue limit. It admits or refuses a whole event. |
 | `-workers` | 3 | The arms that run at the same time. |
 | `-check-every` | 1 | The simulated seconds between two checks of the safety oracle, the state contract, and the order accounting. |
@@ -401,7 +402,7 @@ The bound holds one band and seed of 24 hours at 1,800 background requests a min
 It does not count the memory of the simulations.
 
 A seed gives the background requests of the band, as the `profile` pattern does, and a separate hub stream.
-The hub stream offers a shared party of 1 to 20 passengers between Waterloo and Bank each 15 s on average, three in four from Waterloo.
+The hub stream offers a shared party of 1 to 20 passengers between Waterloo and Bank at each `-hub-mean` on average, three in four from Waterloo.
 In `D`, a hub party is one Express order.
 In an arm without Express, it splits before admission into orders of at most the largest new party of a pod in the fleet, 4 for Compact.
 The wait of an event ends when its last order boards, and its journey when its last order finishes.

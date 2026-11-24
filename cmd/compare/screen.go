@@ -30,8 +30,8 @@ const (
 	// project with and without its Express pods.
 	screenShared      = "S"
 	screenSharedPlain = "S0"
-	// screenHubMean is the mean time between two hub events, and
-	// screenHubOutbound the share of the events from Waterloo. The values are
+	// screenHubMean is the default and the shortest mean time between two
+	// hub events, and screenHubOutbound the share of the events from Waterloo. The values are
 	// the hub stream of the D soak.
 	screenHubMean     = 15 * sim.TicksPerSecond
 	screenHubOutbound = 0.75
@@ -51,6 +51,7 @@ type screenOptions struct {
 	bands             []string
 	configs           []string
 	arrivals, clear   time.Duration
+	hubMean           time.Duration
 	backgroundPerMin  int
 	queueLimit        int
 	workers           int
@@ -67,6 +68,7 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	opts := screenOptions{}
 	flags.DurationVar(&opts.arrivals, "arrivals", 2*time.Hour, "simulated time with offered events")
 	flags.DurationVar(&opts.clear, "clear", 2*time.Hour, "longest simulated time after the arrivals")
+	flags.DurationVar(&opts.hubMean, "hub-mean", screenHubMean/sim.TicksPerSecond*time.Second, "mean time between two hub events, at least the default")
 	flags.IntVar(&opts.backgroundPerMin, "background-per-minute", 0, "background requests a minute; 0 uses the LondonFull preset rate")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "live queue limit")
 	flags.IntVar(&opts.workers, "workers", 3, "arms that run at the same time")
@@ -102,6 +104,8 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 		return screenOptions{}, errors.New("arrivals must be positive, and arrivals and clear at most 24h")
 	case opts.backgroundPerMin < 0 || opts.backgroundPerMin > screenMaxBackgroundPerMinute || opts.queueLimit < 1 || opts.queueLimit > maxQueueLimit:
 		return screenOptions{}, fmt.Errorf("background-per-minute must be from 0 to %d and queue-limit from 1 to the queue cap", screenMaxBackgroundPerMinute)
+	case opts.hubMean < screenHubMean/sim.TicksPerSecond*time.Second || opts.hubMean > maxDuration:
+		return screenOptions{}, errors.New("hub-mean must be from 15s to 24h")
 	case opts.workers < 1 || opts.workers > maxWorkers || opts.checkEverySeconds < 1:
 		return screenOptions{}, errors.New("workers must be from 1 to 64 and check-every at least 1")
 	}
@@ -135,7 +139,7 @@ func screenBackgroundInterval(perMinute int) int64 {
 }
 
 // screenHubLimit returns the largest number of hub events in an arrival
-// window. It is twice the mean number and 32 more, so a seed does not get
+// window. It is twice the mean number at screenHubMean and 32 more, so a seed does not get
 // near it. screenHubEvents refuses a stream with more events, so the
 // storage of a screen cannot be larger than checkScreenBytes counts.
 func screenHubLimit(arrivalTicks int64) int64 {
@@ -260,7 +264,9 @@ type screenEventsInput struct {
 	band          int
 	arrivalTicks  int64
 	intervalTicks int64
-	source        project.Config
+	// hubMeanTicks is the mean time between two hub events.
+	hubMeanTicks int64
+	source       project.Config
 }
 
 // screenEvents returns the background requests of the band and the hub
@@ -281,7 +287,7 @@ func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 	for _, request := range background {
 		events = append(events, screenEvent{Tick: request.tick, From: request.origin, To: request.destination, Size: 1})
 	}
-	events, err = screenHubEvents(events, input.seed, input.arrivalTicks, limit)
+	events, err = screenHubEvents(events, screenHubInput{seed: input.seed, arrivalTicks: input.arrivalTicks, meanTicks: input.hubMeanTicks, limit: limit})
 	if err != nil {
 		return nil, err
 	}
@@ -292,12 +298,17 @@ func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 	return events, nil
 }
 
+type screenHubInput struct {
+	seed, arrivalTicks, meanTicks, limit int64
+}
+
 // screenHubEvents appends the hub events of the seed in the arrival window
 // to events. It refuses a stream with more than limit events.
-func screenHubEvents(events []screenEvent, seed, arrivalTicks, limit int64) ([]screenEvent, error) {
+func screenHubEvents(events []screenEvent, input screenHubInput) ([]screenEvent, error) {
+	seed, arrivalTicks, limit, mean := input.seed, input.arrivalTicks, input.limit, float64(input.meanTicks)
 	rng := rand.New(rand.NewPCG(uint64(seed), screenHubStream)) // #nosec G115 G404 -- Seeds are positive, and the stream is a reproducible schedule.
 	count := int64(0)
-	for tick := int64(rng.ExpFloat64() * screenHubMean); tick < arrivalTicks; tick += 1 + int64(rng.ExpFloat64()*screenHubMean) {
+	for tick := int64(rng.ExpFloat64() * mean); tick < arrivalTicks; tick += 1 + int64(rng.ExpFloat64()*mean) {
 		if count == limit {
 			return nil, fmt.Errorf("seed %d: the hub stream has more than %d events", seed, limit)
 		}
