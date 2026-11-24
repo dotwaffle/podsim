@@ -28,9 +28,9 @@ Save the part of the controller that changes the later decisions, when the polic
 
 The restore checks the fields before the tiers:
 
-- the cursors are in the range of the fleet, in the form that `nextPair` gives;
+- the cursors are in the range of the fleet, in the form that `nextPair` gives, or the start values 0 and 1, which a fleet of one pod also has;
 - `nextTick` is at most one second after the saved tick, and `budgetSecond` is at most the saved second;
-- the counts are in the range of the budgets, and each is zero when `budgetSecond` is before the saved second;
+- the counts are in the range of the budgets, also when `budgetSecond` is before the saved second, because the controller resets them only at its next scan;
 - each cooldown names a pod of the fleet one time, in the order of the pod IDs, with a tick after the saved tick and at most 30 s after it.
 
 A value that fails is a damaged file, and the project rule for such a file applies (it moves aside).
@@ -51,8 +51,9 @@ At the logical tier and for a demoted pod, the cooldown stays and the cursors st
 1. Lockstep of a saved and a live session with the policy on, as the lockstep test of the exact coordinates with swaps off today.
    The test must reach a swap after the restore, and it must fail with each field left out.
 2. Round trip of each field, and a refusal of each bound, in order.
-3. A save in the middle of a second after a swap, and one with an expired cooldown.
-4. The byte proofs.
+3. A save of an idle session with counts of an earlier second, and one with a fleet of one pod.
+4. A save in the middle of a second after a swap, and one with an expired cooldown.
+5. The byte proofs.
 
 ## Open questions
 
