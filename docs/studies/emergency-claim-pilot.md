@@ -88,7 +88,7 @@ The table includes seed 1 of the first pilot.
 - No run has a demotion, and each run completes its clear.
 
 So N saves empty distance, and it costs some service in two of three seeds.
-The cause of the long settle is not known.
+The cause of the long settle in seed 3 is [below](#the-settle-of-n).
 
 ## A second late record
 
@@ -96,9 +96,38 @@ The control of seed 2 is late on record `i1.17`.
 `express-08` was bound, with the wait "Junction traffic", and blocked by the traveling `london-pod-148`, from tick 50804.
 It waited 699.9 s not blocked by a fault, against the 600 s limit.
 N does not change it.
-Its cause is not known.
-A conflict on a berth node also reports "Junction traffic", so a claim is possible, and no run shows whether option A changes it.
-The pilot of option A had only seed 1, so the release seeds of HX11 can fail with option A in place.
+A trace of 2026-11-24 ran seed 2 at `755c6455` to 45 simulated minutes, with and without option A.
+The two traces of the record, its blocker chain, and the owners of the next request of each pod, each 20 s, are the same, so option A does not act on this record.
+
+| After the start | Chain from `express-08` to its head |
+| --- | --- |
+| 7 s | 12 pods on link 100 toward Waterloo, each with "Pod ahead" of the pod in front |
+| 87 s | 12 pods, the head in a station road |
+| 167 s | 11, the head waits for a Waterloo berth where a pod has boarded for Bank |
+| 247 s | 9 |
+| 327 s | 8 |
+| 407 s | 6 |
+| 487 s | 4 |
+| 567 s | 2 |
+| 687 s | Unloading at Waterloo |
+
+- The emergency pod is in the queue of link 100 toward Waterloo from its start, with 12 pods in its chain at the first sample, and the chain is down to 2 pods 560 s later.
+- The owners of the next request of the emergency pod are occupied track of the pod ahead, at each sample.
+  No claim is in the chain of the samples.
+- The head of the chain waits for the junction of the Waterloo entry or for a berth that a loaded pod holds.
+- The soak reported the last wait, "Junction traffic" behind `london-pod-148`.
+
+So this is a capacity queue, about 1 pod a minute through the entry of Waterloo, and it is the same kind of wait as record i1.18 of the shared-track preset, which led to queue promotion.
+Queue promotion is in the code of this run, and it did not shorten the queue enough.
+The [qualification](../contracts/express-wharf-qualification-proposal.md) names this queue of link 100 as a known risk of HX10 and HX11.
+
+## The settle of N
+
+A trace of N on seed 3, with the same seed and the same 771 s, lists each remaining wait each 30 s.
+The only one is the fault hold of `london-pod-025`, which drives its recovery route to Liverpool Street at 14 m/s and is never blocked in the 25 samples.
+The gate waits for that hold, so the settle is the length of that drive.
+It is not a block, and the gate has 1,800 s.
+Seed 1 was not traced.
 
 ## What it does not show
 

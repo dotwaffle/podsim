@@ -96,7 +96,7 @@ The refusal of a claim on a targeted berth, which the berth claim deadlock contr
 ## Not shown
 
 - The encoded session state before and after a yield, and the restore of a linked claimant.
-- The late record `i1.17` of seed 2, in a run without this code ([pilot](../studies/emergency-claim-pilot.md#a-second-late-record)).
+- The late record `i1.17` of seed 2 is a queue of link 100, and this rule does not act on it ([pilot](../studies/emergency-claim-pilot.md#a-second-late-record)).
 - The release seeds of HX11, the soaks of the other presets, and the CI case of the wharf preset with this code.
 - That a claimant always makes progress at full parking.
 - A run with no emergency is unchanged by the predicate.
