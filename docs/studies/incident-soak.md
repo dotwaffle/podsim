@@ -879,7 +879,11 @@ The trace was a scratch patch and is not in the tree.
 | 45 s to 615 s | `london-pod-039` stands at the station entry with "Berth occupied". |
 | 635 s | `london-pod-113` has arrived and left again for `parking-west`, and `london-pod-039` enters. The record ends by 655 s. |
 
-The readings of the record are all not blocked, so no fault is in its path.
+Each reading of the record is classified as not blocked under rule A.
+The record lasts about 653 s, and the stationary wait at the berth is about 570 s of it.
+At each reading to 615 s, `london-pod-113` is empty and in service with no operational purpose, is not released, and has no reservation at the berth.
+The blocker that `london-pod-039` reports is `london-pod-113`.
+The trace did not log the relocation, the rebalancing flag, the links, or the owner of each berth resource.
 
 Four rules make the wait:
 
@@ -893,6 +897,7 @@ Four rules make the wait:
 Devons Road is not a hub, and the claim is not of an Express pod.
 The rules are the same on each preset, so the failure is not specific to the wharf lines (inferred).
 The trace does not show whether a waiting trip named `london-pod-152`, or whether the claim of `london-pod-113` was guarded positioning or a move to clear a berth.
+That the claim would be revocable is inferred.
 No run has tested a change.
 
 ## Redistribution and reassignment on by default
