@@ -78,7 +78,8 @@ B1 does not apply, because the preset has no banks.
 For HX-D2, option C puts the preset in the place of `london-full-shared-express` in the defaults of `mise run soak:full`.
 The rule of amendment A19 applies to each default preset and lists none by name, so its text does not change.
 SX11 does not change either: it still needs 2 seeds of `london-full-shared-express` before a release tag, and `soak:full` does not run them after the swap.
-How SX11 gets that run is open (HX-D7).
+For HX-D7, the maintainer chose to amend SX11, and the draft is [below](#draft-amendment-of-sx11).
+Until the amendment is approved and HX11 passes, the defaults of `soak:full` stay as they are.
 
 Approval of a row does not authorize a push.
 Each long run needs a grant when it starts.
@@ -91,3 +92,17 @@ Each long run needs a grant when it starts.
 4. The Chrome session of HX-D6.
 
 A failure stops the order and goes back to the maintainer.
+
+## Draft amendment of SX11
+
+Status: proposed on 2026-11-24, not approved.
+The [shared-track contract](express-shared-track-qualification-proposal.md) does not change until the maintainer approves this text.
+
+The pass rule of SX11 becomes: a CI case of one simulated hour on `london-full-shared-express`, with the full check and the D6 oracle at each tick.
+The release soak before a release tag runs on `london-full-shared-express-wharf` under HX11, in place of `london-full-shared-express`.
+The amendment takes effect when HX11 passes, together with the change of the default presets of `soak:full`.
+The release soak that passed on `london-full-shared-express` stays as its record.
+
+- For: the new preset has the Waterloo and Bank line with the same lanes, the same comb, and the same hub stream, and the release soak stays inside its limit of 2 hours.
+- Against: the evidence of one preset does not transfer to the other, so a later change that breaks only `london-full-shared-express` over 6 simulated hours can reach a release.
+  The preset keeps the CI case and the London soak row of SX10, and SX10 is not a CI task.
