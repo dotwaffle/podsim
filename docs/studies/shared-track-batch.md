@@ -111,10 +111,22 @@ No rule limits the pods that go to a station to the space that it has.
 The links of the loop are track and occupied berths, not only claims, so it is a different loop from that of the [berth claim deadlock](../contracts/berth-claim-deadlock-proposal.md), but a claim can have a part in it (see below).
 It has the same shape as the mutual block of `D0` between Bank and Cannon Street in the adoption screen.
 
-One fact has no explanation here.
-At minute 60 of the first run, the head pod toward Waterloo waits for berth `02`, and no pod is in berths `03` to `05`.
-The probe does not show if those berths are claimed by pods that are behind it, or if the head pod has no free choice of berth.
-If one of these berths can take the head pod, the loop opens.
+### Why the head pod waits
+
+Two more runs of 60 minutes (BT-D6, seeds 1 and 2, the full hub stream) read the berth owners and the destination berth of each pod.
+
+| Time | Waterloo berths with no pod and no reservation | Pods whose destination is each berth | Pods of these not on link 100 toward Waterloo or in its station lanes |
+| --- | --- | --- | --- |
+| Seed 1, minute 60 | 03, 04, 05 | 21, 22, 22, 22, 22 | 74 |
+| Seed 2, minute 60 | 01, 02, 04 | 23, 23, 21, 23, 20 | 72 |
+
+In each seed, the head pod toward Waterloo is an empty pickup with a fixed berth, `02` in seed 1 and `03` in seed 2.
+A pod that boarded for Bank holds that berth and cannot leave, and other berths of the station are free.
+A pickup gets its berth at dispatch, with no claim.
+In `reevaluateTerminalBerth` the head pod can leave a taken berth for a free one, but `berthAvailableFor` refuses a berth that any other pod that is not idle has as its destination, at any distance and with no claim.
+When each berth has a pod that goes to it, the head pod has no choice.
+The rule is from `73dbd0fb`.
+The runs do not show that a change of this rule stops the block: a pod that takes a free berth gives the loop one more place, and the overload stays.
 
 ## Not tested
 
