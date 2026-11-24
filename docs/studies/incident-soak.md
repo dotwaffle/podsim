@@ -865,6 +865,36 @@ Each branch takes 17 to 32 s on a shared host.
 Amendment A14 adds `incidents-low-demand` and its own `reference-low-demand` to the routine soak on `rail-hub` only.
 Both use 1 order/min during warm-up and branches, with 10 incident branches and the 30-minute Progress window.
 
+## The late record of the wharf timing seed
+
+The HX11 timing seed of 2026-11-24 failed with record `i4.93` late.
+A rerun of the `incidents` arm on `e186a891` with a trace each 10 s, and with the full check at each second, gives the same record, pod, start tick 346041, and one late record.
+The trace was a scratch patch and is not in the tree.
+
+| Simulated time after the start | Trace |
+|---|---|
+| 5 s | `london-pod-039` is bound for berth 01 of Devons Road (`940GZZDLDEV`, 2 berths). Both berths are unavailable to it. |
+| 5 s to 625 s | Empty `london-pod-113` has berth 01 as its destination, and is 8.7 km away at 5 s. It drives and is not blocked at any reading, and berth 01 stays claimed. |
+| 5 s to 635 s | `london-pod-152` is idle in berth 02 and carries nobody. |
+| 45 s to 615 s | `london-pod-039` stands at the station entry with "Berth occupied". |
+| 635 s | `london-pod-113` has arrived and left again for `parking-west`, and `london-pod-039` enters. The record ends by 655 s. |
+
+The readings of the record are all not blocked, so no fault is in its path.
+
+Four rules make the wait:
+
+- The station choice tries the unavailable berths of a station last, but its estimate has no cost for a claim (`evaluateGroup`, `choiceBerths`).
+- A relocating pod yields its claim to a pod that brings a passenger, but `passengerArrivals` counts only pods in service, and an emergency pod is withdrawn.
+  Decision 2 of the [service transitions contract](../contracts/incident-service-transitions-contract-proposal.md) requires this: emergency demand never authorizes a yield of another pod's claim.
+- `clearBlockedBerths` moves only an idle pod in a berth that the route of the arrival enters.
+  The pod in berth 02 is not in that route.
+- `reevaluateTerminalBerth` moves the arrival only to a berth that is available, and an idle pod holds berth 02.
+
+Devons Road is not a hub, and the claim is not of an Express pod.
+The rules are the same on each preset, so the failure is not specific to the wharf lines (inferred).
+The trace does not show whether a waiting trip named `london-pod-152`, or whether the claim of `london-pod-113` was guarded positioning or a move to clear a berth.
+No run has tested a change.
+
 ## Redistribution and reassignment on by default
 
 Commit 3a40a5bd turns on redistribution and pickup reassignment in each preset.
