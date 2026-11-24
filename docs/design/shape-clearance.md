@@ -954,6 +954,22 @@ The batch is not adoption evidence, and it does not reopen the screen result of 
 S against S0 gives the effect of the Express pods.
 D and S differ in the network too, so their difference is not the effect of the shared track alone.
 
+### 8.2 Lighter batch, decided 2026-11-24
+
+Batch 2 does not meet BT-D1, because `LF` and `S0` do not finish ([results](../studies/shared-track-batch.md)).
+The maintainer chose a lighter batch (BT-D9) with these rules, before any run of it.
+
+- The workload is that of section 8.1 with a longer mean time between two hub events.
+- Search: `LF` and `S0`, seed 1, with a mean of 120 s, 240 s, and 480 s (1/8, 1/16, and 1/32 of the hub stream).
+  The batch uses the shortest mean at which both arms finish each accepted order.
+  `D` and `S` do not run before the load is fixed.
+- Batch: `LF`, `D`, `S0`, and `S`, seeds 1 to 3, at that load.
+- BT-D10: in each seed, no arm has a safety or accounting failure, each arm finishes each accepted order, and the mean hub wait of `S` is shorter than that of `S0`.
+  The mean covers both directions, with each party weighted by its passengers, over the parties that boarded whole.
+  This replaces the hub check of BT-D1, because two arms that finish all hub orders finish the same passengers.
+- All other measures are for the maintainer to judge.
+- BT-D11: the work stops and goes back to the maintainer if no load works, if `LF` or `S0` does not finish in seed 2 or 3, on a safety failure, or on a projection over 1 hour.
+
 ## 9. Review
 
 An adversarial review checked the first version of this proposal.
