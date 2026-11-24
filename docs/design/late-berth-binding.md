@@ -2,7 +2,8 @@
 
 Status: draft for the maintainer, 2026-11-24.
 Nothing is built or decided, and no run has tested this note.
-A Codex review found two blockers in the first candidate rule, and section 4 withdraws it.
+Two Codex reviews each found two blockers, in different candidate rules.
+No candidate of this note is sound as written, and section 4.8 groups the findings by cause.
 The maintainer asked if a pod can get its berth at the station approach and not at the start of its journey, and if idle pods can vacate when a pod joins the approach.
 The question comes from the [HX11 trace](../studies/incident-soak.md#the-late-record-of-the-wharf-timing-seed).
 The smaller options for the same failure are in the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md).
@@ -125,10 +126,11 @@ A move keeps a destination berth and a route to it, as today, but the berth is a
 This needs no station-only saved form for each move, because the destination stays.
 It is close to 3.1 B with changed readers of the target.
 It keeps most of the current restore rules.
-The ordering of rule 4, the states of rule 5, and the event of rule 6 are not designed yet.
+Section 4.5 has the states and the restore matrix.
+The event of rule 6 is not designed yet.
 Rule 2 changes the readers that the berth claim deadlock contract added, so that cycle must be proved again.
 
-### 4.3 What the trace can support
+### 4.3 What the HX11 trace can support
 
 The direction removes the remote owner that the trace shows in front of the emergency pod, if that owner was an empty move of the last two rows of 1.1.
 It does not say that the pod is admitted at 45 s, or where the far pod then goes, because a grant fails when any resource of its request has an owner, and an earlier change can move both pods.
@@ -143,6 +145,113 @@ These are measurements.
 - Depots.
 - Pickups, except that rule 2 changes how their targets read.
   The `LF` block has its own study.
+
+### 4.5 States and restore matrix
+
+This part is on paper only, and the second review found that it is not sound (section 4.8).
+It stays as the record of the attempt.
+It makes an empty move with a hint behave as a pickup does today, which has a destination berth and no owner.
+
+A pod is **committed** to a berth when it owns a resource of that berth, or when its reservation reaches a lane that leaves the entry of its destination station.
+`divertStart` uses the same boundary.
+This reads the reservation, so it needs no saved state.
+A pod behind another on one lane cannot be committed before it, because the lane cells belong to the pod in front.
+So a committed pod is the one that is ahead on its approach, and "in front" needs no other order.
+
+| State | Meaning | Berth resources | Leaves by |
+| --- | --- | --- | --- |
+| H0 | `DepartingEmpty`, with a hint | Owner of none | First grant: H1. Trip or other plan takes the pod: redirect. |
+| H1 | Moving, not committed, can divert | None | Commitment: H2. Displacement: H4. A trip takes the pod. |
+| H2 | Committed, no berth owner yet | None, or some | Grant of the berth cell: H3. It waits as a pickup does, and `clearBlockedBerths` moves an idle blocker. |
+| H3 | Granted | Owner | Arrival. |
+| H4 | Displaced, and a search is due | None | `parkReleased` finds a place: H1 with a new hint. It finds none: H4 again, after 1 s. |
+
+Displacement: the pod is in H0 or H1, and its berth has an owner other than it, or another pod is committed to that berth, or a fault closed it.
+The check runs at the place of `yieldRelocationClaims` in `redistribute`.
+The pod searches with `parkReleased`.
+Guarded moves, released moves, and plain moves go through one path.
+A plain claimant today keeps its route after a yield, so this is a change.
+
+`berthAvailableFor` then refuses a berth for an owner or for a committed pod, and not for a hint.
+This also changes pickups and loaded pods, and it is the test that the LF study named.
+`berthTargeted` and `closedBerthNodes` keep reading hints, as planning limits for new empty moves only.
+
+The planned bit of `ClaimsDestination`: today it means that the pod owns its destination berth.
+Here, a released pod that parked again needs a bit that says that it has a plan, so that `parkUnclaimedReleased` does not search at each pass.
+The same member can hold that meaning, as "the pod has a plan for its destination", and the restore then sets the bit and no owner.
+The JSON form does not change, and its meaning does, so the state version moves by the project rule for a changed meaning.
+
+| Saved pod | Today | With 4.5 |
+| --- | --- | --- |
+| H0 with a destination | `hasDestination` holds. `claimDestinations` gives the owner back. | Valid as today. The bit is set, and no owner. |
+| H1 | The route must end at the berth (`routeEndsMatch`). The claim comes back if the berth is free. | Valid as today. No owner. The berth can belong to a pod that was restored first, and the pod is then displaced at the first pass. |
+| H2, no owner | As a pickup. | As a pickup. `noBerthDemotes` does not apply, because it has a destination. |
+| H3 | The reservation gives the owner. | As today. |
+| H4 | Not a state: a pod always has a berth or a depot entry. | Has a destination, with the bit off. Restores as a released pod without a claim does. |
+| Idle or other | No change. | No change. |
+| Demotion (`placeDemoted`) | Candidates are the destination, the origin, then the stations. | As today. |
+| Frontier | `derivedFrontier` reads `ClaimsDestination` only at a depot entry, to tell a granted slot from a bound one. | A pod bound to a depot slot must keep the owner meaning there, so the planned bit must not apply to a depot slot. |
+
+Open in this design:
+
+- Full parking: an H4 pod that finds no place, or an H2 pod in front of loaded pods, has no exit.
+  A fixture must show that the loaded pods still move, or the design needs a rule for it.
+- Linked pods cannot divert, so a linked H1 pod is not displaced until the link ends.
+- A pod in H2 that is an emergency target of nobody can still hold the approach for as long as its berth is taken.
+- `busyBerths` and guarded supply read hints.
+  A displaced pod must leave the count at the same tick.
+- The surrender of suspension section 9.5 has nothing to do for these moves, but it still runs for a granted berth that is not used yet, if one exists.
+
+### 4.6 A smaller alternative: an admission yield
+
+The second review found that this is not sound as written (section 4.8).
+
+`grant` can let a request take a berth resource whose owner holds it only as a service claim, when that owner is not committed.
+The owner is displaced as in 4.5.
+The claim stays as a plan for every other reader, and the saved form and `ClaimsDestination` keep their meaning.
+
+- For: no change of `berthAvailableFor`, of the planned bit, or of the restore.
+  It serves emergencies, loaded pods, and pickups with one rule.
+- Against: it takes a claim from a pod that did not give it up, so it needs the approval of option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md), for every pod.
+  The far pod can be displaced late, on the tick of the request.
+- It is option A2 of that proposal, for all pods.
+
+### 4.7 The trace of remote claims
+
+A trace of 2026-11-24 sampled each claim once a second, on one run of each London preset: the `incidents` arm of the soak, seed 1, 4 simulated hours, with the checks, the saves, and the rewinds off.
+The patch was a scratch copy of `81738caa`, with no behavior change, and a fixture shows that its detector records a waiter.
+"Plain" is a claim that is neither guarded positioning nor a released pod that parked again.
+
+| Preset | Plain claims to a passenger berth | Seconds, p50 and p95 and max | Distance at the start (m), p50 and max | Plain claims to parking | Released claims, all | Rebalancing claims |
+| --- | ---: | --- | --- | ---: | ---: | ---: |
+| `london-central` | 0 | | | 0 | 960 | 0 |
+| `london-full` | 138 | 525, 948, 2,169 | 8,482, 36,307 | 0 | 304 | 84 |
+| `london-full-express` | 135 | 528, 1,109, 1,660 | 9,255, 33,403 | 5 | 306 | 2 |
+| `london-full-shared-express` | 200 | 487, 944, 2,181 | 9,277, 42,789 | 2 | 617 | 2 |
+| `london-full-shared-express-wharf` | 235 | 511, 1,212, 3,013 | 9,661, 42,169 | 10 | 1,000 | 1 |
+
+- The detector had zero matches in the samples of the 5 runs.
+  A waiter is a pod with "Berth occupied" whose destination berth is the claimed one and whose reported blocker is the claimant.
+- Emergency pods waited for a berth 0, 3, 12, 29, and 57 s in total, in the order of the table, as sampled counts, and no sample matched a claim.
+- The detector is narrow.
+  `grant` reports only the first conflicting resource, a conflict on the berth node reads as "Junction occupied", an incident report can replace the claimant, and the detector does not see an indirect queue, a conflict at an intermediate berth, a reroute that avoids the claim, or a wait between samples.
+  So the trace does not show that no pod waited because of a claim, and it does not show that claims do no harm.
+- It shows that long and far claims are common.
+- It did not log why a claim ended, or why a move went to a passenger berth 8 to 9 km away, and a claim open at the end of the run is counted at its length so far.
+- The HX11 wait is one record in a wharf run with the checks on, and the trace has one seed and one arm.
+
+### 4.8 Findings of two reviews, by cause
+
+| Cause | Findings | What it means |
+| --- | --- | --- |
+| The approach has no order in the model. | A bind point exists for depots only. A pod that is committed is not ahead when several approach lanes join. The boundary of `divertStart` is not the station entry alone, with banks and cut routes. | A rule that says "the pod in front takes the berth" needs a new queue or arbitration for each station, with a proof. |
+| A claim is three things in the code: an exclusion, a plan, and a marker of the lifecycle of the move. | A released pod without an owner searches at each pass. A guarded move ends on a yield. A hint does not pass `choosesBerth`. `ClaimsDestination` is the owner. `grant` cannot displace a pod whose intent is queued. | Removing the owner needs a separate state for each, in the moves, the restore, and the admission order. |
+| Nothing promises a place. | Full parking, a displaced pod at the head of an approach, a count that ignores classes and banks. | Late binding removes the only guarantee that an empty pod has a place, so capacity needs a rule of its own. |
+| The evidence is thin. | One waiter in one run, and a detector that misses most kinds of wait. | No measurement shows the benefit for ordinary traffic. |
+
+The line of soundness that the code gives today is this: a claim is released by the existing yield, before `admit`, for a pod that brings a passenger or by the owner itself.
+A rule that adds one more pod to that yield, with the same lifecycle, stays inside it.
+Option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md) is such a rule, and its cost is a decision of the maintainer and not a new mechanism.
 
 ## 5. Failure modes to prove
 
@@ -184,14 +293,13 @@ These are measurements.
 7. Find the cause of each parity difference, and then qualify again.
 
 A failure of any safety check stops the work.
-If step 2 shows few remote claims with a waiter, option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md) is the better size of change.
+The trace of step 2 did not settle the size.
+Option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md) is the smaller change.
 
 ## 8. Decisions for the maintainer
 
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
-| LB-D1 | Continue | A: step 2 only, then decide. B: steps 2 and 3. C: stop, and use option A of the emergency note. | A, because it is the cheapest step and it decides the size |
-| LB-D2 | Direction | 4.2, or another option of section 3 | 4.2 |
-| LB-D3 | What an emergency is promised | A: no wait for a remote plan of an empty pod. B: also no wait for capacity. | A, because B needs another capacity rule |
-| LB-D4 | Idle pods vacate | 3.5 A, B, or C | Decide after step 2, then C with its own measurement |
-| LB-D5 | Pickups | A: only rule 2 of 4.2. B: no target. | A |
+| LB-D1 | Continue | A: stop here, and use option A of the emergency note for the HX11 failure. B: a new design for the first three causes of 4.8, with the capacity rule first. | A, for its narrow scope and the documented HX11 failure, and not because claims are harmless, which is not measured |
+
+LB-D2 to LB-D5 of the first version were about the candidate rules, and no candidate is open.
