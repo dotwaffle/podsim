@@ -93,9 +93,30 @@ One run of seed 1 has no limit.
 - The hub line from Waterloo to Bank stays short of capacity: its parties wait 1,317 to 2,250 s on average in the three seeds at `k` of 2.
   The limit stops the block and adds no capacity.
 - The third question is open.
-  The run with no limit blocks, so no pair gives the individual limits, and the full hub stream has no run.
+  The run with no limit blocks, so no pair gives the individual limits, and the full hub stream is in the next section.
 
 The patch counts the pods for each refused send, 10.9 to 23.1 million sends in a run, so a build needs a cached count.
+
+### The full hub stream
+
+Three more runs of 2026-11-24 use the same patch with `k` of 2 and the full hub stream of the screen.
+The `LF` runs of the [batch](../studies/shared-track-batch.md#service) are the runs with no limit, and they are at an older commit.
+
+| Seed | `k` | Completed | Outstanding | Refused events | Background boarded | Mean background wait (s) | Out, mean party wait (s) | Out, passengers a minute in the window |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | None | 368 | 343 | 1,063 | 426 | 1,234 | 1,085 | 0.5 |
+| 1 | 2 | 1,334 | 0 | 534 | 923 | 439 | 4,307 | 5.7 |
+| 2 | None | 431 | 327 | 1,040 | 476 | 1,156 | 1,227 | 0.8 |
+| 2 | 2 | 1,350 | 0 | 558 | 921 | 394 | 4,287 | 5.6 |
+| 3 | None | 361 | 342 | 1,141 | 398 | 1,057 | 1,096 | 0.5 |
+| 3 | 2 | 1,374 | 0 | 570 | 934 | 432 | 4,171 | 5.5 |
+
+- No run has a safety failure, and `LF` finishes each accepted order in each seed.
+- The session still refuses about half of the events that the run with no limit refuses, at the queue limit of 200.
+- The waits of the runs with no limit cover only the requests that boarded.
+- `D` and `S` move 24.8 to 29.0 passengers a minute out, and `LF` with the limit moves 5.5 to 5.7.
+  So the limit does not replace an Express line.
+- Each run took 660 to 770 s of wall time, with the uncached count of the patch.
 
 ## Decisions for the maintainer
 
