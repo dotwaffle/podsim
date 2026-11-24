@@ -168,7 +168,7 @@ depends = ["web"]
 # this pattern, because a pattern that matches no test passes.
 run = '''
 go test -tags=embed_assets . ./cmd/serve
-go test -tags=embed_assets ./internal/session -run '^(TestPackedTextWireCost|TestSaveCapRejectsAtomically|TestDecodeCapsAtCallers|TestEncodeCapsAtCallers|TestTopologyPreflightAtCallers|TestPlainStateFileWorstCaseSize|TestPlainStreamMaximumEncoding|TestExpressStateFileWorstCaseSize|TestExpressStreamMaximumEncoding|TestPresetPoliciesRestore)$'
+go test -tags=embed_assets ./internal/session -run '^(TestPackedTextWireCost|TestSaveCapRejectsAtomically|TestDecodeCapsAtCallers|TestEncodeCapsAtCallers|TestTopologyPreflightAtCallers|TestPlainStateFileWorstCaseSize|TestPlainStreamMaximumEncoding|TestExpressStateFileWorstCaseSize|TestExpressStreamMaximumEncoding|TestPresetPoliciesRestore|TestPresetBehaviorParity|TestLondonExpressBehaviorParity)$'
 '''
 
 [tasks.serve]
