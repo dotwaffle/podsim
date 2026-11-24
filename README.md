@@ -165,6 +165,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Express London adoption screen](docs/contracts/express-london-adoption-screen-proposal.md) | A capped screen of D against LondonFull, before any full adoption matrix. Failed; D adoption stopped on November 9, 2026, and D is not adopted. |
 | [Berth claim deadlock](docs/contracts/berth-claim-deadlock-proposal.md) | An empty move that claims a berth behind unclaimed pickups on one access lane stalls for good. Option A approved and built. |
 | [Pickup swap state](docs/contracts/pickup-swap-state-proposal.md) | Save the pickup reassignment controller, decision EC-D9. Decided by the maintainer on 2026-11-24: not now. |
+| [Late berth binding](docs/design/late-berth-binding.md) | Draft: an empty move gets its berth at the station approach and claims none before it. Not decided. |
 | [Emergency berth claim](docs/contracts/emergency-berth-claim-proposal.md) | Draft: options for an emergency pod that waits for a far empty pod with a claim on its berth. Not approved. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
 | [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. Stopped with D adoption. |

@@ -40,6 +40,8 @@ In this state no berth is free, and no rule makes one free before the far pod ar
 | D | The claim surrender of section 9.5 also applies to a pod that does not wait but is far from its berth. | It keeps the wording that only the owner gives up its claim. | It depends on the distance of the owner and not on the demand of the emergency. It needs a distance constant, and it acts on pods that block nobody. |
 | E | No change, and an exception for HX11. | No code. | The Progress gate of the release soak then has a known miss, on rules that each preset has. |
 
+A larger change, that an empty move gets its berth at the approach, is in [late berth binding](../design/late-berth-binding.md).
+
 ## Recommendation
 
 Option A, as an amendment of decision 2 that is limited to a revocable relocation claim and to purpose 1.
