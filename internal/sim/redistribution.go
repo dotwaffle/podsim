@@ -50,7 +50,8 @@ func (s *Simulation) redistribute() {
 
 // yieldRelocationClaims lets passenger traffic arbitrate a remote berth locally.
 // A relocating pod yields its revocable destination claims when a different
-// pod brings a passenger to that berth. See passengerArrivals and claimKind.
+// pod brings a passenger to that berth, also as an emergency unload. See
+// passengerArrivals and claimKind.
 // An empty pod keeps the claim after admission to the destination block.
 // A released pod that yields a claim goes to the nearest free berth at once.
 // See parkReleased. In guarded mode, a rebalancing pod that yields a claim
@@ -125,7 +126,8 @@ func (a passengerArrival) conflictsWith(v *vehicle) bool {
 // passengerArrivals returns the passenger arrivals at the destination berth
 // of each relocating pod, keyed by berth ID. A pod brings a passenger to its
 // destination berth when it is in service and has an active passenger that
-// boards or travels, or when a waiting trip names it. Pod IDs are unique, so
+// boards or travels, when it is bound to an emergency unload (see
+// bringsEmergency), or when a waiting trip names it. Pod IDs are unique, so
 // findVehicle finds the pod that a waiting trip names. The empty berth ID is
 // also a key when a relocating pod has no destination berth. The map has no
 // key for a berth that no relocating pod goes to. The map is correct only
@@ -150,7 +152,7 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 	}
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
-		if (v.Pod.Activity == Boarding || v.Pod.Activity == Continuing || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 && v.inService() {
+		if (v.Pod.Activity == Boarding || v.Pod.Activity == Continuing || v.Pod.Activity == Traveling) && v.RidersAboard() > 0 && (v.inService() || v.bringsEmergency()) {
 			add(v)
 		}
 	}
@@ -160,6 +162,13 @@ func (s *Simulation) passengerArrivals() map[string]passengerArrival {
 		}
 	}
 	return arrivals
+}
+
+// bringsEmergency reports whether v goes to the berth of an emergency unload.
+// A fault holds v where it is, so a pod with the fault hold does not count.
+// A deferred record has no emergency binding, so its pod does not count.
+func (v *vehicle) bringsEmergency() bool {
+	return v.op.purpose == opEmergencyUnload && v.withdrawn == emergencyHold
 }
 
 func (s *Simulation) moveAndMeasure(v *vehicle) {

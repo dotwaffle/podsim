@@ -1,7 +1,7 @@
 # Emergency berth claim proposal
 
 Status: draft for the maintainer, 2026-11-24.
-Nothing is approved or built.
+The maintainer approved option A in principle on 2026-11-24, with the text in the [amendment draft](emergency-claim-yield-amendment-proposal.md) still to approve.
 A [pilot](../studies/emergency-claim-pilot.md) of option A ended the HX11 wait at 59.7 s in one run.
 The maintainer chose this note as the next step after the HX11 failure.
 

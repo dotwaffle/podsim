@@ -311,7 +311,7 @@ Three opinions were compared: an analysis written first, a blind design with the
 - The full design is not justified by the HX11 record.
   It takes away the only promise that an empty pod has a place, and replaces it with a promise of capacity that nobody has proved.
 - The smallest credible fix is option A of the [emergency berth claim proposal](../contracts/emergency-berth-claim-proposal.md).
-  No run has shown that it fixes the record.
+  When this was written, no run had shown that it fixes the record; the pilot of 9.3 later did.
 - `grant` must not redirect a pod, because `admit` has already built the intents.
   A displacement belongs before `admit`, as the existing yield is.
 
