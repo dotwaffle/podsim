@@ -11,12 +11,8 @@ import (
 // The arrival values stop at the end of the arrival window, and the total
 // values include the clear, which has a different length in each arm.
 type screenMeasures struct {
-	// Outbound is from Waterloo to Bank, and Inbound from Bank to Waterloo.
-	Outbound screenHubMeasure `json:"outbound"`
-	Inbound  screenHubMeasure `json:"inbound"`
-	// HubPassengerWaitSeconds is the mean wait of the hub parties of both
-	// directions that boarded whole, with each party weighted by its size.
-	HubPassengerWaitSeconds float64 `json:"hub_passenger_wait_seconds"`
+	// Lines holds the hub events of each line of the screen.
+	Lines []screenLineMeasure `json:"lines"`
 	// The blocked values count the time of Compact pods with a wait report
 	// that names another pod. A pod that only slows behind a pod has no
 	// wait report. The values have the resolution of the check interval.
@@ -32,6 +28,18 @@ type screenMeasures struct {
 	ArrivalQueue int `json:"arrival_queue"`
 	// The background values cover the background requests that boarded.
 	BackgroundWait screenWaitMeasure `json:"background_wait"`
+}
+
+// screenLineMeasure holds the hub events of one line.
+type screenLineMeasure struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	// Outbound is from From to To, and Inbound from To to From.
+	Outbound screenHubMeasure `json:"outbound"`
+	Inbound  screenHubMeasure `json:"inbound"`
+	// HubPassengerWaitSeconds is the mean wait of the hub parties of both
+	// directions that boarded whole, with each party weighted by its size.
+	HubPassengerWaitSeconds float64 `json:"hub_passenger_wait_seconds"`
 }
 
 // screenHubMeasure holds the hub events of one direction. The arrival
@@ -110,10 +118,26 @@ func (m *screenMeasures) sample(state sim.Snapshot, input screenSample) {
 	}
 }
 
+// screenFinish gives the parts of a screen that finish needs.
+type screenFinish struct {
+	arrivalTicks int64
+	lines        []screenLine
+}
+
+// screenLineTotals collects the hub waits of one line.
+type screenLineTotals struct {
+	outbound, inbound []int64
+	weighted, boarded int64
+}
+
 // finish sets the values that come from the outcomes of events.
-func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, arrivalTicks int64) {
-	var background, outbound, inbound []int64
-	weighted, boarded := int64(0), int64(0)
+func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, input screenFinish) {
+	var background []int64
+	totals := make([]screenLineTotals, len(input.lines))
+	m.Lines = make([]screenLineMeasure, len(input.lines))
+	for index, line := range input.lines {
+		m.Lines[index].From, m.Lines[index].To = line.from, line.to
+	}
 	for index, event := range events {
 		outcome := outcomes[index]
 		if !event.Hub {
@@ -122,31 +146,40 @@ func (m *screenMeasures) finish(outcomes []screenOutcome, events []screenEvent, 
 			}
 			continue
 		}
-		hub, waits := &m.Inbound, &inbound
+		total := &totals[event.Line]
+		hub, waits := &m.Lines[event.Line].Inbound, &total.inbound
 		if event.Outbound {
-			hub, waits = &m.Outbound, &outbound
+			hub, waits = &m.Lines[event.Line].Outbound, &total.outbound
 		}
 		hub.Offered += event.Size
 		if outcome.WaitTicks >= 0 {
 			*waits = append(*waits, outcome.WaitTicks)
-			weighted += outcome.WaitTicks * int64(event.Size)
-			boarded += int64(event.Size)
+			total.weighted += outcome.WaitTicks * int64(event.Size)
+			total.boarded += int64(event.Size)
 		}
-		if outcome.JourneyTicks < 0 {
-			continue
-		}
-		hub.TotalParties++
-		hub.TotalPassengers += event.Size
-		if event.Tick+outcome.JourneyTicks <= arrivalTicks {
-			hub.ArrivalParties++
-			hub.ArrivalPassengers += event.Size
-		}
+		hub.finished(event, outcome, input.arrivalTicks)
 	}
-	if boarded > 0 {
-		m.HubPassengerWaitSeconds = float64(weighted) / float64(boarded) / sim.TicksPerSecond
+	for index, total := range totals {
+		line := &m.Lines[index]
+		if total.boarded > 0 {
+			line.HubPassengerWaitSeconds = float64(total.weighted) / float64(total.boarded) / sim.TicksPerSecond
+		}
+		line.Outbound.Wait, line.Inbound.Wait = newScreenWaitMeasure(total.outbound), newScreenWaitMeasure(total.inbound)
 	}
 	m.BackgroundWait = newScreenWaitMeasure(background)
-	m.Outbound.Wait, m.Inbound.Wait = newScreenWaitMeasure(outbound), newScreenWaitMeasure(inbound)
+}
+
+// finished counts a party that finished whole.
+func (h *screenHubMeasure) finished(event screenEvent, outcome screenOutcome, arrivalTicks int64) {
+	if outcome.JourneyTicks < 0 {
+		return
+	}
+	h.TotalParties++
+	h.TotalPassengers += event.Size
+	if event.Tick+outcome.JourneyTicks <= arrivalTicks {
+		h.ArrivalParties++
+		h.ArrivalPassengers += event.Size
+	}
 }
 
 // screenMatched compares the waits of the background requests that boarded

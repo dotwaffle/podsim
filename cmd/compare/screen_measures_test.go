@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"reflect"
 	"testing"
 
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -27,7 +28,7 @@ func TestScreenMeasuresSample(t *testing.T) {
 	m.sample(state, input)
 	want := screenMeasures{ArrivalBlockedByExpressSeconds: 1, ArrivalBlockedByCompactSeconds: 1, TotalBlockedByExpressSeconds: 2, TotalBlockedByCompactSeconds: 2,
 		ArrivalEmptyMeters: 10, TotalEmptyMeters: 10, QueuePeak: 3, ArrivalQueue: 3}
-	if m != want {
+	if !reflect.DeepEqual(m, want) {
 		t.Fatalf("got %+v, want %+v", m, want)
 	}
 }
@@ -40,27 +41,33 @@ func TestScreenMeasuresFinish(t *testing.T) {
 		{Tick: 100, Size: 10, Hub: true, Outbound: true},
 		{Tick: 100, Size: 7, Hub: true, Outbound: true},
 		{Tick: 0, Size: 4, Hub: true},
+		{Tick: 0, Size: 5, Hub: true, Outbound: true, Line: 1},
 	}
 	outcomes := []screenOutcome{
 		{WaitTicks: 30, JourneyTicks: 60}, {WaitTicks: -1, JourneyTicks: -1},
 		{WaitTicks: 60, JourneyTicks: 200}, {WaitTicks: 90, JourneyTicks: 201}, {WaitTicks: 30, JourneyTicks: -1},
+		{WaitTicks: 300, JourneyTicks: 300},
 	}
 	m := screenMeasures{}
-	m.finish(outcomes, events, 300)
+	m.finish(outcomes, events, screenFinish{arrivalTicks: 300, lines: screenKnownLines(screenHubMean)})
 	if m.BackgroundWait.Count != 1 || m.BackgroundWait.Mean != 1 {
 		t.Errorf("background %+v", m.BackgroundWait)
 	}
+	line, wharf := m.Lines[0], m.Lines[1]
+	if wharf.From != screenLondonBridge || wharf.Outbound.TotalPassengers != 5 || wharf.Inbound.Offered != 0 || math.Abs(wharf.HubPassengerWaitSeconds-10) > 1e-9 {
+		t.Errorf("wharf line %+v", wharf)
+	}
 	want := screenHubMeasure{Offered: 17, ArrivalPassengers: 10, ArrivalParties: 1, TotalPassengers: 17, TotalParties: 2,
 		Wait: screenWaitMeasure{Count: 2, Mean: 2.5, Median: 2, P95: 3, Longest: 3}}
-	if m.Outbound != want {
-		t.Errorf("outbound %+v, want %+v", m.Outbound, want)
+	if line.Outbound != want {
+		t.Errorf("outbound %+v, want %+v", line.Outbound, want)
 	}
 	// The waits are 2 s for 10 passengers, 3 s for 7, and 1 s for 4.
-	if want := 45.0 / 21; math.Abs(m.HubPassengerWaitSeconds-want) > 1e-9 {
-		t.Errorf("hub passenger wait %v, want %v", m.HubPassengerWaitSeconds, want)
+	if want := 45.0 / 21; math.Abs(line.HubPassengerWaitSeconds-want) > 1e-9 {
+		t.Errorf("hub passenger wait %v, want %v", line.HubPassengerWaitSeconds, want)
 	}
-	if m.Inbound.Offered != 4 || m.Inbound.TotalParties != 0 || m.Inbound.Wait.Count != 1 {
-		t.Errorf("inbound %+v", m.Inbound)
+	if line.Inbound.Offered != 4 || line.Inbound.TotalParties != 0 || line.Inbound.Wait.Count != 1 {
+		t.Errorf("inbound %+v", line.Inbound)
 	}
 }
 

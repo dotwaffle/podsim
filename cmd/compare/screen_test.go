@@ -57,7 +57,7 @@ func TestScreenParts(t *testing.T) {
 func TestScreenEvents(t *testing.T) {
 	t.Parallel()
 	source := scenarios.LondonFull()
-	input := screenEventsInput{seed: 2, band: 1, arrivalTicks: 20 * 60 * sim.TicksPerSecond, intervalTicks: 6 * sim.TicksPerSecond, hubMeanTicks: screenHubMean, source: source}
+	input := screenEventsInput{seed: 2, band: 1, arrivalTicks: 20 * 60 * sim.TicksPerSecond, intervalTicks: 6 * sim.TicksPerSecond, lines: screenKnownLines(screenHubMean)[:1], source: source}
 	events, err := screenEvents(input)
 	if err != nil {
 		t.Fatal(err)
@@ -101,7 +101,7 @@ func TestScreenEvents(t *testing.T) {
 		t.Fatalf("%d hub events, %d outbound", hubs, outbound)
 	}
 	// A longer mean thins the hub stream and keeps the background.
-	input.hubMeanTicks = 120 * sim.TicksPerSecond
+	input.lines = screenKnownLines(120 * sim.TicksPerSecond)[:1]
 	light, err := screenEvents(input)
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +114,120 @@ func TestScreenEvents(t *testing.T) {
 	}
 	if lightHubs < 3 || lightHubs > 20 || len(light)-lightHubs != len(background) {
 		t.Fatalf("%d hub events of %d at a mean of 120 s", lightHubs, len(light))
+	}
+}
+
+// TestScreenLines checks that the hub lines come from the Express services
+// of the configurations, that a configuration without its Express keeps its
+// lines, and that an unknown service is an error.
+func TestScreenLines(t *testing.T) {
+	t.Parallel()
+	known := screenKnownLines(screenHubMean)
+	configs, err := screenConfigs([]string{screenLondonFull, screenExpress, screenGeometry, screenShared, screenWharf, screenWharfPlain}, known)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, want := range [][]screenLine{nil, known[:1], known[:1], known[:1], known, known} {
+		if !slices.Equal(configs[index].lines, want) {
+			t.Errorf("%s: lines %+v, want %+v", configs[index].name, configs[index].lines, want)
+		}
+	}
+	plain := configs[5].config
+	if plain.OrderContract != "" || len(plain.ExpressServices) != 0 || len(plain.Fleet) != len(configs[0].config.Fleet) || !reflect.DeepEqual(plain.Network, configs[4].config.Network) {
+		t.Error("W0 does not have the fleet of LF, the network of W, and no Express")
+	}
+	for _, test := range []struct {
+		configs []screenConfig
+		want    []screenLine
+	}{
+		{configs[:1], known[:1]}, {configs[:4], known[:1]}, {configs[5:], known},
+	} {
+		if got := screenLines(test.configs, known); !slices.Equal(got, test.want) {
+			t.Errorf("screen lines %+v, want %+v", got, test.want)
+		}
+	}
+	if _, err := screenServiceLines([]sim.ExpressService{{ID: "x", From: screenWaterloo, To: screenCanaryWharf}}, known); err == nil || err.Error() != "service x has no hub line" {
+		t.Errorf("an unknown service: %v", err)
+	}
+}
+
+// TestScreenWharfEvents checks that the events of the wharf line change no
+// other event, and the rate and the share of the line.
+func TestScreenWharfEvents(t *testing.T) {
+	t.Parallel()
+	known := screenKnownLines(screenHubMean)
+	input := screenEventsInput{seed: 2, band: 1, arrivalTicks: 2 * 3600 * sim.TicksPerSecond, intervalTicks: 6 * sim.TicksPerSecond, lines: known[:1], source: scenarios.LondonFull()}
+	one, err := screenEvents(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input.lines = known
+	both, err := screenEvents(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rest []screenEvent
+	wharf, outbound := 0, 0
+	for _, event := range both {
+		if event.Line == 0 {
+			event.ID = len(rest)
+			rest = append(rest, event)
+			continue
+		}
+		wharf++
+		from, to := screenCanaryWharf, screenLondonBridge
+		if event.Outbound {
+			outbound++
+			from, to = to, from
+		}
+		if !event.Hub || event.From != from || event.To != to {
+			t.Fatalf("wharf event %+v", event)
+		}
+	}
+	if !reflect.DeepEqual(rest, one) {
+		t.Fatal("the wharf line changed the other events")
+	}
+	// The lines have independent streams.
+	line := known[1]
+	line.stream = known[0].stream
+	input.lines = []screenLine{known[0], line}
+	if same, err := screenEvents(input); err != nil || reflect.DeepEqual(same, both) {
+		t.Fatalf("the stream of the wharf line has no effect: %v", err)
+	}
+	// Two hours at a mean of 28 s give about 257 events, 17 in 20 outbound.
+	if wharf < 210 || wharf > 305 || outbound*100 < wharf*78 || outbound*100 > wharf*92 {
+		t.Fatalf("%d wharf events, %d outbound", wharf, outbound)
+	}
+}
+
+// TestScreenOfferService checks that a hub party is one Express order on a
+// line that the arm serves, and splits on another line.
+func TestScreenOfferService(t *testing.T) {
+	t.Parallel()
+	configs, err := screenConfigs([]string{screenShared}, screenKnownLines(screenHubMean))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := configs[0].config
+	simulation, err := sim.NewFleetWithOrderContract(config.Network, config.Fleet, config.OrderContract)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := project.ConfigureSharedRides(simulation, config); err != nil {
+		t.Fatal(err)
+	}
+	if err := project.ConfigureExperiments(simulation, config, false); err != nil {
+		t.Fatal(err)
+	}
+	input := screenOfferInput{split: 4, services: map[string]string{}, consent: sim.SharedConsent, queueLimit: 200}
+	for _, service := range config.ExpressServices {
+		input.services[service.From+" "+service.To] = service.ID
+	}
+	if outcome := screenOffer(simulation, screenEvent{From: screenWaterloo, To: screenBank, Size: 10, Hub: true}, input); outcome.Error != "" || len(outcome.Orders) != 1 {
+		t.Errorf("a served line: %+v", outcome)
+	}
+	if outcome := screenOffer(simulation, screenEvent{From: screenLondonBridge, To: screenCanaryWharf, Size: 10, Hub: true}, input); outcome.Error != "" || len(outcome.Orders) != 3 {
+		t.Errorf("a line without a service: %+v", outcome)
 	}
 }
 
@@ -198,7 +312,7 @@ func TestScreenCompare(t *testing.T) {
 
 func TestScreenConfigs(t *testing.T) {
 	t.Parallel()
-	configs, err := screenConfigs([]string{screenLondonFull, screenGeometry, screenExpress, screenSharedPlain, screenShared})
+	configs, err := screenConfigs([]string{screenLondonFull, screenGeometry, screenExpress, screenSharedPlain, screenShared}, screenKnownLines(screenHubMean))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -305,7 +419,7 @@ func (w *failingWriter) Write(p []byte) (int, error) {
 // status 1, also when a deciding gate failed.
 func TestScreenSummaryWriteError(t *testing.T) {
 	t.Parallel()
-	report := screenReport{SchemaVersion: 4, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
+	report := screenReport{SchemaVersion: 5, Arms: []screenArm{{Config: screenLondonFull, Band: "b", Seed: 1}},
 		Pairs: []screenPair{{Band: "b", Seed: 1, Candidate: screenExpress, Reference: screenLondonFull, Decides: true, Gates: []screenGate{{Name: "g"}}}}, Result: screenFailed}
 	// The summary has an arm line, a gate line, and the result line.
 	for ok := range 3 {
@@ -372,7 +486,7 @@ func TestScreenResult(t *testing.T) {
 		}
 		var stdout bytes.Buffer
 		output := filepath.Join(t.TempDir(), "screen.json")
-		report := screenReport{SchemaVersion: 4, Arms: test.arms, Pairs: pairs, Result: result}
+		report := screenReport{SchemaVersion: 5, Arms: test.arms, Pairs: pairs, Result: result}
 		if code := writeScreenResults(report, output, &stdout, &bytes.Buffer{}); code != test.code {
 			t.Errorf("%s: exit %d, want %d", test.name, code, test.code)
 		}
@@ -437,21 +551,21 @@ func TestScreenStorageBytes(t *testing.T) {
 func TestScreenHubLimit(t *testing.T) {
 	t.Parallel()
 	const arrivalTicks = 20 * 60 * sim.TicksPerSecond
-	events, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: screenHubLimit(arrivalTicks)})
+	events, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, line: screenKnownLines(screenHubMean)[0], limit: screenHubLimit(arrivalTicks)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	count := int64(len(events))
-	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: count}); err != nil {
+	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, line: screenKnownLines(screenHubMean)[0], limit: count}); err != nil {
 		t.Fatalf("a limit of exactly %d events: %v", count, err)
 	}
 	want := fmt.Sprintf("seed 2: the hub stream has more than %d events", count-1)
-	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, meanTicks: screenHubMean, limit: count - 1}); err == nil || err.Error() != want {
+	if _, err := screenHubEvents(nil, screenHubInput{seed: 2, arrivalTicks: arrivalTicks, line: screenKnownLines(screenHubMean)[0], limit: count - 1}); err == nil || err.Error() != want {
 		t.Fatalf("a limit one event under the stream: got %v, want %q", err, want)
 	}
 	for seed := range int64(100) {
 		for _, window := range []int64{1, 450, 2 * 3600 * sim.TicksPerSecond} {
-			if _, err := screenHubEvents(nil, screenHubInput{seed: seed + 1, arrivalTicks: window, meanTicks: screenHubMean, limit: screenHubLimit(window)}); err != nil {
+			if _, err := screenHubEvents(nil, screenHubInput{seed: seed + 1, arrivalTicks: window, line: screenKnownLines(screenHubMean)[0], limit: screenHubLimit(window)}); err != nil {
 				t.Errorf("seed %d, %d ticks: %v", seed+1, window, err)
 			}
 		}
@@ -477,6 +591,7 @@ func TestParseScreenStorage(t *testing.T) {
 	}{
 		{[]string{"-arrivals", "24h", "-background-per-minute", "1800", "-seeds", "1,2", "-bands", "busy"}, "the screen storage must fit in 1024 MiB, and this screen needs 1764 MiB"},
 		{[]string{"-arrivals", "24h", "-seeds", seedList(100)}, "the screen storage must fit in 1024 MiB, and this screen needs 3146 MiB"},
+		{[]string{"-arrivals", "24h", "-seeds", seedList(100), "-configs", "LF,W0,W"}, "the screen storage must fit in 1024 MiB, and this screen needs 5455 MiB"},
 	} {
 		const advice = "; use fewer seeds, bands, or configurations, a lower background rate, or a shorter arrival window"
 		_, err := parseScreenOptions(test.args, &bytes.Buffer{})

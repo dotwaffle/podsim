@@ -30,6 +30,11 @@ const (
 	// project with and without its Express pods.
 	screenShared      = "S"
 	screenSharedPlain = "S0"
+	// screenWharf and screenWharfPlain are the shared-track Express project
+	// with the London Bridge and Canary Wharf line, with and without its
+	// Express pods.
+	screenWharf      = "W"
+	screenWharfPlain = "W0"
 	// screenHubMean is the default and the shortest mean time between two
 	// hub events, and screenHubOutbound the share of the events from Waterloo. The values are
 	// the hub stream of the D soak.
@@ -37,9 +42,19 @@ const (
 	screenHubOutbound = 0.75
 	screenWaterloo    = "940GZZLUWLO"
 	screenBank        = "940GZZLUBNK"
+	// The wharf line has the AM peak rates of decision HX-D3 of the Express
+	// wharf qualification.
+	screenLondonBridge  = "940GZZLULNB"
+	screenCanaryWharf   = "940GZZLUCYF"
+	screenWharfMean     = 28 * sim.TicksPerSecond
+	screenWharfOutbound = 0.85
+	// screenMaxLines is the largest number of hub lines of a screen.
+	screenMaxLines = 2
 	// screenHubStream separates the stream of the hub events from the stream
 	// of the background schedule.
 	screenHubStream = 0x48554245
+	// screenWharfStream separates the hub events of the wharf line.
+	screenWharfStream = 0x57484152
 	// screenMaxBackgroundPerMinute is the highest background rate with an
 	// interval of at least one tick between two requests.
 	screenMaxBackgroundPerMinute = 60 * sim.TicksPerSecond
@@ -64,11 +79,11 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	flags.SetOutput(stderr)
 	seeds := flags.String("seeds", "1,2,3", "comma-separated seeds")
 	bands := flags.String("bands", "busy,quiet", "comma-separated bands: busy, quiet, or LondonFull band IDs")
-	configs := flags.String("configs", "LF,D0,D", "comma-separated configurations: LF, D0, D, S0, S")
+	configs := flags.String("configs", "LF,D0,D", "comma-separated configurations: LF, D0, D, S0, S, W0, W")
 	opts := screenOptions{}
 	flags.DurationVar(&opts.arrivals, "arrivals", 2*time.Hour, "simulated time with offered events")
 	flags.DurationVar(&opts.clear, "clear", 2*time.Hour, "longest simulated time after the arrivals")
-	flags.DurationVar(&opts.hubMean, "hub-mean", screenHubMean/sim.TicksPerSecond*time.Second, "mean time between two hub events, at least the default")
+	flags.DurationVar(&opts.hubMean, "hub-mean", screenHubMean/sim.TicksPerSecond*time.Second, "mean time between two hub events of Waterloo and Bank, at least the default")
 	flags.IntVar(&opts.backgroundPerMin, "background-per-minute", 0, "background requests a minute; 0 uses the LondonFull preset rate")
 	flags.IntVar(&opts.queueLimit, "queue-limit", 200, "live queue limit")
 	flags.IntVar(&opts.workers, "workers", 3, "arms that run at the same time")
@@ -94,7 +109,7 @@ func parseScreenOptions(args []string, stderr io.Writer) (screenOptions, error) 
 	opts.configs = strings.Split(*configs, ",")
 	for _, name := range opts.configs {
 		switch name {
-		case screenLondonFull, screenGeometry, screenExpress, screenShared, screenSharedPlain:
+		case screenLondonFull, screenGeometry, screenExpress, screenShared, screenSharedPlain, screenWharf, screenWharfPlain:
 		default:
 			return screenOptions{}, fmt.Errorf("unknown screen configuration %q", name)
 		}
@@ -138,8 +153,8 @@ func screenBackgroundInterval(perMinute int) int64 {
 	return 60 * sim.TicksPerSecond / int64(perMinute)
 }
 
-// screenHubLimit returns the largest number of hub events in an arrival
-// window. It is twice the mean number at screenHubMean and 32 more, so a seed does not get
+// screenHubLimit returns the largest number of hub events of a line in an
+// arrival window. It is twice the mean number at screenHubMean and 32 more, so a seed does not get
 // near it. screenHubEvents refuses a stream with more events, so the
 // storage of a screen cannot be larger than checkScreenBytes counts.
 func screenHubLimit(arrivalTicks int64) int64 {
@@ -162,6 +177,9 @@ func checkScreenBytes(opts screenOptions) error {
 	arrivalTicks := durationTicks(opts.arrivals)
 	background := intervalRequestCount(arrivalTicks, screenBackgroundInterval(opts.backgroundPerMin))
 	hub := screenHubLimit(arrivalTicks)
+	if slices.Contains(opts.configs, screenWharf) || slices.Contains(opts.configs, screenWharfPlain) {
+		hub *= screenMaxLines
+	}
 	configs := float64(len(opts.configs))
 	events := float64(background)*(screenEventBytes+configs*(screenOutcomeBytes+screenOrderBytes)) +
 		float64(hub)*(screenEventBytes+configs*(screenOutcomeBytes+screenHubOrderBytes))
@@ -179,6 +197,61 @@ func checkScreenBytes(opts screenOptions) error {
 type screenConfig struct {
 	name   string
 	config project.Config
+	// lines holds the hub lines of the Express services of the preset.
+	// A configuration without its Express services keeps them.
+	lines []screenLine
+}
+
+// screenLine is a pair of hubs with a hub stream. Outbound is from From to
+// To.
+type screenLine struct {
+	from, to  string
+	meanTicks int64
+	outbound  float64
+	stream    uint64
+}
+
+// screenKnownLines returns the lines that have rates, in the order of the
+// events of one tick. hubMeanTicks is the mean of the first line.
+func screenKnownLines(hubMeanTicks int64) []screenLine {
+	return []screenLine{
+		{from: screenWaterloo, to: screenBank, meanTicks: hubMeanTicks, outbound: screenHubOutbound, stream: screenHubStream},
+		{from: screenLondonBridge, to: screenCanaryWharf, meanTicks: screenWharfMean, outbound: screenWharfOutbound, stream: screenWharfStream},
+	}
+}
+
+// screenServiceLines returns the known lines that the Express services
+// serve. It refuses a service with no known line.
+func screenServiceLines(services []sim.ExpressService, known []screenLine) ([]screenLine, error) {
+	served := make([]bool, len(known))
+	for _, service := range services {
+		index := slices.IndexFunc(known, func(line screenLine) bool {
+			return line.from == service.From && line.to == service.To || line.from == service.To && line.to == service.From
+		})
+		if index < 0 {
+			return nil, fmt.Errorf("service %s has no hub line", service.ID)
+		}
+		served[index] = true
+	}
+	var lines []screenLine
+	for index, line := range known {
+		if served[index] {
+			lines = append(lines, line)
+		}
+	}
+	return lines, nil
+}
+
+// screenLines returns the known lines of a screen. The first line is always
+// one, and the others are there if a configuration serves them.
+func screenLines(configs []screenConfig, known []screenLine) []screenLine {
+	lines := slices.Clone(known[:1])
+	for _, line := range known[1:] {
+		if slices.ContainsFunc(configs, func(config screenConfig) bool { return slices.Contains(config.lines, line) }) {
+			lines = append(lines, line)
+		}
+	}
+	return lines
 }
 
 // screenWithoutExpress returns config with no Express pod, no Express
@@ -189,33 +262,39 @@ func screenWithoutExpress(config project.Config) project.Config {
 	return config
 }
 
-// screenConfigs returns the named configurations. D0 is D, and S0 is S,
-// without Express.
-func screenConfigs(names []string) ([]screenConfig, error) {
+// screenConfigs returns the named configurations. D0 is D, S0 is S, and W0
+// is W, without Express.
+func screenConfigs(names []string, known []screenLine) ([]screenConfig, error) {
 	configs := make([]screenConfig, 0, len(names))
 	for _, name := range names {
 		var config project.Config
 		switch name {
 		case screenLondonFull:
 			config = scenarios.LondonFull()
-		case screenExpress:
+		case screenExpress, screenGeometry:
 			config = scenarios.LondonFullExpress()
-		case screenGeometry:
-			config = screenWithoutExpress(scenarios.LondonFullExpress())
-		case screenShared, screenSharedPlain:
+		case screenShared, screenSharedPlain, screenWharf, screenWharfPlain:
+			generate := scenarios.GenerateLondonFullSharedExpress
+			if name == screenWharf || name == screenWharfPlain {
+				generate = scenarios.GenerateLondonFullSharedExpressWharf
+			}
 			var err error
-			if config, err = scenarios.GenerateLondonFullSharedExpress(); err != nil {
+			if config, err = generate(); err != nil {
 				return nil, fmt.Errorf("screen configuration %s: %w", name, err)
 			}
-			if name == screenSharedPlain {
-				config = screenWithoutExpress(config)
-			}
+		}
+		lines, err := screenServiceLines(config.ExpressServices, known)
+		if err != nil {
+			return nil, fmt.Errorf("screen configuration %s: %w", name, err)
+		}
+		if name == screenGeometry || name == screenSharedPlain || name == screenWharfPlain {
+			config = screenWithoutExpress(config)
 		}
 		config.Demand.Enabled = false
 		if err := project.Validate(config); err != nil {
 			return nil, fmt.Errorf("screen configuration %s: %w", name, err)
 		}
-		configs = append(configs, screenConfig{name: name, config: config})
+		configs = append(configs, screenConfig{name: name, config: config, lines: lines})
 	}
 	return configs, nil
 }
@@ -247,7 +326,7 @@ func screenBand(name string) (int, error) {
 }
 
 // screenEvent is one offered event. A background event has one passenger. A
-// hub event is a shared party between the two hubs.
+// hub event is a shared party between the two hubs of a line.
 type screenEvent struct {
 	ID       int    `json:"id"`
 	Tick     int64  `json:"tick"`
@@ -256,6 +335,8 @@ type screenEvent struct {
 	Size     int    `json:"size"`
 	Hub      bool   `json:"hub"`
 	Outbound bool   `json:"outbound,omitzero"`
+	// Line is the index of the hub line of a hub event.
+	Line uint8 `json:"line,omitzero"`
 }
 
 // screenEventsInput selects the offered events of one seed and band.
@@ -264,14 +345,14 @@ type screenEventsInput struct {
 	band          int
 	arrivalTicks  int64
 	intervalTicks int64
-	// hubMeanTicks is the mean time between two hub events.
-	hubMeanTicks int64
-	source       project.Config
+	lines         []screenLine
+	source        project.Config
 }
 
 // screenEvents returns the background requests of the band and the hub
-// events, ordered by tick and then by stream, background first. The hub
-// stream has its own random source, so it does not change the background.
+// events, ordered by tick and then by stream, background first. Each hub
+// line has its own random source, so it does not change the background or
+// another line.
 func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 	base, err := newScenario(input.source, "")
 	if err != nil {
@@ -283,13 +364,15 @@ func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 		passengers: base.passengers, focus: base.focus, profileFlows: weightedProfileFlows(profile, input.band),
 	})
 	limit := screenHubLimit(input.arrivalTicks)
-	events := make([]screenEvent, 0, int64(len(background))+limit)
+	events := make([]screenEvent, 0, int64(len(background))+int64(len(input.lines))*limit)
 	for _, request := range background {
 		events = append(events, screenEvent{Tick: request.tick, From: request.origin, To: request.destination, Size: 1})
 	}
-	events, err = screenHubEvents(events, screenHubInput{seed: input.seed, arrivalTicks: input.arrivalTicks, meanTicks: input.hubMeanTicks, limit: limit})
-	if err != nil {
-		return nil, err
+	for index, line := range input.lines {
+		events, err = screenHubEvents(events, screenHubInput{seed: input.seed, arrivalTicks: input.arrivalTicks, limit: limit, line: line, index: index})
+		if err != nil {
+			return nil, err
+		}
 	}
 	slices.SortStableFunc(events, func(a, b screenEvent) int { return cmp.Compare(a.Tick, b.Tick) })
 	for index := range events {
@@ -299,26 +382,28 @@ func screenEvents(input screenEventsInput) ([]screenEvent, error) {
 }
 
 type screenHubInput struct {
-	seed, arrivalTicks, meanTicks, limit int64
+	seed, arrivalTicks, limit int64
+	line                      screenLine
+	index                     int
 }
 
-// screenHubEvents appends the hub events of the seed in the arrival window
+// screenHubEvents appends the hub events of a line in the arrival window
 // to events. It refuses a stream with more than limit events.
 func screenHubEvents(events []screenEvent, input screenHubInput) ([]screenEvent, error) {
-	seed, arrivalTicks, limit, mean := input.seed, input.arrivalTicks, input.limit, float64(input.meanTicks)
-	rng := rand.New(rand.NewPCG(uint64(seed), screenHubStream)) // #nosec G115 G404 -- Seeds are positive, and the stream is a reproducible schedule.
+	seed, arrivalTicks, limit, mean := input.seed, input.arrivalTicks, input.limit, float64(input.line.meanTicks)
+	rng := rand.New(rand.NewPCG(uint64(seed), input.line.stream)) // #nosec G115 G404 -- Seeds are positive, and the stream is a reproducible schedule.
 	count := int64(0)
 	for tick := int64(rng.ExpFloat64() * mean); tick < arrivalTicks; tick += 1 + int64(rng.ExpFloat64()*mean) {
 		if count == limit {
 			return nil, fmt.Errorf("seed %d: the hub stream has more than %d events", seed, limit)
 		}
 		count++
-		outbound := rng.Float64() < screenHubOutbound
-		from, to := screenBank, screenWaterloo
+		outbound := rng.Float64() < input.line.outbound
+		from, to := input.line.to, input.line.from
 		if outbound {
-			from, to = screenWaterloo, screenBank
+			from, to = input.line.from, input.line.to
 		}
-		events = append(events, screenEvent{Tick: tick, From: from, To: to, Size: 1 + rng.IntN(sim.MaxExpressParties), Hub: true, Outbound: outbound})
+		events = append(events, screenEvent{Tick: tick, From: from, To: to, Size: 1 + rng.IntN(sim.MaxExpressParties), Hub: true, Outbound: outbound, Line: uint8(input.index)}) // #nosec G115 -- A screen has at most screenMaxLines lines.
 	}
 	return events, nil
 }
@@ -343,9 +428,10 @@ func screenSplitSize(fleet []sim.Placement) (int, error) {
 	return size, nil
 }
 
-// screenParts returns the party sizes of the orders of an event. In an arm
-// without Express, a hub party of more than split passengers splits before
-// admission into orders of at most split passengers.
+// screenParts returns the party sizes of the orders of an event. A hub
+// party with no Express service in the arm, and of more than split
+// passengers, splits before admission into orders of at most split
+// passengers.
 func screenParts(event screenEvent, express bool, split int) []int {
 	if express && event.Hub || event.Size <= split {
 		return []int{event.Size}
@@ -364,6 +450,7 @@ type screenArmInput struct {
 	bandID       string
 	seed         int64
 	events       []screenEvent
+	lines        []screenLine
 	arrivalTicks int64
 	clearTicks   int64
 	queueLimit   int
@@ -419,10 +506,9 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 	if err = screenConfigure(simulation, input); err != nil {
 		return screenArm{}, fmt.Errorf("%s: %w", input.config.name, err)
 	}
-	express := config.OrderContract == sim.ExpressOrderContract
-	services := map[string]string{}
+	services := make(map[string]string, len(config.ExpressServices))
 	for _, service := range config.ExpressServices {
-		services[service.From] = service.ID
+		services[service.From+" "+service.To] = service.ID
 	}
 	consent, err := comparisonConsent(config.GeneratedOrderConsent)
 	if err != nil {
@@ -440,7 +526,7 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 	next := 0
 	for tick := range input.arrivalTicks + input.clearTicks {
 		for ; next < len(input.events) && input.events[next].Tick == tick; next++ {
-			arm.Outcomes[next] = screenOffer(simulation, input.events[next], screenOfferInput{express: express, split: split, services: services, consent: consent, queueLimit: input.queueLimit})
+			arm.Outcomes[next] = screenOffer(simulation, input.events[next], screenOfferInput{split: split, services: services, consent: consent, queueLimit: input.queueLimit})
 		}
 		simulation.Step()
 		arm.Interrupted += len(simulation.DrainInterruptions())
@@ -460,7 +546,7 @@ func runScreenArm(input screenArmInput) (screenArm, error) {
 	state := simulation.MetricsSnapshot()
 	arm.Ticks, arm.Submitted, arm.Completed, arm.Outstanding = state.Tick, state.Submitted, state.Completed, screenOutstanding(state)
 	screenTimes(arm.Outcomes, input.events, simulation.RequestTimings())
-	arm.Measures.finish(arm.Outcomes, input.events, input.arrivalTicks)
+	arm.Measures.finish(arm.Outcomes, input.events, screenFinish{arrivalTicks: input.arrivalTicks, lines: input.lines})
 	for _, outcome := range arm.Outcomes {
 		if outcome.Refused {
 			arm.Refused++
@@ -509,8 +595,8 @@ func screenConfigure(simulation *sim.Simulation, input screenArmInput) error {
 }
 
 type screenOfferInput struct {
-	express    bool
-	split      int
+	split int
+	// services gives the Express service of "from to".
 	services   map[string]string
 	consent    sim.SharingConsent
 	queueLimit int
@@ -519,7 +605,11 @@ type screenOfferInput struct {
 // screenOffer submits the orders of an event. The queue limit admits the
 // whole event or refuses it before the first order.
 func screenOffer(simulation *sim.Simulation, event screenEvent, input screenOfferInput) screenOutcome {
-	parts := screenParts(event, input.express, input.split)
+	service := ""
+	if event.Hub {
+		service = input.services[event.From+" "+event.To]
+	}
+	parts := screenParts(event, service != "", input.split)
 	outcome := screenOutcome{WaitTicks: -1, JourneyTicks: -1}
 	if simulation.PendingCount()+len(parts) > input.queueLimit {
 		outcome.Refused = true
@@ -529,8 +619,8 @@ func screenOffer(simulation *sim.Simulation, event screenEvent, input screenOffe
 		options := sim.TripOptions{From: event.From, To: event.To, PartySize: size, SharingConsent: input.consent}
 		if event.Hub {
 			options.SharingConsent = sim.SharedConsent
-			if input.express {
-				options.Service, options.ServiceID = sim.ExpressServiceChoice, input.services[event.From]
+			if service != "" {
+				options.Service, options.ServiceID = sim.ExpressServiceChoice, service
 			}
 		}
 		id, err := simulation.SubmitTripOptions(options)

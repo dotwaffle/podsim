@@ -43,11 +43,14 @@ type screenPair struct {
 }
 
 // screenReferences gives the candidates of each reference. S0 isolates the
-// Express pods of S. D and S differ in the network too.
+// Express pods of S, and W0 those of W. D and S, and S and W, differ in the
+// network too.
 var screenReferences = map[string][]string{
-	screenLondonFull:  {screenGeometry, screenExpress, screenSharedPlain, screenShared},
+	screenLondonFull:  {screenGeometry, screenExpress, screenSharedPlain, screenShared, screenWharfPlain, screenWharf},
 	screenSharedPlain: {screenShared},
 	screenExpress:     {screenShared},
+	screenWharfPlain:  {screenWharf},
+	screenShared:      {screenWharf},
 }
 
 // screenResult is the result of a screen.
@@ -67,7 +70,8 @@ const (
 type screenReport struct {
 	SchemaVersion int         `json:"schema_version"`
 	Arms          []screenArm `json:"arms"`
-	// HubMeanSeconds is the mean time between two hub events.
+	// HubMeanSeconds is the mean time between two hub events of Waterloo
+	// and Bank.
 	HubMeanSeconds float64      `json:"hub_mean_seconds"`
 	Pairs          []screenPair `json:"pairs"`
 	Result         screenResult `json:"result"`
@@ -180,10 +184,12 @@ func writeScreenResults(report screenReport, output string, stdout, stderr io.Wr
 
 // screen runs every arm and compares the pairs of screenReferences.
 func screen(opts screenOptions) (screenReport, error) {
-	configs, err := screenConfigs(opts.configs)
+	known := screenKnownLines(durationTicks(opts.hubMean))
+	configs, err := screenConfigs(opts.configs, known)
 	if err != nil {
 		return screenReport{}, err
 	}
+	lines := screenLines(configs, known)
 	source := scenarios.LondonFull()
 	arrivalTicks, clearTicks := durationTicks(opts.arrivals), durationTicks(opts.clear)
 	events := map[screenKey][]screenEvent{}
@@ -195,13 +201,13 @@ func screen(opts screenOptions) (screenReport, error) {
 		}
 		bandID := source.DemandProfiles[0].Bands[band].ID
 		for _, seed := range opts.seeds {
-			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: screenBackgroundInterval(opts.backgroundPerMin), hubMeanTicks: durationTicks(opts.hubMean), source: source})
+			offered, eventsErr := screenEvents(screenEventsInput{seed: seed, band: band, arrivalTicks: arrivalTicks, intervalTicks: screenBackgroundInterval(opts.backgroundPerMin), lines: lines, source: source})
 			if eventsErr != nil {
 				return screenReport{}, eventsErr
 			}
 			events[screenKey{bandID, seed}] = offered
 			for _, config := range configs {
-				inputs = append(inputs, screenArmInput{config: config, band: band, bandID: bandID, seed: seed, events: offered,
+				inputs = append(inputs, screenArmInput{config: config, band: band, bandID: bandID, seed: seed, events: offered, lines: lines,
 					arrivalTicks: arrivalTicks, clearTicks: clearTicks, queueLimit: opts.queueLimit, checkTicks: int64(opts.checkEverySeconds) * sim.TicksPerSecond})
 			}
 		}
@@ -211,7 +217,7 @@ func screen(opts screenOptions) (screenReport, error) {
 		return screenReport{}, err
 	}
 	pairs, result := screenPairs(arms, events)
-	return screenReport{SchemaVersion: 4, HubMeanSeconds: opts.hubMean.Seconds(), Arms: arms, Pairs: pairs, Result: result}, nil
+	return screenReport{SchemaVersion: 5, HubMeanSeconds: opts.hubMean.Seconds(), Arms: arms, Pairs: pairs, Result: result}, nil
 }
 
 // screenPairs compares the arms of the same band and seed that

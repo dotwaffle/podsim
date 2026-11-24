@@ -376,21 +376,21 @@ See [Express against plain](studies/express-standees.md#express-against-plain) f
 `go run ./cmd/compare screen` runs the screen of the [Express London adoption screen proposal](contracts/express-london-adoption-screen-proposal.md).
 It ignores the other flags of the command.
 It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express pods, its Express services, and its order contract), and `D` (`london-full-express`) on the same offered events.
-It can also run `S` (`london-full-shared-express`) and `S0` (`S` without its Express pods, its Express services, and its order contract).
-The report compares each other arm with `LF`, and `S` with `S0` and with `D`.
+It can also run `S` (`london-full-shared-express`) and `W` (`london-full-shared-express-wharf`), and `S0` and `W0`, which are `S` and `W` without their Express pods, Express services, and order contract.
+The report compares each other arm with `LF`, `S` with `S0` and with `D`, and `W` with `W0` and with `S`.
 Only the pair of `D` and `LF` decides the result.
-Each arm also has measures with no gate: the hub passengers and parties of each direction, the waits, the queue, the empty distance, and the time of Compact pods blocked by Express and by Compact pods.
+Each arm also has measures with no gate: the hub passengers and parties of each direction of each line, the waits, the queue, the empty distance, and the time of Compact pods blocked by Express and by Compact pods.
 A pair has the changes of the matched background waits.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `-seeds` | `1,2,3` | The seeds, at most 100. |
 | `-bands` | `busy,quiet` | The LondonFull bands. `busy` and `quiet` select the bands with the most and the fewest observed journeys a minute. |
-| `-configs` | `LF,D0,D` | The configurations, from `LF`, `D0`, `D`, `S0`, and `S`. |
+| `-configs` | `LF,D0,D` | The configurations, from `LF`, `D0`, `D`, `S0`, `S`, `W0`, and `W`. |
 | `-arrivals` | `2h` | The simulated time with offered events. |
 | `-clear` | `2h` | The longest simulated time after the arrivals. A run stops when every accepted order is terminal. |
 | `-background-per-minute` | 0 | The background requests a minute. 0 uses the rate of the LondonFull preset. |
-| `-hub-mean` | `15s` | The mean time between two hub events, from 15 s to 24 h. |
+| `-hub-mean` | `15s` | The mean time between two hub events of Waterloo and Bank, from 15 s to 24 h. |
 | `-queue-limit` | 200 | The live queue limit. It admits or refuses a whole event. |
 | `-workers` | 3 | The arms that run at the same time. |
 | `-check-every` | 1 | The simulated seconds between two checks of the safety oracle, the state contract, and the order accounting. |
@@ -403,8 +403,9 @@ It does not count the memory of the simulations.
 
 A seed gives the background requests of the band, as the `profile` pattern does, and a separate hub stream.
 The hub stream offers a shared party of 1 to 20 passengers between Waterloo and Bank at each `-hub-mean` on average, three in four from Waterloo.
-In `D`, a hub party is one Express order.
-In an arm without Express, it splits before admission into orders of at most the largest new party of a pod in the fleet, 4 for Compact.
+With `W` or `W0` in the configurations, each arm also gets a hub stream between London Bridge and Canary Wharf, with a mean of 28 s and 17 in 20 from London Bridge.
+In an arm whose Express services serve the line, a hub party is one Express order.
+In another arm, it splits before admission into orders of at most the largest new party of a pod in the fleet, 4 for Compact.
 The wait of an event ends when its last order boards, and its journey when its last order finishes.
 
 The command prints a line for each arm and a line for each gate of each pair against `LF`.
