@@ -124,7 +124,8 @@ The golden files of the state and stream do not change with the setting absent.
 ## Evidence that is missing
 
 - The individual limits: each `LF` run with no limit blocks at the pilot rates, so no pair compares waits.
-  One pair with no hub stream is a screen of that workload only, and the adoption gates need more.
+  The one pair with no hub stream is in the [design note](../design/station-pod-limit.md#no-hub-stream): 89 waits are longer and 95 are shorter by more than the limit, and the mean wait falls by 2.6 s.
+  It is a screen of that workload only, and the adoption gates need more.
 - A run of any preset with Express.
 - Any value of `k` at the full stream other than 2.
 

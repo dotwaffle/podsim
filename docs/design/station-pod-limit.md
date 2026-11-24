@@ -118,6 +118,31 @@ The `LF` runs of the [batch](../studies/shared-track-batch.md#service) are the r
   So the limit does not replace an Express line.
 - Each run took 660 to 770 s of wall time, with the uncached count of the patch.
 
+### No hub stream
+
+One pair of 2026-11-24 compares `LF` with `k` of 2 and with no limit, on seed 1 in `am-peak` with no hub event.
+The base is `2d558f1f` with the scratch patch, and the runs have the same 1,199 background events.
+All events finish in both runs, and no event is refused in either.
+
+| Measure | No limit | `k` of 2 |
+| --- | ---: | ---: |
+| Refused sends | 0 | 5,949 |
+| Mean, median, and p95 wait (s) | 214.5, 109.3, 879.2 | 211.9, 109.5, 890.4 |
+| Longest wait (s) | 1,762 | 1,852 |
+| Largest queue | 64 | 60 |
+| Blocked pod-seconds | 8,205 | 8,982 |
+| Empty distance (km) | 5,900 | 5,862 |
+
+- Of the 1,199 matched events, 628 have the same wait and journey.
+- Over the individual wait limit, 89 events are longer and 95 are shorter.
+  Over the journey limit, 50 are longer and 55 are shorter.
+- The median excess of the 89 is 72 s, and the largest wait change is 587 s.
+- The mean wait falls by 2.6 s and the mean journey by 2.3 s.
+
+So the limit moves the trips of nearly half of the events with no hub stream, in both directions, with almost no change in the mean.
+The individual limits fail by their count, and the count alone does not show harm in a busy fleet ([individual limits](../contracts/individual-limits-amendment-proposal.md)).
+One seed and one workload do not give a noise floor.
+
 ## Decisions for the maintainer
 
 | ID | Question | Options | Recommendation |
