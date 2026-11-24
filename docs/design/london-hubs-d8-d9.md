@@ -5,6 +5,7 @@ The maintainer accepted the recommendation of each decision HB-D1 to HB-D12, wit
 The maintainer granted the static slices (0 to 2) on 2026-11-23.
 Slice 0 is built in `c426595a`, and section 9 holds its results and the decisions HB-D13 to HB-D15.
 Sections 10 and 11 hold the studies of Baker Street and of Paddington and Liverpool Street, and the decisions HB-D16 to HB-D18.
+Section 13 holds the static study of London Bridge and Waterloo, with the decisions HB-D19 to HB-D21 for the maintainer.
 Slice 2 is built: the shared-track builder of `internal/scenarios` takes lists.
 Batch 2 ran, and the lighter batch meets BT-D10 ([results](../studies/shared-track-batch.md)), so the maintainer started slice 3 on 2026-11-24.
 Slice 3 is built: the preset `london-full-shared-express-wharf` has the pair of section 9, with HB-D13 and HB-D14.
@@ -810,3 +811,78 @@ The screen of `compare` takes its hub lines from the Express services (slice 4, 
 - The pairs `W` and `W0`, `W` and `S`, and `W0` and `LF` are reported, with no gate.
 
 The safety oracle runs at each simulated second, and the D6 oracle does not run.
+
+## 13. London Bridge and Waterloo
+
+This static study of HB-D15 is of 2026-11-24.
+It has no simulation run, no preset has the change, and no decision is taken.
+The base is `london-full-shared-express-wharf` (network `d68a69b8...`), where Waterloo, London Bridge, and Canary Wharf have their Express shape.
+Section 9.1 has the pair on the shared-track preset, with 60 shape pairs.
+
+### 13.1 Results
+
+Each arm adds the Express class to the routes and the hubs of its pairs, and changes no geometry.
+
+| Arm | Refusals | Shape pairs (preset: 53) | Large lanes under 40 m | Layout, bank, and project checks | Parking gaps |
+| --- | ---: | ---: | ---: | --- | ---: |
+| London Bridge and Waterloo | 0 | 66 | 0 | Pass | 0 |
+| Waterloo and Canary Wharf | 0 | 65 | 0 | Pass | 0 |
+| Both | 0 | 67 | 0 | Pass | 0 |
+
+- The free-flow cost of each station route is that of the preset, because the geometry does not change.
+- The curve of HB-D13 also removes the one refusal of Waterloo and Canary Wharf (section 9.1).
+- The route of London Bridge and Waterloo passes Southwark on links 280 and 350, and is 1,991 m and 2,055 m by chord.
+  It uses the roads `road-out-04` and `road-in-04` of London Bridge and `road-out-05` and `road-in-05` of Waterloo.
+  The route of Waterloo and Canary Wharf uses links 350, 280, 089, 088, and 154, and the moves `move-04-01` and `move-01-04` of London Bridge.
+- No new comb is necessary.
+  Each arm has 2 tail warnings.
+
+### 13.2 Combs
+
+The preset has two Express networks that share no route.
+Each arm joins them, so each Express pod has a route to each hub and each comb.
+
+| From the first berth of the comb to the first berth of the hub (m, by chord) | Waterloo comb | London Bridge comb |
+| --- | ---: | ---: |
+| Waterloo | 654 | 2,517 |
+| Bank | 2,952 | 4,815 |
+| London Bridge | 2,791 | 443 |
+| Canary Wharf | 8,258 | 5,910 |
+
+The table is for the first arm.
+With the third arm, Canary Wharf is 7,976 m from the Waterloo comb, and Waterloo is 2,247 m from the London Bridge comb.
+
+`park` takes the first parking station in network order (section 2.2), and `express-parking` is before `express-parking-lnb`.
+So a bumped pod at London Bridge at a high request rate goes to the Waterloo comb while it has a free berth.
+Guarded positioning uses the route cost, so it does not.
+
+These effects follow from the code and are not measured:
+
+- A pod of one line can take the pickup of another line.
+  The fleet of 32 pods is then one pool, and a pod can run empty between the lines.
+- The qualification tests of the wharf preset give each pod to a line by its Express network (`sharedExpressLine.owns`), so they need another rule.
+- Waterloo and London Bridge each get a second or third service from one hub.
+
+### 13.3 Limits
+
+- The effect on the Compact traffic of the Southwark links is not measured.
+- `park` is a rule of the simulation, and a change of it is a change of behavior.
+
+### 13.4 Decisions for the maintainer
+
+| ID | Question | Options | Recommendation |
+| --- | --- | --- | --- |
+| HB-D19 | The next pair | A: London Bridge and Waterloo. B: Waterloo and Canary Wharf. C: both. | C: neither needs geometry, C has 1 more shape pair than A and 2 more than B, and one set of rows then covers both. The maintainer decides after the wharf study. |
+| HB-D20 | Which comb an idle Express pod takes | A: keep `park`, the first comb in network order. B: `park` takes the comb with the lowest route cost. C: keep `park` and put `express-parking-lnb` first. | A for a first run that measures the empty distance, then B if it is large. B changes a simulation rule for each project with two parkings. |
+| HB-D21 | The fleet | A: 16 and 16 pods, as in the preset. B: more pods for the new pairs. | A, so that a study compares like fleets |
+
+### 13.5 Commands
+
+```sh
+D=$(mktemp -d)
+go run ./cmd/scenario -preset london-full-shared-express-wharf -output "$D/wharf.json"
+mkdir "$D/out"
+PODSIM_BRIDGE_PAIR_STUDY="$D/wharf.json" PODSIM_HUB_PAIR_OUT="$D/out" go test ./internal/sim -run TestBridgePairStudy -count=1 -v
+PODSIM_BRIDGE_PAIR_LAYOUT="$D/out" go test ./internal/scenarios -run TestBridgePairStudyProjects -count=1 -v
+rm -r "$D"
+```
