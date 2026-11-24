@@ -1023,7 +1023,7 @@ mise run check
 | --- | --- |
 | `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs `test:race:other` by itself, and then two lanes in parallel: `test:race:sim`, `test:long`, and `test:london-express` in one, and `test:race:session`, `test:shared-express`, and `test:wharf-express` in the other. It stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
-| `mise run test` | `go test ./...`, without the race detector. |
+| `mise run test` | `go test -timeout=20m ./...`, without the race detector. |
 | `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and a `go list -deps` check of the `js/wasm` builds of `cmd/podsim`, `cmd/editormodel`, and `cmd/ride`. The check fails when they link cloud storage or the preset data in `internal/scenarios`. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
