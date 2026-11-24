@@ -374,7 +374,7 @@ See [Express against plain](studies/express-standees.md#express-against-plain) f
 ### Express London screen
 
 `go run ./cmd/compare screen` runs the screen of the [Express London adoption screen proposal](contracts/express-london-adoption-screen-proposal.md).
-It ignores the other flags of the command.
+It has its own flags, and it refuses the other flags of the command.
 It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express pods, its Express services, and its order contract), and `D` (`london-full-express`) on the same offered events.
 It can also run `S` (`london-full-shared-express`) and `W` (`london-full-shared-express-wharf`), and `S0` and `W0`, which are `S` and `W` without their Express pods, Express services, and order contract.
 The report compares each other arm with `LF`, `S` with `S0` and with `D`, and `W` with `W0` and with `S`.

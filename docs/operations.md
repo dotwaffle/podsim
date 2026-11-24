@@ -1029,16 +1029,24 @@ mise run check
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages other than `internal/sim`, `internal/session`, and `PODSIM_LONG_PACKAGES` in full. Then it runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
 | `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. The Station 19 drain tests skip there, because they run only when `PODSIM_QUALIFY=1`. |
-| `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so only this task runs them. |
+| `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:wharf-express` | The qualification tests of the `london-full-shared-express-wharf` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:web` | The Node tests of the browser files: the editor, the editor model and history, the loader, the shell, the stream, the map and tiles, place search, the offline tools, and the ride page. The offline tool tests run `cmd/parkride` and `cmd/compare`. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests, `TestSampledTickLatency`, and the restore boundary sweep `TestRestoreBoundarySweep` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, the boundary sweep, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
+| `mise run qualify:london` | `TestLondonFleetQualification`, on request. |
 | `mise run qualify:limits` | `TestSampledTickNoCandidateLatency`, on request. It reports the time at the project limits and gates nothing. |
 | `mise run soak` | The incident soak in the routine branch shape. See "Incident soak". |
 | `mise run soak:full` | The release soak of amendments A6 and A19: 2 seeds of 6 simulated hours on each default preset, with the full check at each tick. A run that the 2-hour limit stops fails. It lists the seeds that finished. See "Incident soak". |
 | `mise run test:embedded` | The root and `cmd/serve` tests with the `embed_assets` tag. It also runs the session tests that skip under the race detector or check more without it. The `test:race` task runs the other session tests. |
 | `mise run benchmark` | 6,000 simulation steps on the 100-pod ring fixture, not on the current `scale100` mesh. |
+| `mise run build` | `go build -trimpath ./...`. |
+| `mise run web` | `go generate ./...`, which builds the browser assets. |
+| `mise run serve` | The browser assets, and then `go run ./cmd/serve`. |
+| `mise run scenario` and `mise run compare` | `go run ./cmd/scenario` and `go run ./cmd/compare`. |
+| `mise run vulncheck` | govulncheck on the native packages and the three browser commands. |
+
+`mise run check` runs `check:lanes`, which runs `check:lane-sim` and `check:lane-session` side by side.
 
 `mise.toml` tracks Go 1.27, rumdl 0.3, and major versions for the other development tools.
 `mise.lock` records the resolved tool downloads.
@@ -1096,6 +1104,10 @@ These variables change a run:
 | `PODSIM_SOAK_FINISHED` | The file that gets one line for each finished seed. The test adds to it and does not clear it. | Not set, or a new file for each run of `mise run soak:full`, which the task prints |
 
 `PODSIM_SOAK_CHECKS`, `PODSIM_SOAK_SETTLE_MINUTES`, and `PODSIM_SOAK_CHECK_FROM_HOURS` are for timing runs only.
+`PODSIM_SOAK_TIMED` starts `TestIncidentSoakTimed` and sets the simulated hours of each run.
+`PODSIM_SOAK_WORST=1` starts `TestIncidentWorstCaseStepTime`.
+With `PODSIM_SOAK_GATE=1`, a missed time limit fails these tests, and without it they only report it.
+Use the gate only on a quiet host.
 
 ### Continuous integration
 

@@ -35,7 +35,7 @@ A project that names no class gets Legacy pods, and the London presets use Compa
 
 A large class needs more room, and the rest of this document refers to it by that name.
 A pair of pods with a large class keeps 20 meters of clearance, where other pairs keep 12 meters, and a lane that admits a large class must be at least 40 meters long.
-The [shape clearance](reference.md#shape-clearance) rule changes both rules for merge, split, and shape pairs in each network.
+The [shape clearance](reference.md#shape-clearance) rule changes both clearances for merge, split, and shape pairs in each network.
 These pairs keep the side-by-side distance of the two classes, 3.1, 3.55, or 4.0 meters, and not 12 or 20 meters.
 Two small pods on a lateral pair of [depot lanes](#parking-depots) can also be closer than 12 meters.
 Each other pair keeps 12 or 20 meters, a following pair included.

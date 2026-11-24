@@ -6,7 +6,8 @@ Amended on 2026-11-23 after slice 0, by maintainer decision: EC-D7 and EC-D8 (se
 Date: 2026-11-23.
 Line references are for `691f1f6b`.
 Sections 1.4, 2.3, 2.4, and 2.5 hold the measurements of this draft.
-No code changed for this draft.
+No code changed for the draft.
+The code landed in `855caa94`, and section 6.2 holds its evidence.
 
 ## Summary
 

@@ -680,7 +680,10 @@ The change does not by itself make a small host work at 1x with a client.
 `shared-cpu-1x` stays out of reach at each rate, on these readings, because of publication.
 That needs separate work, which decision 10 asks about.
 
-## 6. Open decisions for the maintainer
+## 6. Decision options
+
+The status at the start of this document gives the decisions.
+This list has the options and the recommendations as proposed.
 
 1. Rate: Stay at 60 Hz, or change to 30 Hz or to 20 Hz.
    Recommendation: 30 Hz.
