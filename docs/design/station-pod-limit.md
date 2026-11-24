@@ -141,7 +141,19 @@ All events finish in both runs, and no event is refused in either.
 
 So the limit moves the trips of nearly half of the events with no hub stream, in both directions, with almost no change in the mean.
 The individual limits fail by their count, and the count alone does not show harm in a busy fleet ([individual limits](../contracts/individual-limits-amendment-proposal.md)).
-One seed and one workload do not give a noise floor.
+
+Seeds 2 and 3 of the same pair are in this table, from two more pairs of 2026-11-24 with the base `82321789`.
+
+| Seed | Refused sends | Events with the same wait and journey | Longer and shorter waits over the limit | Longer and shorter journeys over the limit | Mean wait change (s) | Largest change (s) |
+| --- | ---: | ---: | --- | --- | ---: | ---: |
+| 1 | 5,949 | 628 | 89, 95 | 50, 55 | -2.6 | 587 |
+| 2 | 4,350 | 1,046 | 6, 16 | 3, 9 | -0.9 | 331 |
+| 3 | 0 | 1,199 | 0, 0 | 0, 0 | 0.0 | 0 |
+
+In seed 3 the limit never refuses a send, so the runs are the same.
+Every event finishes in each run, and none is refused.
+Where the limit acts, it moves trips in both directions, and no seed has more longer waits than shorter ones.
+The three seeds are one band and one workload, and the pairs are not a noise floor.
 
 ## Decisions for the maintainer
 
