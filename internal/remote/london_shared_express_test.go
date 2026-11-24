@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/podsim/internal/project"
 	"github.com/dotwaffle/podsim/internal/scenarios"
 	"github.com/dotwaffle/podsim/internal/session"
 	"github.com/dotwaffle/podsim/internal/sim"
@@ -20,8 +21,15 @@ func TestLondonSharedExpressRemoteLoads(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the shared-track Express remote run needs a full-speed simulation")
 	}
-	const waterloo, bank = "940GZZLUWLO", "940GZZLUBNK"
-	config, err := scenarios.GenerateLondonFullSharedExpress()
+	runSharedExpressLoads(t, scenarios.GenerateLondonFullSharedExpress, map[string]string{"express-parking": "940GZZLUBNK"}, [][2]string{{"940GZZLUWLO", "940GZZLUBNK"}})
+}
+
+// runSharedExpressLoads runs TestLondonSharedExpressRemoteLoads on a
+// preset, with loads of 12, 13, and 20 from the first hub to the second hub
+// of each line. parkings gives a hub of the line of each Express parking.
+func runSharedExpressLoads(t *testing.T, generate func() (project.Config, error), parkings map[string]string, lines [][2]string) {
+	t.Helper()
+	config, err := generate()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,11 +62,17 @@ func TestLondonSharedExpressRemoteLoads(t *testing.T) {
 		return state.Simulation.OrderContract == sim.ExpressOrderContract
 	})
 	state, _, _ := client.View()
-	// The preset has no banks, and has the Express parking beside Waterloo.
-	station, ok := state.Network.Station(bank)
-	parking, okParking := state.Network.Station("express-parking")
-	if !ok || len(station.Banks) != 0 || !okParking || len(parking.Berths) != 16 || len(state.Network.Lanes) != len(config.Network.Lanes) {
-		t.Fatal("the client topology is not the shared-track preset")
+	// The preset has no banks, and has an Express parking beside the first
+	// hub of each line.
+	for parkingID, hub := range parkings {
+		station, ok := state.Network.Station(hub)
+		parking, okParking := state.Network.Station(parkingID)
+		if !ok || len(station.Banks) != 0 || !okParking || len(parking.Berths) != 16 {
+			t.Fatalf("the client topology is not the preset: hub %s, parking %s", hub, parkingID)
+		}
+	}
+	if len(state.Network.Lanes) != len(config.Network.Lanes) {
+		t.Fatal("the client topology is not the preset")
 	}
 	submit := func(command session.Command) {
 		t.Helper()
@@ -75,23 +89,38 @@ func TestLondonSharedExpressRemoteLoads(t *testing.T) {
 		}
 	}
 	submit(session.Command{Action: "speed", Speed: 60})
-	for _, size := range []int{12, 13, 20} {
-		submit(session.Command{Action: "trip", Origin: waterloo, Destination: bank, PartySize: size,
-			SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: services[waterloo], OrderContract: sim.ExpressOrderContract})
+	for _, line := range lines {
+		for _, size := range []int{12, 13, 20} {
+			submit(session.Command{Action: "trip", Origin: line[0], Destination: line[1], PartySize: size,
+				SharingConsent: sim.SharedConsent, Service: sim.ExpressServiceChoice, ServiceID: services[line[0]], OrderContract: sim.ExpressOrderContract})
+		}
 	}
-	seen := map[int]bool{}
-	wait("loads of 12, 13, and 20", 2*time.Minute, func(state session.State) bool {
+	// seen holds the party sizes aboard by the origin of the order, so each
+	// line has its own loads.
+	type load struct {
+		from string
+		size int
+	}
+	seen := map[load]bool{}
+	wait("loads of 12, 13, and 20 on each line", 2*time.Minute, func(state session.State) bool {
 		for _, v := range state.Simulation.Vehicles {
 			if v.Pod.Class != sim.ExpressClass {
 				continue
 			}
 			for _, r := range v.Riders {
 				if !r.Completed && r.BoardedTick > 0 {
-					seen[r.PartySize] = true
+					seen[load{r.From, r.PartySize}] = true
 				}
 			}
 		}
-		return seen[12] && seen[13] && seen[20]
+		for _, line := range lines {
+			for _, size := range []int{12, 13, 20} {
+				if !seen[load{line[0], size}] {
+					return false
+				}
+			}
+		}
+		return true
 	})
 }
 

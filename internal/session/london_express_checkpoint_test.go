@@ -22,6 +22,10 @@ type londonExpressFixture struct {
 	client   *testClient
 	services map[string]string
 	steps    restoreSteps
+	// lines and line are the lines of a shared-track preset, and the line
+	// of the states of driveShared.
+	lines []sharedExpressLine
+	line  sharedExpressLine
 	// restored, when it is set, runs on each restore of checkpoint, with
 	// the name of the checkpoint, the live simulation, and the restored
 	// simulation. tick, when it is set, runs at each tick of the restored

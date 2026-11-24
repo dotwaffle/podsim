@@ -30,8 +30,29 @@ var sharedExpressLinkLanes = map[string]bool{
 	"london-link-100-ab-1": true, "london-link-100-ab-2": true, "london-link-100-ba-1": true, "london-link-100-ba-2": true,
 }
 
+// sharedExpressLine is one Express line of a shared-track preset: its two
+// hubs, the first with the larger demand, and the links of its route.
+type sharedExpressLine struct {
+	from, to string
+	links    []int
+}
+
+// sharedExpressLinks are the links of the shared routes of the presets.
+// sharedExpressLine.links and sharedExpressCounts.links index it.
+var sharedExpressLinks = [...]string{"london-link-100-", "london-link-089-", "london-link-088-", "london-link-154-"}
+
+// sharedExpressLinkOf returns the index in sharedExpressLinks of the link
+// of a lane, or -1.
+func sharedExpressLinkOf(lane string) int {
+	return slices.IndexFunc(sharedExpressLinks[:], func(link string) bool { return strings.HasPrefix(lane, link) })
+}
+
+// sharedExpressBankLine is the line of london-full-shared-express.
+var sharedExpressBankLine = sharedExpressLine{from: sharedExpressWaterloo, to: sharedExpressBank, links: []int{0}}
+
 // sharedExpressProject holds the parts of the preset that the tests use.
 type sharedExpressProject struct {
+	lines           []sharedExpressLine
 	Network         Network          `json:"network"`
 	Fleet           []Placement      `json:"fleet"`
 	ExpressServices []ExpressService `json:"expressServices"`
@@ -42,7 +63,18 @@ type sharedExpressProject struct {
 // readSharedExpressProject reads testdata/shared_express_project.json.gz.
 func readSharedExpressProject(t *testing.T) sharedExpressProject {
 	t.Helper()
-	data, err := os.ReadFile("testdata/shared_express_project.json.gz")
+	p := readExpressProject(t, "testdata/shared_express_project.json.gz")
+	if len(p.Fleet) != 343 || len(p.ExpressServices) != 2 {
+		t.Fatalf("the fixture is not the preset: %d pods, %d services", len(p.Fleet), len(p.ExpressServices))
+	}
+	p.lines = []sharedExpressLine{sharedExpressBankLine}
+	return p
+}
+
+// readExpressProject reads the fixture of a shared-track preset at path.
+func readExpressProject(t *testing.T, path string) sharedExpressProject {
+	t.Helper()
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,9 +85,6 @@ func readSharedExpressProject(t *testing.T) sharedExpressProject {
 	var p sharedExpressProject
 	if err := jsonv2.UnmarshalRead(reader, &p, json.DefaultOptionsV1()); err != nil {
 		t.Fatal(err)
-	}
-	if len(p.Fleet) != 343 || len(p.ExpressServices) != 2 {
-		t.Fatalf("the fixture is not the preset: %d pods, %d services", len(p.Fleet), len(p.ExpressServices))
 	}
 	return p
 }
@@ -90,6 +119,9 @@ func (p sharedExpressProject) configure(t *testing.T, s *Simulation) {
 // sharedExpressCounts counts the coverage of a run.
 type sharedExpressCounts struct {
 	ticks, comparisons, lateral, lateralExpress, mixed, fault, emergency, restores, policiesOff, control int
+	// links counts the ticks with Express and Compact pods together on
+	// each link of sharedExpressLinks.
+	links [len(sharedExpressLinks)]int
 }
 
 // sharedExpressTick runs the checks of SX3 on s at one tick: the oracle,
@@ -107,7 +139,8 @@ func sharedExpressTick(t *testing.T, s *Simulation, r *envelopeReference, name s
 	checkSafetyLocationParityWith(t, s, r)
 	counts.ticks++
 	counts.comparisons += len(s.vehicles)
-	lateral, lateralExpress, express, compact := 0, false, false, false
+	lateral, lateralExpress := 0, false
+	var express, compact [len(sharedExpressLinks)]bool
 	for i := range s.vehicles {
 		v := &s.vehicles[i]
 		if v.Pod.Activity != Traveling {
@@ -117,9 +150,9 @@ func sharedExpressTick(t *testing.T, s *Simulation, r *envelopeReference, name s
 			lateral++
 			lateralExpress = lateralExpress || v.Pod.Class == ExpressClass
 		}
-		if sharedExpressLinkLanes[v.Pod.LaneID] {
-			express = express || v.Pod.Class == ExpressClass
-			compact = compact || v.Pod.Class != ExpressClass
+		if link := sharedExpressLinkOf(v.Pod.LaneID); link >= 0 {
+			express[link] = express[link] || v.Pod.Class == ExpressClass
+			compact[link] = compact[link] || v.Pod.Class != ExpressClass
 		}
 	}
 	if lateral >= 2 {
@@ -128,7 +161,12 @@ func sharedExpressTick(t *testing.T, s *Simulation, r *envelopeReference, name s
 			counts.lateralExpress++
 		}
 	}
-	if express && compact {
+	for link := range sharedExpressLinks {
+		if express[link] && compact[link] {
+			counts.links[link]++
+		}
+	}
+	if express[0] && compact[0] {
 		counts.mixed++
 	}
 	if len(s.faults) > 0 {
@@ -152,7 +190,7 @@ func sharedExpressRestore(t *testing.T, p sharedExpressProject, s *Simulation, n
 	if dropped+rebuilt != 0 {
 		t.Fatalf("%s: the restore did not keep %d forward grants and added %d pod resources", name, dropped, rebuilt)
 	}
-	if links, control := sharedExpressPoliciesOff(t, cold.Clone(), name); links > 0 {
+	if links, control := sharedExpressPoliciesOff(t, p.lines, cold.Clone(), name); links > 0 {
 		counts.policiesOff++
 		counts.control += control
 	}
@@ -276,7 +314,7 @@ func sharedExpressRestoreChanges(t *testing.T, live, restored *Simulation) (movi
 // minutes and counts its new links. The function returns the number of
 // links at the restore and the new links of the control, and does not run
 // a copy with no link.
-func sharedExpressPoliciesOff(t *testing.T, s *Simulation, name string) (links, control int) {
+func sharedExpressPoliciesOff(t *testing.T, lines []sharedExpressLine, s *Simulation, name string) (links, control int) {
 	t.Helper()
 	initial := map[[2]int]bool{}
 	for i := range s.vehicles {
@@ -294,12 +332,14 @@ func sharedExpressPoliciesOff(t *testing.T, s *Simulation, name string) (links, 
 	// a link that forms again later is new.
 	step := func(c *Simulation, label string, exempt map[[2]int]bool) int {
 		if tick := c.tick - start; tick < demand && tick%(10*TicksPerSecond) == 0 {
-			from, to := sharedExpressWaterloo, sharedExpressBank
-			if tick%(20*TicksPerSecond) != 0 {
-				from, to = to, from
-			}
-			if _, err := c.SubmitTrip(from, to); err != nil {
-				t.Fatalf("%s, %s: trip: %v", name, label, err)
+			for _, line := range lines {
+				from, to := line.from, line.to
+				if tick%(20*TicksPerSecond) != 0 {
+					from, to = to, from
+				}
+				if _, err := c.SubmitTrip(from, to); err != nil {
+					t.Fatalf("%s, %s: trip: %v", name, label, err)
+				}
 			}
 		}
 		c.Step()
@@ -366,7 +406,24 @@ func TestSharedExpressEnvelopeRun(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the shared-track Express run runs without -short or -race")
 	}
-	p := readSharedExpressProject(t)
+	runSharedExpressEnvelopes(t, readSharedExpressProject(t), sharedExpressRunTicks)
+}
+
+// sharedExpressLineRun is the coverage of one line of a run of
+// runSharedExpressEnvelopes: the fault and the emergency on the line, and
+// the restore at mixed traffic on it.
+type sharedExpressLineRun struct {
+	fault, faulted, emergency string
+	mixed                     bool
+}
+
+// runSharedExpressEnvelopes runs the preset p for ticks with the checks of
+// sharedExpressTick, with a fault, an emergency, and the restores of
+// TestSharedExpressEnvelopeRun on each line. The hub parties end one minute
+// before the run. Each link of each line must have Express and Compact pods
+// together.
+func runSharedExpressEnvelopes(t *testing.T, p sharedExpressProject, ticks int64) {
+	t.Helper()
 	s, err := NewFleetWithOrderContract(p.Network, p.Fleet, ExpressOrderContract)
 	if err != nil {
 		t.Fatal(err)
@@ -386,24 +443,26 @@ func TestSharedExpressEnvelopeRun(t *testing.T) {
 		}
 	}
 	var counts sharedExpressCounts
-	fault, emergency, mixed, platooned := "", "", false, false
-	linked := 0
-	faulted := ""
-	for s.tick < sharedExpressRunTicks {
+	runs := make([]sharedExpressLineRun, len(p.lines))
+	platooned, linked := false, 0
+	demand := ticks - 60*TicksPerSecond
+	for s.tick < ticks {
 		tick := s.tick
-		if tick%(20*TicksPerSecond) == 0 && tick < 3*60*TicksPerSecond {
-			party(sharedExpressWaterloo, sharedExpressBank, 13+int(tick/(20*TicksPerSecond))%8)
-		}
-		if tick%(90*TicksPerSecond) == 45*TicksPerSecond && tick < 3*60*TicksPerSecond {
-			party(sharedExpressBank, sharedExpressWaterloo, 12+int(tick/(90*TicksPerSecond))%9)
-		}
-		if tick%(10*TicksPerSecond) == 5*TicksPerSecond {
-			from, to := sharedExpressWaterloo, sharedExpressBank
-			if tick%(20*TicksPerSecond) != 5*TicksPerSecond {
-				from, to = to, from
+		for _, line := range p.lines {
+			if tick%(20*TicksPerSecond) == 0 && tick < demand {
+				party(line.from, line.to, 13+int(tick/(20*TicksPerSecond))%8)
 			}
-			if _, submitErr := s.SubmitTrip(from, to); submitErr != nil {
-				t.Fatalf("tick %d: trip from %s: %v", tick, from, submitErr)
+			if tick%(90*TicksPerSecond) == 45*TicksPerSecond && tick < demand {
+				party(line.to, line.from, 12+int(tick/(90*TicksPerSecond))%9)
+			}
+			if tick%(10*TicksPerSecond) == 5*TicksPerSecond {
+				from, to := line.from, line.to
+				if tick%(20*TicksPerSecond) != 5*TicksPerSecond {
+					from, to = to, from
+				}
+				if _, submitErr := s.SubmitTrip(from, to); submitErr != nil {
+					t.Fatalf("tick %d: trip from %s: %v", tick, from, submitErr)
+				}
 			}
 		}
 		s.Step()
@@ -418,41 +477,69 @@ func TestSharedExpressEnvelopeRun(t *testing.T) {
 			platooned = true
 			sharedExpressRestore(t, p, s, "platoon links", &counts)
 		}
-		for i := range s.vehicles {
-			v := &s.vehicles[i]
-			if v.Pod.Class != ExpressClass || !sharedExpressLinkLanes[v.Pod.LaneID] {
-				continue
-			}
-			switch {
-			case !mixed && counts.mixed > 0:
-				mixed = true
-				sharedExpressRestore(t, p, s, "mixed traffic on link 100", &counts)
-			case fault == "" && v.PassengersAboard() > 12 && v.Pod.Speed >= 10:
-				fault, err = s.Fault(FaultRequest{PodID: v.Pod.ID, DurationSeconds: new(int64(60))})
-				if err != nil {
-					t.Fatal(err)
-				}
-				faulted = v.Pod.ID
-				t.Logf("tick %d: fault %s on %s on %s at %.2f m/s with %d riders", s.tick, fault, v.Pod.ID, v.Pod.LaneID, v.Pod.Speed, v.PassengersAboard())
-				sharedExpressRestore(t, p, s, "fault on link 100", &counts)
-			case fault != "" && emergency == "" && v.Pod.ID != faulted && v.PassengersAboard() > 0 && v.Pod.Speed > 0:
-				emergency, err = s.Emergency(v.Pod.ID, 0)
-				if err != nil {
-					t.Fatal(err)
-				}
-				t.Logf("tick %d: emergency %s on %s on %s at %.2f m/s with %d riders", s.tick, emergency, v.Pod.ID, v.Pod.LaneID, v.Pod.Speed, v.PassengersAboard())
-				sharedExpressRestore(t, p, s, "emergency on link 100", &counts)
-			default:
-				continue
-			}
-			break
+		for k, line := range p.lines {
+			sharedExpressLineEvent(t, p, s, line, &runs[k], &counts)
 		}
 	}
 	t.Logf("%d ticks with a platoon link", linked)
-	t.Logf("%d ticks, %d envelope comparisons, %d ticks with two pods on merge or shape pair lanes, %d of them with an Express pod among them, %d ticks with Express and Compact pods on link 100, %d ticks with a fault, %d ticks with an emergency, %d restores",
-		counts.ticks, counts.comparisons, counts.lateral, counts.lateralExpress, counts.mixed, counts.fault, counts.emergency, counts.restores)
-	if fault == "" || emergency == "" || !mixed || counts.lateralExpress == 0 || counts.fault == 0 || counts.emergency == 0 || counts.restores != 4 || counts.policiesOff == 0 || counts.control == 0 {
-		t.Fatalf("coverage: fault %q, emergency %q, mixed %v, counts %+v", fault, emergency, mixed, counts)
+	t.Logf("%d ticks, %d envelope comparisons, %d ticks with two pods on merge or shape pair lanes, %d of them with an Express pod among them, %d ticks with a fault, %d ticks with an emergency, %d restores",
+		counts.ticks, counts.comparisons, counts.lateral, counts.lateralExpress, counts.fault, counts.emergency, counts.restores)
+	for k, line := range p.lines {
+		for _, link := range line.links {
+			t.Logf("%s: %d ticks with Express and Compact pods", sharedExpressLinks[link], counts.links[link])
+			if counts.links[link] == 0 {
+				t.Errorf("no tick with Express and Compact pods on %s", sharedExpressLinks[link])
+			}
+		}
+		if run := runs[k]; run.fault == "" || run.emergency == "" || !run.mixed {
+			t.Errorf("line from %s: coverage %+v", line.from, run)
+		}
+	}
+	if counts.lateralExpress == 0 || counts.fault == 0 || counts.emergency == 0 || counts.restores != 1+3*len(p.lines) || counts.policiesOff == 0 || counts.control == 0 {
+		t.Fatalf("coverage: counts %+v", counts)
+	}
+}
+
+// sharedExpressLineEvent starts the next event of a line at one second of
+// a run, with the first Express pod on its links that fits: the restore at
+// mixed traffic, the fault, and then the emergency on another pod.
+func sharedExpressLineEvent(t *testing.T, p sharedExpressProject, s *Simulation, line sharedExpressLine, run *sharedExpressLineRun, counts *sharedExpressCounts) {
+	t.Helper()
+	mixed := slices.ContainsFunc(line.links, func(link int) bool { return counts.links[link] > 0 })
+	// Each line of one link keeps the names of its events.
+	on := "line from " + line.from
+	if len(line.links) == 1 {
+		on = "link 100"
+	}
+	for i := range s.vehicles {
+		v := &s.vehicles[i]
+		if v.Pod.Class != ExpressClass || !slices.Contains(line.links, sharedExpressLinkOf(v.Pod.LaneID)) {
+			continue
+		}
+		var err error
+		switch {
+		case !run.mixed && mixed:
+			run.mixed = true
+			sharedExpressRestore(t, p, s, "mixed traffic on "+on, counts)
+		case run.fault == "" && v.PassengersAboard() > 12 && v.Pod.Speed >= 10:
+			run.fault, err = s.Fault(FaultRequest{PodID: v.Pod.ID, DurationSeconds: new(int64(60))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run.faulted = v.Pod.ID
+			t.Logf("tick %d: fault %s on %s on %s at %.2f m/s with %d riders", s.tick, run.fault, v.Pod.ID, v.Pod.LaneID, v.Pod.Speed, v.PassengersAboard())
+			sharedExpressRestore(t, p, s, "fault on "+on, counts)
+		case run.fault != "" && run.emergency == "" && v.Pod.ID != run.faulted && v.PassengersAboard() > 0 && v.Pod.Speed > 0:
+			run.emergency, err = s.Emergency(v.Pod.ID, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("tick %d: emergency %s on %s on %s at %.2f m/s with %d riders", s.tick, run.emergency, v.Pod.ID, v.Pod.LaneID, v.Pod.Speed, v.PassengersAboard())
+			sharedExpressRestore(t, p, s, "emergency on "+on, counts)
+		default:
+			continue
+		}
+		return
 	}
 }
 
@@ -542,7 +629,13 @@ func TestSharedExpressShapePairSweep(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the shared-track Express sweep runs without -short or -race")
 	}
-	p := readSharedExpressProject(t)
+	runSharedExpressSweep(t, readSharedExpressProject(t), 47)
+}
+
+// runSharedExpressSweep runs the sweep of TestSharedExpressShapePairSweep
+// on the preset p, which must have the given number of shape pairs.
+func runSharedExpressSweep(t *testing.T, p sharedExpressProject, shapePairs int) {
+	t.Helper()
 	s, pods := sharedExpressSweepPods(t, p)
 	if !s.shapes.any() || !s.merges.any() {
 		t.Fatal("the preset has no shape pair or no merge pair")
@@ -666,16 +759,16 @@ func TestSharedExpressShapePairSweep(t *testing.T) {
 			c.name, c.counts.pairs, c.counts.classes, c.counts.placements, c.counts.joins, c.counts.bounds, c.counts.nearest, c.counts.margin)
 	}
 	express := [2]VehicleClass{ExpressClass, CompactClass}
-	if shapes.pairs != 47 || shapes.classes[express] == 0 || shapes.placements == 0 || shapes.joins == 0 || merges.pairs == 0 || merges.placements == 0 || merges.joins == 0 || merges.bounds == 0 {
+	if shapes.pairs != shapePairs || shapes.classes[express] == 0 || shapes.placements == 0 || shapes.joins == 0 || merges.pairs == 0 || merges.placements == 0 || merges.joins == 0 || merges.bounds == 0 {
 		t.Fatal("the sweep covers no shape pair or no merge pair of Express and Compact pods")
 	}
 }
 
 // sharedExpressDwellFleet returns a simulation of the preset with one
-// Express pod at a Waterloo berth, and its network and fleet.
-func sharedExpressDwellFleet(t *testing.T, p sharedExpressProject) (*Simulation, []Placement) {
+// Express pod at a berth of the first hub of line, and its network and fleet.
+func sharedExpressDwellFleet(t *testing.T, p sharedExpressProject, line sharedExpressLine) (*Simulation, []Placement) {
 	t.Helper()
-	fleet := []Placement{{ID: "express-dwell", Class: ExpressClass, StationID: sharedExpressWaterloo, BerthID: sharedExpressWaterloo + "-01"}}
+	fleet := []Placement{{ID: "express-dwell", Class: ExpressClass, StationID: line.from, BerthID: line.from + "-01"}}
 	s, err := NewFleetWithOrderContract(p.Network, fleet, ExpressOrderContract)
 	if err != nil {
 		t.Fatal(err)
@@ -683,11 +776,11 @@ func sharedExpressDwellFleet(t *testing.T, p sharedExpressProject) (*Simulation,
 	return s, fleet
 }
 
-// sharedExpressBoarding submits a party from Waterloo to Bank, and it
+// sharedExpressBoarding submits a party on line, and it
 // fails the test when the pod does not board it.
-func sharedExpressBoarding(t *testing.T, s *Simulation, consent SharingConsent, party int) *vehicle {
+func sharedExpressBoarding(t *testing.T, s *Simulation, line sharedExpressLine, consent SharingConsent, party int) *vehicle {
 	t.Helper()
-	if _, err := s.SubmitTripOptions(TripOptions{From: sharedExpressWaterloo, To: sharedExpressBank, PartySize: party, SharingConsent: consent}); err != nil {
+	if _, err := s.SubmitTripOptions(TripOptions{From: line.from, To: line.to, PartySize: party, SharingConsent: consent}); err != nil {
 		t.Fatal(err)
 	}
 	v := &s.vehicles[0]
@@ -713,7 +806,20 @@ func TestSharedExpressDwell(t *testing.T) {
 		t.Skip("the shared-track Express dwell runs without -short or -race")
 	}
 	p := readSharedExpressProject(t)
-	base, fleet := sharedExpressDwellFleet(t, p)
+	runSharedExpressDwell(t, p, p.lines[0])
+}
+
+// runSharedExpressDwell runs the cases of TestSharedExpressDwell on line
+// of the preset p. The hubs of the lines of p must be the only passenger
+// stations that admit Express.
+func runSharedExpressDwell(t *testing.T, p sharedExpressProject, line sharedExpressLine) {
+	t.Helper()
+	base, fleet := sharedExpressDwellFleet(t, p, line)
+	var hubs []string
+	for _, l := range p.lines {
+		hubs = append(hubs, l.from, l.to)
+	}
+	slices.Sort(hubs)
 	var express []string
 	for _, station := range p.Network.Stations {
 		if !station.ParkingOnly && slices.ContainsFunc(station.Berths, func(b Berth) bool { return b.VehicleClasses.Allows(string(ExpressClass)) }) {
@@ -721,13 +827,13 @@ func TestSharedExpressDwell(t *testing.T) {
 		}
 	}
 	slices.Sort(express)
-	if !slices.Equal(express, []string{sharedExpressBank, sharedExpressWaterloo}) {
-		t.Fatalf("passenger stations with Express berths %v, want Bank and Waterloo", express)
+	if !slices.Equal(express, hubs) {
+		t.Fatalf("passenger stations with Express berths %v, want the hubs %v", express, hubs)
 	}
 	t.Run("journey", func(t *testing.T) {
 		for _, test := range []struct{ party, boarding, unloading int }{{1, 3, 2}, {13, 15, 14}, {20, 22, 21}} {
 			s := base.Clone()
-			v := sharedExpressBoarding(t, s, PrivateConsent, test.party)
+			v := sharedExpressBoarding(t, s, line, PrivateConsent, test.party)
 			start := s.tick
 			for v.Pod.Activity == Boarding && s.tick < 60*TicksPerSecond {
 				s.Step()
@@ -738,10 +844,10 @@ func TestSharedExpressDwell(t *testing.T) {
 			for v.Pod.Activity != Unloading && s.tick < 900*TicksPerSecond {
 				s.Step()
 			}
-			if v.Pod.StationID != sharedExpressBank {
+			if v.Pod.StationID != line.to {
 				t.Fatalf("party %d: the pod unloads at %q", test.party, v.Pod.StationID)
 			}
-			t.Logf("party %d: the pod unloads at Bank at tick %d", test.party, s.tick)
+			t.Logf("party %d: the pod unloads at %s at tick %d", test.party, line.to, s.tick)
 			if got, want := v.phaseTicks, test.unloading*TicksPerSecond; got != want {
 				t.Errorf("party %d unloads for %d ticks, want %d", test.party, got, want)
 			}
@@ -756,7 +862,7 @@ func TestSharedExpressDwell(t *testing.T) {
 		if err := s.SetSharedRidePartyLimit(3); err != nil {
 			t.Fatal(err)
 		}
-		return s, sharedExpressBoarding(t, s, SharedConsent, 4)
+		return s, sharedExpressBoarding(t, s, line, SharedConsent, 4)
 	}
 	t.Run("join during boarding", func(t *testing.T) {
 		s, v := joined(t)
@@ -765,7 +871,7 @@ func TestSharedExpressDwell(t *testing.T) {
 		}
 		advance(s, TicksPerSecond)
 		left := v.phaseTicks
-		if _, err := s.SubmitTripOptions(TripOptions{From: sharedExpressWaterloo, To: sharedExpressBank, PartySize: 3, SharingConsent: SharedConsent}); err != nil {
+		if _, err := s.SubmitTripOptions(TripOptions{From: line.from, To: line.to, PartySize: 3, SharingConsent: SharedConsent}); err != nil {
 			t.Fatal(err)
 		}
 		if want := left + 3*TicksPerSecond; len(v.Riders) != 2 || v.phaseTicks != want {
@@ -775,7 +881,7 @@ func TestSharedExpressDwell(t *testing.T) {
 	t.Run("join at the bound", func(t *testing.T) {
 		s, v := joined(t)
 		v.phaseTicks = 21 * TicksPerSecond
-		if _, err := s.SubmitTripOptions(TripOptions{From: sharedExpressWaterloo, To: sharedExpressBank, PartySize: 3, SharingConsent: SharedConsent}); err != nil {
+		if _, err := s.SubmitTripOptions(TripOptions{From: line.from, To: line.to, PartySize: 3, SharingConsent: SharedConsent}); err != nil {
 			t.Fatal(err)
 		}
 		if want := 22 * TicksPerSecond; v.phaseTicks != want {
@@ -786,7 +892,7 @@ func TestSharedExpressDwell(t *testing.T) {
 		s, v := joined(t)
 		v.phaseTicks, v.pending, v.waitSince = 0, 0, s.tick
 		v.Pod.WaitReason, v.Pod.BlockedBy = TrackOccupied, "other"
-		if _, err := s.SubmitTripOptions(TripOptions{From: sharedExpressWaterloo, To: sharedExpressBank, PartySize: 2, SharingConsent: SharedConsent}); err != nil {
+		if _, err := s.SubmitTripOptions(TripOptions{From: line.from, To: line.to, PartySize: 2, SharingConsent: SharedConsent}); err != nil {
 			t.Fatal(err)
 		}
 		if want := 2 * TicksPerSecond; v.phaseTicks != want || v.pending != -1 || v.Pod.WaitReason != NoWait || v.Pod.BlockedBy != "" {
@@ -801,10 +907,10 @@ func TestSharedExpressDwell(t *testing.T) {
 		if err := s.SetSharedRidePartyLimit(3); err != nil {
 			t.Fatal(err)
 		}
-		v := sharedExpressBoarding(t, s, SharedConsent, 13)
+		v := sharedExpressBoarding(t, s, line, SharedConsent, 13)
 		submit := func(party int) {
 			t.Helper()
-			if _, err := s.SubmitTripOptions(TripOptions{From: sharedExpressWaterloo, To: sharedExpressBank, PartySize: party, SharingConsent: SharedConsent}); err != nil {
+			if _, err := s.SubmitTripOptions(TripOptions{From: line.from, To: line.to, PartySize: party, SharingConsent: SharedConsent}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -821,7 +927,7 @@ func TestSharedExpressDwell(t *testing.T) {
 	})
 	t.Run("emergency unload", func(t *testing.T) {
 		s := base.Clone()
-		v := sharedExpressBoarding(t, s, PrivateConsent, 13)
+		v := sharedExpressBoarding(t, s, line, PrivateConsent, 13)
 		if err := s.withdrawService(v, emergencyHold); err != nil {
 			t.Fatal(err)
 		}
@@ -844,7 +950,7 @@ func TestSharedExpressDwell(t *testing.T) {
 	}{{Boarding, 22}, {Unloading, 21}} {
 		t.Run("restore bound, "+string(test.activity), func(t *testing.T) {
 			s := base.Clone()
-			v := sharedExpressBoarding(t, s, PrivateConsent, 20)
+			v := sharedExpressBoarding(t, s, line, PrivateConsent, 20)
 			for v.Pod.Activity != test.activity {
 				if s.tick > 900*TicksPerSecond {
 					t.Fatalf("the pod did not reach %s: %+v", test.activity, v.Pod)
@@ -890,8 +996,14 @@ func TestSharedExpressOccupiedPickupPolicy(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the shared-track Express occupied pickup runs without -short or -race")
 	}
-	const from, via, to = "940GZZLUCHL", "940GZZLUSPU", sharedExpressBank
-	p := readSharedExpressProject(t)
+	runSharedExpressOccupiedPickup(t, readSharedExpressProject(t), "940GZZLUCHL", "940GZZLUSPU", sharedExpressBank)
+}
+
+// runSharedExpressOccupiedPickup runs TestSharedExpressOccupiedPickupPolicy
+// on the preset p, with a pod at the station from, the pickup at via, and
+// the last stop at to.
+func runSharedExpressOccupiedPickup(t *testing.T, p sharedExpressProject, from, via, to string) {
+	t.Helper()
 	fleet := []Placement{{ID: "compact-pickup", Class: CompactClass, StationID: from, BerthID: from + "-01"}}
 	s, err := NewFleetWithOrderContract(p.Network, fleet, ExpressOrderContract)
 	if err != nil {
