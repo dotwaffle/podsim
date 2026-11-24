@@ -11,7 +11,7 @@ Not built: the section 7 row "routes of section 2.1 with residual geometry fixed
 Note of 2026-11-16: the D11 preset, with the D8 comb beside Waterloo, is built as `london-full-shared-express` (see the [shared-track](shared-track-preset.md) design, slices 1 to 3).
 The D9 demand hubs and the section 7 row stay open.
 Note of 2026-11-23: the design of the D8 comb at the other hubs and of the D9 demand hubs is in [london-hubs-d8-d9.md](london-hubs-d8-d9.md), and the maintainer decided its options on 2026-11-23.
-Its build is not started.
+Its first pair, London Bridge and Canary Wharf, is built as `london-full-shared-express-wharf`, and its qualification is open.
 Note of 2026-11-20: the field is removed, and parts 1 to 5 apply to each network ([always-on proposal](../contracts/shape-clearance-always-on-proposal.md)).
 The body oracle is stricter than the D6 text.
 It fails on any body overlap on a merge pair, because a pod outside its extent clears the other lane.

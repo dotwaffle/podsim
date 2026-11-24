@@ -161,6 +161,37 @@ The preset has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.
 The capacity flags do not apply to it.
 Its network SHA-256 is `cba69149281760dbba334323497b9d94cb1d3a980a631b68de0be45e78aac6bb`.
 
+### Shared Express Wharf preset
+
+`london-full-shared-express-wharf` is the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design.
+It is `london-full-shared-express` with a second Express pair on shared track, London Bridge and Canary Wharf, and a comb beside London Bridge.
+The two pairs share no Express route.
+The changes of the first pair do not change.
+
+```sh
+mise run scenario -- -preset london-full-shared-express-wharf -output /tmp/podsim-london-full-shared-express-wharf.json
+```
+
+| | `london-full-shared-express` | `london-full-shared-express-wharf` |
+| --- | --- | --- |
+| Express pairs | Waterloo and Bank | Waterloo and Bank, and London Bridge and Canary Wharf |
+| Shared track | Link 100 | Links 100, 089, 088, and 154 |
+| Hubs with 41 m parts and straight roads | Waterloo, Bank | Also London Bridge and Canary Wharf |
+| Curved hub roads | `940GZZLUWLO-road-in-05` | Also `940GZZLULNB-road-out-01`, by +30 m |
+| Express parking | `express-parking`, beside Waterloo | Also `express-parking-lnb`, beside London Bridge |
+| Express services | 2 | 4 |
+| Pods | 327 Compact, 16 Express | 327 Compact, 32 Express |
+| Nodes and lanes | 5,790 and 9,089 | 5,840 and 9,156 |
+| Shape pairs | 47 | 53 |
+| Network SHA-256 | `cba69149...` | `d68a69b8...` |
+
+The curve removes the one refusal of the bank audit, between `940GZZLULNB-road-out-01` and link 089.
+The second comb has 16 berths and parts of 41 m, like the first, and no exemption in the layout audit.
+The preset has the one tail warning of `london-full-shared-express`.
+The capacity flags do not apply to it.
+Its network SHA-256 is `d68a69b8c326f292f7c3a7839b51bf9837c5e714287f60470436781705217359`.
+The preset is opt-in and is not qualified: the [Express wharf qualification](contracts/express-wharf-qualification-proposal.md) gives the rows and their status.
+
 ## Depots and Compact stations
 
 Both London presets have depots and Compact stations by default.

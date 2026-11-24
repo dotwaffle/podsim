@@ -835,7 +835,7 @@ Each arm adds the Express class to the routes and the hubs of its pairs, and cha
   It uses the roads `road-out-04` and `road-in-04` of London Bridge and `road-out-05` and `road-in-05` of Waterloo.
   The route of Waterloo and Canary Wharf uses links 350, 280, 089, 088, and 154, and the moves `move-04-01` and `move-01-04` of London Bridge.
 - No new comb is necessary.
-  Each arm has 2 tail warnings.
+  Each arm has 2 tail warnings, and the preset has 1.
 
 ### 13.2 Combs
 
