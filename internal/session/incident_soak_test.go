@@ -2863,7 +2863,7 @@ func TestSoakEmergencyMedianFailure(t *testing.T) {
 func TestSoakWorstRowGates(t *testing.T) {
 	t.Parallel()
 	want := map[string]soakTimeGate{"fleet-300": soakGateSuspension, "rail-hub": soakGateEmergency, "london-central": soakGateEmergency,
-		soakLondonExpressPreset: soakGateEmergency, soakLondonSharedExpressPreset: soakGateEmergency, "fleet-1000": soakGateReport}
+		soakLondonExpressPreset: soakGateEmergency, soakLondonSharedExpressPreset: soakGateEmergency, soakLondonWharfExpressPreset: soakGateEmergency, "fleet-1000": soakGateReport}
 	if len(soakWorstRows) != len(want) {
 		t.Fatalf("%d rows, want %d", len(soakWorstRows), len(want))
 	}
@@ -2940,8 +2940,8 @@ func soakWorstCase(t *testing.T, d *soakDriver, debris, pods, emergencies int) (
 
 // soakWorstRows holds the worst-case rows of the Performance gates. Each row has
 // its approved rule. The row names are the names in the report, so they stay.
-// Rows A17 and SX12 of the Express qualifications add the emergency row of
-// project D and of the shared-track preset. The suspension and fleet-limit rows
+// Rows A17, SX12, and HX12 of the Express qualifications add the emergency row
+// of project D, of the shared-track preset, and of the wharf preset. The suspension and fleet-limit rows
 // use generated fleets of 300 and 1,000 pods, and not a preset.
 var soakWorstRows = []struct {
 	name                      string
@@ -2954,6 +2954,7 @@ var soakWorstRows = []struct {
 	{name: "emergency: MaxEmergencies records", preset: "london-central", emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "emergency: MaxEmergencies records", preset: soakLondonExpressPreset, emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "emergency: MaxEmergencies records", preset: soakLondonSharedExpressPreset, emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
+	{name: "emergency: MaxEmergencies records", preset: soakLondonWharfExpressPreset, emergencies: sim.MaxEmergencies, gate: soakGateEmergency},
 	{name: "fleet limit: 64 debris and 1,000 pod faults", preset: "fleet-1000", debris: 64, pods: 1000, gate: soakGateReport},
 }
 

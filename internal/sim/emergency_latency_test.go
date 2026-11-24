@@ -391,9 +391,10 @@ type choiceTickNetwork struct {
 
 // choiceTickNetworks returns the networks of the choice-tick and
 // sampled-tick gates: LondonCentral, the rail-hub preset, and the networks
-// of london-full-express (project D) and london-full-shared-express. Rows
-// A17 and SX12 of the Express qualifications add the last two. The fixture
-// pods are legacy pods. The fleets of the two Express presets are Compact,
+// of london-full-express (project D), london-full-shared-express, and
+// london-full-shared-express-wharf. Rows A17, SX12, and HX12 of the Express
+// qualifications add the last three. The fixture pods are legacy pods. The
+// fleets of the Express presets are mostly Compact,
 // but Compact pods in adjacent Compact bays are 6 m apart, and checkTraffic
 // in the fixture refuses a gap below Clearance for each class.
 func choiceTickNetworks(t *testing.T) []choiceTickNetwork {
@@ -404,6 +405,7 @@ func choiceTickNetworks(t *testing.T) []choiceTickNetwork {
 		{name: "rail hub", network: networks["rail hub"]},
 		{name: "london-full-express", network: expressNetworkFixture(t)},
 		{name: "london-full-shared-express", network: sharedExpressNetwork(t)},
+		{name: "london-full-shared-express-wharf", network: readWharfExpressProject(t).Network},
 	}
 }
 
