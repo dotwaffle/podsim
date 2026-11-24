@@ -88,6 +88,7 @@ The table includes seed 1 of the first pilot.
 - No run has a demotion, and each run completes its clear.
 
 So N saves empty distance, and it costs some service in two of three seeds.
+The maintainer decided on 2026-11-24 to keep the record and not to pursue N.
 The cause of the long settle in seed 3 is [below](#the-settle-of-n).
 
 ## A second late record
