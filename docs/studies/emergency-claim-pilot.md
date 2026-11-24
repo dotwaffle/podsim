@@ -130,9 +130,14 @@ The gate waits for that hold, so the settle is the length of that drive.
 It is not a block, and the gate has 1,800 s.
 Seed 1 was not traced.
 
+## The release form
+
+The release form ran on seeds 1 and 2 at `ac75dd5f`, with option A and the full check at each tick.
+`i4.93` is not late, seed 1 passed, and `i1.17` of seed 2 is late with the same 699.9 s.
+The numbers are in the [qualification](../contracts/express-wharf-qualification-proposal.md#evidence).
+
 ## What it does not show
 
-- A run of the release form, with the full check at each tick.
 - Another seed, another preset, or another incident arm.
 - Any contract question: option A narrows the decision of October 4, 2026, and clauses of the suspension contract.
 - A test that a claimant that yields also makes progress in each case.

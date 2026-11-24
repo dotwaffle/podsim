@@ -105,7 +105,7 @@ It passed in 455 s under `nice`.
 | HX1, HX2, HX3, HX4, HX5, HX8, HX13 | Evidence complete on the preset. |
 | HX6, HX9 | Test evidence complete. The Chrome check of HX-D6 is open. |
 | HX10 | Evidence complete on the preset. |
-| HX11 | The CI case passed. The timing seed of the release soak failed the Progress gate, so the release seeds did not run. |
+| HX11 | The CI case passed. The release soak failed: seed 1 passed and seed 2 missed the Progress gate with 1 late record, in the queue of link 100. |
 | HX7, HX12 | Open, and not run, because HX11 failed. The test tables of HX12 have the preset. |
 
 - HX1: `TestLondonFullSharedExpressWharfKeepsPresets` pins the four network hashes.
@@ -160,6 +160,26 @@ It passed in 455 s under `nice`.
     The shared-track preset has the same trait at 6 hours: its `reference` queue peaked at 166 to 200 over seeds 1 to 5, and one seed of the earlier run had a late record of 611.6 s (SX11).
   - The host load average was above 90 from other work for part of the run.
     The arms are deterministic, so the load does not change the result.
+- HX11, release form: `PODSIM_SOAK_PRESETS=london-full-shared-express-wharf mise run soak:full` ran on 2026-11-24 at `ac75dd5f`, with the [claim yield](emergency-claim-yield-amendment-proposal.md), and failed in 4,106 s of the limit of 7,200 s.
+  Seed 1 passed, and seed 2 missed the Progress gate in `incidents` with 1 late record.
+  For this preset the form has the arms `reference`, `emergencies`, and `incidents`.
+
+  | Seed, arm | Emergency records | Completed trips | Queue peak | Mean wait | Settle | Longest not blocked by a fault | Late |
+  | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+  | 1, `reference` | 0 | 5,617 | 200 | 572.5 s | 0 s | - | - |
+  | 1, `emergencies` | 87 | 5,538 | 200 | 569.0 s | 1 s | 411.4 s | 0 |
+  | 1, `incidents` | 73 | 4,640 | 200 | 762.3 s | 15 s | 462.1 s | 0 |
+  | 2, `reference` | 0 | 5,929 | 189 | 389.2 s | 0 s | - | - |
+  | 2, `emergencies` | 71 | 5,859 | 200 | 398.4 s | 68 s | 411.0 s | 0 |
+  | 2, `incidents` | 87 | 5,608 | 200 | 634.9 s | 221 s | 699.9 s | 1 |
+
+  - The late record is `i1.17` on `express-08`, of the [queue of link 100](../studies/emergency-claim-pilot.md#a-second-late-record) toward Waterloo, which is a known risk above.
+    The limit is 600 s.
+  - No arm has a check failure or a demotion.
+    Each checked arm made 6 saves and 6 rewinds, and ran the full check and the D6 oracle 707,793 to 707,980 times for 702,000 ticks.
+  - The driver counted 3 refused incident commands in `incidents` of each seed, and no party order was refused there.
+  - The run started at a load of about 2.3, and the 15-minute load average at its end was 27.
+    The cause of that load was not recorded.
 
 In a scratch run before these tests, both lines had parties for 12 minutes at the rates of the shared-track script, which is more than the pods serve at once.
 The backlog drained in the next 48 minutes to 5 Express orders at minute 55, with no oracle or contract failure and no Express pod of one line at a hub of the other.
