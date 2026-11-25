@@ -73,6 +73,34 @@ A timeout shows a delay only, so a stranding needs a closed wait cycle or a repe
 
 S7 in the wait itself cannot show that an earlier exchange would not prevent it, so the probe must start at the common start.
 
+## The probe
+
+The probe of BD-D2 ran on 2026-11-25 on the wharf preset, seed 2, 45 simulated minutes of `incidents` and the clear, in a scratch copy of `b94b04dd`.
+It reads the state after the berth choices and before the grants of each tick, and it is not in the code.
+The run has the record `i1.17` (start at tick 50,804, 699.9 s) and the 563.0 s wait of the control, so it is the same trajectory in these measures.
+A pod-tick counts when a pod at its terminal branch has a request that another pod refuses.
+
+| Stage, over the first 46 minutes at Waterloo | Pod-ticks |
+| --- | ---: |
+| A request refused | 119,613 |
+| and a usable alternate berth with no owner | 115,984 |
+| and one alternate with exactly one plan on it | 51,459 |
+| and that planner is also at its own branch | 15,693 |
+| and the planner has a replacement with no owner and no third plan | 3,697 |
+| and both grant spans are free and disjoint (S7) | 0 |
+| In place of the last three: the planner is not at its branch, and has an unowned, unplanned replacement (toward S8) | 908 |
+
+- In minutes 18 to 26 of the wait of `express-11`, each of the 16,200 ticks has an alternate with exactly one plan.
+  In none of them is the planner at its branch, and in none does it have such a replacement.
+  So neither S7 nor the replacement part of S8 acts on this wait at any of these ticks.
+  The stage "planner at its branch" and the replacement stage are above zero elsewhere, so the probe can see them.
+- S7 has no qualifying decision from the start of the run.
+  No test shows that the last stage can be above zero, so this zero is weaker than the one in the wait.
+  The probe also counts a grant of platoon followers as refused, which can only lower the last stage.
+- The probe does not show who the planner is, or that `far` ended the wait by the same means.
+
+S7 is not a remedy for this wait, and no shape in this note is one at the same tick.
+
 ## What this does not show
 
 - How often R3 or any other case happens in a preset.
