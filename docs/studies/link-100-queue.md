@@ -95,8 +95,7 @@ Each cell has the control and then `far`.
 
 - `far` fails one run that the control passes: seed 1 of `london-full-shared-express` misses the Progress gate after the clear.
   At the last reading, 1,800 s after the clear, `london-pod-056` has a fault hold, with no wait reason and no blocker.
-  The run lists only the last reading, so it does not show if this pod held the gate for the whole time, or if it moved.
-  The cause is not traced.
+  The cause is [below](#the-progress-miss).
 - No run has another gate miss, a check failure, a demotion, or a late record.
 - On `london-full-shared-express`, completed orders rise by 4.5, 4.8, and 14.1 percent, and the mean wait falls by 4.7, 43.5, and 25.3 percent.
   In seed 1 the fault wait rises by 50.2 percent, the delayed riders by 42.6 percent, and the longest record by 101.1 s.
@@ -104,10 +103,32 @@ Each cell has the control and then `far`.
 - On `rail-hub`, completed orders change by +0.5, +5.6, and -8.4 percent, so three seeds show no direction.
 - The fault wait and the delayed riders go both ways on each preset.
 
+## The Progress miss
+
+A second run of seed 1 with `far` on `london-full-shared-express` logged `london-pod-056` every 10 s and each remaining wait every 30 s after the clear.
+It gave the same counts and the same miss.
+
+- The pod drove from Epping (berth `940GZZLUEPG-01`) to `940GZZLUHSD`.
+  A fault stopped it 5,594 m after the start, and its rider was evacuated on the lane.
+  It then had an empty recovery (purpose 3) on its original route, as the [suspension contract](../contracts/incident-suspension-contract-proposal.md) sets for a lane evacuation.
+- At the clear, 31,527 m of that route were left.
+  At 14 m/s that takes at least 2,252 s, and the gate has 1,800 s.
+- In 177 of its 180 readings after the clear, the pod drove at 14 m/s.
+  The other three were slower, two of them with "Junction traffic" behind `express-08`.
+  It was never stopped in a reading, and it had 6,625 m left in the last one.
+- Its hold ends at the arrival, so no berth or junction rule can meet the gate for this pod at that route and speed.
+  Another pod, `london-pod-074`, held the gate until between 450 and 480 s, and then this pod alone.
+
+So the miss is a long drive and not a block.
+`far` changes which pods have a fault at the clear, and in this run one of them had a route too long for the gate.
+One run does not show that `far` makes such a drive more likely.
+[N](emergency-claim-pilot.md#the-settle-of-n) had the same kind of wait, 771 s long.
+
 ## What it does not show
 
 - The release form with the full check at each tick, the `emergencies` arm, or the settle against a reference queue.
-- The cause of the Progress miss with `far` on `london-full-shared-express`.
+- The cause of the higher fault wait and delayed riders in seed 1 of `london-full-shared-express`.
+- How often a long recovery drive makes a run miss the Progress gate, with the rule or without it.
 - `LF` under its stopping load.
   In the earlier pilot, `LF` with this rule completed fewer orders: 350 against 368 in seed 1, 397 against 431 in seed 2, and 350 against 361 in seed 3.
 - That a pod that gives up its place to another pod always gets a berth.
