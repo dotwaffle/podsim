@@ -60,10 +60,40 @@ The change is against the control of the same seed, in percent.
 - Entry free has a lower longest record than the control in each seed, which is the clearest effect.
   It is an upper bound that no buildable layout can give.
 
+## The entry reservation
+
+A third read-only trace of 2026-11-25 ran on the code of `2fe8ba4c`, with the same control runs, and it has their completed orders, longest record, and late counts.
+It logs each grant at Waterloo that contains `access-in`, and the owner of each entry junction at each tick, for the 21,600 s before the clear.
+
+| Measure | Seed 1 | Seed 2 | Seed 3 |
+| --- | ---: | ---: | ---: |
+| Entry grants, Express and Compact | 469, 143 | 481, 197 | 468, 191 |
+| Share of these grants that end on the inlet of the berth | 100% | 100% | 100% |
+| Median length, Express and Compact (m) | 280.2, 236.4 | 280.2, 239.2 | 280.2, 234.3 |
+| Time that `01-arrival` has an owner | 61.3% | 64.1% | 62.5% |
+| Median hold of `01-arrival`, Express and Compact (s) | 19.8, 14.6 | 19.8, 14.6 | 19.8, 14.5 |
+| Median part before the pod is on a lane that touches it (s) | 13.7, 8.6 | 13.7, 8.7 | 13.7, 8.5 |
+
+- Yes: an Express pod takes the diverge, the entry, each comb junction up to its berth, and the berth in one grant, of 198 to 390 m.
+  An Express pod starts it on link 100 or another link lane.
+- A Compact pod does the same.
+  `reservationEnd` joins the junction zones of adjacent lanes, and the zones do not depend on the class of the pod.
+  The [station limits](station-limits.md) study names this for the Compact flood.
+- The difference is the hold time.
+  An Express pod holds each entry junction 2.6 to 10.4 s longer in the median.
+  It starts the grant farther out, and it releases later.
+- 59 to 72 percent of the hold time of the comb junctions, and 52 to 63 percent of that of the entry, is before the pod is on a lane that touches the junction.
+  Part of that is the stopping distance that a pod must own ahead of it, and the trace does not separate the two parts.
+- The comb junction that most pods share has no owner for 36 to 39 percent of the time, so the entry is not saturated on average.
+
+A shorter reservation would need a place where a pod can stop between the junctions, or junctions that a pod takes one at a time.
+That is a change of the reservation rule and its safety proof, or of the geometry.
+The entry free bound of JS-2, which removes these holds, gives 3 to 9 percent more entries, and no consistent gain in completed orders.
+
 ## What it does not show
 
 - A buildable change, its gain, or its cost.
-- The cause of the stops, in the resources of one reservation: whether an Express pod reserves the arrival comb as one movement was not measured.
+- Which part of the hold before the pod arrives is avoidable.
 - A second bank at Waterloo under this load.
   The bank study has one seed of a Compact flood, and a layout conflict with link 100.
 - The spread of the control: each seed has one run, and the runs of one seed are deterministic.
