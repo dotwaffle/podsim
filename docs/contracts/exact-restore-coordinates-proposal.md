@@ -694,6 +694,7 @@ A follow-up test asserts the current result of each.
 Two follow-ups from the review rounds stay open:
 
 - The fault-footprint check before the tiers builds the saved routes before the restore block budget limits the work.
+  On 2026-11-25, the maintainer left it as it is.
 - The pickup swap controller state is not saved (EC-D9).
 
 ## 9. Stops
