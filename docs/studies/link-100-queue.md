@@ -75,12 +75,41 @@ This corrects the reading of the [trace of `i1.17`](emergency-claim-pilot.md#a-s
   So the runs do not show what `far` does to `i1.17` itself.
   They show that the queue is shorter in each seed.
 
+## Other presets
+
+The same two arms ran on three other presets on 2026-11-25, with the `incidents` arm, 6 simulated hours and the clear, seeds 1, 2, and 3, no probe, and no reference run.
+So these runs, too, have no queue check after the clear.
+Each cell has the control and then `far`.
+
+| Preset, seed | Completed orders | Mean order wait (s) | Longest record not blocked (s) | Settle (s) | Fault wait (pod-ticks) | Delayed riders (rider-ticks) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `london-full-shared-express`, 1 | 4,381, 4,576 | 756.5, 720.6 | 406.3, 507.4 | 187, not in 1,800 | 228,278, 342,932 | 205,417, 292,960 |
+| `london-full-shared-express`, 2 | 4,808, 5,041 | 689.9, 389.5 | 465.9, 263.8 | 605, 1 | 370,398, 357,405 | 303,557, 275,579 |
+| `london-full-shared-express`, 3 | 4,192, 4,785 | 722.0, 539.0 | 506.9, 496.9 | 1, 143 | 438,073, 285,798 | 356,994, 338,644 |
+| `london-central`, 1 | 4,129, 4,128 | 997.4, 997.9 | 164.9, 181.5 | 127, 200 | 622,340, 436,090 | 467,999, 204,004 |
+| `london-central`, 2 | 4,060, 4,144 | 1,007.8, 989.1 | 223.0, 180.6 | 1, 1 | 379,618, 519,764 | 235,834, 371,590 |
+| `london-central`, 3 | 4,076, 4,070 | 1,010.1, 1,008.1 | 213.4, 233.5 | 1, 1 | 550,856, 610,712 | 312,518, 368,860 |
+| `rail-hub`, 1 | 634, 637 | 4,629.9, 4,628.9 | 196.6, 200.5 | 120, 77 | 1,093,976, 952,299 | 973,459, 813,464 |
+| `rail-hub`, 2 | 675, 713 | 4,428.7, 4,245.5 | 216.5, 213.5 | 1, 391 | 826,309, 886,814 | 687,622, 743,436 |
+| `rail-hub`, 3 | 598, 548 | 4,802.0, 5,062.4 | 212.7, 210.9 | 8, 1 | 895,464, 913,966 | 681,110, 706,921 |
+
+- `far` fails one run that the control passes: seed 1 of `london-full-shared-express` misses the Progress gate after the clear.
+  At the last reading, 1,800 s after the clear, `london-pod-056` has a fault hold, with no wait reason and no blocker.
+  The run lists only the last reading, so it does not show if this pod held the gate for the whole time, or if it moved.
+  The cause is not traced.
+- No run has another gate miss, a check failure, a demotion, or a late record.
+- On `london-full-shared-express`, completed orders rise by 4.5, 4.8, and 14.1 percent, and the mean wait falls by 4.7, 43.5, and 25.3 percent.
+  In seed 1 the fault wait rises by 50.2 percent, the delayed riders by 42.6 percent, and the longest record by 101.1 s.
+- On `london-central`, completed orders change by 0.0, +2.1, and -0.1 percent.
+- On `rail-hub`, completed orders change by +0.5, +5.6, and -8.4 percent, so three seeds show no direction.
+- The fault wait and the delayed riders go both ways on each preset.
+
 ## What it does not show
 
 - The release form with the full check at each tick, the `emergencies` arm, or the settle against a reference queue.
-- Another preset.
+- The cause of the Progress miss with `far` on `london-full-shared-express`.
+- `LF` under its stopping load.
   In the earlier pilot, `LF` with this rule completed fewer orders: 350 against 368 in seed 1, 397 against 431 in seed 2, and 350 against 361 in seed 3.
-  That load stops `LF` in each arm.
 - That a pod that gives up its place to another pod always gets a berth.
   With `far`, a distant pod can lose its berth and choose again.
 - An effect on the junctions, which are the larger limit.
