@@ -169,7 +169,7 @@ An approved contract in `docs/contracts/` is binding, and each document gives it
 | [Late berth binding](docs/design/late-berth-binding.md) | Closed, not pursued: an empty move gets its berth at the station approach. Has the claim trace and the synthesis. |
 | [Emergency claim yield amendment](docs/contracts/emergency-claim-yield-amendment-proposal.md) | Approved on 2026-11-24: a far berth claim yields to a bound emergency. |
 | [Emergency berth claim](docs/contracts/emergency-berth-claim-proposal.md) | Options for an emergency pod that waits for a far empty pod with a claim on its berth. Option A approved on 2026-11-24. |
-| [Distant berth target](docs/contracts/distant-berth-target-proposal.md) | Draft: a berth choice ignores a distant pod that owns no part of its berth and can choose again. Not approved. |
+| [Distant berth target](docs/contracts/distant-berth-target-proposal.md) | Withdrawn: a berth choice ignores a distant pod that owns no part of its berth and can choose again. |
 | [Recovery drive gate](docs/contracts/recovery-drive-gate-proposal.md) | Draft: options for the Progress gate when a fault recovery has a long drive left at the clear. Option A chosen on 2026-11-25, not built. |
 | [Bank load choice](docs/contracts/bank-load-choice-proposal.md) | Bank choice by approach cost leaves bank `b` of Bank idle while bank `a` queues. Option A landed; the screen still fails. |
 | [Positioning under load](docs/contracts/loaded-positioning-proposal.md) | No policy moves spare idle pods toward demand above the low-load gate of guarded positioning. Pilots: B helps D but harms LF; B after an 18-minute surplus spares LF but leaves D failing. Stopped with D adoption. |

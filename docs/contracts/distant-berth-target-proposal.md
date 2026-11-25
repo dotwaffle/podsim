@@ -1,7 +1,8 @@
 # Distant berth target proposal
 
-Status: draft for the maintainer, 2026-11-25.
-Nothing of it is in the code, and the approval of this note is necessary before a build.
+Status: withdrawn on 2026-11-25 (BD-D1 A), not approved.
+Nothing of it is in the code.
+A build passed the release form of HX11, and a test showed that it can make a passenger pod wait for good: see [berth displacement](../design/berth-displacement.md).
 It starts from BT-D8 option A, called `far` in the [study of link 100](../studies/link-100-queue.md), and it narrows that rule.
 A [screen of the narrowed rule](../studies/link-100-queue.md#the-narrowed-rule) has six runs.
 
@@ -115,7 +116,7 @@ It did not run on `london-central` and `rail-hub`.
 ## Decisions for the maintainer
 
 The maintainer chose BT-D13 A and BT-D14 A on 2026-11-25.
-BT-D12 is open.
+BT-D12 was A for a build in principle, and BD-D1 A withdrew the rule.
 
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
