@@ -149,9 +149,40 @@ Each cell has the control and then the narrowed rule.
 - Seed 1 of `london-full-shared-express` passes the settle at 275 s.
   The long drive of `far` is not in that run.
 
+## The release form with the rule
+
+On 2026-11-25 the release form of HX11 ran on an uncommitted tree as evidence, and it passed.
+It does not change row HX11, which stays failed for the code in the repository.
+The tree is `fbc6227a` with the narrowed rule, and with three changes that came after the screen: the route part of clause 3, clause 5 of the proposal, and a test that counts a faulted pod as before.
+The tracked diff was the same at the start and at the end of the run.
+The command was `PODSIM_SOAK_PRESETS=london-full-shared-express-wharf mise run soak:full`, for seeds 1 and 2, and it took 5,348 s of the limit of 7,200 s.
+The arms for this preset are `reference`, `emergencies`, and `incidents`.
+The control is the [failed run at `ac75dd5f`](../contracts/express-wharf-qualification-proposal.md#evidence), and the Go source is the same at `ac75dd5f` and `fbc6227a`.
+Each cell has the control and then the rule.
+
+| Seed, arm | Late | Completed trips | Queue peak | Mean wait (s) | Settle (s) | Longest not blocked by a fault (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1, `reference` | - | 5,617, 5,954 | 200, 194 | 572.5, 456.2 | 0, 0 | - |
+| 1, `emergencies` | 0, 0 | 5,538, 5,872 | 200, 181 | 569.0, 415.9 | 1, 1 | 411.4, 376.5 |
+| 1, `incidents` | 0, 0 | 4,640, 4,824 | 200, 200 | 762.3, 719.0 | 15, 31 | 462.1, 431.6 |
+| 2, `reference` | - | 5,929, 5,963 | 189, 128 | 389.2, 303.4 | 0, 0 | - |
+| 2, `emergencies` | 0, 0 | 5,859, 5,899 | 200, 134 | 398.4, 309.8 | 68, 1 | 411.0, 389.6 |
+| 2, `incidents` | 1, 0 | 5,608, 5,867 | 200, 153 | 634.9, 370.9 | 221, 421 | 699.9, 374.4 |
+
+- The four checked arms have no check failure, demotion, or late record.
+  Each made 6 saves and 6 rewinds, and ran the full check and the D6 oracle 707,845 to 708,011 times for 702,000 ticks.
+- The settle of `incidents` is longer with the rule on both seeds.
+- In `incidents` of seed 2, one record lasts longer than 600 s in all, and it passes, because the gate does not count the time that an incident blocks.
+  `i2.41` on `express-06` was blocked by `i2.44` for 600.0 s, and the log does not say that it is the same record.
+- In `incidents`, the fault wait falls on both seeds (283,328 to 272,547 and 317,065 to 293,126 pod-ticks), and the delayed riders rise on both (238,719 to 269,224 and 272,501 to 288,684 rider-ticks).
+  The controls of these two measures are the runs of "The narrowed rule".
+- Seed 2 of `incidents` has the same value as the screen in each measure of the screen's table, and seed 1 does not.
+  No run compared which of the three changes moved seed 1.
+- The load average was 5.5 at the start and 7.8 at the end, and the arms are deterministic.
+
 ## What it does not show
 
-- The release form with the full check at each tick, the `emergencies` arm, or the settle against a reference queue.
+- The release form, the `emergencies` arm, or the settle against a reference queue, on a preset other than the wharf preset.
 - The cause of the higher fault wait and delayed riders in seed 1 of `london-full-shared-express`.
 - How often a long recovery drive makes a run miss the Progress gate, with the rule or without it.
 - `LF` under its stopping load.
