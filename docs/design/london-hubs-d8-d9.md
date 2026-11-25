@@ -820,6 +820,7 @@ It has no simulation run, and no preset has the change.
 The maintainer decided HB-D19 C, HB-D20 A, and HB-D21 A on 2026-11-24.
 A build needed its own grant, after HX11 was settled.
 HX11 is closed as failed, and the build was parked on 2026-11-25.
+On 2026-11-25 the maintainer granted the build of the preset, its docs, and a screen study, with no qualification before the study (section 13.6).
 The base is `london-full-shared-express-wharf` (network `d68a69b8...`), where Waterloo, London Bridge, and Canary Wharf have their Express shape.
 Section 9.1 has the pair on the shared-track preset, with 60 shape pairs.
 
@@ -890,3 +891,14 @@ PODSIM_BRIDGE_PAIR_STUDY="$D/wharf.json" PODSIM_HUB_PAIR_OUT="$D/out" go test ./
 PODSIM_BRIDGE_PAIR_LAYOUT="$D/out" go test ./internal/scenarios -run TestBridgePairStudyProjects -count=1 -v
 rm -r "$D"
 ```
+
+### 13.6 Build record
+
+The preset `london-full-shared-express-wharf-hubs` is decision HB-D19 C with HB-D20 A and HB-D21 A (`50060197`).
+It adds a third line to the wharf preset, with the four routes of section 13.1 and their Express services.
+Its network is the network of the third arm of `TestBridgePairStudy`, with the SHA-256 `fa153ec8f8c85e98d8e056155e8915240ccca405efa62d0e5fad22909f660196`.
+`TestWharfHubsPreset`, `TestWharfHubsRoutes`, and `TestWharfHubsKeepsPresets` in `internal/scenarios` pin the static results.
+
+The preset is built on the wharf preset, whose release soak failed on the queue of link 100 toward Waterloo (HX11).
+Both new pairs serve Waterloo, so a qualification of this preset can fail on the same limit.
+For this reason, no qualification rows are proposed before a screen study measures the hub waits, the empty distance to parking, and the effect on Compact traffic.

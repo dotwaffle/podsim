@@ -192,6 +192,37 @@ The capacity flags do not apply to it.
 Its network SHA-256 is `d68a69b8c326f292f7c3a7839b51bf9837c5e714287f60470436781705217359`.
 The preset is opt-in and is not qualified: the [Express wharf qualification](contracts/express-wharf-qualification-proposal.md) gives the rows and their status.
 
+### Shared Express Wharf Hubs preset
+
+`london-full-shared-express-wharf-hubs` is decision HB-D19 C of the [Express London hubs](design/london-hubs-d8-d9.md) design (section 13).
+It is `london-full-shared-express-wharf` with Express services between London Bridge and Waterloo, and between Waterloo and Canary Wharf.
+It changes no geometry, because the three hubs have their Express shape already.
+
+```sh
+mise run scenario -- -preset london-full-shared-express-wharf-hubs -output /tmp/podsim-london-full-shared-express-wharf-hubs.json
+```
+
+| | `london-full-shared-express-wharf` | `london-full-shared-express-wharf-hubs` |
+| --- | --- | --- |
+| Express pairs | Waterloo and Bank, and London Bridge and Canary Wharf | Also London Bridge and Waterloo, and Waterloo and Canary Wharf |
+| Shared track | Links 100, 089, 088, and 154 | Also links 280 and 350 |
+| Express services | 4 | 8 |
+| Express networks | 2, one for each comb | 1 |
+| Pods | 327 Compact, 32 Express | The same |
+| Nodes and lanes | 5,840 and 9,156 | The same |
+| Shape pairs | 53 | 67 |
+| Network SHA-256 | `d68a69b8...` | `fa153ec8...` |
+
+London Bridge to Waterloo is 1,991 m by chord, and Waterloo to London Bridge is 2,055 m.
+The route between Waterloo and Canary Wharf passes through London Bridge on `940GZZLULNB-move-04-01` and `940GZZLULNB-move-01-04`.
+The free-flow cost of each station route does not change.
+Decision HB-D20 A keeps `park`, so an idle Express pod goes to `express-parking`, the first Express parking in network order, also from London Bridge.
+Decision HB-D21 A keeps the 16 and 16 Express pods.
+The preset has two tail warnings: the one of `london-full-shared-express`, and `940GZZLULNB-move-04-03`, whose tail of 66.5 m is longer than its length of 66.2 m.
+The capacity flags do not apply to it.
+Its network SHA-256 is `fa153ec8f8c85e98d8e056155e8915240ccca405efa62d0e5fad22909f660196`.
+The preset is opt-in and is not qualified, and no qualification is proposed for it.
+
 ## Depots and Compact stations
 
 Both London presets have depots and Compact stations by default.
