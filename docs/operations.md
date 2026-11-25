@@ -823,6 +823,30 @@ Without another valid endpoint, it sends to the default endpoint, `https://local
 An `OTEL_RESOURCE_ATTRIBUTES` item without a value stops startup with an error.
 An unreachable collector reports export errors without stopping the simulation.
 
+## Runtime logs
+
+The sections below have the records of save points and of session state, and [Graceful shutdown](#graceful-shutdown) has the shutdown records.
+The server also writes these records:
+
+| Record | Level | Fields |
+| --- | --- | --- |
+| `Automatic memory limit unavailable` | WARN | `error` |
+| `Configured Go memory limit` | INFO | `bytes` |
+| `Browser build ID unavailable` | WARN | `build`, `error` |
+| `Open Podsim in your browser` | INFO | `url`, `build` |
+| `Enabled pprof` | INFO | `address` |
+| `Serve prototype` | ERROR | `error` |
+| `Shut down telemetry` | WARN | `error` |
+| `Serve WASM module` | ERROR | `error` |
+| `Encode command reply` | ERROR | `error` |
+| `Encode state` | ERROR | `error` |
+| `State stream publication failed` | WARN | `error` |
+| `Place search` | INFO | `status`, `cache_hit`, `duration` |
+| `Generated preset` | INFO | `name`, `duration`, `bytes` |
+| `Generate preset` | ERROR | `name`, `duration`, `error` |
+| `Send preset` | WARN | `name`, `error` |
+| `Reduced playback speed` | WARN | `from`, `to`, `achieved` |
+
 ## Save point logs
 
 The server writes one `INFO` log record for each save point and rewind that it applies.
