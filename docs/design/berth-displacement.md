@@ -3,6 +3,7 @@
 Status: design note of 2026-11-25.
 The maintainer chose BD-D1 A, BD-D2 B, and BD-D3 B on that day: the rule is discarded, the probe and a study of the junctions may run, and HX11 stays failed.
 No rule of it is approved or built.
+After the probe, the maintainer closed the topic on 2026-11-25: berth choice is not pursued.
 It follows the [distant berth target proposal](../contracts/distant-berth-target-proposal.md) and the [study of link 100](../studies/link-100-queue.md).
 
 ## The question
