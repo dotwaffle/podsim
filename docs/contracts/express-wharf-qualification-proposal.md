@@ -80,7 +80,7 @@ For HX-D2, option C puts the preset in the place of `london-full-shared-express`
 The rule of amendment A19 applies to each default preset and lists none by name, so its text does not change.
 SX11 does not change either: it still needs 2 seeds of `london-full-shared-express` before a release tag, and `soak:full` does not run them after the swap.
 For HX-D7, the maintainer chose to amend SX11, and the draft is [below](#draft-amendment-of-sx11).
-Until the amendment is approved and HX11 passes, the defaults of `soak:full` stay as they are.
+The draft is withdrawn, because HX11 is closed as failed, so the defaults of `soak:full` stay as they are.
 
 Approval of a row does not authorize a push.
 Each long run needs a grant when it starts.
@@ -186,8 +186,8 @@ The backlog drained in the next 48 minutes to 5 Express orders at minute 55, wit
 
 ## Draft amendment of SX11
 
-Status: proposed on 2026-11-24, not approved.
-The [shared-track contract](express-shared-track-qualification-proposal.md) does not change until the maintainer approves this text.
+Status: proposed on 2026-11-24, and withdrawn on 2026-11-25, because HX11 is closed as failed.
+The [shared-track contract](express-shared-track-qualification-proposal.md) does not change.
 
 The pass rule of SX11 becomes: a CI case of one simulated hour on `london-full-shared-express`, with the full check and the D6 oracle at each tick.
 The release soak before a release tag runs on `london-full-shared-express-wharf` under HX11, in place of `london-full-shared-express`.
