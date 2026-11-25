@@ -902,3 +902,24 @@ Its network is the network of the third arm of `TestBridgePairStudy`, with the S
 The preset is built on the wharf preset, whose release soak failed on the queue of link 100 toward Waterloo (HX11).
 Both new pairs serve Waterloo, so a qualification of this preset can fail on the same limit.
 For this reason, no qualification rows are proposed before a screen study measures the hub waits, the empty distance to parking, and the effect on Compact traffic.
+
+### 13.7 Study rules
+
+The maintainer set these rules on 2026-11-25, before any run.
+The screen arms of the study are in a scratch copy of `cmd/compare`, not in the repository.
+
+- Arms: `H` (`london-full-shared-express-wharf-hubs`), `H0` (`H` with no Express pod, service, or order contract), `W`, and `W0`, with seeds 1 to 3.
+- Workload: the workload of section 12, with a Waterloo and Bank stream of a mean of 120 s and the London Bridge and Canary Wharf stream of HX-D3.
+  Two more streams have the AM peak rates of section 3.1, by the method of HX-D3, with parties of 10.5 passengers on average.
+  Waterloo and London Bridge has one party each 62 s, 76 in 100 from Waterloo.
+  Waterloo and Canary Wharf has one party each 24.6 s, 91 in 100 from Waterloo.
+  All arms get the same events, and a party on a line that the arm does not serve splits into Compact orders.
+- Timed pilot: `H`, seed 1.
+  The batch does not start if the projection, from the pilot time, 12 runs, and 3 workers, is over 1 hour.
+- Checks, in each seed:
+  - no arm has a safety, contract, or accounting failure;
+  - each arm finishes each accepted order;
+  - on each line, the passenger-weighted mean hub wait of `H` is at most that of `H0`.
+- The rules of section 12 for an arm that does not finish and for a safety failure apply.
+- The pairs `H` and `W`, and `W` and `W0`, are reported, with no gate.
+  The report also gives the empty distance, the background waits, and the refusals.
