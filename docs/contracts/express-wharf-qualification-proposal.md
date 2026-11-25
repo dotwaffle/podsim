@@ -105,7 +105,7 @@ It passed in 455 s under `nice`.
 | HX1, HX2, HX3, HX4, HX5, HX8, HX13 | Evidence complete on the preset. |
 | HX6, HX9 | Test evidence complete. The Chrome check of HX-D6 is open. |
 | HX10 | Evidence complete on the preset. |
-| HX11 | The CI case passed. The release soak failed: seed 1 passed and seed 2 missed the Progress gate with 1 late record, in the queue of link 100. |
+| HX11 | The CI case passed. The release soak failed: seed 1 passed and seed 2 missed the Progress gate with 1 late record, in the queue of link 100. On 2026-11-25 the maintainer closed the row as failed, a known limit of the preset, after the [berth](../design/berth-displacement.md) and [junction](../studies/waterloo-junctions.md) studies found no supported fix. |
 | HX7, HX12 | Open, and not run, because HX11 failed. The test tables of HX12 have the preset. |
 
 - HX1: `TestLondonFullSharedExpressWharfKeepsPresets` pins the four network hashes.

@@ -1,6 +1,7 @@
 # Recovery drive gate proposal
 
-Status: draft for the maintainer, 2026-11-25.
+Status: draft for the maintainer, 2026-11-25, parked on the same day.
+The condition of PG-D2 A lapsed, because the berth rule is withdrawn.
 Nothing of it is in the code, and no gate is relaxed by this note.
 
 ## The problem

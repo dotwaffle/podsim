@@ -109,4 +109,5 @@ S7 is not a remedy for this wait, and no shape in this note is one at the same t
 - The layouts of the table above, in a run.
 - A cause of the longer settle and the more delayed riders in the HX11 runs with the rule.
 
+The maintainer closed HX11 as failed on that day.
 The [junction study](../studies/waterloo-junctions.md) of BD-D3 B ran on 2026-11-25.
