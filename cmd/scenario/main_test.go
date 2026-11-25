@@ -492,6 +492,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
 		{name: "station scale for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express preset"},
 		{name: "station scale for the wharf preset", arguments: []string{"-preset", "london-full-shared-express-wharf", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf preset"},
+		{name: "station scale for the wharf hubs preset", arguments: []string{"-preset", "london-full-shared-express-wharf-hubs", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf Hubs preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-wide-stations", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 		{name: "junctions for a ring", arguments: []string{"-preset", "busy", "-junctions", "ramps"}, err: "-junctions applies only to the London presets"},
@@ -511,6 +512,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "road fillets for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
 		{name: "road fillets for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express preset"},
 		{name: "road fillets for the wharf preset", arguments: []string{"-preset", "london-full-shared-express-wharf", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf preset"},
+		{name: "road fillets for the wharf hubs preset", arguments: []string{"-preset", "london-full-shared-express-wharf-hubs", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf Hubs preset"},
 		{name: "straight roads for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets=false"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
