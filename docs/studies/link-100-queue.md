@@ -124,6 +124,31 @@ So the miss is a long drive and not a block.
 One run does not show that `far` makes such a drive more likely.
 [N](emergency-claim-pilot.md#the-settle-of-n) had the same kind of wait, 771 s long.
 
+## The narrowed rule
+
+The [proposal](../contracts/distant-berth-target-proposal.md) narrows `far` with a fourth clause: the ignored pod must be able to choose a berth again (`choosesBerth`).
+Six runs of it on 2026-11-25 have the method of "Other presets" and the Go source of `39781186`.
+The controls are the recorded ones, and the wharf controls had the probe.
+Each cell has the control and then the narrowed rule.
+
+| Preset, seed | Late | Completed orders | Mean order wait (s) | Longest record not blocked (s) | Settle (s) | Fault wait (pod-ticks) | Delayed riders (rider-ticks) |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Wharf, 1 | 0, 0 | 4,640, 4,848 | 762.3, 719.3 | 462.1, 476.9 | 15, 297 | 283,328, 251,026 | 238,719, 155,894 |
+| Wharf, 2 | 1, 0 | 5,608, 5,867 | 634.9, 370.9 | 699.9, 374.4 | 1, 421 | 317,065, 293,126 | 272,501, 288,684 |
+| Wharf, 3 | 0, 0 | 5,062, 5,544 | 647.2, 516.0 | 484.6, 496.9 | 1, 1 | 479,070, 391,558 | 422,671, 329,110 |
+| `london-full-shared-express`, 1 | 0, 0 | 4,381, 4,224 | 756.5, 785.9 | 406.3, 507.4 | 187, 275 | 228,278, 249,465 | 205,417, 235,329 |
+| `london-full-shared-express`, 2 | 0, 0 | 4,808, 5,057 | 689.9, 333.5 | 465.9, 237.2 | 605, 1 | 370,398, 303,521 | 303,557, 170,723 |
+| `london-full-shared-express`, 3 | 0, 0 | 4,192, 4,784 | 722.0, 536.4 | 506.9, 571.5 | 1, 1 | 438,073, 370,429 | 356,994, 318,281 |
+
+- All six runs pass, with no late record, check failure, or demotion.
+- Wharf completes 4.5, 4.6, and 9.5 percent more orders, and its mean wait falls by 5.6, 41.6, and 20.3 percent.
+- `london-full-shared-express` completes -3.6, +5.2, and +14.1 percent, and its mean wait changes by +3.9, -51.7, and -25.7 percent.
+  Seed 1 is worse in each measure of the table.
+- The longest record rises in four of the six runs, and it is 571.5 s in seed 3 of `london-full-shared-express`, 28.5 s from the limit.
+- These are different trajectories, so they do not show the effect on one record.
+- Seed 1 of `london-full-shared-express` passes the settle at 275 s.
+  The long drive of `far` is not in that run.
+
 ## What it does not show
 
 - The release form with the full check at each tick, the `emergencies` arm, or the settle against a reference queue.

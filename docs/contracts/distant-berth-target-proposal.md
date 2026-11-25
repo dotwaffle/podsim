@@ -3,7 +3,7 @@
 Status: draft for the maintainer, 2026-11-25.
 Nothing of it is in the code, and the approval of this note is necessary before a build.
 It starts from BT-D8 option A, called `far` in the [study of link 100](../studies/link-100-queue.md), and it narrows that rule.
-The narrowed rule has no run.
+A [screen of the narrowed rule](../studies/link-100-queue.md#the-narrowed-rule) has six runs.
 
 ## The problem
 
@@ -65,7 +65,9 @@ Proposed text for S2 and for section 9.5 of service transitions:
 
 ## Evidence
 
-The numbers are for `far`, and not for the narrowed rule.
+These numbers are for `far`.
+The narrowed rule ran on two presets, and all six runs passed: wharf +4.5, +4.6, and +9.5 percent completed orders, and `london-full-shared-express` -3.6, +5.2, and +14.1 percent, with a longest record of 571.5 s against the limit of 600 s.
+It did not run on `london-central` and `rail-hub`.
 
 | Preset, incidents arm, seeds 1 to 3, 6 h | Late records, control and `far` | Completed orders | Mean wait |
 | --- | --- | --- | --- |
@@ -89,7 +91,7 @@ The numbers are for `far`, and not for the narrowed rule.
 
 | Option | Rule | For | Against |
 | --- | --- | --- | --- |
-| A | The narrowed rule, clauses 1 to 4, for every preset. | No constant. One function. No pod that cannot choose again loses its place. | Not measured. It can change trajectories and goldens where the exclusion applies. |
+| A | The narrowed rule, clauses 1 to 4, for every preset. | No constant. One function. No pod that cannot choose again loses its place. | Seed 1 of `london-full-shared-express` got worse. It can change trajectories and goldens where the exclusion applies. |
 | A0 | `far`, clauses 1 to 3. | Measured. | The cycle above, unless a rule for displaced empty moves comes first. `rail-hub` seed 3 and `LF` got worse. |
 | B | A, only when the pod that chooses is an Express pod or goes to a station of an Express service. | It can limit the change to the presets that gained. | Not measured. A special case by class, and the queue of link 100 also has Compact pods. |
 | C | A, but a pod within a time of its station counts. | It protects a pod that is about to arrive. | A constant with no measurement. |
@@ -112,8 +114,11 @@ The numbers are for `far`, and not for the narrowed rule.
 
 ## Decisions for the maintainer
 
+The maintainer chose BT-D13 A and BT-D14 A on 2026-11-25.
+BT-D12 is open.
+
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
 | BT-D12 | Which rule | A, A0, B, C, or D above | A |
-| BT-D13 | Order of work | A: a scratch screen of option A first (wharf and `london-full-shared-express`, incidents, seeds 1 to 3, 6 h, 6 runs against the recorded controls), then ask again. B: build in the repository, unpushed, and run the release form of HX11 first. | A, because the narrowed rule has no run |
+| BT-D13 | Order of work | A: a scratch screen of option A first (wharf and `london-full-shared-express`, incidents, seeds 1 to 3, 6 h, 6 runs against the recorded controls), then ask again. B: build in the repository, unpushed, and run the release form of HX11 first. | A, because the narrowed rule had no run |
 | BT-D14 | Stop rule of a build | A: each gate that passes now and fails with the rule prevents the landing. After a gate change of PG-D1 is approved and checked, an exception needs the observed arrival of the pod inside its frozen deadline, and no other miss. B: judge the results after the runs. | A |

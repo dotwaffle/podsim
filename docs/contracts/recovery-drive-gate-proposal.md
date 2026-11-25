@@ -65,6 +65,9 @@ The failed `far` run stays failed under the gate that it ran with, and HX11 does
 
 ## Decisions for the maintainer
 
+The maintainer chose PG-D1 A and PG-D2 A on 2026-11-25.
+A build needs its own grant.
+
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
 | PG-D1 | Which option | A to E above | A |
