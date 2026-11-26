@@ -11,6 +11,7 @@ Batch 2 ran, and the lighter batch meets BT-D10 ([results](../studies/shared-tra
 Slice 3 is built: the preset `london-full-shared-express-wharf` has the pair of section 9, with HB-D13 and HB-D14.
 It is not qualified.
 The study batch of section 12 ran on 2026-11-24 and meets its rules ([results](../studies/wharf-batch.md)).
+The study batch of section 13.7 ran on 2026-11-25 and does not meet its third check ([results](../studies/wharf-hubs-batch.md)).
 The [Express wharf qualification](../contracts/express-wharf-qualification-proposal.md) contract gives the rows of section 4.4 (slice 5), approved on 2026-11-24.
 Code references are for `691f1f6b`.
 The measurements of section 3 ran on 2026-11-23 at `691f1f6b`.
