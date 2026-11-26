@@ -162,8 +162,8 @@ func TestEnvelopeSupportCurves(t *testing.T) {
 // station, the support of a small body passes maneuver group lanes,
 // traveling, before its origin release, and at a berth, and rule 2 holds
 // the lanes after them. Without the rules, the oracle misses support lanes.
-// The long run adds the shared lanes of london-full-shared-express and the
-// hub lanes of london-full-express.
+// The long run adds the shared lanes of london-full:shared and the
+// hub lanes of london-full:dedicated.
 func TestEnvelopeSupportMixedSmall(t *testing.T) {
 	t.Parallel()
 	t.Run("hook", func(t *testing.T) {
@@ -201,16 +201,16 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 			"stationary support with more than one node, small grown":                                  1,
 		})
 	})
-	// The shared lanes of london-full-shared-express, where Compact pods
+	// The shared lanes of london-full:shared, where Compact pods
 	// and Express pods meet. The preset loads a network of 9,089 lanes, so
 	// this case runs only in the long run, without -race.
-	t.Run("london-full-shared-express", func(t *testing.T) {
+	t.Run("london-full:shared", func(t *testing.T) {
 		t.Parallel()
 		if testing.Short() || raceEnabled {
 			t.Skip("the preset network is large")
 		}
 		n := sharedExpressNetwork(t)
-		c := newSharedContainment(t, "london-full-shared-express", n)
+		c := newSharedContainment(t, "london-full:shared", n)
 		c.reference = true
 		for lane, l := range n.Lanes {
 			if sharedExpressLinkLanes[l.ID] {
@@ -220,7 +220,7 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 		supportRun(t, c, map[string]int{"poses small": 1})
 		t.Logf("%v", c.counts)
 	})
-	// The shared lanes of london-full-shared-express-wharf.
+	// The shared lanes of london-full:wharf.
 	t.Run(wharfExpressName, func(t *testing.T) {
 		t.Parallel()
 		n, ok := wharfExpressNetwork(t)
@@ -237,17 +237,17 @@ func TestEnvelopeSupportMixedSmall(t *testing.T) {
 		supportRun(t, c, map[string]int{"poses small": 1})
 		t.Logf("%v", c.counts)
 	})
-	// The lanes of Waterloo and Bank of london-full-express (project D)
+	// The lanes of Waterloo and Bank of london-full:dedicated (project D)
 	// that admit a small class. There Compact pods pass the Express lanes
 	// and the maneuver groups of the hubs. The case runs only in the long
 	// run, without -race.
-	t.Run("london-full-express", func(t *testing.T) {
+	t.Run("london-full:dedicated", func(t *testing.T) {
 		t.Parallel()
 		if testing.Short() || raceEnabled {
 			t.Skip("the preset network is large")
 		}
 		n := expressNetworkFixture(t)
-		c := newSharedContainment(t, "london-full-express", n)
+		c := newSharedContainment(t, "london-full:dedicated", n)
 		c.reference = true
 		lanes := 0
 		for lane, l := range n.Lanes {
@@ -277,7 +277,7 @@ func TestEnvelopeSupportOneNode(t *testing.T) {
 		}
 	}
 	express := expressNetworkFixture(t)
-	networks := map[string]Network{"curves": envelopeReachCurves(t), "london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t)}
+	networks := map[string]Network{"curves": envelopeReachCurves(t), "london-full:dedicated": express, "london-full:shared": sharedExpressNetwork(t)}
 	if wharf, ok := wharfExpressNetwork(t); ok {
 		networks[wharfExpressName] = wharf
 	}
@@ -319,7 +319,7 @@ func TestEnvelopeSupportOneNode(t *testing.T) {
 func TestEnvelopeSupportChain(t *testing.T) {
 	t.Parallel()
 	express := expressNetworkFixture(t)
-	networks := map[string]Network{"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4)}
+	networks := map[string]Network{"london-full:dedicated": express, "london-full:shared": sharedExpressNetwork(t), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4)}
 	if wharf, ok := wharfExpressNetwork(t); ok {
 		networks[wharfExpressName] = wharf
 	}
@@ -575,7 +575,7 @@ func envelopeParityNetworks(t *testing.T) map[string]Network {
 	express := expressNetworkFixture(t)
 	networks := map[string]Network{
 		"curves": envelopeReachCurves(t), "hook": sharedHookNetwork(), "bays": supportBayNetwork(), "tall bays": tallBayNetwork(3, 4),
-		"london-full-express": express, "london-full-shared-express": sharedExpressNetwork(t),
+		"london-full:dedicated": express, "london-full:shared": sharedExpressNetwork(t),
 	}
 	if wharf, ok := wharfExpressNetwork(t); ok {
 		networks[wharfExpressName] = wharf

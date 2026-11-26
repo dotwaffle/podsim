@@ -62,9 +62,9 @@ func expressBaseOptions(options *LondonOptions) {
 	options.StationScale, options.WideStations, options.RoadFillets = 1, true, false
 }
 
-// GenerateLondonFullExpress returns the LondonFull Express preset without
+// generateLondonFullExpress returns the LondonFull Express preset without
 // a cache.
-func GenerateLondonFullExpress() (project.Config, error) {
+func generateLondonFullExpress() (project.Config, error) {
 	config, err := generateLondonFull(expressBaseOptions)
 	if err != nil {
 		return project.Config{}, err

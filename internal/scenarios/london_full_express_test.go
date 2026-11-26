@@ -19,12 +19,12 @@ func TestLondonFullExpress(t *testing.T) {
 	if !reflect.DeepEqual(LondonFull(), before) {
 		t.Fatal("the Express preset changed LondonFull")
 	}
-	generated, err := GenerateLondonFullExpress()
+	generated, err := GenerateLondonFullVariant(LondonFullDedicated)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(generated, config) {
-		t.Fatal("GenerateLondonFullExpress differs from LondonFullExpress")
+		t.Fatal("GenerateLondonFullVariant(LondonFullDedicated) differs from LondonFullExpress")
 	}
 	if err := project.Validate(config); err != nil {
 		t.Fatal(err)

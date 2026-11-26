@@ -411,9 +411,9 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 		return tails != (geometryTails{}) || index%every == 0
 	}
 	cases := map[string]envelopeReachCase{
-		"curves":              {network: envelopeReachCurves(t)},
-		"london-full-express": {network: express, lanes: sampled, routes: 12},
-		"london-full-express, Express on the Waterloo and Bank routes": {network: refused["london-full-express, Express on the Waterloo and Bank routes"], lanes: sampled, routes: 12},
+		"curves":                {network: envelopeReachCurves(t)},
+		"london-full:dedicated": {network: express, lanes: sampled, routes: 12},
+		"london-full:dedicated, Express on the Waterloo and Bank routes": {network: refused["london-full:dedicated, Express on the Waterloo and Bank routes"], lanes: sampled, routes: 12},
 	}
 	for name, network := range scenarioNetworks(t) {
 		c := envelopeReachCase{network: network, routes: 12}
@@ -423,7 +423,7 @@ func TestEnvelopeReachHoldsEnvelope(t *testing.T) {
 		cases[name] = c
 	}
 	// The shared-track preset (row SX3).
-	cases["london-full-shared-express"] = envelopeReachCase{network: sharedExpressNetwork(t), lanes: sampled, routes: 12}
+	cases["london-full:shared"] = envelopeReachCase{network: sharedExpressNetwork(t), lanes: sampled, routes: 12}
 	if wharf, ok := wharfExpressNetwork(t); ok {
 		cases[wharfExpressName] = envelopeReachCase{network: wharf, lanes: sampled, routes: 12}
 	}
@@ -598,7 +598,7 @@ func TestEnvelopeReachLazySpans(t *testing.T) {
 	t.Parallel()
 	express := expressNetworkFixture(t)
 	networks := gateOffRefusedNetworks(t, express)
-	networks["london-full-express"] = express
+	networks["london-full:dedicated"] = express
 	networks["curves"] = envelopeReachCurves(t)
 	maps.Copy(networks, scenarioNetworks(t))
 	every := 5
@@ -617,7 +617,7 @@ func TestEnvelopeReachLazySpans(t *testing.T) {
 					front = index
 				}
 			}
-			if name == "london-full-express, Express on all lanes of Bank" {
+			if name == "london-full:dedicated, Express on all lanes of Bank" {
 				// Keep the lanes that admit a large class or have a
 				// geometry tail, and each seventh lane. Of those, keep each
 				// every-th lane, and the lane with the largest front bound.

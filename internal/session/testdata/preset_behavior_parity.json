@@ -81,7 +81,7 @@
 			}
 		]
 	},
-	"london-full-shared-express": {
+	"london-full:shared": {
 		"topology": "28404d6ae5bfe95be4a8751392cdacc064d2263575ba1e2a8018cf4fee967b4c",
 		"checkpoints": [
 			{

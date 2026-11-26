@@ -25,20 +25,20 @@ const soakExpressPartiesPreset = "rail-hub-express-parties"
 // soakLondonExpressPreset is the opt-in LondonFull Express preset, project D
 // of the Express qualification proposal. Only an explicit PODSIM_SOAK_PRESETS
 // selects it.
-const soakLondonExpressPreset = "london-full-express"
+const soakLondonExpressPreset = "london-full:dedicated"
 
 // soakLondonSharedExpressPreset is the opt-in LondonFull Shared Express
 // preset of decision D11 of the shape clearance design. Rows SX10 and SX11
 // of the shared-track qualification run it as D runs, and the checks of the
 // soak also run the D6 oracle at each tick. Only an explicit
 // PODSIM_SOAK_PRESETS selects it.
-const soakLondonSharedExpressPreset = "london-full-shared-express"
+const soakLondonSharedExpressPreset = "london-full:shared"
 
 // soakLondonWharfExpressPreset is the opt-in LondonFull Shared Express Wharf
 // preset. Rows HX10 and HX11 of the wharf qualification run it as the
 // shared-track preset runs, with a second stream of hub parties (decision
 // HX-D3). Only an explicit PODSIM_SOAK_PRESETS selects it.
-const soakLondonWharfExpressPreset = "london-full-shared-express-wharf"
+const soakLondonWharfExpressPreset = "london-full:wharf"
 
 // soakLondonHubPreset reports whether preset is a London Express preset
 // with the hub party orders and the soak shape of the London soak row.
@@ -48,10 +48,10 @@ func soakLondonHubPreset(preset string) bool {
 
 // soakSharedExpress generates the shared-track preset one time for each
 // test process. soakPreset returns a copy for each run.
-var soakSharedExpress = sync.OnceValues(scenarios.GenerateLondonFullSharedExpress)
+var soakSharedExpress = sync.OnceValues(scenarios.LondonFullShared.Generate)
 
 // soakWharfExpress is soakSharedExpress for the wharf preset.
-var soakWharfExpress = sync.OnceValues(scenarios.GenerateLondonFullSharedExpressWharf)
+var soakWharfExpress = sync.OnceValues(scenarios.LondonFullWharf.Generate)
 
 // soakLondonExpressArms lists the arms of the London Express row of the
 // qualification proposal, with the low-demand group. LondonFull sets the
@@ -468,7 +468,7 @@ func TestSoakLondonExpressDriver(t *testing.T) {
 // TestSoakLondonSharedExpressDriver runs a short soak of the LondonFull
 // Shared Express preset with the checks, as TestSoakLondonExpressDriver does
 // for D. The driver must run the D6 oracle at each tick. The
-// test:shared-express task runs this test.
+// test:express-shared task runs this test.
 func TestSoakLondonSharedExpressDriver(t *testing.T) {
 	t.Parallel()
 	if testing.Short() || raceEnabled {
@@ -536,7 +536,7 @@ func TestSoakLondonWharfExpressParties(t *testing.T) {
 }
 
 // TestSoakLondonWharfExpressDriver is TestSoakLondonSharedExpressDriver on
-// the wharf preset, with orders on both lines. The test:wharf-express task
+// the wharf preset, with orders on both lines. The test:express-wharf task
 // runs this test.
 func TestSoakLondonWharfExpressDriver(t *testing.T) {
 	t.Parallel()

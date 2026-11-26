@@ -50,8 +50,8 @@ var editTimeNetworks = []struct {
 	{"compact-station", scenarios.CompactStation},
 	{"london-central", scenarios.GenerateLondonCentral},
 	{"london-full", scenarios.GenerateLondonFull},
-	{"london-full-express", scenarios.GenerateLondonFullExpress},
-	{"london-full-shared-express", scenarios.GenerateLondonFullSharedExpress},
+	{"london-full:dedicated", scenarios.LondonFullDedicated.Generate},
+	{"london-full:shared", scenarios.LondonFullShared.Generate},
 	{"limits", func() (project.Config, error) { return limitsProject(), nil }},
 }
 

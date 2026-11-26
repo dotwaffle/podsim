@@ -452,7 +452,7 @@ func logShapeStudy(t *testing.T, name string, result shapeStudyResult) {
 }
 
 // TestShapeClearanceStudyBase runs the audit copy on the unchanged network.
-// On london-full-express it must refuse no pair, as the audit does.
+// On london-full:dedicated it must refuse no pair, as the audit does.
 func TestShapeClearanceStudyBase(t *testing.T) {
 	n := shapeStudyNetwork(t)
 	result := shapeStudyAudit(t, n)

@@ -12,9 +12,9 @@ import (
 	"github.com/dotwaffle/podsim/internal/sim"
 )
 
-var updateExpressProjectFixture = flag.Bool("update-express-project", false, "write the fleet, the Express services, and the settings of london-full-express for the envelope run in package sim")
+var updateExpressProjectFixture = flag.Bool("update-express-project", false, "write the fleet, the Express services, and the settings of london-full:dedicated for the envelope run in package sim")
 
-// expressProjectFixturePath holds the parts of london-full-express other
+// expressProjectFixturePath holds the parts of london-full:dedicated other
 // than the network, which is at expressNetworkFixturePath.
 // TestLondonExpressEnvelopeRun in package sim reads both files.
 const expressProjectFixturePath = "../sim/testdata/express_project.json"

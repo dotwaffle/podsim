@@ -8,12 +8,12 @@ import (
 
 // The tests of this file give the evidence of rows HX4, HX5, HX8, HX9, and
 // HX13 of the Express wharf qualification on the preset
-// london-full-shared-express-wharf. They run the shared-track tests with
+// london-full:wharf. They run the shared-track tests with
 // demand on both lines of the preset, and the states of each line.
 
-// wharfExpress is the preset london-full-shared-express-wharf.
+// wharfExpress is the preset london-full:wharf.
 var wharfExpress = sharedExpressPreset{
-	generate: scenarios.GenerateLondonFullSharedExpressWharf, services: 4, express: 32,
+	generate: scenarios.LondonFullWharf.Generate, services: 4, express: 32,
 	lines: []sharedExpressLine{sharedExpressBankLine, {
 		from: "940GZZLULNB", to: "940GZZLUCYF", link: []string{
 			"london-link-089-ab-1", "london-link-089-ab-2", "london-link-089-ba-1", "london-link-089-ba-2",
@@ -25,7 +25,7 @@ var wharfExpress = sharedExpressPreset{
 }
 
 // runWharfExpress runs a shared-track test on each line of the preset.
-// These tests run only in the task test:wharf-express, and not with -short
+// These tests run only in the task test:express-wharf, and not with -short
 // or -race.
 func runWharfExpress(t *testing.T, run func(*testing.T, sharedExpressPreset, int)) {
 	t.Helper()

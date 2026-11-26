@@ -136,7 +136,7 @@ func TestPresetBehaviorParity(t *testing.T) {
 	}{
 		{"london-central", func() (project.Config, error) { return scenarios.LondonCentral(), nil }},
 		{"london-full", func() (project.Config, error) { return scenarios.LondonFull(), nil }},
-		{"london-full-shared-express", scenarios.GenerateLondonFullSharedExpress},
+		{"london-full:shared", scenarios.LondonFullShared.Generate},
 	}
 	var want map[string]presetParityRecord
 	if !*update {

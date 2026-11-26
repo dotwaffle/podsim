@@ -1045,17 +1045,17 @@ mise run check
 
 | Task | What it runs |
 | --- | --- |
-| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs `test:race:other` by itself, and then two lanes in parallel: `test:race:sim`, `test:long`, and `test:london-express` in one, and `test:race:session`, `test:shared-express`, and `test:wharf-express` in the other. It stops at the first failure. |
+| `mise run check` | Workflow validation, Markdown checks, race tests, the tests that skip under the race detector, the `test:web` tests, vet, lint, vulnerability checks, the native and browser builds, and the embedded server tests. It runs `check:static`, then `qualify` by itself, because its latency gates fail on a loaded machine. Then it runs `test:race:other` by itself, and then two lanes in parallel: `test:race:sim`, `test:long`, and `test:express-dedicated` in one, and `test:race:session`, `test:express-shared`, and `test:express-wharf` in the other. It stops at the first failure. |
 | `mise run format` | Formats the Go sources and the Markdown files. |
 | `mise run test` | `go test -timeout=20m ./...`, without the race detector. |
-| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `test:embedded` run them. |
+| `mise run test:quick` | `go test -short ./...`. It skips the long tests. The race tasks, `test:long`, `test:express-shared`, `test:express-dedicated`, `test:express-wharf`, `qualify`, and `test:embedded` run them. |
 | `mise run lint` | actionlint, rumdl, `go vet`, golangci-lint, and a `go list -deps` check of the `js/wasm` builds of `cmd/podsim`, `cmd/editormodel`, and `cmd/ride`. The check fails when they link cloud storage or the preset data in `internal/scenarios`. |
 | `mise run check:static` | The checks other than the race tests and `qualify`: `test:web`, `lint`, `vulncheck`, `build`, and `test:embedded`. |
 | `mise run test:race` | The `test:race:sim`, `test:race:session`, and `test:race:other` tasks. `test:race:other` runs the packages other than `internal/sim`, `internal/session`, and `PODSIM_LONG_PACKAGES` in full. Then it runs the packages of `PODSIM_LONG_PACKAGES` with `-short`, and the long tests of `PODSIM_RACE_LONG_TESTS` in full. |
 | `mise run test:long` | The tests of `PODSIM_LONG_PACKAGES` in full, without the race detector. Most of their long tests run on one goroutine, where the race detector finds nothing. The Station 19 drain tests skip there, because they run only when `PODSIM_QUALIFY=1`. |
-| `mise run test:shared-express` | The qualification tests of the `london-full-shared-express` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
-| `mise run test:wharf-express` | The qualification tests of the `london-full-shared-express-wharf` preset in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
-| `mise run test:london-express` | The qualification tests of `london-full-express` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
+| `mise run test:express-shared` | The qualification tests of the `london-full:shared` variant in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. These tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
+| `mise run test:express-wharf` | The qualification tests of the `london-full:wharf` variant in `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
+| `mise run test:express-dedicated` | The qualification tests of `london-full:dedicated` (project D) under the shape clearance rule, in `internal/scenarios`, `internal/sim`, `internal/session`, and `internal/remote`, without the race detector. Most of these tests skip under the race detector and with `-short`, so `mise run check` and a CI job run this task. |
 | `mise run test:web` | The Node tests of the browser files: the editor, the editor model and history, the loader, the shell, the stream, the map and tiles, place search, the offline tools, and the ride page. The offline tool tests run `cmd/parkride` and `cmd/compare`. |
 | `mise run qualify` | The two Station 19 drain tests in `internal/scenarios`, the two emergency choice tests, `TestSampledTickLatency`, and the restore boundary sweep `TestRestoreBoundarySweep` in `internal/sim`, and the CI incident soak in `internal/session`, with the full check at each tick, without the race detector. These tests skip under the race detector, so in `mise run check` only this task runs them. The Station 19 drain tests, `TestEmergencyNoCandidateLatency`, `TestSampledTickLatency`, the boundary sweep, and the CI incident soak also skip without `PODSIM_QUALIFY=1`, which this task sets. The `test:race` task runs the other tests of these packages. |
 | `mise run qualify:london` | `TestLondonFleetQualification`, on request. |
@@ -1097,9 +1097,9 @@ Select both names through `PODSIM_SOAK_ARMS` to run only this group with its que
 The checks run at the stride of amendment A10: the full check runs at each simulated second and at each event.
 Use `mise run soak:full` before a release tag.
 After a change to dispatch, routing, or the fault and emergency state machines, use `mise run soak` and `mise run qualify`, which runs `TestIncidentSoakCI`.
-The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full-express`, `london-full-shared-express`, and `london-full-shared-express-wharf`, with the full check at each tick.
-The `soak:full` task runs 2 seeds of 6 simulated hours (amendment A19) with the full check at each tick, on `rail-hub`, `london-central`, `london-full-express`, and `london-full-shared-express` unless `PODSIM_SOAK_PRESETS` names others.
-On `london-central` and the London Express presets, it runs no platoon arm, because these presets already set the platoon limit of those arms.
+The CI soak runs one seed for one simulated hour on `rail-hub`, `london-full:dedicated`, `london-full:shared`, and `london-full:wharf`, with the full check at each tick.
+The `soak:full` task runs 2 seeds of 6 simulated hours (amendment A19) with the full check at each tick, on `rail-hub`, `london-central`, `london-full:dedicated`, and `london-full:shared` unless `PODSIM_SOAK_PRESETS` names others.
+On `london-central` and the LondonFull Express variants, it runs no platoon arm, because these projects already set the platoon limit of those arms.
 On each project, each check of the soak also runs the D6 oracle of the [shape clearance](design/shape-clearance.md) design, so it runs at each tick.
 This run keeps the wall limit of 2 hours.
 By amendment A19, a run that the limit stops fails.
@@ -1115,7 +1115,7 @@ These variables change a run:
 
 | Variable | Meaning | Default |
 | --- | --- | --- |
-| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. `london-full-express` selects the LondonFull Express row of the [qualification proposal](contracts/express-london-qualification-proposal.md), with hub party orders from the driver. `london-full-shared-express` selects the same row on the LondonFull Shared Express preset, for the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md). `london-full-shared-express-wharf` selects it on the wharf preset, with hub parties on both lines, for the [wharf qualification](contracts/express-wharf-qualification-proposal.md). | `rail-hub,london-central` |
+| `PODSIM_SOAK_PRESETS` | The presets, with commas. `rail-hub-express` and `rail-hub-express-parties` select the Express projects that the test builds. `london-full:dedicated` selects the LondonFull Express row of the [qualification proposal](contracts/express-london-qualification-proposal.md), with hub party orders from the driver. `london-full:shared` selects the same row on the LondonFull Shared Express variant, for the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md). `london-full:wharf` selects it on the wharf variant, with hub parties on both lines, for the [wharf qualification](contracts/express-wharf-qualification-proposal.md). | `rail-hub,london-central` |
 | `PODSIM_SOAK_ARMS` | The arms, with commas. A branch of an arm reads the queue range of a reference arm only when the list holds it. | The arms of the shape and the preset |
 | `PODSIM_SOAK_SHAPE` | `branches`, or `seeds` for the shape of amendment A6. | `branches` |
 | `PODSIM_SOAK_EVERY_TICK` | `1` runs the full check at each tick. | Off |
@@ -1137,7 +1137,7 @@ Use the gate only on a quiet host.
 
 GitHub Actions runs the same check on pull requests, pushes to `main`, and version tags.
 The workflow also supports a manual trigger.
-It splits the check into nine parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `check:static`.
+It splits the check into nine parallel jobs: `test:race:sim`, `test:race:session`, `test:race:other`, `test:long`, `test:express-shared`, `test:express-dedicated`, `test:express-wharf`, `qualify`, and `check:static`.
 After all nine pass, a version tag or a manual run publishes the container image.
 A push to `main` runs the checks and publishes no image.
 New pull-request updates cancel older runs.

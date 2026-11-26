@@ -22,7 +22,7 @@ import (
 )
 
 // presets lists the preset names in help order.
-var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "london-full-express", "london-full-shared-express", "london-full-shared-express-wharf", "london-full-shared-express-wharf-hubs", "independent-banks", "compact-station"}
+var presets = []string{"small", "busy", "parking-constrained", "rail-hub", "rail-hub-incidents", "scale100", "london-central", "london-full", "independent-banks", "compact-station"}
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, flag.ErrHelp) {
@@ -45,6 +45,7 @@ type capacity struct {
 	junctions                    scenarios.LondonJunctions
 	wideStations                 bool
 	roadFillets                  bool
+	express                      scenarios.LondonFullVariant
 }
 
 func run(arguments []string, stdout, stderr io.Writer) error {
@@ -52,6 +53,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	flags.SetOutput(stdout)
 	preset := flags.String("preset", "scale100", "Preset: "+strings.Join(presets, ", "))
 	output := flags.String("output", "", "Output file; omit to write standard output")
+	express := flags.String("express", string(scenarios.LondonFullNone), "Express variant of the london-full preset: "+variantList()+"; the variants other than none do not accept the capacity flags")
 	var options capacity
 	flags.IntVar(&options.stationBerths, "station-berths", 0, "Berths at each passenger station; omit to keep the preset value")
 	flags.IntVar(&options.parkingBerths, "parking-berths", 0, "Berths at each Parking station; omit to keep the preset value")
@@ -99,13 +101,18 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 	if err := incidents.parse(options.set); err != nil {
 		return err
 	}
+	options.express = scenarios.LondonFullVariant(*express)
 	config, err := presetConfig(*preset, options)
 	if err != nil {
 		return err
 	}
 	incidents.write(&config, options.set)
 	if validateErr := project.Validate(config); validateErr != nil {
-		return fmt.Errorf("validate %s preset: %w", *preset, validateErr)
+		name := *preset
+		if options.set["express"] {
+			name += " -express " + *express
+		}
+		return fmt.Errorf("validate %s preset: %w", name, validateErr)
 	}
 	data, err := scenarioJSON(config, project.MaxFileBytes)
 	if err != nil {
@@ -135,7 +142,7 @@ func run(arguments []string, stdout, stderr io.Writer) error {
 		}
 		file = nil
 	}
-	return writeSummary(stderr, *preset, config, counter.count)
+	return writeSummary(stderr, *preset, options.express, config, counter.count)
 }
 
 // scenarioJSON keeps indented output when it fits the project file limit.
@@ -162,8 +169,18 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if !slices.Contains(presets, name) {
 		return project.Config{}, fmt.Errorf("unknown preset %q", name)
 	}
-	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture", "london-full-express": "LondonFull Express preset", "london-full-shared-express": "LondonFull Shared Express preset", "london-full-shared-express-wharf": "LondonFull Shared Express Wharf preset", "london-full-shared-express-wharf-hubs": "LondonFull Shared Express Wharf Hubs preset"}
-	if fixture, ok := fixtures[name]; ok {
+	if options.set["express"] && name != "london-full" {
+		return project.Config{}, errors.New("-express applies only to the london-full preset")
+	}
+	if !slices.Contains(scenarios.LondonFullVariants(), options.express) {
+		return project.Config{}, fmt.Errorf("-express %q is not %s", options.express, variantList())
+	}
+	fixtures := map[string]string{"independent-banks": "independent bank fixture", "compact-station": "compact station fixture"}
+	fixture, ok := fixtures[name]
+	if name == "london-full" && options.express != scenarios.LondonFullNone {
+		fixture, ok = expressFixtures[options.express], true
+	}
+	if ok {
 		for _, key := range []string{"station-berths", "parking-berths", "parking-lanes", "station-pods", "parking-pods", "berths", "berth-pitch", "station-scale", "compact-stations", "junctions", "wide-stations", "road-fillets"} {
 			if options.set[key] {
 				return project.Config{}, fmt.Errorf("-%s does not apply to the %s", key, fixture)
@@ -173,17 +190,8 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 	if name == "compact-station" {
 		return scenarios.CompactStation()
 	}
-	if name == "london-full-express" {
-		return scenarios.GenerateLondonFullExpress()
-	}
-	if name == "london-full-shared-express" {
-		return scenarios.GenerateLondonFullSharedExpress()
-	}
-	if name == "london-full-shared-express-wharf" {
-		return scenarios.GenerateLondonFullSharedExpressWharf()
-	}
-	if name == "london-full-shared-express-wharf-hubs" {
-		return scenarios.GenerateLondonFullSharedExpressWharfHubs()
+	if name == "london-full" && options.express != scenarios.LondonFullNone {
+		return scenarios.GenerateLondonFullVariant(options.express)
 	}
 	if name == "independent-banks" {
 		config := project.Default()
@@ -210,6 +218,27 @@ func presetConfig(name string, options capacity) (project.Config, error) {
 			parameters.BerthPitch = options.berthPitch
 		}
 	})
+}
+
+// expressFixtures names the project of each LondonFull Express variant in
+// the refusal of a capacity flag.
+var expressFixtures = map[scenarios.LondonFullVariant]string{
+	scenarios.LondonFullDedicated: "LondonFull Express preset",
+	scenarios.LondonFullShared:    "LondonFull Shared Express preset",
+	scenarios.LondonFullWharf:     "LondonFull Shared Express Wharf preset",
+	scenarios.LondonFullHubs:      "LondonFull Shared Express Wharf Hubs preset",
+}
+
+// variantList returns the LondonFull variants as a list for help and
+// error text, for example "none, dedicated, or hubs".
+func variantList() string {
+	variants := scenarios.LondonFullVariants()
+	names := make([]string, len(variants))
+	for i, v := range variants {
+		names[i] = string(v)
+	}
+	names[len(names)-1] = "or " + names[len(names)-1]
+	return strings.Join(names, ", ")
 }
 
 // londonPresetConfig applies explicit flags over the selected preset defaults.
@@ -424,9 +453,10 @@ func (w *countingWriter) Write(data []byte) (int, error) {
 }
 
 // writeSummary writes one line about the generated project: its preset,
-// berths, pods, nodes and lanes with their limits, output bytes, network
-// SHA-256, and soft layout conflicts.
-func writeSummary(stderr io.Writer, preset string, config project.Config, size int) error {
+// the Express variant of the london-full preset, berths, pods, nodes and
+// lanes with their limits, output bytes, network SHA-256, and soft layout
+// conflicts.
+func writeSummary(stderr io.Writer, preset string, express scenarios.LondonFullVariant, config project.Config, size int) error {
 	passenger, parking := 0, 0
 	for _, station := range config.Network.Stations {
 		if station.ParkingOnly {
@@ -443,14 +473,18 @@ func writeSummary(stderr io.Writer, preset string, config project.Config, size i
 	switch preset {
 	case "london-central":
 		soft, err = scenarios.LondonCentralSoftConflicts(config.Network)
-	case "london-full", "london-full-express", "london-full-shared-express", "london-full-shared-express-wharf", "london-full-shared-express-wharf-hubs":
+	case "london-full":
 		soft, err = scenarios.LondonFullSoftConflicts(config.Network)
 	}
 	if err != nil {
 		return err
 	}
+	name := preset
+	if preset == "london-full" {
+		name += " express=" + string(express)
+	}
 	_, err = fmt.Fprintf(stderr, "preset=%s passenger_berths=%d parking_berths=%d pods=%d nodes=%d/%d lanes=%d/%d bytes=%d network_sha256=%x soft_conflicts=%d\n",
-		preset, passenger, parking, len(config.Fleet), len(config.Network.Nodes), project.MaxNodes,
+		name, passenger, parking, len(config.Fleet), len(config.Network.Nodes), project.MaxNodes,
 		len(config.Network.Lanes), project.MaxLanes, size, sha256.Sum256(network), soft)
 	return err
 }

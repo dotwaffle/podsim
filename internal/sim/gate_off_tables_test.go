@@ -158,7 +158,7 @@ func readNetworkFixture(t *testing.T, path string) Network {
 }
 
 // gateOffRefusedNetworks returns networks that the audit refuses today,
-// from the network of london-full-express with the classes of the shape
+// from the network of london-full:dedicated with the classes of the shape
 // clearance study (docs/design/shape-clearance.md, sections 2.1 and 2.3):
 // the Express classes on the routes between Waterloo and Bank and on the
 // two hubs, and on all lanes of Bank, roads included.
@@ -168,7 +168,7 @@ func gateOffRefusedNetworks(t *testing.T, express Network) map[string]Network {
 	waterloo, okWaterloo := routes.Station("940GZZLUWLO")
 	bank, okBank := routes.Station("940GZZLUBNK")
 	if !okWaterloo || !okBank {
-		t.Fatal("london-full-express has no Waterloo or Bank station")
+		t.Fatal("london-full:dedicated has no Waterloo or Bank station")
 	}
 	keep := make(map[string]bool)
 	for _, route := range [][]Lane{shapeStudyHubRoute(t, routes, waterloo, bank), shapeStudyHubRoute(t, routes, bank, waterloo)} {
@@ -180,8 +180,8 @@ func gateOffRefusedNetworks(t *testing.T, express Network) map[string]Network {
 	hub := express.clone()
 	setShapeStudyClasses(&hub, nil, true, bank.ID)
 	return map[string]Network{
-		"london-full-express, Express on the Waterloo and Bank routes": routes,
-		"london-full-express, Express on all lanes of Bank":            hub,
+		"london-full:dedicated, Express on the Waterloo and Bank routes": routes,
+		"london-full:dedicated, Express on all lanes of Bank":            hub,
 	}
 }
 
@@ -222,8 +222,8 @@ func gateOffAuditProbes() map[string]gateOffTables {
 // the depot lateral pairs, the lateral merge pairs and their extents, the
 // junction conflicts, and the result of the network audit. The networks are
 // those of testdata/scenario_networks.json.gz and the network of
-// london-full-express (TestExpressNetworkFixture in package scenarios writes
-// it). Two networks from london-full-express that the audit refuses today pin
+// london-full:dedicated (TestExpressNetworkFixture in package scenarios writes
+// it). Two networks from london-full:dedicated that the audit refuses today pin
 // the refusal text (see gateOffRefusedNetworks), and pairs of lanes on each
 // side of the audit clearances pin the distances and the scope of the audit
 // (see gateOffAuditProbes). Run the test with -update to write the golden file
@@ -232,7 +232,7 @@ func TestGateOffTables(t *testing.T) {
 	t.Parallel()
 	networks := scenarioNetworks(t)
 	express := expressNetworkFixture(t)
-	networks["london-full-express"] = express
+	networks["london-full:dedicated"] = express
 	got := make(map[string]gateOffTables, len(networks)+2)
 	var mu sync.Mutex
 	var wg sync.WaitGroup

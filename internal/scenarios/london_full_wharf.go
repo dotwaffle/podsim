@@ -55,11 +55,11 @@ func wharfParking() sharedTrackParking {
 	}
 }
 
-// GenerateLondonFullSharedExpressWharf returns the opt-in LondonFull Shared
+// generateLondonFullSharedExpressWharf returns the opt-in LondonFull Shared
 // Express Wharf preset without a cache. It is LondonFull Shared Express
 // with a second Express pair on shared track, London Bridge and Canary
 // Wharf, and 16 more Express pods in a comb beside London Bridge.
-func GenerateLondonFullSharedExpressWharf() (project.Config, error) {
+func generateLondonFullSharedExpressWharf() (project.Config, error) {
 	config, err := GenerateLondonFull()
 	if err != nil {
 		return project.Config{}, err

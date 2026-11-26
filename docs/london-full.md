@@ -16,6 +16,8 @@ mise run scenario -- -preset london-full -output /tmp/podsim-london-full.json
 The generator uses compact JSON when indented output would exceed the project file limit.
 The output can then be supplied to `serve -project` or opened in the editor.
 Its display name is `LondonFull`.
+The `-express` flag selects an Express variant of the preset: `none` (the default), `dedicated`, `shared`, `wharf`, or `hubs`.
+This page names a variant `london-full:<variant>`, for example `london-full:shared` for `-preset london-full -express shared` (see [presets](reference.md#presets)).
 
 ## Source and demand
 
@@ -92,13 +94,13 @@ The network SHA-256 is the `network_sha256` value of the summary line.
 | `-berth-pitch 50` | Tight, the flags of the study | `9503e65cd30cbe9b861552ec9d96e76b939b0be9e744b7ff85105ddd9ea2e0ec` | 0 |
 
 The hashes are for the build of November 20, 2026, when LondonFull began to fillet its station roads (see [Station roads](#station-roads)).
-The network of `london-full-express` did not change.
+The network of `london-full:dedicated` did not change.
 
 A tight station keeps its 25-meter pitch, so `-berth-pitch` sets only the wide stations, the Compact stations in the heading search, and the Parking facilities.
 The study network differs from the default only at two of the three Parking facilities, `parking-east` and `parking-west`, because a pitch of 50 meters changes their shape.
 Their Parking roads also change, because the fillets follow the new headings of their access lanes.
 `-station-scale` sets only the wide stations and the Compact stations.
-`london-full-express` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
+`london-full:dedicated` keeps wide stations at station scale 1, and its network SHA-256 stays `3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5`.
 
 ### Station roads
 
@@ -114,8 +116,8 @@ Of the 1,456 roads of LondonFull, 676 are curved: 320 road-in lanes, 340 road-ou
 The median speed of a curved road is about 11 m/s.
 280 of the 309 passenger stations have a road slower than 14 m/s.
 The movement lanes at the junctions keep their chords.
-LondonCentral and `london-full-express` keep unfilleted roads.
-`london-full-shared-express` builds on the filleted LondonFull, with straight roads at Waterloo and Bank.
+LondonCentral and `london-full:dedicated` keep unfilleted roads.
+`london-full:shared` builds on the filleted LondonFull, with straight roads at Waterloo and Bank.
 `-road-fillets=false` gives LondonFull with straight roads, with the network SHA-256 `69baad6a8077b3f22c1e250023b4eaeefba10f1ff9bb0812b773634951d84225` (see [capacity flags](reference.md#capacity-flags)).
 
 A virtual platoon needs one speed limit on its route and on each lane of its destination station (see [virtual platoons](model.md#virtual-platoons)).
@@ -127,19 +129,19 @@ Against the straight roads, the filleted roads drain 6 seeds against 5, with a m
 The time that pods wait for junction traffic is about 2.1 times longer.
 Section 8.1 of the proposal gives the method and the results.
 
-### Shared Express preset
+### Shared Express variant
 
-`london-full-shared-express` is decision D11 of the [shape clearance](design/shape-clearance.md) design.
-It runs Express on the link 100 track between Waterloo and Bank, shared with Compact pods, in place of the dedicated trunks of `london-full-express`.
-It is a builder over LondonFull: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full-express` do not change.
+`london-full:shared` is decision D11 of the [shape clearance](design/shape-clearance.md) design.
+It runs Express on the link 100 track between Waterloo and Bank, shared with Compact pods, in place of the dedicated trunks of `london-full:dedicated`.
+It is a builder over LondonFull: it changes the two hubs and adds the Express fleet, and the generator, LondonFull, and `london-full:dedicated` do not change.
 It keeps the filleted roads of LondonFull, except the roads of Waterloo and Bank, which keep their chords and a speed limit of 14 m/s (decision FL-D5 of the fillets proposal).
 The [shared-track design](design/shared-track-preset.md) gives the measurements and the build record.
 
 ```sh
-mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
+mise run scenario -- -preset london-full -express shared -output /tmp/podsim-london-full-shared.json
 ```
 
-| | LondonFull | `london-full-express` | `london-full-shared-express` |
+| | LondonFull | `london-full:dedicated` | `london-full:shared` |
 | --- | --- | --- | --- |
 | Stations | Tight | Wide, scale 1, two banks at each hub | Tight, with parts of 41 m at Waterloo and Bank |
 | Express track | None | Dedicated trunks, gate stubs, and a bend at Bank | Link 100, shared with Compact pods |
@@ -154,25 +156,25 @@ On the straight roads before the fillets, Express free-flow routes grow by about
 The worst of them is 21.4 s longer, from Waterloo to St. Paul's.
 Wait and journey times are not measured.
 
-The preset has 5,790 nodes, 9,089 lanes, and 343 pods: the 327 Compact pods of LondonFull and 16 Express pods.
+The variant has 5,790 nodes, 9,089 lanes, and 343 pods: the 327 Compact pods of LondonFull and 16 Express pods.
 The comb has 16 berths, parts of 41 m, and two roads to the link 100 portals at Waterloo.
-The layout audit of the preset treats the comb as a Parking facility of Waterloo, because its road crosses the curved `road-in-05`.
-The preset has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.5 m is longer than its length of 39.1 m, so it holds one pod.
+The layout audit of the variant treats the comb as a Parking facility of Waterloo, because its road crosses the curved `road-in-05`.
+The variant has one tail warning, for `940GZZLUBNK-move-08-02`, whose tail of 39.5 m is longer than its length of 39.1 m, so it holds one pod.
 The capacity flags do not apply to it.
 Its network SHA-256 is `cba69149281760dbba334323497b9d94cb1d3a980a631b68de0be45e78aac6bb`.
 
-### Shared Express Wharf preset
+### Shared Express Wharf variant
 
-`london-full-shared-express-wharf` is the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design.
-It is `london-full-shared-express` with a second Express pair on shared track, London Bridge and Canary Wharf, and a comb beside London Bridge.
+`london-full:wharf` is the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design.
+It is `london-full:shared` with a second Express pair on shared track, London Bridge and Canary Wharf, and a comb beside London Bridge.
 The two pairs share no Express route.
 The changes of the first pair do not change.
 
 ```sh
-mise run scenario -- -preset london-full-shared-express-wharf -output /tmp/podsim-london-full-shared-express-wharf.json
+mise run scenario -- -preset london-full -express wharf -output /tmp/podsim-london-full-wharf.json
 ```
 
-| | `london-full-shared-express` | `london-full-shared-express-wharf` |
+| | `london-full:shared` | `london-full:wharf` |
 | --- | --- | --- |
 | Express pairs | Waterloo and Bank | Waterloo and Bank, and London Bridge and Canary Wharf |
 | Shared track | Link 100 | Links 100, 089, 088, and 154 |
@@ -187,22 +189,22 @@ mise run scenario -- -preset london-full-shared-express-wharf -output /tmp/podsi
 
 The curve removes the one refusal of the bank audit, between `940GZZLULNB-road-out-01` and link 089.
 The second comb has 16 berths and parts of 41 m, like the first, and no exemption in the layout audit.
-The preset has the one tail warning of `london-full-shared-express`.
+The variant has the one tail warning of `london-full:shared`.
 The capacity flags do not apply to it.
 Its network SHA-256 is `d68a69b8c326f292f7c3a7839b51bf9837c5e714287f60470436781705217359`.
-The preset is opt-in and is not qualified: the [Express wharf qualification](contracts/express-wharf-qualification-proposal.md) gives the rows and their status.
+The variant is opt-in and is not qualified: the [Express wharf qualification](contracts/express-wharf-qualification-proposal.md) gives the rows and their status.
 
-### Shared Express Wharf Hubs preset
+### Shared Express Wharf Hubs variant
 
-`london-full-shared-express-wharf-hubs` is decision HB-D19 C of the [Express London hubs](design/london-hubs-d8-d9.md) design (section 13).
-It is `london-full-shared-express-wharf` with Express services between London Bridge and Waterloo, and between Waterloo and Canary Wharf.
+`london-full:hubs` is decision HB-D19 C of the [Express London hubs](design/london-hubs-d8-d9.md) design (section 13).
+It is `london-full:wharf` with Express services between London Bridge and Waterloo, and between Waterloo and Canary Wharf.
 It changes no geometry, because the three hubs have their Express shape already.
 
 ```sh
-mise run scenario -- -preset london-full-shared-express-wharf-hubs -output /tmp/podsim-london-full-shared-express-wharf-hubs.json
+mise run scenario -- -preset london-full -express hubs -output /tmp/podsim-london-full-hubs.json
 ```
 
-| | `london-full-shared-express-wharf` | `london-full-shared-express-wharf-hubs` |
+| | `london-full:wharf` | `london-full:hubs` |
 | --- | --- | --- |
 | Express pairs | Waterloo and Bank, and London Bridge and Canary Wharf | Also London Bridge and Waterloo, and Waterloo and Canary Wharf |
 | Shared track | Links 100, 089, 088, and 154 | Also links 280 and 350 |
@@ -218,10 +220,10 @@ The route between Waterloo and Canary Wharf passes through London Bridge on `940
 The free-flow cost of each station route does not change.
 Decision HB-D20 A keeps `park`, so an idle Express pod goes to `express-parking`, the first Express parking in network order, also from London Bridge.
 Decision HB-D21 A keeps the 16 and 16 Express pods.
-The preset has two tail warnings: the one of `london-full-shared-express`, and `940GZZLULNB-move-04-03`, whose tail of 66.5 m is longer than its length of 66.2 m.
+The variant has two tail warnings: the one of `london-full:shared`, and `940GZZLULNB-move-04-03`, whose tail of 66.5 m is longer than its length of 66.2 m.
 The capacity flags do not apply to it.
 Its network SHA-256 is `fa153ec8f8c85e98d8e056155e8915240ccca405efa62d0e5fad22909f660196`.
-The preset is opt-in and is not qualified, and no qualification is proposed for it.
+The variant is opt-in and is not qualified, and no qualification is proposed for it.
 
 ## Depots and Compact stations
 

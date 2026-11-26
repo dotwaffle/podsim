@@ -18,7 +18,7 @@ import (
 
 // The tests of this file give the evidence of rows SX4, SX5, SX8, SX9, and
 // SX13 of the Express shared-track qualification on the preset
-// london-full-shared-express. They use the fixture of the London Express
+// london-full:shared. They use the fixture of the London Express
 // tests with the preset in place of project D.
 
 // sharedExpressLink holds the lanes of link 100 on the shared route.
@@ -41,7 +41,7 @@ func (l sharedExpressLine) owns(id string) bool {
 	return len(id) == len(l.pod) && id[:len(id)-2] == l.pod[:len(l.pod)-2]
 }
 
-// sharedExpressBankLine is the line of london-full-shared-express.
+// sharedExpressBankLine is the line of london-full:shared.
 var sharedExpressBankLine = sharedExpressLine{
 	from: londonWaterloo, to: londonBank, link: sharedExpressLink, parking: "express-parking", prefix: "xp-", pod: "express-01", on: "link 100",
 }
@@ -54,8 +54,8 @@ type sharedExpressPreset struct {
 	services, express int
 }
 
-// sharedExpressBase is the preset london-full-shared-express.
-var sharedExpressBase = sharedExpressPreset{generate: scenarios.GenerateLondonFullSharedExpress, lines: []sharedExpressLine{sharedExpressBankLine}, services: 2, express: 16}
+// sharedExpressBase is the preset london-full:shared.
+var sharedExpressBase = sharedExpressPreset{generate: scenarios.LondonFullShared.Generate, lines: []sharedExpressLine{sharedExpressBankLine}, services: 2, express: 16}
 
 // config returns the project of the preset with background demand on.
 func (p sharedExpressPreset) config(t *testing.T) project.Config {
@@ -86,7 +86,7 @@ func newSharedExpressFixture(t *testing.T, preset sharedExpressPreset, line int,
 
 // sharedExpressFixtureFor returns the fixture of newSharedExpressFixture
 // for a session of the preset config, with the line of
-// london-full-shared-express.
+// london-full:shared.
 func sharedExpressFixtureFor(t *testing.T, config project.Config, shared *Session) *londonExpressFixture {
 	t.Helper()
 	f := &londonExpressFixture{t: t, config: config, shared: shared, client: newTestClient(shared, "london-shared-express"), services: map[string]string{}, steps: realRestoreSteps(),

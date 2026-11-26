@@ -169,18 +169,18 @@ func TestWharfHubsKeepsPresets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	generated, err := GenerateLondonFullSharedExpressWharfHubs()
+	generated, err := GenerateLondonFullVariant(LondonFullHubs)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(generated, cached) {
-		t.Fatal("GenerateLondonFullSharedExpressWharfHubs differs from the preset built on the cached LondonFull")
+		t.Fatal("GenerateLondonFullVariant(LondonFullHubs) differs from the preset built on the cached LondonFull")
 	}
-	shared, err := GenerateLondonFullSharedExpress()
+	shared, err := GenerateLondonFullVariant(LondonFullShared)
 	if err != nil {
 		t.Fatal(err)
 	}
-	wharf, err := GenerateLondonFullSharedExpressWharf()
+	wharf, err := GenerateLondonFullVariant(LondonFullWharf)
 	if err != nil {
 		t.Fatal(err)
 	}

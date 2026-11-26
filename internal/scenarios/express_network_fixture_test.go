@@ -11,9 +11,9 @@ import (
 	"testing"
 )
 
-var updateExpressNetworkFixture = flag.Bool("update-express-network", false, "write the network of london-full-express for the gate-off tables test in package sim")
+var updateExpressNetworkFixture = flag.Bool("update-express-network", false, "write the network of london-full:dedicated for the gate-off tables test in package sim")
 
-// expressNetworkFixturePath holds the network of london-full-express for
+// expressNetworkFixturePath holds the network of london-full:dedicated for
 // TestGateOffTables in package sim. Package sim cannot import this package.
 const expressNetworkFixturePath = "../sim/testdata/express_network.json.gz"
 

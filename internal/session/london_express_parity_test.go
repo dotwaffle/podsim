@@ -43,7 +43,7 @@ func parityDigest(data []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// TestLondonExpressBehaviorParity pins the behavior of london-full-express
+// TestLondonExpressBehaviorParity pins the behavior of london-full:dedicated
 // (project D) for the shape clearance change: with the network field built
 // and unset, D must give the same saved-state and stream bytes at each of
 // its checkpoints (docs/design/shape-clearance.md, section 5.1). The test

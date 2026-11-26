@@ -11,7 +11,7 @@ import (
 
 // This file is slice 0 of docs/design/london-hubs-d8-d9.md. It does not test
 // the simulator. It runs only when the variable that hubPairEnv names holds
-// the path of a london-full-shared-express project file from cmd/scenario.
+// the path of a london-full:shared project file from cmd/scenario.
 // It runs the audit copy of the shared-track study on that preset, with
 // Express on the route of each hub pair. When the variable that hubPairOutEnv
 // names holds a directory, it writes there the network of each London Bridge
@@ -40,7 +40,7 @@ func hubPairLoad(t *testing.T) Network {
 	t.Helper()
 	path := os.Getenv(hubPairEnv)
 	if path == "" {
-		t.Skip("set " + hubPairEnv + " to a london-full-shared-express project file to run the hub pair study")
+		t.Skip("set " + hubPairEnv + " to a london-full:shared project file to run the hub pair study")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

@@ -375,8 +375,8 @@ See [Express against plain](studies/express-standees.md#express-against-plain) f
 
 `go run ./cmd/compare screen` runs the screen of the [Express London adoption screen proposal](contracts/express-london-adoption-screen-proposal.md).
 It has its own flags, and it refuses the other flags of the command.
-It runs `LF` (`london-full`), `D0` (`london-full-express` without its Express pods, its Express services, and its order contract), and `D` (`london-full-express`) on the same offered events.
-It can also run `S` (`london-full-shared-express`) and `W` (`london-full-shared-express-wharf`), and `S0` and `W0`, which are `S` and `W` without their Express pods, Express services, and order contract.
+It runs `LF` (`london-full`), `D0` (`london-full:dedicated` without its Express pods, its Express services, and its order contract), and `D` (`london-full:dedicated`) on the same offered events.
+It can also run `S` (`london-full:shared`) and `W` (`london-full:wharf`), and `S0` and `W0`, which are `S` and `W` without their Express pods, Express services, and order contract.
 The report compares each other arm with `LF`, `S` with `S0` and with `D`, and `W` with `W0` and with `S`.
 Only the pair of `D` and `LF` decides the result.
 Each arm also has measures with no gate: the hub passengers and parties of each direction of each line, the waits, the queue, the empty distance, and the time of Compact pods blocked by Express and by Compact pods.
@@ -541,13 +541,24 @@ See [qualification results](studies/qualification.md) for safety checks, perform
 | `rail-hub-incidents` | `rail-hub`, with 10 faults and 10 emergencies an hour. Each fault lasts 120 s, the debris share is 0.25, and debris is 2 m long. Its project name is the name of `rail-hub`. | 30 |
 | `scale100` | A connected grid of 19 passenger stations and one parking station, with 138 berths. | 100 |
 | `london-central` | The [LondonCentral qualification network](london.md): 96 passenger stations, three depots, and 242 berths. | 114 Compact |
-| `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. | 327 Compact |
-| `london-full-express` | LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. The capacity flags do not apply. | 327 Compact, 16 Express |
-| `london-full-shared-express` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, and Express parking beside Waterloo. The capacity flags do not apply. | 327 Compact, 16 Express |
-| `london-full-shared-express-wharf` | LondonFull Shared Express with a second Express pair on shared track, London Bridge and Canary Wharf, and a second Express parking beside London Bridge. The capacity flags do not apply. | 327 Compact, 32 Express |
-| `london-full-shared-express-wharf-hubs` | LondonFull Shared Express Wharf with Express pairs on shared track between London Bridge and Waterloo, and between Waterloo and Canary Wharf. The capacity flags do not apply. | 327 Compact, 32 Express |
+| `london-full` | [LondonFull](london-full.md): 309 Tube and DLR passenger sites, three depots, and 770 berths. The `-express` flag selects a variant. | 327 Compact |
 | `independent-banks` | A planar station with two independent gates and a separate parking station. | 3 |
 | `compact-station` | A station with four Compact bays, in a loop with an ordinary station of three berths. | 6 Compact |
+
+The `-express` flag selects the Express variant of `london-full`, and it applies to no other preset.
+The documents name a variant as `london-full:<variant>`, which is also its key in the tests.
+`PODSIM_SOAK_PRESETS` accepts the keys `london-full:dedicated`, `london-full:shared`, and `london-full:wharf` (see [incident soak](operations.md#incident-soak)).
+The capacity flags apply only to the variant `none`.
+
+| `-express` | Key | Network | Pods |
+| --- | --- | --- | --- |
+| `none` (default) | `london-full` | LondonFull. | 327 Compact |
+| `dedicated` | `london-full:dedicated` | LondonFull Express: LondonFull with Waterloo and Bank in two banks each, dedicated Express lanes, Express parking, and an Express service in each direction between the two stations. | 327 Compact, 16 Express |
+| `shared` | `london-full:shared` | LondonFull Shared Express: LondonFull with Express on the link 100 track between Waterloo and Bank, shared with Compact pods, and Express parking beside Waterloo. | 327 Compact, 16 Express |
+| `wharf` | `london-full:wharf` | LondonFull Shared Express Wharf: `shared` with a second Express pair on shared track, London Bridge and Canary Wharf, and a second Express parking beside London Bridge. | 327 Compact, 32 Express |
+| `hubs` | `london-full:hubs` | LondonFull Shared Express Wharf Hubs: `wharf` with Express pairs on shared track between London Bridge and Waterloo, and between Waterloo and Canary Wharf. | 327 Compact, 32 Express |
+
+The summary line of a `london-full` run gives the variant after the preset, for example `preset=london-full express=shared`.
 
 The `rail-hub` preset supports the recorded finite-arrival station-capacity experiment:
 
@@ -573,16 +584,16 @@ A short DLR smoke run does not establish sustainable capacity, and the earlier f
 Its three parking stations are depots, and eight of its stations are Compact stations (see [depots and Compact stations](london-full.md#depots-and-compact-stations), which gives the depot length limit, the capacity rule, and the measurements).
 On either London preset, `-parking-lanes 0 -compact-stations none` gives ordinary parking stations and ordinary stations.
 
-The `london-full-express` preset is project D of the [Express hub fixture](studies/express-hub-fixture.md), under the `express-v1` order contract.
+The `london-full:dedicated` variant is project D of the [Express hub fixture](studies/express-hub-fixture.md), under the `express-v1` order contract.
 Waterloo keeps 3 berths in its first bank and Bank keeps 2, and each has a second bank of 2 berths.
 The 16 Express pods start at `express-parking`, a parking station east of North London Parking that only Express pods use and that is not a depot.
 Each bank of Waterloo and Bank has Express routes to and from `express-parking`.
 Generated demand does not choose an Express service, so the services carry only the trip orders that choose them.
 Dispatch chooses by the estimated pickup time (see [dispatch order](model.md#dispatch-order)), and an Express pod at `express-parking` is about 9 minutes from Waterloo, against at most about 3.5 minutes for a Compact pod.
 In a study of three seeds of 12 simulated hours each at the preset demand, with generated demand alone, the Express pods stayed at `express-parking` for the whole run.
-The preset is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
+The variant is opt-in, and the [qualification proposal](contracts/express-london-qualification-proposal.md) gives its status.
 
-The `london-full-shared-express` preset is decision D11 of the [shape clearance](design/shape-clearance.md) design, and its build is in the [shared-track design](design/shared-track-preset.md).
+The `london-full:shared` variant is decision D11 of the [shape clearance](design/shape-clearance.md) design, and its build is in the [shared-track design](design/shared-track-preset.md).
 It keeps D and adds a second Express project under the `express-v1` order contract.
 Its Express pods run on the lanes of link 100 between Waterloo and Bank, on the four hub roads of that route, and on the access, berth, and junction lanes of the two hubs, all shared with Legacy and Compact pods.
 There are no Express trunks.
@@ -593,27 +604,27 @@ Together, these changes leave the [bank audit](station-banks.md) with no refusal
 There are two Express services, one in each direction between the two stations, with a party limit of 20.
 The 16 Express pods start at `express-parking`, a comb of 16 berths beside Waterloo, between its berth rows and link 100.
 Two roads join the comb to the link 100 portals at Waterloo, so an Express pod at the comb is about 650 to 700 meters of route from the first berth of Waterloo.
-The layout audit treats the comb as a Parking facility of Waterloo, for this preset only.
-The preset sets no capacity flag, and a capacity flag with it gives an error.
+The layout audit treats the comb as a Parking facility of Waterloo, for this variant only.
+The variant sets no capacity flag, and a capacity flag with it gives an error.
 The network has 5,790 nodes and 9,089 lanes.
 The project has 343 pods.
-The preset is opt-in, and the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md) gives its status: it qualified on 2026-11-20.
+The variant is opt-in, and the [shared-track qualification](contracts/express-shared-track-qualification-proposal.md) gives its status: it qualified on 2026-11-20.
 
 ```sh
-mise run scenario -- -preset london-full-shared-express -output /tmp/podsim-london-full-shared-express.json
+mise run scenario -- -preset london-full -express shared -output /tmp/podsim-london-full-shared.json
 ```
 
-The `london-full-shared-express-wharf` preset adds the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design to `london-full-shared-express`, which does not change.
+The `london-full:wharf` variant adds the first pair of the [Express London hubs](design/london-hubs-d8-d9.md) design to `london-full:shared`, which does not change.
 It adds two Express services between London Bridge and Canary Wharf, on links 089, 088, and 154 through Bermondsey and Canada Water, and 16 Express pods at `express-parking-lnb`, a comb beside London Bridge.
 The roads of the two new hubs are straight, except `940GZZLULNB-road-out-01`, which is curved.
 The two pairs share no Express route.
-The preset is opt-in and is not qualified.
+The variant is opt-in and is not qualified.
 
-The `london-full-shared-express-wharf-hubs` preset adds decision HB-D19 C of the hubs design to `london-full-shared-express-wharf`, which does not change.
+The `london-full:hubs` variant adds decision HB-D19 C of the hubs design to `london-full:wharf`, which does not change.
 It adds four Express services: between London Bridge and Waterloo through Southwark on links 280 and 350, and between Waterloo and Canary Wharf on these links and the links of the wharf pair.
 It changes no geometry, and it adds no comb and no pod.
 The two Express networks become one, so each Express pod can serve each service, and an idle Express pod goes to the first Express parking in network order, `express-parking`.
-The preset is opt-in and is not qualified.
+The variant is opt-in and is not qualified.
 
 The `compact-station` preset shows the bays at work.
 Its bays are at 25 degrees with a 6 m pitch.
@@ -629,7 +640,7 @@ mise run scenario -- -preset compact-station -output /tmp/podsim-compact.json
 
 The capacity flags change the berths, the initial pods, the berth pitch, the station scale, the station shape, the Compact stations, the junctions, and the station roads of a preset.
 A flag that is not on the command line keeps the preset value, so the output without flags does not change.
-They do not apply to `independent-banks`, `compact-station`, `london-full-express`, `london-full-shared-express`, `london-full-shared-express-wharf`, or `london-full-shared-express-wharf-hubs`.
+They do not apply to `independent-banks`, `compact-station`, or a `london-full` variant other than `none`.
 
 | Flag | Effect |
 | --- | --- |
@@ -640,10 +651,10 @@ They do not apply to `independent-banks`, `compact-station`, `london-full-expres
 | `-station-pods N` | London presets only. Set the initial pods of each passenger station. |
 | `-parking-pods N` | London presets only. Set the initial pods of each parking station. |
 | `-berth-pitch M` | Set the distance in meters between two berths of a station. The minimum is 25. On a London preset, M is the pitch at station scale 1, and the station scale multiplies it. A tight London station keeps its pitch of 25 meters, so M sets only the wide stations, the Compact stations in the heading search, and the parking stations. |
-| `-station-scale S` | London presets only. Multiply the size of each wide or Compact passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. A tight station and the parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full-express` is built from `london-full` with wide stations at scale 1, so its approved geometry does not change. With `-wide-stations`, some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
+| `-station-scale S` | London presets only. Multiply the size of each wide or Compact passenger station past its throat by S, which is greater than 0 and at most 1. The diverge and the merge stay 80 meters from the junction, and the entry, the berth rows, the berth pitch, and the distance of the arrival and departure lanes from the station axis scale. The scaled pitch must be at least 25 meters. A tight station and the parking stations do not change, and the arrival and departure lanes of a Compact station stay outside its bays. The default is 0.5. `london-full:dedicated` is built from `london-full` with wide stations at scale 1, so its approved geometry does not change. With `-wide-stations`, some scales give a layout conflict, such as 0.7 and 0.75 for `london-full`. |
 | `-wide-stations` | London presets only. Give each passenger station that is not a Compact station the shape that `-station-scale` and `-berth-pitch` set. Without the flag, such a station is tight: its arrival and departure lanes are 25 meters from the station axis, its entry is 25 meters past the throat, its first berth row is 25 meters past the entry, and its berth pitch is 25 meters. The tight shape is the preset value since November 16, 2026. With the flag, the project name ends with " (custom capacity)". With no other flag, the stations then have the shape of the preset from before that date. The roads keep the preset value of `-road-fillets`: `london-full` has filleted roads, and `london-central` has straight roads. `-road-fillets=false` gives `london-full` with straight roads. |
 | `-compact-stations ID,ID` | London presets only. Give at most 8 passenger stations the four bays of the [compact station](model.md#compact-bays), in place of the default list. `none` gives no Compact stations. With a Compact station, each pod is Compact. `-berths` must not name a Compact station. |
-| `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full-express` keeps its chords, so its approved geometry does not change. |
+| `-junctions chords\|ramps` | London presets only. Select the junctions that join the links of each passenger station. `chords` gives a movement lane from each arrival portal to each departure portal, U-turns included. `ramps` gives the [ramp junctions](design/london-junctions.md): split nodes along each arrival, join nodes along each departure, and a ramp from each arrival to each other departure. There is no U-turn ramp, and no ramp for a turn that is too tight for 5 m/s. The default is `chords`. `london-full:dedicated` keeps its chords, so its approved geometry does not change. |
 | `-road-fillets` | London presets only. Give each station road and each Parking facility road a quadratic curve that leaves the lane before it and joins the lane after it at their headings, by the [London road fillets proposal](contracts/london-fillets-proposal.md). The speed limit of a curved road is the smaller of 14 m/s and the square root of 2r, where r is its smallest radius in meters. A road keeps its chord at 14 m/s when an end is already tangent, when the headings do not meet ahead of both ends, or when its speed would be below 5 m/s. The movement lanes keep their chords. The flag has no effect with `-junctions ramps`. The preset value is on for `london-full` and off for `london-central`. `-road-fillets=false` gives `london-full` with straight roads, and the project name ends with " (custom capacity)". |
 
 ```sh

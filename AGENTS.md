@@ -33,7 +33,7 @@ Keep this file short, and point to other documents instead of copying them.
 ## Checks
 
 The `mise` tasks are the source of truth.
-CI runs `test:race:*`, `test:long`, `test:shared-express`, `test:london-express`, `test:wharf-express`, `qualify`, and `check:static`.
+CI runs `test:race:*`, `test:long`, `test:express-shared`, `test:express-dedicated`, `test:express-wharf`, `qualify`, and `check:static`.
 `mise run check` runs all of them.
 It runs `qualify` and then `test:race:other` by itself, so that their latency tests run on a quiet machine, and then the other test tasks in two parallel lanes.
 

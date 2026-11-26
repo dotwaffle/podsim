@@ -11,7 +11,7 @@ import (
 // This file is the London Bridge and Waterloo study of HB-D15 in
 // docs/design/london-hubs-d8-d9.md (section 13). It does not test the
 // simulator. It runs only when the variable that bridgePairEnv names holds
-// the path of a london-full-shared-express-wharf project file from
+// the path of a london-full:wharf project file from
 // cmd/scenario. When the variable that hubPairOutEnv names holds a
 // directory, it writes there the network of each arm, for the study of
 // internal/scenarios.
@@ -26,7 +26,7 @@ func bridgePairLoad(t *testing.T) Network {
 	t.Helper()
 	path := os.Getenv(bridgePairEnv)
 	if path == "" {
-		t.Skip("set " + bridgePairEnv + " to a london-full-shared-express-wharf project file to run the bridge pair study")
+		t.Skip("set " + bridgePairEnv + " to a london-full:wharf project file to run the bridge pair study")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

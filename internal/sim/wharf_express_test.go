@@ -4,13 +4,13 @@ import "testing"
 
 // The tests of this file give the evidence of rows HX2, HX3, HX4, and HX9
 // of the Express wharf qualification on the preset
-// london-full-shared-express-wharf. They run the checks of the shared-track
+// london-full:wharf. They run the checks of the shared-track
 // tests on both lines of the preset. TestWharfExpressFixture in package
 // scenarios writes the preset to testdata.
 
 const (
 	wharfExpressLondonBridge, wharfExpressCanaryWharf = "940GZZLULNB", "940GZZLUCYF"
-	wharfExpressName                                  = "london-full-shared-express-wharf"
+	wharfExpressName                                  = "london-full:wharf"
 	// wharfExpressRunTicks is the length of TestWharfExpressEnvelopeRun, 8
 	// simulated minutes. The first Express pod is on link 154 with a
 	// Compact pod after about 5 minutes.
@@ -29,7 +29,7 @@ func readWharfExpressProject(t *testing.T) sharedExpressProject {
 }
 
 // skipWharfExpress skips a test of the preset with -short or -race. Only
-// the task test:wharf-express runs it.
+// the task test:express-wharf runs it.
 func skipWharfExpress(t *testing.T) {
 	t.Helper()
 	if testing.Short() || raceEnabled {

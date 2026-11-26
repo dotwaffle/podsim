@@ -101,7 +101,7 @@ func keptFixtures(t *testing.T) map[string]project.Config {
 	}
 	fixtures := map[string]project.Config{"small": small, "banks": bankEditorConfig(), "depot": depot, "compact": compact}
 	if !testing.Short() {
-		fixtures["london-full-express"] = scenarios.LondonFullExpress()
+		fixtures["london-full:dedicated"] = scenarios.LondonFullExpress()
 	}
 	return fixtures
 }

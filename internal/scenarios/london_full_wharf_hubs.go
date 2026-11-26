@@ -48,12 +48,12 @@ func wharfHubsRoutes() []sharedTrackRoute {
 	}
 }
 
-// GenerateLondonFullSharedExpressWharfHubs returns the opt-in LondonFull
+// generateLondonFullSharedExpressWharfHubs returns the opt-in LondonFull
 // Shared Express Wharf Hubs preset without a cache. It is LondonFull Shared
 // Express Wharf with two more Express pairs on shared track, London Bridge
 // and Waterloo, and Waterloo and Canary Wharf. The two Express networks of
 // the wharf preset become one, and its 32 Express pods serve all services.
-func GenerateLondonFullSharedExpressWharfHubs() (project.Config, error) {
+func generateLondonFullSharedExpressWharfHubs() (project.Config, error) {
 	config, err := GenerateLondonFull()
 	if err != nil {
 		return project.Config{}, err

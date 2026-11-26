@@ -87,7 +87,7 @@
 			"sha256": "fa01f72251038880968922d6dc8a675db55562197d3c66b2b90656c6045e4ed1"
 		}
 	},
-	"london-full-express": {
+	"london-full:dedicated": {
 		"audit": "accepted",
 		"bankAudit": "accepted",
 		"depotLateral": {
@@ -107,11 +107,11 @@
 			"sha256": "834898b8c150feb9edd6992251a86c42237fbf3ab92aeaaaeb2d10e96db26360"
 		}
 	},
-	"london-full-express, Express on all lanes of Bank": {
+	"london-full:dedicated, Express on all lanes of Bank": {
 		"audit": "nonincident paths \"london-link-098-ba-2\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart",
 		"bankAudit": "nonincident paths \"london-link-098-ba-2\" and \"940GZZLUBNK-road-in-08\" are less than 20 meters apart"
 	},
-	"london-full-express, Express on the Waterloo and Bank routes": {
+	"london-full:dedicated, Express on the Waterloo and Bank routes": {
 		"audit": "nonincident paths \"940GZZLUEMB-road-in-01\" and \"london-link-182-ab-1\" are less than 20 meters apart",
 		"bankAudit": "nonincident paths \"940GZZLUEMB-road-in-01\" and \"london-link-182-ab-1\" are less than 20 meters apart"
 	},

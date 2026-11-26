@@ -53,7 +53,7 @@ func TestParkingRoutesMatchGapsOnPresets(t *testing.T) {
 		}{name: "london-full", config: scenarios.LondonFull}, struct {
 			name   string
 			config func() project.Config
-		}{name: "london-full-express", config: scenarios.LondonFullExpress})
+		}{name: "london-full:dedicated", config: scenarios.LondonFullExpress})
 	}
 	for _, preset := range presets {
 		t.Run(preset.name, func(t *testing.T) {

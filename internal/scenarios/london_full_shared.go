@@ -109,12 +109,12 @@ func sharedTrackPresetRoutes() []sharedTrackRoute {
 	}
 }
 
-// GenerateLondonFullSharedExpress returns the opt-in LondonFull Shared
+// generateLondonFullSharedExpress returns the opt-in LondonFull Shared
 // Express preset without a cache. It is decision D11 of the shape
 // clearance design: LondonFull with Express on the main-line track of link
 // 100 between Waterloo and Bank, shared with Compact pods. Its 16 Express
 // pods start in the Express parking of decision S4 beside Waterloo.
-func GenerateLondonFullSharedExpress() (project.Config, error) {
+func generateLondonFullSharedExpress() (project.Config, error) {
 	config, err := GenerateLondonFull()
 	if err != nil {
 		return project.Config{}, err

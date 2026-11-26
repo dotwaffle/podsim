@@ -11,7 +11,7 @@ import (
 // soak on the shared-track preset after 3,600 ticks with demand: the safety
 // observation, the checked export, and the D6 oracle.
 func BenchmarkSharedExpressChecks(b *testing.B) {
-	config, err := scenarios.GenerateLondonFullSharedExpress()
+	config, err := scenarios.GenerateLondonFullVariant(scenarios.LondonFullShared)
 	if err != nil {
 		b.Fatal(err)
 	}

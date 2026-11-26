@@ -242,12 +242,12 @@ func TestLondonFullSharedExpressKeepsPresets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	generated, err := GenerateLondonFullSharedExpress()
+	generated, err := GenerateLondonFullVariant(LondonFullShared)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(generated, cached) {
-		t.Fatal("GenerateLondonFullSharedExpress differs from the preset built on the cached LondonFull")
+		t.Fatal("GenerateLondonFullVariant(LondonFullShared) differs from the preset built on the cached LondonFull")
 	}
 	before, err := addSharedTrackLine(LondonFull(), sharedTrackPresetLine())
 	if err != nil {

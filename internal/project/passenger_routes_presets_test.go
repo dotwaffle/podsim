@@ -67,7 +67,7 @@ func TestPresetsHaveNoParkingGaps(t *testing.T) {
 		{name: "scale100", config: scenarios.Scale100},
 		{name: "london", config: scenarios.LondonCentral},
 		{name: "london-full", config: scenarios.LondonFull},
-		{name: "london-full-express", config: scenarios.LondonFullExpress},
+		{name: "london-full:dedicated", config: scenarios.LondonFullExpress},
 	} {
 		t.Run(preset.name, func(t *testing.T) {
 			t.Parallel()

@@ -15,7 +15,7 @@ import (
 
 // The tests of this file give the evidence of rows SX2, SX3, and SX4 of the
 // Express shared-track qualification on the preset
-// london-full-shared-express. TestSharedExpressFixture in package
+// london-full:shared. TestSharedExpressFixture in package
 // scenarios writes the preset to testdata.
 
 const (
@@ -47,7 +47,7 @@ func sharedExpressLinkOf(lane string) int {
 	return slices.IndexFunc(sharedExpressLinks[:], func(link string) bool { return strings.HasPrefix(lane, link) })
 }
 
-// sharedExpressBankLine is the line of london-full-shared-express.
+// sharedExpressBankLine is the line of london-full:shared.
 var sharedExpressBankLine = sharedExpressLine{from: sharedExpressWaterloo, to: sharedExpressBank, links: []int{0}}
 
 // sharedExpressProject holds the parts of the preset that the tests use.

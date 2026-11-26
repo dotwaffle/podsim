@@ -21,7 +21,7 @@ func TestLondonSharedExpressRemoteLoads(t *testing.T) {
 	if testing.Short() || raceEnabled {
 		t.Skip("the shared-track Express remote run needs a full-speed simulation")
 	}
-	runSharedExpressLoads(t, scenarios.GenerateLondonFullSharedExpress, map[string]string{"express-parking": "940GZZLUBNK"}, [][2]string{{"940GZZLUWLO", "940GZZLUBNK"}})
+	runSharedExpressLoads(t, scenarios.LondonFullShared.Generate, map[string]string{"express-parking": "940GZZLUBNK"}, [][2]string{{"940GZZLUWLO", "940GZZLUBNK"}})
 }
 
 // runSharedExpressLoads runs TestLondonSharedExpressRemoteLoads on a
@@ -131,13 +131,13 @@ func TestLondonSharedExpressRemoteRecovery(t *testing.T) {
 	if testing.Short() {
 		t.Skip("the shared-track Express frames are large")
 	}
-	config, err := scenarios.GenerateLondonFullSharedExpress()
+	config, err := scenarios.GenerateLondonFullVariant(scenarios.LondonFullShared)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// The recovery replaces the topology of the preset with the topology of
-	// london-full-express, which has banks and dedicated Express lanes.
-	next, err := scenarios.GenerateLondonFullExpress()
+	// london-full:dedicated, which has banks and dedicated Express lanes.
+	next, err := scenarios.GenerateLondonFullVariant(scenarios.LondonFullDedicated)
 	if err != nil {
 		t.Fatal(err)
 	}

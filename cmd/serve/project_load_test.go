@@ -49,7 +49,7 @@ func TestLoadedProjectPreparesOneTime(t *testing.T) {
 	}
 }
 
-// BenchmarkLoadStartProject measures the load of the london-full-express
+// BenchmarkLoadStartProject measures the load of the london-full:dedicated
 // project file and the start of its session, without a state store and
 // with a store that has no saved state.
 func BenchmarkLoadStartProject(b *testing.B) {
@@ -186,7 +186,7 @@ func loadStartSaved(tb testing.TB, path string, saved []byte) (*session.Session,
 	return shared, closeStore
 }
 
-// BenchmarkLoadRestoreProject measures the load of the london-full-express
+// BenchmarkLoadRestoreProject measures the load of the london-full:dedicated
 // project file and the start of its session from a store with a saved
 // state of the same project, which restores.
 func BenchmarkLoadRestoreProject(b *testing.B) {

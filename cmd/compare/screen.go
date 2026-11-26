@@ -274,9 +274,9 @@ func screenConfigs(names []string, known []screenLine) ([]screenConfig, error) {
 		case screenExpress, screenGeometry:
 			config = scenarios.LondonFullExpress()
 		case screenShared, screenSharedPlain, screenWharf, screenWharfPlain:
-			generate := scenarios.GenerateLondonFullSharedExpress
+			generate := scenarios.LondonFullShared.Generate
 			if name == screenWharf || name == screenWharfPlain {
-				generate = scenarios.GenerateLondonFullSharedExpressWharf
+				generate = scenarios.LondonFullWharf.Generate
 			}
 			var err error
 			if config, err = generate(); err != nil {

@@ -16,7 +16,7 @@ import (
 
 var updateSharedExpressFixture = flag.Bool("update-shared-express", false, "write the shared-track preset fixtures for the SX and HX tests in package sim")
 
-// sharedExpressFixturePath holds the parts of london-full-shared-express
+// sharedExpressFixturePath holds the parts of london-full:shared
 // that the SX tests in package sim need. Package sim cannot import this
 // package or package project.
 const sharedExpressFixturePath = "../sim/testdata/shared_express_project.json.gz"
@@ -45,7 +45,7 @@ func TestSharedExpressFixture(t *testing.T) {
 }
 
 // TestWharfExpressFixture is TestSharedExpressFixture for
-// london-full-shared-express-wharf and the HX tests in package sim.
+// london-full:wharf and the HX tests in package sim.
 func TestWharfExpressFixture(t *testing.T) {
 	t.Parallel()
 	config, err := londonFullSharedExpressWharfPreset(LondonFull())

@@ -228,9 +228,9 @@ func runPickupLoadFree(t *testing.T, p sharedExpressProject, network Network) pi
 // load-ranked approach of stationApproachRouteForClass while the blocked
 // set is not empty. The load selects only among bank entries that the
 // bank exit reaches, so the answer is the departure from the berth to its
-// bank exit. london-full-express has the banked hubs, and its runs must
+// bank exit. london-full:dedicated has the banked hubs, and its runs must
 // refuse a pair on the departure and select another entry by load.
-// london-full-shared-express has no banks.
+// london-full:shared has no banks.
 func TestPickupBerthFitsLoadFree(t *testing.T) {
 	skipLong(t)
 	t.Parallel()
@@ -240,8 +240,8 @@ func TestPickupBerthFitsLoadFree(t *testing.T) {
 		network Network
 		banked  bool
 	}{
-		{"london-full-express", expressNetworkFixture(t), true},
-		{"london-full-shared-express", p.Network, false},
+		{"london-full:dedicated", expressNetworkFixture(t), true},
+		{"london-full:shared", p.Network, false},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			t.Parallel()

@@ -101,45 +101,45 @@ go test -race -timeout=30m -run "$PODSIM_RACE_LONG_TESTS" ./cmd/compare
 description = "Run the long tests of PODSIM_LONG_PACKAGES in full without the race detector"
 run = 'go test -timeout=30m $PODSIM_LONG_PACKAGES'
 
-# The qualification tests of the london-full-shared-express preset (rows
+# The qualification tests of the london-full:shared variant (rows
 # SX2 to SX9, and the soak driver of SX10 and SX11) run one simulation of 9,089 lanes each. They skip under -race
 # and with -short, so only this task runs them. Each pattern names each
 # test, because a pattern that matches no test passes. Add a new test of
 # these rows here.
-[tasks."test:shared-express"]
+[tasks."test:express-shared"]
 description = "Run the shared-track Express qualification tests without the race detector"
 run = '''
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestSharedExpressEnvelopeRun|TestSharedExpressShapePairSweep|TestSharedExpressDwell|TestSharedExpressOccupiedPickupPolicy)$' || exit 1
-go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full-shared-express$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full:shared$' || exit 1
 go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonSharedExpressPhysicalCheckpoints|TestLondonSharedExpressIncidentFixtures|TestLondonSharedExpressByteBounds|TestLondonSharedExpressRecoveryChain|TestSoakLondonSharedExpressDriver)$' || exit 1
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonSharedExpressRemoteLoads|TestLondonSharedExpressRemoteRecovery)$'
 '''
 
-# The qualification tests of the london-full-express preset (project D)
+# The qualification tests of the london-full:dedicated variant (project D)
 # under the shape clearance rule. Most of them skip under -race and with
 # -short, so check and a CI job of its own run this task. Each pattern
 # names each test, because a pattern that matches no test passes. Add a
 # new test of these rows here.
-[tasks."test:london-express"]
+[tasks."test:express-dedicated"]
 description = "Run the qualification tests of the London Express preset without the race detector"
 run = '''
 go test ./internal/scenarios -count=1 -timeout=20m -run '^(TestLondonFullExpress|TestLondonFullExpressRoutes)$' || exit 1
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestLondonExpressEnvelopeRun|TestEnvelopeMatchesReference)$' || exit 1
-go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full-express$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^TestEnvelopeSupportMixedSmall$/^london-full:dedicated$' || exit 1
 go test ./internal/session -count=1 -timeout=30m -run '^(TestLondonExpressPhysicalCheckpoints|TestLondonExpressIncidentFixtures|TestSoakLondonExpressDriver)$' || exit 1
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonExpressRemoteLoads|TestLondonExpressRemoteRecovery)$'
 '''
 
-# The qualification tests of the london-full-shared-express-wharf preset
+# The qualification tests of the london-full:wharf variant
 # (rows HX2 to HX9, and the soak driver of HX10 and HX11). Most of them skip under -race and with -short, so check
 # and a CI job of its own run this task. Each pattern names each test,
 # because a pattern that matches no test passes. Add a new test of these
 # rows here.
-[tasks."test:wharf-express"]
+[tasks."test:express-wharf"]
 description = "Run the qualification tests of the wharf Express preset without the race detector"
 run = '''
 go test ./internal/sim -count=1 -timeout=20m -run '^(TestWharfExpressEnvelopeRun|TestWharfExpressShapePairSweep|TestWharfExpressDwell|TestWharfExpressOccupiedPickupPolicy|TestEnvelopeSupportOneNode|TestEnvelopeSupportChain)$' || exit 1
-go test ./internal/sim -count=1 -timeout=20m -run '^(TestEnvelopeSupportMixedSmall|TestEnvelopeReachHoldsEnvelope|TestEnvelopeMatchesReference)$/^london-full-shared-express-wharf$' || exit 1
+go test ./internal/sim -count=1 -timeout=20m -run '^(TestEnvelopeSupportMixedSmall|TestEnvelopeReachHoldsEnvelope|TestEnvelopeMatchesReference)$/^london-full:wharf$' || exit 1
 go test ./internal/session -count=1 -timeout=20m -run '^(TestLondonWharfExpressPhysicalCheckpoints|TestLondonWharfExpressIncidentFixtures|TestLondonWharfExpressByteBounds|TestLondonWharfExpressRecoveryChain|TestSoakLondonWharfExpressParties|TestSoakLondonWharfExpressDriver)$' || exit 1
 go test ./internal/remote -count=1 -timeout=20m -run '^(TestLondonWharfExpressRemoteLoads|TestLondonWharfExpressRemoteRecovery)$'
 '''
@@ -204,19 +204,19 @@ description = "Run the test tasks of check other than qualify and test:race:othe
 depends = ["check:lane-sim", "check:lane-session"]
 
 [tasks."check:lane-sim"]
-description = "Run the race tests of internal/sim, test:long, and test:london-express"
+description = "Run the race tests of internal/sim, test:long, and test:express-dedicated"
 run = [
   { task = "test:race:sim" },
   { task = "test:long" },
-  { task = "test:london-express" },
+  { task = "test:express-dedicated" },
 ]
 
 [tasks."check:lane-session"]
-description = "Run the race tests of internal/session, test:shared-express, and test:wharf-express"
+description = "Run the race tests of internal/session, test:express-shared, and test:express-wharf"
 run = [
   { task = "test:race:session" },
-  { task = "test:shared-express" },
-  { task = "test:wharf-express" },
+  { task = "test:express-shared" },
+  { task = "test:express-wharf" },
 ]
 
 [tasks."check:static"]
@@ -288,7 +288,7 @@ run = '''
 finished="${PODSIM_SOAK_FINISHED:-$(mktemp /tmp/podsim-soak-finished.XXXXXX)}"
 status=0
 PODSIM_SOAK_FINISHED="$finished" PODSIM_SOAK_SHAPE=seeds PODSIM_SOAK_EVERY_TICK=1 \
-  PODSIM_SOAK_PRESETS="${PODSIM_SOAK_PRESETS:-rail-hub,london-central,london-full-express,london-full-shared-express}" mise run soak || status=$?
+  PODSIM_SOAK_PRESETS="${PODSIM_SOAK_PRESETS:-rail-hub,london-central,london-full:dedicated,london-full:shared}" mise run soak || status=$?
 echo "seeds that finished, from $finished (exit status $status):"
 cat "$finished"
 exit "$status"

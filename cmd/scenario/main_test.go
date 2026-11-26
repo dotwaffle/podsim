@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -109,32 +110,52 @@ func TestRunWritesRailHubPreset(t *testing.T) {
 }
 
 // TestRunWithoutFlagsKeepsPresets pins the output of each preset without
-// capacity flags.
+// capacity flags. A key london-full:<variant> selects the preset london-full
+// with -express <variant>.
 func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 	t.Parallel()
 	tests := map[string]string{
-		"small":               "c6cef78005b07bc1a58f277bb30655ffee1b6a0424c00cb2598b50a270b7a172",
-		"busy":                "a3b8cc1b9397fdead60159bb2f36d83e191ef4a23aace9446279fdb9f137a921",
-		"parking-constrained": "006dffebdd023cad179272c051dbe7f4f24fb0dbd89931f829e86c25d7aa5adc",
-		"rail-hub":            "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
-		"rail-hub-incidents":  "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
-		"scale100":            "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
-		"london-central":      "4fe988e97c3bf869c56eb6af59dd24f0885f2ab5d977eb9a91a8202acc53acc7",
-		"london-full":         "66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa",
-		"london-full-express": "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
+		"small":                     "c6cef78005b07bc1a58f277bb30655ffee1b6a0424c00cb2598b50a270b7a172",
+		"busy":                      "a3b8cc1b9397fdead60159bb2f36d83e191ef4a23aace9446279fdb9f137a921",
+		"parking-constrained":       "006dffebdd023cad179272c051dbe7f4f24fb0dbd89931f829e86c25d7aa5adc",
+		"rail-hub":                  "622c7d2a904691008a9d0309c46bdd62f1e7058b3a8f48cf0189ea3e9ab2a796",
+		"rail-hub-incidents":        "7d3d1c4309452899e666eee478b96923f39b03c32ac7903aaf16591d90167ca3",
+		"scale100":                  "b8e952d7a1ae2f0fa1cc9f2022742b54cb101ffff78771d1a96cbec4552eac0f",
+		"london-central":            "4fe988e97c3bf869c56eb6af59dd24f0885f2ab5d977eb9a91a8202acc53acc7",
+		"london-full":               "66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa",
+		"london-full -express none": "66be4a220537418a674e8a90a37e9bc8d898633f71158177faecf22b3eedbbaa",
+		"london-full:dedicated":     "9032f3535806ec1edbce9d2048efdac59191d5c0d79e8e5c6fac9b4eba95d369",
+		"london-full:shared":        "07d16bb8369f12942e43fee113e11cdc2eb4d4b8cdc4e2d1a184d4f98a6d96f8",
+		"london-full:wharf":         "f48829597bfb3c4b25cd9240607c7739afaa313fa47de6f33d145666657adaed",
+		"london-full:hubs":          "0ac33f5c9cd43aeac2303d07e6740f1bdb2002825489f069e873ea8535f6050e",
 	}
 	// networks holds the network SHA-256 of the summary line of the London
 	// presets.
 	networks := map[string]string{
-		"london-central":      "088a6fed356a6e6673638df361c6357f511d02868a6e6b154807ad248568cbf7",
-		"london-full":         "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5",
-		"london-full-express": "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
+		"london-central":            "088a6fed356a6e6673638df361c6357f511d02868a6e6b154807ad248568cbf7",
+		"london-full":               "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5",
+		"london-full -express none": "03d04786f72780fe4e0e1a65ee90eefcb8e20fc78ddd0c2b0600556cbea79ec5",
+		"london-full:dedicated":     "3aa0a2eb9e99eab4ea80ecfad481c7718b57cd38e0b35876b44b5ab5dc1d22e5",
+		"london-full:shared":        "cba69149281760dbba334323497b9d94cb1d3a980a631b68de0be45e78aac6bb",
+		"london-full:wharf":         "d68a69b8c326f292f7c3a7839b51bf9837c5e714287f60470436781705217359",
+		"london-full:hubs":          "fa153ec8f8c85e98d8e056155e8915240ccca405efa62d0e5fad22909f660196",
 	}
-	for preset, want := range tests {
-		t.Run(preset, func(t *testing.T) {
+	for key, want := range tests {
+		t.Run(key, func(t *testing.T) {
 			t.Parallel()
+			preset, variant, ok := strings.Cut(key, ":")
+			if base, explicit := strings.CutSuffix(key, " -express none"); explicit {
+				preset, variant, ok = base, "none", true
+			}
+			arguments, prefix := []string{"-preset", preset}, "preset="+preset+" "
+			if ok {
+				arguments = append(arguments, "-express", variant)
+			}
+			if preset == "london-full" {
+				prefix += "express=" + cmp.Or(variant, "none") + " "
+			}
 			var output, summary bytes.Buffer
-			if err := run([]string{"-preset", preset}, &output, &summary); err != nil {
+			if err := run(arguments, &output, &summary); err != nil {
 				t.Fatal(err)
 			}
 			sum := sha256.Sum256(output.Bytes())
@@ -142,10 +163,10 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 				t.Fatalf("output SHA-256 = %s, want %s", got, want)
 			}
 			line := summary.String()
-			if !strings.HasPrefix(line, "preset="+preset+" ") || strings.Count(line, "\n") != 1 || !strings.Contains(line, " bytes="+strconv.Itoa(output.Len())+" ") {
+			if !strings.HasPrefix(line, prefix) || strings.Count(line, "\n") != 1 || !strings.Contains(line, " bytes="+strconv.Itoa(output.Len())+" ") {
 				t.Fatalf("summary = %q", line)
 			}
-			if network, ok := networks[preset]; ok && !strings.Contains(line, " network_sha256="+network+" ") {
+			if network, ok := networks[key]; ok && !strings.Contains(line, " network_sha256="+network+" ") {
 				t.Fatalf("summary = %q, want network SHA-256 %s", line, network)
 			}
 		})
@@ -158,13 +179,21 @@ func TestRunWithoutFlagsKeepsPresets(t *testing.T) {
 // Without -parking-berths, -parking-lanes 0 gives the ordinary facilities
 // their own berth count.
 // TestRunPresetsTurnOnPolicies pins redistribution and pickup reassignment in
-// the output of each preset name, also the fixtures of this command.
+// the output of each preset name and each LondonFull variant, also the
+// fixtures of this command.
 func TestRunPresetsTurnOnPolicies(t *testing.T) {
 	t.Parallel()
+	runs := make(map[string][]string)
 	for _, preset := range presets {
-		t.Run(preset, func(t *testing.T) {
+		runs[preset] = []string{"-preset", preset}
+	}
+	for _, variant := range scenarios.LondonFullVariants() {
+		runs["london-full -express "+string(variant)] = []string{"-preset", "london-full", "-express", string(variant)}
+	}
+	for name, arguments := range runs {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			config, _ := generate(t, "-preset", preset)
+			config, _ := generate(t, arguments...)
 			if !config.Redistribution || !bool(config.PickupReassignment) {
 				t.Fatalf("redistribution %t, pickup reassignment %t, want on", config.Redistribution, config.PickupReassignment)
 			}
@@ -480,7 +509,7 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "London depot too long", arguments: []string{"-preset", "london-full", "-parking-lanes", "6", "-parking-berths", "12"}, err: "West London Parking (parking-west): the depot of 6 lanes of 12 slots is 202.03 meters long, more than 200 meters"},
 		{name: "Parking lanes for the mesh", arguments: []string{"-preset", "scale100", "-parking-lanes", "2"}, err: "parking lanes apply only to a ring"},
 		{name: "Parking lanes for a fixture", arguments: []string{"-preset", "compact-station", "-parking-lanes", "2"}, err: "-parking-lanes does not apply to the compact station fixture"},
-		{name: "pods for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-pods", "2"}, err: "-station-pods does not apply to the LondonFull Express preset"},
+		{name: "pods for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-station-pods", "2"}, err: "-station-pods does not apply to the LondonFull Express preset"},
 		{name: "Compact stations for a ring", arguments: []string{"-preset", "busy", "-compact-stations", "s01"}, err: "-compact-stations applies only to the London presets"},
 		{name: "Compact stations for a fixture", arguments: []string{"-preset", "compact-station", "-compact-stations", "compact"}, err: "-compact-stations does not apply to the compact station fixture"},
 		{name: "empty Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "940GZZLURGP,,940GZZLUBOR"}, err: `-compact-stations item "" has no station ID`},
@@ -489,31 +518,35 @@ func TestRunRejectsBadCapacityFlags(t *testing.T) {
 		{name: "Parking as a Compact station", arguments: []string{"-preset", "london-central", "-compact-stations", "parking-west"}, err: "West London Parking (parking-west) is a Parking facility, not a passenger station for Compact bays"},
 		{name: "pitch below the floor", arguments: []string{"-preset", "london-central", "-berth-pitch", "20"}, err: "berth pitch"},
 		{name: "station scale for a ring", arguments: []string{"-preset", "busy", "-station-scale", "0.5"}, err: "-station-scale applies only to the London presets"},
-		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
-		{name: "station scale for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express preset"},
-		{name: "station scale for the wharf preset", arguments: []string{"-preset", "london-full-shared-express-wharf", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf preset"},
-		{name: "station scale for the wharf hubs preset", arguments: []string{"-preset", "london-full-shared-express-wharf-hubs", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf Hubs preset"},
+		{name: "station scale for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Express preset"},
+		{name: "station scale for the shared-track preset", arguments: []string{"-preset", "london-full", "-express", "shared", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express preset"},
+		{name: "station scale for the wharf preset", arguments: []string{"-preset", "london-full", "-express", "wharf", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf preset"},
+		{name: "station scale for the wharf hubs preset", arguments: []string{"-preset", "london-full", "-express", "hubs", "-station-scale", "0.5"}, err: "-station-scale does not apply to the LondonFull Shared Express Wharf Hubs preset"},
 		{name: "station scale above 1", arguments: []string{"-preset", "london-central", "-station-scale", "2"}, err: "station scale must be greater than 0 and at most 1"},
 		{name: "layout conflict", arguments: []string{"-preset", "london-central", "-wide-stations", "-station-scale", "1", "-berths", "940GZZLUEMB=3"}, err: "Embankment (940GZZLUEMB)"},
 		{name: "junctions for a ring", arguments: []string{"-preset", "busy", "-junctions", "ramps"}, err: "-junctions applies only to the London presets"},
 		{name: "junctions for the mesh", arguments: []string{"-preset", "scale100", "-junctions", "chords"}, err: "-junctions applies only to the London presets"},
 		{name: "junctions for a fixture", arguments: []string{"-preset", "compact-station", "-junctions", "ramps"}, err: "-junctions does not apply to the compact station fixture"},
-		{name: "junctions for the Express preset", arguments: []string{"-preset", "london-full-express", "-junctions", "ramps"}, err: "-junctions does not apply to the LondonFull Express preset"},
+		{name: "junctions for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-junctions", "ramps"}, err: "-junctions does not apply to the LondonFull Express preset"},
 		{name: "unknown junctions", arguments: []string{"-preset", "london-central", "-junctions", "loops"}, err: `-junctions "loops" is not chords or ramps`},
 		{name: "wide stations for a ring", arguments: []string{"-preset", "busy", "-wide-stations"}, err: "-wide-stations applies only to the London presets"},
 		{name: "wide stations for the mesh", arguments: []string{"-preset", "scale100", "-wide-stations"}, err: "-wide-stations applies only to the London presets"},
 		{name: "wide stations for a fixture", arguments: []string{"-preset", "compact-station", "-wide-stations"}, err: "-wide-stations does not apply to the compact station fixture"},
-		{name: "wide stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
+		{name: "wide stations for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-wide-stations"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
 		{name: "tight stations for a ring", arguments: []string{"-preset", "busy", "-wide-stations=false"}, err: "-wide-stations applies only to the London presets"},
-		{name: "tight stations for the Express preset", arguments: []string{"-preset", "london-full-express", "-wide-stations=false"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
+		{name: "tight stations for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-wide-stations=false"}, err: "-wide-stations does not apply to the LondonFull Express preset"},
 		{name: "road fillets for a ring", arguments: []string{"-preset", "busy", "-road-fillets"}, err: "-road-fillets applies only to the London presets"},
 		{name: "road fillets for the mesh", arguments: []string{"-preset", "scale100", "-road-fillets"}, err: "-road-fillets applies only to the London presets"},
 		{name: "road fillets for a fixture", arguments: []string{"-preset", "compact-station", "-road-fillets"}, err: "-road-fillets does not apply to the compact station fixture"},
-		{name: "road fillets for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
-		{name: "road fillets for the shared-track preset", arguments: []string{"-preset", "london-full-shared-express", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express preset"},
-		{name: "road fillets for the wharf preset", arguments: []string{"-preset", "london-full-shared-express-wharf", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf preset"},
-		{name: "road fillets for the wharf hubs preset", arguments: []string{"-preset", "london-full-shared-express-wharf-hubs", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf Hubs preset"},
-		{name: "straight roads for the Express preset", arguments: []string{"-preset", "london-full-express", "-road-fillets=false"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
+		{name: "road fillets for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
+		{name: "road fillets for the shared-track preset", arguments: []string{"-preset", "london-full", "-express", "shared", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express preset"},
+		{name: "road fillets for the wharf preset", arguments: []string{"-preset", "london-full", "-express", "wharf", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf preset"},
+		{name: "road fillets for the wharf hubs preset", arguments: []string{"-preset", "london-full", "-express", "hubs", "-road-fillets"}, err: "-road-fillets does not apply to the LondonFull Shared Express Wharf Hubs preset"},
+		{name: "Express for another preset", arguments: []string{"-preset", "london-central", "-express", "dedicated"}, err: "-express applies only to the london-full preset"},
+		{name: "no Express for another preset", arguments: []string{"-preset", "small", "-express", "none"}, err: "-express applies only to the london-full preset"},
+		{name: "unknown Express variant", arguments: []string{"-preset", "london-full", "-express", "express"}, err: `-express "express" is not none, dedicated, shared, wharf, or hubs`},
+		{name: "pods for the wharf hubs preset", arguments: []string{"-preset", "london-full", "-express", "hubs", "-station-pods", "2"}, err: "-station-pods does not apply to the LondonFull Shared Express Wharf Hubs preset"},
+		{name: "straight roads for the Express preset", arguments: []string{"-preset", "london-full", "-express", "dedicated", "-road-fillets=false"}, err: "-road-fillets does not apply to the LondonFull Express preset"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -636,6 +669,7 @@ func TestRunRejectsBadIncidentFlags(t *testing.T) {
 		{"share above 1", []string{"-fault-rate", "5", "-fault-duration", "fixed:600", "-debris-share", "2"}, "faults debrisShare must be 0 to 1"},
 		{"evacuation above the limit", []string{"-evacuation-seconds", "3601"}, "faults evacuationSeconds must be 0 to 3600"},
 		{"uniform out of order", []string{"-fault-rate", "5", "-fault-duration", "uniform:600:60"}, "faults duration"},
+		{"validation names the variant", []string{"-preset", "london-full", "-express", "wharf", "-emergency-rate", "61"}, "validate london-full -express wharf preset: "},
 	}
 	for _, text := range []string{"", "fixed", "fixed:", "fixed:a", "fixed:1.5", "fixed:1:2", "uniform:1", "uniform:1:2:3", "exponential:1:2", "exponential:1:2:3:4", "other:1"} {
 		tests = append(tests, struct {
