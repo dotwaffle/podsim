@@ -1,7 +1,6 @@
 # LondonFull variant names amendment
 
-Status: the maintainer decided VN-D1 B on 2026-11-26, and the text of the approved contracts below is changed.
-The maintainer approves the changed text at the end of the merge.
+Status: approved by the maintainer on 2026-11-26, with decision VN-D1 B, and applied to the approved contracts below.
 
 ## Change
 
