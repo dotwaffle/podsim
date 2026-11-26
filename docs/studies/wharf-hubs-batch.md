@@ -90,3 +90,12 @@ Each cell gives seeds 1, 2, and 3, over the background requests that boarded in 
 - The fleet of `H` is the 32 Express pods of `W` (HB-D21 A).
   A larger Express fleet is not measured.
 - The batch does not measure the queue of link 100 toward Waterloo, which failed HX11 on `W`.
+
+## Fleet study
+
+On 2026-11-26 the maintainer granted a study of the fleet of `H` (HB-D21 B): combs of 16, 24, and 32 berths and pods, so 32, 48, and 64 Express pods, on the workload of this batch.
+The four Express hubs have 15 berths together, which Compact pods also use, so a larger Express fleet needs larger combs.
+The study stopped before its pilot, as its brief required, because the larger combs fail the layout audit.
+With 24 or 32 rows, the comb beside Waterloo (`express-parking`) crosses the Blackfriars guideway: `xp-20-out` crosses `940GZZLUBKF-move-02-01`, with 49 and 50 hard conflicts.
+The comb of 16 rows passes the audit, and the audit names row 20 first, so the comb cannot grow to 24 rows at its site.
+A larger fleet needs another site for the comb, or a comb at a third site, which is a geometry decision of section 5 of the design.
