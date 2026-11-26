@@ -98,4 +98,45 @@ The four Express hubs have 15 berths together, which Compact pods also use, so a
 The study stopped before its pilot, as its brief required, because the larger combs fail the layout audit.
 With 24 or 32 rows, the comb beside Waterloo (`express-parking`) crosses the Blackfriars guideway: `xp-20-out` crosses `940GZZLUBKF-move-02-01`, with 49 and 50 hard conflicts.
 The comb of 16 rows passes the audit, and the audit names row 20 first, so the comb cannot grow to 24 rows at its site.
-A larger fleet needs another site for the comb, or a comb at a third site, which is a geometry decision of section 5 of the design.
+The study grew both combs, so it did not test the comb beside London Bridge alone.
+The comb survey below does.
+
+## Comb survey
+
+On 2026-11-26 the maintainer granted a static survey of comb sites for a larger fleet of `H`.
+It ran in a scratch copy, with no simulation run.
+Each check is the layout audit with no exemption for the new comb (HB-D12 B), project validation, the bank audit, and the parking gaps, on `H` with the Express pods of the combs.
+
+The rows that each comb of `H` can have at its site:
+
+| Comb | Site | 16 rows | 17 rows | 18 rows | 32 rows | 48 rows |
+| --- | --- | --- | --- | --- | --- | --- |
+| `express-parking`, beside Waterloo | P4 | Pass | Pass | Fail | Fail | Fail |
+| `express-parking-lnb`, beside London Bridge | LB3 | Pass | Pass | Pass | Pass | Pass |
+
+- At 18 rows, the Waterloo comb is nearer than 36 m to `940GZZLUBKF-access-in`, and at 19 rows `940GZZLUBKF-road-in-01` crosses it.
+- The London Bridge comb passes each check with 32 and 48 rows, with 67 shape pairs and no parking gap.
+  So a fleet of 48 or 64 Express pods needs no new site, if the extra pods park beside London Bridge.
+
+A screen of sites for a comb of 32 rows in place of the Waterloo comb used the portals of links 100 and 350 at Waterloo.
+It took the 4,000 sites with the shortest roads at each portal, from a grid of centers 100 to 800 m from the portal, headings in steps of 10 degrees, and both sides.
+
+| Portal | Sites that pass | Best site: center, heading | Roads (m) | Comb to Waterloo, and back (m) | Shape pairs |
+| --- | ---: | --- | ---: | --- | ---: |
+| `london-link-100-b` | 0 | | | | |
+| `london-link-350-b` | 6 | (1033.2, 514.7), 0 degrees, not mirrored | 204 | 362 and 456 | 62 |
+
+- At link 100, 3 sites pass the layout audit, and the bank audit refuses each one, because a road of the comb is nearer than 20 m to a Waterloo move or to link 100.
+- At link 350, the other passing sites are near (1047.9, 494.4), (1046.4, 536.8), (1062.9, 517.6), and (1075.2, 495.5), with roads of 205 to 254 m.
+- From the best site, the comb is 362 m from the first berth of Waterloo and 456 m back, by chord.
+  The Waterloo comb at P4 is 654 m from it (section 13.2 of the design).
+- The best site with 32 rows, together with the London Bridge comb of 16 or 32 rows, passes each check: 48 or 64 Express pods, and the two combs have Express routes between them.
+- Link 350 carries the new route between London Bridge and Waterloo, so the roads of the comb join that route.
+  The effect of that on the service is not measured.
+
+### Decisions for the maintainer
+
+| ID | Question | Options | Recommendation |
+| --- | --- | --- | --- |
+| FS-D1 | Where a larger fleet of `H` parks | A: the London Bridge comb grows to 32 or 48 rows, and the Waterloo comb stays. B: a comb of 32 rows on link 350 replaces the Waterloo comb, with the London Bridge comb of 16 or 32 rows. C: no larger fleet. | Screen A and B, because three of the four lines start at Waterloo in the AM peak, and A parks the extra pods 2 km from it. |
+| FS-D2 | The next step | A: a fleet screen of `H` with the workload of this batch: 32 pods as now, 48 and 64 pods under FS-D1 A, and 48 and 64 pods under FS-D1 B, seeds 1 to 3, 15 runs, in a scratch copy. B: no screen. | A. It measures if the fleet is the limit, which this batch only infers. |
