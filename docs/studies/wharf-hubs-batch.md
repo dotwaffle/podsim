@@ -186,3 +186,5 @@ Each cell gives seeds 1, 2, and 3.
 | ID | Question | Options | Recommendation |
 | --- | --- | --- | --- |
 | FS-D3 | The fleet of `H` | A: keep 32 pods. B: build `A48`, which only adds rows to the London Bridge comb. C: build `B48`, which moves the Waterloo comb to link 350. | A. A larger fleet helps, but the hub waits stay over 12 minutes, and the next limit is at Waterloo, which a larger fleet does not change. |
+
+On 2026-11-26 the maintainer decided FS-D3 A: `H` keeps 32 Express pods.
