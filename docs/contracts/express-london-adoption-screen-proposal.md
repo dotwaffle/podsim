@@ -27,8 +27,8 @@ The screen does not adopt D, change a default, or change ordinary LondonFull.
 | Name | Project |
 | --- | --- |
 | `LF` | `london-full`, the baseline. |
-| `D0` | `london-full-express` without its 16 Express pods and Express services. It is a diagnostic control for the geometry. |
-| `D` | `london-full-express`. |
+| `D0` | `london-full:dedicated` without its 16 Express pods and Express services. It is a diagnostic control for the geometry. |
+| `D` | `london-full:dedicated`. |
 
 The comparison of `D` against `LF` decides each gate.
 The comparison against `D0` only explains a result, and it cannot hide harm against `LF`.

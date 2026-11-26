@@ -515,7 +515,7 @@ Keep source pins and the mutation table with the resulting qualification evidenc
 The maintainer approved amendments E1 to E6 and E8 on November 7, 2026, and amendment E7 on November 8, 2026.
 The [Express London qualification proposal](express-london-qualification-proposal.md) records the evidence.
 
-- E1, Foundation parity: qualification includes the opt-in preset `london-full-express`.
+- E1, Foundation parity: qualification includes the opt-in preset `london-full:dedicated`.
   Ordinary LondonFull, its fleet, and its defaults do not change.
   Note of 2026-11-20: the [fillets proposal](london-fillets-proposal.md) changes the roads of ordinary LondonFull.
   It does not change D.

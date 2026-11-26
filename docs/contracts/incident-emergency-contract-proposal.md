@@ -897,10 +897,10 @@ The study rule did not have the `routeReleases` owners of a linked follower.
 A rerun of seed 1 of `promo` with the rule as written gave the same figures: no late record, 462.4 s, 86 records, 4,180 completed trips, and waits of 793.8 s and 4,800.1 s.
 
 Evidence of the cost.
-A scratch measurement on 2026-11-18 ran the warm choice-tick fixture of section 15 with virtual platoons, on the networks of london-full-express and london-full-shared-express.
+A scratch measurement on 2026-11-18 ran the warm choice-tick fixture of section 15 with virtual platoons, on the networks of london-full:dedicated and london-full:shared.
 It had 600 pods, a trip every 4 ticks, and 9,000 measured ticks.
 It kept `MaxEmergencies` records active, and each new record went to the traveling pod with the largest queue.
-The largest queue had 21 pods on london-full-express and 23 pods on london-full-shared-express, and the walk read at most 531 resources in one tick.
+The largest queue had 21 pods on london-full:dedicated and 23 pods on london-full:shared, and the walk read at most 531 resources in one tick.
 The queue build took at most 74 µs in a tick, and 41 µs at the 99th percentile.
 A whole `Step` took at most 1.75 ms at the 99th percentile, and the slowest `Step` took 24.1 ms, of which the queue build is at most 74 µs.
 After the change, the slowest choice tick of `TestEmergencyChoiceLatency` was 6.30 ms, and the slowest tick of `TestSampledTickLatency` was 5.01 ms.

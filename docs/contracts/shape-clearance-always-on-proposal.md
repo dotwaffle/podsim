@@ -20,7 +20,7 @@ There is no backward compatibility before v1, so this proposal adds no migration
 
 The change is larger than the merge rule and the audit.
 The field also selects the envelope of decision S1 of the [shared-track](../design/shared-track-preset.md) design, rule A1, and berth rule 2 (section 1.2).
-Project D, `london-full-express`, gets all of these for the first time, so its evidence runs again (section 5).
+Project D, `london-full:dedicated`, gets all of these for the first time, so its evidence runs again (section 5).
 The all-pairs audit on each network also reverses lane-end decision D for plain projects.
 In a forced-on test run, the audit refused 41 path pairs of test fixtures, and no preset (section 9.1).
 Authored projects and drafts that are valid today can become invalid, also without either removed member (section 2.2).
@@ -188,8 +188,8 @@ Under removal, a network JSON changes only when it sets a field today.
 | --- | --- | --- |
 | `london-central` | Changes, from `39899b27...` | Same, by the survey runs and the parity test of slice 0 |
 | `london-full` | Changes, from `e194426a...` | Same |
-| `london-full-shared-express` | Changes, from `652d75eb...` | Same |
-| `london-full-express` (D) | Stays `3aa0a2eb...` | Changes: merge rule, S1 envelope, A1 |
+| `london-full:shared` | Changes, from `652d75eb...` | Same |
+| `london-full:dedicated` (D) | Stays `3aa0a2eb...` | Changes: merge rule, S1 envelope, A1 |
 | Ring presets, `independent-banks`, `compact-station` | Stay | Change through the merge rule, where they have merge pairs |
 
 ## 4. Contract and design text
@@ -283,12 +283,12 @@ These are not contracts, so slice 5 updates them:
 | D consumers (E6) | The D topology JSON does not change, but changed motion can change the publication traffic and the work of the consumers | `go test ./internal/remote -count=1 -run '^(TestLondonExpressRemoteLoads|TestLondonExpressRemoteRecovery)$'`, and the Chrome check of E6 (`express-london-qualification-proposal.md:141`) on the final build | Qualification, decision AO-D4 |
 | D cost (E7) | Validation and oracle cost, and the same consumer change as E6 | The server measurement of the E7 record, 4 cases, and the Chrome responsiveness check (`express-london-qualification-proposal.md:113`) on the final build | Qualification, decision AO-D4 |
 | D incidents, standees (E8, S1) | Motion | `go test ./internal/session -count=1 -run '^(TestLondonExpressIncidentFixtures|TestSoakLondonExpressDriver)$'`, with the D6 oracle of section 5.1 | Qualification |
-| London soak row (A15) | D motion, and the D6 oracle on D | `PODSIM_SOAK_PRESETS=london-full-express mise run soak` | Qualification |
+| London soak row (A15) | D motion, and the D6 oracle on D | `PODSIM_SOAK_PRESETS=london-full:dedicated mise run soak` | Qualification |
 | CI soak (A16) | Same | `mise run qualify` (`TestIncidentSoakCI`) | Qualification |
 | Latency (A17, SX12) | Validation and oracle cost | `mise run qualify`, and the timed runs of the SX12 record on D and the preset | Qualification |
 | Release soak (A16, A19, SX11) | D6 oracle on each preset. Ring and D motion | One timing seed per preset first, then `mise run soak:full` | Qualification |
 | `rail-hub` rows (stage 7 A14, standee rows) | `rail-hub` motion changes (survey: 24 trips with the field, 22 without) | The release soak and `mise run qualify` | Qualification |
-| Shared preset (SX rows) | No behavior change | `mise run test:shared-express`, with no golden change in slice 2 | Routine. Evidence that SX holds |
+| Shared preset (SX rows) | No behavior change | `mise run test:express-shared`, with no golden change in slice 2 | Routine. Evidence that SX holds |
 
 Shared preset: its checksum changes when the fields leave the JSON in slice 3.
 Slice 0 adds a behavior golden that hashes the saved-state and stream JSON with the members `network.lateralMerges` and `network.shapeClearance` removed.
@@ -312,7 +312,7 @@ The record gives each count.
 A count of 0 for a case that the D geometry has stops the build (section 9.2).
 A count of 0 for a case that the D geometry does not have is recorded as such.
 A passing soak does not replace a count.
-Slice 4 adds a `test:london-express` task that runs these tests, as `test:shared-express` does for the shared preset.
+Slice 4 adds a `test:express-dedicated` task that runs these tests, as `test:express-shared` does for the shared preset.
 
 ## 6. Editor
 
@@ -331,7 +331,7 @@ It skips unless `PODSIM_EDIT_TIMES=1` is set.
 
 | Item | Definition |
 | --- | --- |
-| Networks | The example, `small`, `busy`, `parking-constrained`, `rail-hub`, `rail-hub-incidents`, `scale100`, `independent-banks`, `compact-station`, `london-central`, `london-full`, `london-full-express`, `london-full-shared-express`, and a plain network at the project limits |
+| Networks | The example, `small`, `busy`, `parking-constrained`, `rail-hub`, `rail-hub-incidents`, `scale100`, `independent-banks`, `compact-station`, `london-central`, `london-full`, `london-full:dedicated`, `london-full:shared`, and a plain network at the project limits |
 | Edit | One geometry `moveNode` call. An accepted edit moves a node 0.5 m and keeps the network valid. A refused edit moves a lane to 3.0 m from another lane that shares no node. |
 | Modes | Cold: a new engine for each edit, with no kept network. Cached: one engine, timed after a first edit. |
 | Samples | 20 edits for each network, mode, and verdict. Each sample is the time of one call. |
@@ -352,7 +352,7 @@ Each limit is for one edit, in each mode and for each verdict, in wasm and in th
 | --- | ---: | ---: |
 | The example, `small`, `busy`, `parking-constrained`, `rail-hub`, `rail-hub-incidents`, `independent-banks`, `compact-station` | 100 ms | 250 ms |
 | `scale100` | 250 ms | 500 ms |
-| `london-central`, `london-full`, `london-full-express`, `london-full-shared-express` | 1.25 times the tip value | 1.25 times the tip value |
+| `london-central`, `london-full`, `london-full:dedicated`, `london-full:shared` | 1.25 times the tip value | 1.25 times the tip value |
 | Plain network at the project limits | 5 s | 8 s |
 
 A cold edit has 2 times the limit of a cached edit.
@@ -374,7 +374,7 @@ Each slice builds and passes `go build ./...`, `go vet ./...`, `mise run lint`, 
 | 1 | `sim: Move test fixtures clear of the all-pairs audit` | Tests of `internal/sim`, `internal/project`, `internal/editormodel`, `internal/scenarios`, `cmd/serve` | Each refused fixture of section 9.1 moves so that it passes the audit with shape pairs, and its pinned outputs change with it. Check each on a scratch tree with the field reads forced on. |
 | 2 | `sim: Apply the shape clearance rule to each network` | `internal/sim`, `internal/editormodel`, `internal/session` (soak driver), tests of `internal/project`, `internal/scenarios`, `cmd/scenario`, `cmd/compare` | Each field read becomes unconditional, and the field-off branches go (section 1.2), except the whole-lane fallback (section 1.4). The fields stay in `sim.Network`, decoded and with no effect. The editor drops its local lane gap check. Field-off test arms, study arms, and `TestEnvelopeFieldOffMatchesBuilt` go. The routine goldens of section 5 move. The slice 0 parity golden and the shared preset tests do not move. Section 7.1 gives the refusal tests. `TestRepairTwoRefusedPairsInJSON` (section 2.2). |
 | 3 | `sim: Remove the lateralMerges and shapeClearance fields` | `internal/sim`, `internal/session`, `internal/scenarios`, `internal/editormodel`, `cmd/scenario`, `web/editor_test.cjs`, tests of `internal/project` and `internal/remote` | Fields, digest entries 16 and 17, member golden lines, `NoLateralMerges`, `-lateral-merges`, byte proof lines. The members leave `internal/sim/testdata/scenario_networks.json.gz` (one network sets `lateralMerges`), `internal/sim/testdata/shared_express_project.json.gz` (both members), `internal/sim/testdata/gate_off_tables.json`, and `web/editor_test.cjs:892` to `:906`. Network hash pins of section 3. One test for each row of section 2.1, with both names and the values `true`, `false`, and `null`, pins the text and the precedence. The slice 0 parity golden does not move. |
-| 4 | `session: Run the D6 oracle and the envelope checks on D` | Tests of `internal/sim` and `internal/session`, and `mise.toml` | The test changes of section 5.1, and the `test:london-express` task |
+| 4 | `session: Run the D6 oracle and the envelope checks on D` | Tests of `internal/sim` and `internal/session`, and `mise.toml` | The test changes of section 5.1, and the `test:express-dedicated` task |
 | 5 | `docs: Describe shape clearance for each network` | `docs/`, `README.md` | `mise run lint` (rumdl) |
 | 6 | `contracts: Apply the always-on shape clearance amendments` | `docs/contracts/`, `docs/design/`, `docs/station-banks.md` | After maintainer approval of section 4. `mise run lint` |
 | 7 | `contracts: Record the evidence of D under the always-on rule` | `docs/contracts/` | The qualification rows of section 5, the measurement of section 6 on the tip of slice 3, `mise run check` on the tip, and then the release soak. The records go in the D qualification proposal and in this proposal. |
@@ -443,9 +443,9 @@ The gates ran in the order of decision AO-D5 at `aac44c72`, the tip of slices 0 
 | Gate | Rows | Result | Wall time |
 | --- | --- | --- | ---: |
 | `mise run check` | SX1, E1, E5, A16, A17, the shared preset | Pass | 2,319 s |
-| `mise run test:london-express` | E2, E3, E4, E6 in Go, E8, S1 | Pass | 864 s |
+| `mise run test:express-dedicated` | E2, E3, E4, E6 in Go, E8, S1 | Pass | 864 s |
 | `go run ./cmd/projectcheck` on D | E2 | Pass | 5 s |
-| `PODSIM_SOAK_PRESETS=london-full-express mise run soak` | A15 | Pass | 673 s |
+| `PODSIM_SOAK_PRESETS=london-full:dedicated mise run soak` | A15 | Pass | 673 s |
 | `PODSIM_SOAK_SEEDS=1 mise run soak:full`, the timing seed of decision AO-D8 | | Pass | 3,489 s |
 | `mise run soak:full`, 2 seeds | A16, A19, SX11, the `rail-hub` rows | Pass for each preset and seed, in the limit of 7,200 s | 6,398 s |
 
@@ -489,7 +489,7 @@ For the London presets and D, the largest ratio to slice 0 is 1.07 for a p95 and
 
 `mise run check` passed at `65dcbd61`, the tip with these commits, in 2,525 s.
 The release soak and the London soak row ran again at `e999af83`, the tip after the commits of this record.
-`PODSIM_SOAK_PRESETS=london-full-express mise run soak` (A15) passed in 663 s.
+`PODSIM_SOAK_PRESETS=london-full:dedicated mise run soak` (A15) passed in 663 s.
 `mise run soak:full` with 2 seeds passed for each preset and seed in 6,427 s, in the limit of 7,200 s.
 After fillet stage 1 and the restore that uses one preparation, `mise run soak:full` ran again at `0598f78f` and passed for each preset and seed in 6,277 s.
 
@@ -509,7 +509,7 @@ The options stay for the record.
 | AO-D2 | Version bumps | A: keep `stateVersion` 12 and `StreamVersion` 10. B: bump both, with the golden files and the version text of AGENTS.md. | Decided 2026-11-20: A, by `docs/operations.md:374`. |
 | AO-D3 | Test-only switch for the old isotropic rule, for studies | A: none. B: an exported test entry that turns off parts 3 to 5. | Decided 2026-11-20: A. The forced-on run found no test that needs the old rule, other than field-off arms and study probes that go with the field. |
 | AO-D4 | Name and status of D | A: D keeps its name, is not qualified from slice 2 until the rows of section 5 pass, and keeps its earlier Chrome checks. B: as A, and the maintainer repeats the Chrome checks of E6 and E7 on the final build. C: requalify D as a whole, as a new project. | Decided 2026-11-20: B. Changed motion can change the publication traffic and the work of the consumers, also with the same topology. `london_express_parity.json` stays as the behavior pin of D, repinned in slice 2. |
-| AO-D5 | Order of evidence runs | A: slices 0 to 6 land locally. Then the D rows, `test:shared-express`, `test:london-express`, and `mise run check` on the tip. Then one timing seed per preset. Then `soak:full`. B: D rows after slice 2, before slice 3. | Decided 2026-11-20: A. |
+| AO-D5 | Order of evidence runs | A: slices 0 to 6 land locally. Then the D rows, `test:express-shared`, `test:express-dedicated`, and `mise run check` on the tip. Then one timing seed per preset. Then `soak:full`. B: D rows after slice 2, before slice 3. | Decided 2026-11-20: A. |
 | AO-D6 | Commit shape | A: slice 2 makes the rules unconditional with the members decoded and inert, and slice 3 removes the members. B: one commit. | Decided 2026-11-20: A. |
 | AO-D7 | Lane-end decision D for plain projects | A: the all-pairs audit in each network, and slice 1 moves the refused fixtures. B: keep the audit scope of today for plain networks (D12-B there). C: stop. | Decided 2026-11-20: A. |
 | AO-D8 | Release soak wall time | A: run one timing seed per preset first. If 2 seeds do not fit the 2-hour limit, the maintainer chooses fewer seeds, a higher limit, or a split run. B: run `soak:full` directly. | Decided 2026-11-20: A. The last release soak took 5,812 s of 7,200 s, and the D6 oracle now runs on `rail-hub`, `london-central`, and D too. |

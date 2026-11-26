@@ -398,8 +398,8 @@ The study records `docs/studies/express-qualification.md:47` and `docs/studies/p
 | --- | --- |
 | Each slice | `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -diff` on the changed packages, `go test ./...`, `mise run test:web` |
 | Byte bounds | `TestPlainStateFileWorstCaseSize`, `TestExpressStateFileWorstCaseSize` |
-| E4 | `mise run test:london-express` |
-| SX4 | `mise run test:shared-express` |
+| E4 | `mise run test:express-dedicated` |
+| SX4 | `mise run test:express-shared` |
 | Incident soak restores | The CI task that runs `internal/session/incident_soak_test.go` |
 | Races | `mise run test:race:sim`, `mise run test:race:session`, once on the tip |
 | CI | `mise run check` on the tip |
@@ -493,7 +493,7 @@ The maintainer kept RL-D2 A as it is, and the case is a follow-up (EC-D10 in `ex
 
 Slice 1 is `1baf8f90`.
 On 2026-11-23, `mise run check` passed on `1baf8f90`.
-It runs each gate of section 5.5: `check:static` (lint, `test:web`, the builds), `qualify` (the latency tests, `TestIncidentSoakCI`, and `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:shared-express`, and `test:london-express`.
+It runs each gate of section 5.5: `check:static` (lint, `test:web`, the builds), `qualify` (the latency tests, `TestIncidentSoakCI`, and `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:express-shared`, and `test:express-dedicated`.
 The byte proofs are 125,958,565 bytes for the plain state (8,259,163 bytes of headroom) and 105,165,023 bytes for the Express state (29,052,705 bytes of headroom).
 The stream, delta, and HTTP proofs did not change.
 

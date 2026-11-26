@@ -13,7 +13,7 @@ Amended 2026-11-20, by maintainer decision: the shape clearance rule applies to 
 
 ## Scope
 
-This contract qualifies the opt-in preset `london-full-shared-express` of the shared-track design.
+This contract qualifies the opt-in preset `london-full:shared` of the shared-track design.
 The rows follow E1 to E8 of the [Express London qualification](express-london-qualification-proposal.md#amendments), S1, A15 to A18, and section 5.1 of the [shape clearance](../design/shape-clearance.md) design.
 The approved E rows of D, and their copies in the physical, standee, and stage 7 contracts and the station banks document, do not change.
 It does not approve runtime adoption, a default change, deployment, or cloud spending.
@@ -29,7 +29,7 @@ Each evidence item below is evidence that the row needs, and the [Evidence](#evi
 
 - SX1, Foundation parity (from E1).
   Measures: that the preset is opt-in, and that it changes no other project.
-  Pass: qualification includes the opt-in preset `london-full-shared-express`.
+  Pass: qualification includes the opt-in preset `london-full:shared`.
   LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay.
   Since 2026-11-20, the network hashes of LondonFull and the preset changed when the network fields left the format, and their behavior did not change (parity test of slice 0 of the always-on proposal).
   D changed by the shape clearance rule, and its evidence ran again.
@@ -143,7 +143,7 @@ Commits `933a9f12`, `2c20743a`, `256b7fd1`, and `ee9059e0` added the evidence.
 | SX12 | Evidence complete on D and the preset: performance timed runs, sampled-tick and choice-tick latency, and the worst-case emergency row. D seed 2 missed the A11 median rule, before the D11 build too, and passes after commit `9b043b18` (see SX12). |
 
 Note of 2026-11-21: the table above is the status before the fillets reached the preset (fillets proposal, slice 4).
-On the filleted preset, `mise run test:shared-express` (SX2 to SX10), the London soak row (SX10), and the release soak (SX11) passed again (section 8.2 of the fillets proposal).
+On the filleted preset, `mise run test:express-shared` (SX2 to SX10), the London soak row (SX10), and the release soak (SX11) passed again (section 8.2 of the fillets proposal).
 The server measurement of SX7 and the timed runs of SX12 have not run again, so the preset is not qualified until they pass.
 The gates passed again at `cb35a88e`, with the timing seed of each preset (section 8.2 of the fillets proposal).
 On 2026-11-21, the server measurement of SX7 and the rows of SX12 passed again at `6f1ae05b` (see SX7 and SX12), so the preset is qualified.
@@ -159,7 +159,7 @@ Run the test with `-update-shared-express` after a change to the preset.
 
 Each test below passed on the commit that added it.
 The long tests skip with `-short` and with `-race`, as the tests of D do.
-The new task `mise run test:shared-express` runs them without the race detector, and CI runs it as a job of its own.
+The new task `mise run test:express-shared` runs them without the race detector, and CI runs it as a job of its own.
 `mise run check` runs it after `test:long`.
 The long tests of D in `internal/sim`, `internal/session`, and `internal/remote` are in no CI task, because they also skip with `-race`.
 
@@ -168,7 +168,7 @@ The long tests of D in `internal/sim`, `internal/session`, and `internal/remote`
 All evidence items of the row exist, and commit `933a9f12` adds the preset to the field-off test.
 
 - `TestLondonFullSharedExpressKeepsPresets` pins the network SHA-256 of LondonFull (`e194426a...`), of D (`3aa0a2eb...`), and of the preset (`652d75eb...`).
-- `TestRunPresetsTurnOnPolicies` in `cmd/scenario` checks that only `london-full-shared-express` sets `shapeClearance`.
+- `TestRunPresetsTurnOnPolicies` in `cmd/scenario` checks that only `london-full:shared` sets `shapeClearance`.
 - `TestEnvelopeFieldOffMatchesBuilt` runs on D, on each scenario network, and now on the preset network with the field clear.
   On the preset network it compares 9,774 envelopes.
 - `TestBerthEnvelopeMatchesReference` passes.
@@ -403,7 +403,7 @@ The code changed between the runs, and the harness is a new copy, so compare onl
 
 #### SX10, the London soak row
 
-- `london-full-shared-express` is a named project of the soak (`PODSIM_SOAK_PRESETS`), with the shape of D: the arms `incidents`, `emergencies`, and `incidents-low-demand` with 3 branches each, and the references `reference` and `reference-low-demand`.
+- `london-full:shared` is a named project of the soak (`PODSIM_SOAK_PRESETS`), with the shape of D: the arms `incidents`, `emergencies`, and `incidents-low-demand` with 3 branches each, and the references `reference` and `reference-low-demand`.
   Each arm has a warm save at 30 simulated minutes, and each branch runs one simulated hour, the clear, and 30 more minutes, with a rewind every 10 simulated minutes.
   The driver sends the hub parties of D between Waterloo and Bank, three in four outbound, and one a minute in the low-demand arms.
 - The checks are the A10 checks at the stride of A10, with rule A and A13.
@@ -429,7 +429,7 @@ The code changed between the runs, and the harness is a new copy, so compare onl
 
 #### SX11, the CI soak and the release soak
 
-- `TestIncidentSoakCI` has a subtest for the preset, `london-full-shared-express`, beside `rail-hub` and D, so `mise run qualify` runs it in CI.
+- `TestIncidentSoakCI` has a subtest for the preset, `london-full:shared`, beside `rail-hub` and D, so `mise run qualify` runs it in CI.
   It runs a reference hour and a checked hour, each with the clear of 30 minutes.
   Only the checked hour and its clear run the full check and the D6 oracle at each tick.
   The reference hour runs neither.
@@ -438,7 +438,7 @@ The code changed between the runs, and the harness is a new copy, so compare onl
   The CI case requires at least one run of the D6 oracle for each tick.
   Note of 2026-11-20: the fields are removed, and the soak driver runs the D6 oracle on each project.
 - `TestSoakLondonSharedExpressDriver` runs a short soak of the preset with the checks, and requires the same count.
-  The task `test:shared-express` runs it.
+  The task `test:express-shared` runs it.
 - The subtest ran once by itself on 2026-11-16, under `nice`, at a host load average of 3.8 to 5.6, and passed in 268 s of wall time.
   The reference run took 32 s for 162,000 ticks.
   The checked run took 228 s, 710 ticks a second, with 162,848 full checks and 162,848 runs of the D6 oracle.
@@ -511,7 +511,7 @@ The code changed between the runs, and the harness is a new copy, so compare onl
   | `emergencies`, seed 2 | 79 | 5,049 | 181 | 390.4 s | 428.0 s | 0 |
 
 - The `incidents` arm of seeds 1 and 2 repeats the `promo` rows of the study above: the same records, trips, mean wait, and longest time.
-- On the other presets, the longest record not blocked by a fault was 223.0 s on `london-central`, 442.8 s on `london-full-express`, and 213.6 s on `rail-hub`.
+- On the other presets, the longest record not blocked by a fault was 223.0 s on `london-central`, 442.8 s on `london-full:dedicated`, and 213.6 s on `rail-hub`.
 - Row SX11 passes.
 - After the London road fillets reached the preset (slice 4 of the fillet proposal), the London soak row passed at `5d0e2e98` in 691 s, and `mise run soak:full` with 2 seeds passed for each preset and seed in 6,373 s.
   The maintainer skipped the timing seed of each preset for this run.
@@ -536,7 +536,7 @@ The code changed between the runs, and the harness is a new copy, so compare onl
 - D seed 2 missed the median rule of 10 percent in each of 3 runs, at 10.8 to 13.5 percent, and the other D seeds passed each time.
   Commit `256b7fd1` does not change the path of D.
   The same run at commit `5d8afa00`, before the D11 build, also fails seed 2, by 11.8 and 10.8 percent, so the miss predates the build.
-  The reproducer is `PODSIM_SOAK_TIMED=0.1 PODSIM_SOAK_GATE=1 PODSIM_SOAK_PRESETS=london-full-express go test ./internal/session -count=1 -v -timeout=0 -run '^TestIncidentSoakTimed$'`.
+  The reproducer is `PODSIM_SOAK_TIMED=0.1 PODSIM_SOAK_GATE=1 PODSIM_SOAK_PRESETS=london-full:dedicated go test ./internal/session -count=1 -v -timeout=0 -run '^TestIncidentSoakTimed$'`.
 - A diagnosis on 2026-11-17 compared CPU profiles of the two arms of D seed 2, each in its own process.
   Their totals differ by 1.3 percent, but one path costs about 1 s more in `incidents`, on a total `Step` time of about 8.7 s.
   While the blocked set is not empty, `keepTripPod` calls `pickupAccess` for each waiting trip with a pod at each dispatch pass.
@@ -621,4 +621,4 @@ Wall times of the long tests, each run alone, with a host load average of about 
 | `TestLondonSharedExpressRemoteLoads` | 6 s |
 | `TestLondonSharedExpressRemoteRecovery` | 9 s |
 
-The commands of `test:shared-express` took 292 s together, run by hand.
+The commands of `test:express-shared` took 292 s together, run by hand.

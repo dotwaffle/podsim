@@ -19,8 +19,8 @@ The conditions on the field below are records.
 
 ## Summary
 
-Decision D11 of the approved [shape clearance](../design/shape-clearance.md) design keeps project D (`london-full-express`) as it is.
-It adds a new opt-in preset, `london-full-shared-express`, with Express on the shared main-line track of link 100 between Waterloo and Bank.
+Decision D11 of the approved [shape clearance](../design/shape-clearance.md) design keeps project D (`london-full:dedicated`) as it is.
+It adds a new opt-in preset, `london-full:shared`, with Express on the shared main-line track of link 100 between Waterloo and Bank.
 The [shared-track](../design/shared-track-preset.md) design gives the preset and decisions S1 to S6, and the maintainer decided each of them.
 
 Under S1-A, when the network sets `shapeClearance`, the envelope reach index takes a front bound for each lane, with a seed from the lanes behind.
@@ -521,7 +521,7 @@ The added lines keep the record and give the rule of the field, as ST5 does for 
 
 ## SX qualification rows
 
-Decision S6-A puts the qualification of `london-full-shared-express` in new SX rows, in a new contract proposal.
+Decision S6-A puts the qualification of `london-full:shared` in new SX rows, in a new contract proposal.
 This section gives their text, for the file `docs/contracts/express-shared-track-qualification-proposal.md`.
 The rows follow E1 to E8 of the [Express London qualification](express-london-qualification-proposal.md#amendments), S1, A15 to A18, and section 5.1 of the shape clearance design.
 The approved E rows of D, and their copies in the physical, standee, and stage 7 contracts and the station banks document, do not change.
@@ -534,7 +534,7 @@ No simulation has run on the preset, so each evidence item below is evidence tha
 
 - SX1, Foundation parity (from E1).
   Measures: that the preset is opt-in, and that it changes no other project.
-  Pass: qualification includes the opt-in preset `london-full-shared-express`.
+  Pass: qualification includes the opt-in preset `london-full:shared`.
   LondonFull, D, their fleets, and their defaults do not change, and their network hashes stay.
   Carried from E1: idle Express pods keep their current behavior.
   Evidence: a test that pins the network hashes of LondonFull and D.

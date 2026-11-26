@@ -15,7 +15,7 @@ The [station banks](../station-banks.md) rule uses berth load only to break an e
 
 The change is in `stationBankEntryOn`, which chooses the bank entry for a pickup, a trip, a detour, and a free-berth choice.
 A fixed destination berth keeps its bank, as now.
-The presets with banks are `london-full-express` and `independent-banks`, and the bank tests also use the rule.
+The presets with banks are `london-full:dedicated` and `independent-banks`, and the bank tests also use the rule.
 Each route that the rule gives still uses the bank routing and the checks that it has now.
 
 ## Options

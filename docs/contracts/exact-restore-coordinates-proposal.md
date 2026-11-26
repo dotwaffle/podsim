@@ -562,7 +562,7 @@ The gates on the slice 1 tree gave these results:
 - `ExportState` at the busiest LondonFull tick (49,890, 162 traveling pods) took a median of about 215 us.
 
 On 2026-11-23, `mise run check` passed on `855caa94`.
-It runs each gate of section 7.5: `check:static`, `qualify` (with `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:shared-express`, and `test:london-express`.
+It runs each gate of section 7.5: `check:static`, `qualify` (with `TestRestoreBoundarySweep`), the race tasks, `test:long`, `test:express-shared`, and `test:express-dedicated`.
 The commits after it change only documents and comments.
 
 ## 7. Contract text, documents, pins, and gates
@@ -627,7 +627,7 @@ Slice 1 checks each other stream golden for a restore before it.
 | Byte bounds | `TestPlainStateFileWorstCaseSize`, `TestExpressStateFileWorstCaseSize` |
 | Sweep and fixture | `mise run qualify` (`TestRestoreBoundarySweep`), and `TestRestoreExactCoordinatesFollowUpReleaseAtRest` |
 | Lockstep | The new test of section 5.3 |
-| E4 and SX4 | `mise run test:london-express`, `mise run test:shared-express` |
+| E4 and SX4 | `mise run test:express-dedicated`, `mise run test:express-shared` |
 | Races | `mise run test:race:sim`, `mise run test:race:session`, once on the tip |
 | CI | `mise run check` on the tip |
 

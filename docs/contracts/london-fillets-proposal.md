@@ -16,7 +16,7 @@ The study converted more lane kinds than this proposal does, so each study numbe
 
 ## Summary
 
-On 2026-11-20, the maintainer chose to fillet only two kinds of lanes on LondonFull and on `london-full-shared-express`:
+On 2026-11-20, the maintainer chose to fillet only two kinds of lanes on LondonFull and on `london-full:shared`:
 
 - The station roads, `<station>-road-in-NN` and `<station>-road-out-NN`.
 - The roads of the three Parking facilities, which the study calls the depot fans (section 1.2).
@@ -24,7 +24,7 @@ On 2026-11-20, the maintainer chose to fillet only two kinds of lanes on LondonF
 A fillet is a quadratic curve that leaves a road tangent to the lane before it and joins the lane after it at the same heading.
 The tangency is that of the analytic curves (section 2.1).
 The speed limit of a fillet comes from its smallest radius, by the ramp formula of the [London junction](../design/london-junctions.md) design.
-Project D, `london-full-express`, keeps its chords, because its approved contract freezes its geometry (`london-junctions.md:34`).
+Project D, `london-full:dedicated`, keeps its chords, because its approved contract freezes its geometry (`london-junctions.md:34`).
 
 The rule removes almost all kinks at the station roads.
 It has three costs that the study did not measure:
@@ -38,7 +38,7 @@ It has three costs that the study did not measure:
 
 - Decision IDs have the prefix FL-D, and amendment IDs have the prefix FL-A.
 - `<date>` is the date of the approval.
-- "The preset" is `london-full-shared-express`.
+- "The preset" is `london-full:shared`.
 - A count "in, out" gives the road-in lanes, then the road-out lanes.
 
 ## 1. Goal and scope
@@ -399,8 +399,8 @@ The existing pins of section 5.1 show that LondonCentral and D do not change.
 | Layout and parking | `TestLondonFullSharedExpressLayout` (`:208`), `TestLondonFullSharedExpressParking` (`:92`) | Must still pass |
 | Routes | `TestLondonFullSharedExpressRoutes` (`:283`) | Qualification (SX2) |
 | SX fixture | `internal/sim/testdata/shared_express_project.json.gz`, `TestSharedExpressFixture` (`shared_express_fixture_test.go:38`), with `-update-shared-express` | Routine. Each SX test in `internal/sim` reads it. |
-| Behavior | The `london-full-shared-express` entry of `preset_behavior_parity.json` | Routine |
-| The tests of `mise run test:shared-express` | `mise.toml:108` | Qualification (SX2 to SX10) |
+| Behavior | The `london-full:shared` entry of `preset_behavior_parity.json` | Routine |
+| The tests of `mise run test:express-shared` | `mise.toml:108` | Qualification (SX2 to SX10) |
 
 Today the "tight 3.5" hash of the study (`shared_track_study_test.go:67`) is equal to the "before the parking" hash of the preset (`london_full_shared_test.go:264`).
 The study reads the LondonFull file of `cmd/scenario` and builds its own copy of the construction of the preset.
@@ -448,10 +448,10 @@ A row for an applied record adds a "Note of <date>" line, as the always-on propo
 | --- | --- | --- |
 | Unit and pin tests | Each slice | `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -diff` on the changed packages, `go test ./...`, `mise run test:web` |
 | LondonFull compare study | Behavior of LondonFull (decision FL-D6) | `cmd/compare` with the method of the [station scale study](../studies/station-scale.md), at 15 requests per minute and one higher rate, seeds 1 to 3, with a timed pilot first. The arms use `-platoon-policies virtual`, as that study does (`station-scale.md:151`), because `cmd/compare` does not read `platoonLimit` (`docs/model.md:271`). |
-| D unchanged | Section 5.1 | `mise run test:london-express`, and the D pins of `go test ./internal/scenarios ./cmd/scenario` |
-| The preset | SX2 to SX10 | `mise run test:shared-express` |
+| D unchanged | Section 5.1 | `mise run test:express-dedicated`, and the D pins of `go test ./internal/scenarios ./cmd/scenario` |
+| The preset | SX2 to SX10 | `mise run test:express-shared` |
 | CI | A16, SX11 | `mise run check` on the tip |
-| London soak row | SX10 | `PODSIM_SOAK_PRESETS=london-full-shared-express mise run soak` |
+| London soak row | SX10 | `PODSIM_SOAK_PRESETS=london-full:shared mise run soak` |
 | Release soak | A19, SX11 | One timing seed per preset first, then `mise run soak:full` with 2 seeds |
 | Timed runs | SX12 | The runs of the SX12 record: `TestIncidentSoakTimed` with `PODSIM_SOAK_GATE=1`, `TestSampledTickLatency`, `TestEmergencyChoiceLatency`, and `TestIncidentWorstCaseStepTime` |
 | Server cost | SX7 | The server measurement of the SX7 record, 4 cases |
@@ -517,7 +517,7 @@ Each slice passes `go build ./...`, `go vet ./...`, `mise run lint`, `go fix -di
 | | Evidence of LondonFull | | The compare study of FL-D6, `mise run qualify:london`, and `mise run check` on the tip of slice 3. The maintainer reads the result before slice 4 (FL-D4 B). |
 | 4 | `scenarios: Fillet the roads of the shared-track preset` | `internal/scenarios`, `internal/sim/testdata`, tests of `internal/sim`, `internal/session`, `internal/remote` | The preset builds on the filleted LondonFull. Each construction of slice 2 goes back to `GenerateLondonFull` or `LondonFull()`, and the unfilleted base goes. The hub roads follow FL-D5 and section 3.7. The pins of section 5.3 move, except the shape pair count, which needs the maintainer. |
 | 5 | `contracts: Apply the fillet amendments` | `docs/contracts/`, `docs/design/` | Rows FL-A1 to FL-A7, after maintainer approval. `mise run lint` |
-| 6 | `contracts: Record the evidence of the filleted preset` | `docs/contracts/` | The gates of section 5.7 in this order: `mise run test:shared-express` and `mise run test:london-express`, then `mise run check`, then the London soak row, then the SX12 timed runs and the SX7 server measurement on a quiet host, then one timing seed per preset, then `mise run soak:full`. The records go in the SX proposal and in this proposal. The Chrome checks do not repeat (FL-D9). |
+| 6 | `contracts: Record the evidence of the filleted preset` | `docs/contracts/` | The gates of section 5.7 in this order: `mise run test:express-shared` and `mise run test:express-dedicated`, then `mise run check`, then the London soak row, then the SX12 timed runs and the SX7 server measurement on a quiet host, then one timing seed per preset, then `mise run soak:full`. The records go in the SX proposal and in this proposal. The Chrome checks do not repeat (FL-D9). |
 
 Run the race task of each changed package once on the tip of slice 4: `mise run test:race:sim`, `test:race:session`, and `test:race:other`.
 Under FL-D4 A, slices 2 and 4 are one commit, and the LondonFull evidence runs with the evidence of slice 6.
@@ -783,9 +783,9 @@ The gates of slice 6 ran on 2026-11-21 at `5d0e2e98`, which is slice 4 and a cha
 The runs had no `nice`, in a systemd scope with a memory limit of 32 GiB, with Go 1.27.4.
 
 - `mise run check` passed in 1,535 s.
-  It includes `mise run test:shared-express`, `mise run test:london-express`, `qualify`, and the race tasks of each package.
+  It includes `mise run test:express-shared`, `mise run test:express-dedicated`, `qualify`, and the race tasks of each package.
 - `mise run test:web` passed in 31 s.
-- The London soak row, `PODSIM_SOAK_PRESETS=london-full-shared-express mise run soak`, passed in 691 s.
+- The London soak row, `PODSIM_SOAK_PRESETS=london-full:shared mise run soak`, passed in 691 s.
 - `mise run soak:full` with 2 seeds passed for each preset and seed in 6,373 s, in the limit of 7,200 s.
 
 The maintainer skipped the timing seed of each preset for this run on 2026-11-21.
@@ -798,7 +798,7 @@ The setup was the same as above.
 - In `mise run check`, `qualify`, `test:race:sim`, and `test:race:session` passed.
   `TestLondonExpressRemoteRecovery` in `test:race:other` failed with "no terminal acknowledgement observation" at a load of 18 from the two parallel lanes.
   It passed alone under `-race` in 44 s.
-  The other tasks of `check` then passed one at a time: `test:race:other` in 432 s, `test:long` in 98 s, `test:shared-express` in 267 s, and `test:london-express` in 388 s.
+  The other tasks of `check` then passed one at a time: `test:race:other` in 432 s, `test:long` in 98 s, `test:express-shared` in 267 s, and `test:express-dedicated` in 388 s.
 - `mise run test:web` passed in 30 s.
 - The London soak row passed in 626 s.
 - The timing seed, `PODSIM_SOAK_SEEDS=1 mise run soak:full`, passed for each preset in 3,138 s.
