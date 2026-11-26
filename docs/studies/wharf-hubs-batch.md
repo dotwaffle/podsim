@@ -140,3 +140,49 @@ It took the 4,000 sites with the shortest roads at each portal, from a grid of c
 | --- | --- | --- | --- |
 | FS-D1 | Where a larger fleet of `H` parks | A: the London Bridge comb grows to 32 or 48 rows, and the Waterloo comb stays. B: a comb of 32 rows on link 350 replaces the Waterloo comb, with the London Bridge comb of 16 or 32 rows. C: no larger fleet. | Screen A and B, because three of the four lines start at Waterloo in the AM peak, and A parks the extra pods 2 km from it. |
 | FS-D2 | The next step | A: a fleet screen of `H` with the workload of this batch: 32 pods as now, 48 and 64 pods under FS-D1 A, and 48 and 64 pods under FS-D1 B, seeds 1 to 3, 15 runs, in a scratch copy. B: no screen. | A. It measures if the fleet is the limit, which this batch only infers. |
+
+## Fleet screen
+
+On 2026-11-26 the maintainer chose to screen both layouts of FS-D1 (FS-D2 A).
+The screen ran `H` with the workload of this batch in a scratch copy, seeds 1 to 3, with five fleets:
+
+| Arm | Waterloo side comb | London Bridge comb | Express pods |
+| --- | --- | --- | ---: |
+| `H32` | P4, 16 rows | LB3, 16 rows | 32 |
+| `A48` | P4, 16 rows | LB3, 32 rows | 48 |
+| `A64` | P4, 16 rows | LB3, 48 rows | 64 |
+| `B48` | Link 350 site, 32 rows | LB3, 16 rows | 48 |
+| `B64` | Link 350 site, 32 rows | LB3, 32 rows | 64 |
+
+`H32` is `H` as built, and its runs repeat those of the batch above.
+The pilot was `B64`, seed 1: 112 s of wall time with no failure.
+Each run had no safety, contract, or accounting failure, and finished each accepted order.
+
+Each cell gives seeds 1, 2, and 3.
+"Wait" is the passenger-weighted mean wait of the hub parties that boarded whole, in seconds.
+
+| Measure | `H32` | `A48` | `A64` | `B48` | `B64` |
+| --- | --- | --- | --- | --- | --- |
+| Wait, Waterloo and Bank | 1,736, 1,406, 1,538 | 1,490, 1,147, 1,261 | 1,589, 1,282, 1,303 | 1,625, 971, 1,213 | 1,630, 1,066, 1,460 |
+| Wait, London Bridge and Canary Wharf | 1,518, 1,551, 1,882 | 1,104, 1,010, 1,129 | 909, 1,013, 953 | 1,167, 862, 1,115 | 872, 716, 1,086 |
+| Wait, Waterloo and London Bridge | 1,635, 1,444, 1,701 | 1,389, 1,101, 1,159 | 1,424, 1,378, 1,288 | 1,485, 935, 1,162 | 1,380, 1,110, 1,418 |
+| Wait, Waterloo and Canary Wharf | 1,818, 1,572, 2,021 | 1,567, 1,290, 1,411 | 1,634, 1,563, 1,549 | 1,699, 1,061, 1,391 | 1,633, 1,185, 1,747 |
+| Refused events | 127, 50, 161 | 48, 0, 26 | 10, 13, 13 | 68, 0, 24 | 15, 0, 57 |
+| Background, mean wait | 212, 200, 191 | 219, 213, 202 | 220, 213, 205 | 214, 211, 202 | 226, 214, 204 |
+| Queue peak | 200, 200, 200 | 200, 193, 200 | 200, 200, 200 | 200, 172, 200 | 200, 168, 200 |
+| Empty distance in the window (km) | 5,859, 5,683, 5,357 | 5,891, 5,944, 5,797 | 6,075, 5,878, 5,796 | 5,926, 5,998, 5,752 | 6,092, 6,046, 5,617 |
+| Compact pod-seconds blocked by Express, window | 3,830, 4,197, 4,988 | 17,876, 16,394, 12,770 | 28,383, 26,173, 21,241 | 16,644, 11,329, 12,411 | 30,617, 23,711, 28,338 |
+
+- 16 more Express pods cut the hub waits by 6 to 44 percent on each line, and the larger fleets refuse fewer events and carry 96 to 100 percent of the hub passengers.
+- 32 more pods do not cut the waits much more than 16 more.
+  On the three Waterloo lines, `A64` is longer than `A48` in most cells, and `B64` is not consistently shorter than `B48`; London Bridge and Canary Wharf gains in most seeds.
+- Hub waits stay 12 to 29 minutes in the fleets of 48 and 64.
+  So the Express fleet is a limit only up to about 48 pods, and another limit holds the Waterloo lines (inferred, not measured: the [Waterloo junctions](waterloo-junctions.md) study found that the arrival side of Waterloo holds the Express heads).
+- `B48` has shorter waits than `A48` on each line in seed 2 and on three lines of four in seed 3, and longer waits on each line in seed 1, so the screen does not choose between the layouts.
+- More Express pods block Compact pods for longer, 2.5 to 8 times the pod-seconds of `H32`, and the background waits change by less than 20 s.
+
+### Decisions for the maintainer
+
+| ID | Question | Options | Recommendation |
+| --- | --- | --- | --- |
+| FS-D3 | The fleet of `H` | A: keep 32 pods. B: build `A48`, which only adds rows to the London Bridge comb. C: build `B48`, which moves the Waterloo comb to link 350. | A. A larger fleet helps, but the hub waits stay over 12 minutes, and the next limit is at Waterloo, which a larger fleet does not change. |
